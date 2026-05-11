@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getPacientes, login } from '../services/api';
+import { getPacientes } from '../services/api';
 
 const COLORS = {
   gold: '#BF9A40',
@@ -32,13 +32,19 @@ export default function HomeScreen() {
   useEffect(() => {
     const init = async () => {
       try {
-        await login('admin@vitanova.mx', 'Vitanova2026!');
+        const { getToken } = await import('../services/api');
+        const token = getToken();
+        if (!token) {
+          router.replace('/login');
+          return;
+        }
         const data = await getPacientes();
         if (data.patients && data.patients.length > 0) {
           setPaciente(data.patients[0]);
         }
       } catch (e) {
         console.error('Error init:', e);
+        router.replace('/login');
       } finally {
         setLoading(false);
       }
