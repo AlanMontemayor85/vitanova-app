@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { getUserNombre } from '../services/api';
 
 const COLORS = {
   gold: '#BF9A40',
@@ -36,6 +37,7 @@ const equipo = [
 
 export default function CuidadoresScreen() {
   const router = useRouter();
+  const nombre = getUserNombre() ?? 'Cuidador';
   const [vista, setVista] = useState('normal');
   const [spo2, setSpo2] = useState(98);
   const [sistolica, setSistolica] = useState(120);

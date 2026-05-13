@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getPacientes, getUserNombre } from '../services/api';
+import { getPacientes } from '../services/api';
 
 const COLORS = {
   gold: '#BF9A40',
@@ -24,7 +24,7 @@ export default function MedicoScreen() {
   const router = useRouter();
   const [pacientes, setPacientes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const nombre = getUserNombre() ?? 'Dr.';
+  const nombre = 'Dr. Hernández';
 
   useEffect(() => {
     const cargar = async () => {
