@@ -93,6 +93,9 @@ export default function CuidadorScreen() {
   const [barthelScores, setBarthelScores] = useState<number[]>(new Array(10).fill(0));
   const barthelTotal = barthelScores.reduce((a, b) => a + b, 0);
   //Morse 
+  const [barthelTocado, setBarthelTocado] = useState(false);
+  const [morseTocado, setMorseTocado] = useState(false);
+  const [mnaTocado, setMnaTocado] = useState(false);
   const [morseOpen, setMorseOpen] = useState(false);
   const [morseScores, setMorseScores] = useState<number[]>(new Array(6).fill(0));
   const morseTotal = morseScores.reduce((a, b) => a + b, 0);
@@ -122,6 +125,10 @@ export default function CuidadorScreen() {
   const confirmarCierre = async () => {
     try {
       const token = getToken();
+      console.log('TOKEN:', getToken());
+      console.log('BARTHEL TOCADO:', barthelTocado);
+      console.log('MORSE TOCADO:', morseTocado);
+      console.log('MNA TOCADO:', mnaTocado);
       await fetch(`${BASE_URL}/turnos/cerrar`, {
         method: 'POST',
         headers: {
@@ -135,15 +142,15 @@ export default function CuidadorScreen() {
           presion_sistolica: sistolica,
           presion_diastolica: diastolica,
           frecuencia_cardiaca: fc,
-          barthel_scores: barthelScores,
-          barthel_total: barthelTotal,
-          barthel_label: barthelTotal > 0 ? getBarthelLabel(barthelTotal) : null,
-          morse_scores: morseScores,
-          morse_total: morseTotal,
-          morse_label: morseTotal > 0 ? getMorseLabel(morseTotal) : null,
-          mna_scores: mnaScores,
-          mna_total: mnaTotal,
-          mna_label: mnaTotal > 0 ? getMNALabel(mnaTotal) : null,
+          barthel_scores: barthelTocado ? barthelScores : null,
+          barthel_total: barthelTocado ? barthelTotal : null,
+          barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
+          morse_scores: morseTocado ? morseScores : null,
+          morse_total: morseTocado ? morseTotal : null,
+          morse_label: morseTocado ? getMorseLabel(morseTotal) : null,
+          mna_scores: mnaTocado ? mnaScores : null,
+          mna_total: mnaTocado ? mnaTotal : null,
+          mna_label: mnaTocado ? getMNALabel(mnaTotal) : null,
         }),
       });
     } catch (e) {
@@ -157,6 +164,9 @@ export default function CuidadorScreen() {
       setMorseOpen(false);
       setMnaOpen(false);
       setVista('lista');
+      setBarthelTocado(false);
+      setMorseTocado(false);
+      setMnaTocado(false);
     }
   };
 
@@ -400,7 +410,7 @@ export default function CuidadorScreen() {
           <View style={styles.evaluacionCard}>
             <TouchableOpacity
               style={styles.evaluacionHeader}
-              onPress={() => setBarthelOpen(!barthelOpen)}
+              onPress={() => { setBarthelOpen(!barthelOpen); setBarthelTocado(true); }}
             >
               <View style={styles.evaluacionIconWrap}>
                 <Text style={{ fontSize: 16 }}>📋</Text>
@@ -464,7 +474,7 @@ export default function CuidadorScreen() {
           <View style={styles.evaluacionCard}>
             <TouchableOpacity
               style={styles.evaluacionHeader}
-              onPress={() => setMorseOpen(!morseOpen)}
+              onPress={() => { setMorseOpen(!morseOpen); setMorseTocado(true); }}
             >
               <View style={styles.evaluacionIconWrap}>
                 <Text style={{ fontSize: 16 }}>⚠️</Text>
@@ -528,7 +538,7 @@ export default function CuidadorScreen() {
           <View style={styles.evaluacionCard}>
           <TouchableOpacity
             style={styles.evaluacionHeader}
-            onPress={() => setMnaOpen(!mnaOpen)}
+            onPress={() => { setMnaOpen(!mnaOpen); setMnaTocado(true); }}
           >
             <View style={styles.evaluacionIconWrap}>
               <Text style={{ fontSize: 16 }}>🍽️</Text>
