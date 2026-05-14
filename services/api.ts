@@ -10,6 +10,7 @@ let authToken: string | null = null;
 export const setToken = (token: string) => { authToken = token; };
 export const getToken = () => authToken;
 export const getUserNombre = () => getUserNombre;
+
 const headers = () => ({
   'Content-Type': 'application/json',
   ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
