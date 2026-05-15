@@ -87,6 +87,7 @@ export default function CuidadorScreen() {
   const [diastolica, setDiastolica] = useState(80);
   const [fc, setFc] = useState(72);
   const [estadoPaciente, setEstadoPaciente] = useState('bien');
+  const [peso, setPeso] = useState(70.0);
 
   // Barthel
   const [barthelOpen, setBarthelOpen] = useState(false);
@@ -151,6 +152,8 @@ export default function CuidadorScreen() {
           mna_scores: mnaTocado ? mnaScores : null,
           mna_total: mnaTocado ? mnaTotal : null,
           mna_label: mnaTocado ? getMNALabel(mnaTotal) : null,
+          peso_kg: peso,
+          imc: pacienteActivo.talla_cm ? parseFloat((peso / Math.pow(pacienteActivo.talla_cm / 100, 2)).toFixed(1)) : null,
         }),
       });
     } catch (e) {
@@ -400,6 +403,20 @@ export default function CuidadorScreen() {
             <View style={styles.resumenSignoItem}>
               <Text style={styles.resumenSignoVal}>{fc}</Text>
               <Text style={styles.resumenSignoLabel}>FC bpm</Text>
+            </View>
+          </View>
+          {/* PESO */}
+          <Text style={styles.sectionTitle}>Peso</Text>
+          <View style={styles.signoCard}>
+            <Text style={styles.signoLabel}>Peso (kg)</Text>
+            <View style={styles.signoControles}>
+              <TouchableOpacity style={styles.signoBtn} onPress={() => setPeso(v => Math.max(30, parseFloat((v - 0.5).toFixed(1))))}>
+                <Text style={styles.signoBtnText}>−</Text>
+              </TouchableOpacity>
+              <Text style={styles.signoVal}>{peso} kg</Text>
+              <TouchableOpacity style={styles.signoBtn} onPress={() => setPeso(v => Math.min(200, parseFloat((v + 0.5).toFixed(1))))}>
+                <Text style={styles.signoBtnText}>+</Text>
+              </TouchableOpacity>
             </View>
           </View>
 
