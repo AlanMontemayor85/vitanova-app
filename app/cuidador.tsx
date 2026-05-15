@@ -120,7 +120,13 @@ export default function CuidadorScreen() {
 
   const iniciarTurno = (paciente: any) => {
     setPacienteActivo(paciente);
-    setVista('turno');
+    router.push({
+      pathname: '/registro-salud'as any,
+      params: {
+        paciente: JSON.stringify(paciente),
+        momento: 'inicio_turno',
+      },
+    });
   };
 
   const confirmarCierre = async () => {
@@ -342,7 +348,16 @@ export default function CuidadorScreen() {
               <Text style={[styles.accionBtnText, { color: COLORS.amber }]}>Nota</Text>
             </TouchableOpacity>
           </View>
-
+           <TouchableOpacity 
+          style={[styles.accionBtn, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold }]}
+          onPress={() => router.push({
+            pathname: '/registro-salud' as any,
+            params: { paciente: JSON.stringify(pacienteActivo), momento: 'espontaneo' }
+          })}
+        >
+          <Text style={styles.accionBtnIcon}>🩺</Text>
+          <Text style={[styles.accionBtnText, { color: COLORS.gold }]}>Signos</Text>
+           </TouchableOpacity>
           <TouchableOpacity style={styles.cerrarBtn} onPress={() => setVista('cierre')}>
             <Text style={styles.cerrarBtnText}>Cerrar turno</Text>
           </TouchableOpacity>
