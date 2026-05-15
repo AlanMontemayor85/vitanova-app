@@ -9,13 +9,20 @@ let authToken: string | null = null;
 
 export const setToken = (token: string) => { authToken = token; };
 export const getToken = () => authToken;
-export const getUserNombre = () => getUserNombre;
+let userNombre: string | null = null;
+export const getUserNombre = () => userNombre;
 
 const headers = () => ({
   'Content-Type': 'application/json',
   ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
 });
 
+export const getUltimoCierre = async (pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/ultimo-cierre`, {
+    headers: headers(),
+  });
+  return res.json();
+};
 // ── AUTH ──────────────────────────────────
 export const login = async (email: string, password: string) => {
   const res = await fetch(`${BASE_URL}/auth/login`, {
@@ -24,8 +31,12 @@ export const login = async (email: string, password: string) => {
     body: JSON.stringify({ email, password }),
   });
   const data = await res.json();
-  if (data.access_token) setToken(data.access_token);
+  if (data.access_token) {
+    authToken = data.access_token;
+    userNombre = data.nombre ?? null;
+}
   return data;
+  
 };
 
 // ── PACIENTES ─────────────────────────────
