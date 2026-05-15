@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getPacientes } from '../services/api';
+import { getPacientes, getUltimoCierre } from '../services/api';
 
 const COLORS = {
   gold: '#BF9A40',
@@ -28,7 +28,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const [paciente, setPaciente] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-
+  const [ultimoCierre, setUltimoCierre] = useState<any>(null);
   useEffect(() => {
     const init = async () => {
       try {
@@ -40,7 +40,10 @@ export default function HomeScreen() {
         }
         const data = await getPacientes();
         if (data.patients && data.patients.length > 0) {
-          setPaciente(data.patients[0]);
+          const p = data.patients[0];
+          setPaciente(p);
+          const cierreData = await getUltimoCierre(p.id);
+          if (cierreData.cierre) setUltimoCierre(cierreData.cierre);
         }
       } catch (e) {
         console.error('Error init:', e);
@@ -98,52 +101,88 @@ export default function HomeScreen() {
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
 
         {/* VITALS */}
+        
         <View style={styles.vitalsRow}>
           <View style={styles.vitalCard}>
-            <Text style={styles.vitalVal}>98</Text>
+            <Text style={styles.vitalVal}>{ultimoCierre?.spo2 ?? '—'}</Text>
             <Text style={styles.vitalUnit}>%</Text>
             <Text style={styles.vitalLabel}>SpO₂</Text>
           </View>
           <View style={styles.vitalCard}>
-            <Text style={styles.vitalVal}>120<Text style={styles.vitalValSmall}>/80</Text></Text>
+            <Text style={styles.vitalVal}>
+              {ultimoCierre ? `${ultimoCierre.presion_sistolica}` : '—'}
+              <Text style={styles.vitalValSmall}>
+                {ultimoCierre ? `/${ultimoCierre.presion_diastolica}` : ''}
+              </Text>
+            </Text>
             <Text style={styles.vitalLabel}>Presión</Text>
           </View>
           <View style={styles.vitalCard}>
-            <Text style={[styles.vitalVal, { color: COLORS.red }]}>72</Text>
+            <Text style={[styles.vitalVal, { color: COLORS.red }]}>
+              {ultimoCierre?.frecuencia_cardiaca ?? '—'}
+            </Text>
             <Text style={styles.vitalUnit}>bpm</Text>
             <Text style={styles.vitalLabel}>F. Card.</Text>
           </View>
           <View style={styles.vitalCard}>
-            <Text style={[styles.vitalVal, { color: COLORS.green }]}>3/4</Text>
-            <Text style={styles.vitalLabel}>Medicam.</Text>
+            <Text style={[styles.vitalVal, { color: ultimoCierre?.estado_paciente === 'bien' ? COLORS.green : ultimoCierre?.estado_paciente === 'preocupante' ? COLORS.red : COLORS.amber }]}>
+              {ultimoCierre?.estado_paciente === 'bien' ? '😊' : ultimoCierre?.estado_paciente === 'preocupante' ? '😟' : ultimoCierre ? '😐' : '—'}
+            </Text>
+            <Text style={styles.vitalLabel}>Estado</Text>
           </View>
         </View>
 
         {/* ACTIVIDAD RECIENTE */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Actividad reciente</Text>
+          <Text style={styles.sectionTitle}>Último turno</Text>
           <TouchableOpacity>
-            <Text style={styles.sectionLink}>Ver todo</Text>
+            <Text style={styles.sectionLink}>Ver historial</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.alertCard, { backgroundColor: COLORS.greenPale, borderColor: '#C5E8D4' }]}>
-          <Text style={styles.alertIcon}>✅</Text>
-          <View style={styles.alertContent}>
-            <Text style={styles.alertTitle}>Medicamento tomado</Text>
-            <Text style={styles.alertSub}>Metformina 500mg · Confirmado por Rosa</Text>
-          </View>
-          <Text style={styles.alertTime}>8:30</Text>
-        </View>
+        {ultimoCierre ? (
+          <>
+            <View style={[styles.alertCard, { backgroundColor: COLORS.greenPale, borderColor: '#C5E8D4' }]}>
+              <Text style={styles.alertIcon}>👤</Text>
+              <View style={styles.alertContent}>
+                <Text style={styles.alertTitle}>
+                  {ultimoCierre.usuarios?.nombre_completo ?? 'Cuidador'}
+                </Text>
+                <Text style={styles.alertSub}>
+                  Estado: {ultimoCierre.estado_paciente} · {new Date(ultimoCierre.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                </Text>
+              </View>
+            </View>
 
-        <View style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0' }]}>
-          <Text style={styles.alertIcon}>⏰</Text>
-          <View style={styles.alertContent}>
-            <Text style={styles.alertTitle}>Medicamento pendiente</Text>
-            <Text style={styles.alertSub}>Losartán 50mg · Programado 3:00 PM</Text>
+            {ultimoCierre.barthel_total !== null && (
+              <View style={[styles.alertCard, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold }]}>
+                <Text style={styles.alertIcon}>📋</Text>
+                <View style={styles.alertContent}>
+                  <Text style={styles.alertTitle}>Índice de Barthel: {ultimoCierre.barthel_total}/100</Text>
+                  <Text style={styles.alertSub}>{ultimoCierre.barthel_label}</Text>
+                </View>
+              </View>
+            )}
+
+            {ultimoCierre.morse_total !== null && ultimoCierre.morse_total >= 25 && (
+              <View style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0' }]}>
+                <Text style={styles.alertIcon}>⚠️</Text>
+                <View style={styles.alertContent}>
+                  <Text style={styles.alertTitle}>Riesgo de caída: {ultimoCierre.morse_total} pts</Text>
+                  <Text style={styles.alertSub}>{ultimoCierre.morse_label}</Text>
+                </View>
+              </View>
+            )}
+          </>
+        ) : (
+          <View style={[styles.alertCard, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold }]}>
+            <Text style={styles.alertIcon}>ℹ️</Text>
+            <View style={styles.alertContent}>
+              <Text style={styles.alertTitle}>Sin registros aún</Text>
+              <Text style={styles.alertSub}>El cuidador no ha cerrado ningún turno todavía</Text>
+            </View>
           </View>
-          <Text style={styles.alertTime}>Hoy</Text>
-        </View>
+        )}
 
         
         {/* ACCESOS RÁPIDOS */}
