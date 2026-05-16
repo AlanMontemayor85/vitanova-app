@@ -136,6 +136,30 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   }
   return res;
 };
+
+export const getTareasRecurrentes = async (pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/tareas-recurrentes/${pacienteId}`, {
+    headers: headers(),
+  });
+  return res.json();
+};
+
+export const crearTareaRecurrente = async (tarea: object) => {
+  const res = await fetch(`${BASE_URL}/tareas-recurrentes`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify(tarea),
+  });
+  return res.json();
+};
+
+export const desactivarTareaRecurrente = async (tareaId: string) => {
+  const res = await fetch(`${BASE_URL}/tareas-recurrentes/${tareaId}/desactivar`, {
+    method: 'PATCH',
+    headers: headers(),
+  });
+  return res.json();
+};
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',

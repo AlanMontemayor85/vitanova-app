@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { crearMedicamento, desactivarMedicamento, getMedicamentos, getPacientes, loadStoredToken } from '../services/api';
+import { crearMedicamento, crearTareaRecurrente, desactivarMedicamento, desactivarTareaRecurrente, getMedicamentos, getPacientes, getTareasRecurrentes, loadStoredToken } from '../services/api';
 
 const COLORS = {
   gold: '#BF9A40',
@@ -20,16 +20,22 @@ const COLORS = {
 
 const VIAS = ['oral', 'sublingual', 'inhalada', 'topica', 'inyectable', 'otro'];
 const FRECUENCIAS = ['cada 8 horas', 'cada 12 horas', 'cada 24 horas', 'dos veces al día', 'tres veces al día', 'una vez al día', 'según necesidad'];
+const TIPOS_RUTINA = ['alimentacion', 'higiene', 'ejercicio', 'cita', 'otro'];
+const ICONOS_RUTINA: Record<string, string> = {
+  alimentacion: '🍽️', higiene: '🛁', ejercicio: '🚶', cita: '📅', otro: '📝',
+};
 
 export default function MedicamentosScreen() {
   const router = useRouter();
   const [paciente, setPaciente] = useState<any>(null);
   const [medicamentos, setMedicamentos] = useState<any[]>([]);
+  const [tareasRec, setTareasRec] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<'medicamentos' | 'rutinas'>('medicamentos');
+
+  // Modal medicamento
   const [modalOpen, setModalOpen] = useState(false);
   const [guardando, setGuardando] = useState(false);
-
-  // Formulario
   const [nombre, setNombre] = useState('');
   const [dosis, setDosis] = useState('');
   const [frecuencia, setFrecuencia] = useState('cada 12 horas');
@@ -37,20 +43,29 @@ export default function MedicamentosScreen() {
   const [horarios, setHorarios] = useState('08:00, 20:00');
   const [indicaciones, setIndicaciones] = useState('');
 
+  // Modal rutina
+  const [modalRutinaOpen, setModalRutinaOpen] = useState(false);
+  const [guardandoRutina, setGuardandoRutina] = useState(false);
+  const [rutinaDesc, setRutinaDesc] = useState('');
+  const [rutinaTipo, setRutinaTipo] = useState('higiene');
+  const [rutinaHora, setRutinaHora] = useState('09:00');
+
   useEffect(() => {
     const cargar = async () => {
-  try {
-    const token = await loadStoredToken();
-    if (!token) {
-      router.replace('/login');
-      return;
-    }
-    const data = await getPacientes();
+      try {
+        const token = await loadStoredToken();
+        if (!token) {
+          router.replace('/login');
+          return;
+        }
+        const data = await getPacientes();
         if (data.patients && data.patients.length > 0) {
           const p = data.patients[0];
           setPaciente(p);
           const meds = await getMedicamentos(p.id);
           if (meds.medicamentos) setMedicamentos(meds.medicamentos);
+          const rutinas = await getTareasRecurrentes(p.id);
+          if (rutinas.tareas) setTareasRec(rutinas.tareas);
         }
       } catch (e) {
         console.error(e);
@@ -62,11 +77,7 @@ export default function MedicamentosScreen() {
   }, []);
 
   const guardarMedicamento = async () => {
-    if (!nombre.trim() || !dosis.trim()) return;
-    if (!paciente?.id) {
-      console.error('Paciente no cargado');
-      return;
-    }
+    if (!nombre.trim() || !dosis.trim() || !paciente?.id) return;
     setGuardando(true);
     try {
       const horariosArr = horarios.split(',').map(h => h.trim()).filter(h => h);
@@ -91,9 +102,35 @@ export default function MedicamentosScreen() {
     }
   };
 
+  const guardarRutina = async () => {
+    if (!rutinaDesc.trim() || !paciente?.id) return;
+    setGuardandoRutina(true);
+    try {
+      await crearTareaRecurrente({
+        paciente_id: paciente.id,
+        tipo: rutinaTipo,
+        descripcion: rutinaDesc.trim(),
+        hora: rutinaHora,
+      });
+      const rutinas = await getTareasRecurrentes(paciente.id);
+      if (rutinas.tareas) setTareasRec(rutinas.tareas);
+      setRutinaDesc(''); setRutinaTipo('higiene'); setRutinaHora('09:00');
+      setModalRutinaOpen(false);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setGuardandoRutina(false);
+    }
+  };
+
   const desactivar = async (id: string) => {
     await desactivarMedicamento(id);
     setMedicamentos(prev => prev.filter(m => m.id !== id));
+  };
+
+  const desactivarRutina = async (id: string) => {
+    await desactivarTareaRecurrente(id);
+    setTareasRec(prev => prev.filter(r => r.id !== id));
   };
 
   if (loading) {
@@ -112,140 +149,146 @@ export default function MedicamentosScreen() {
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.greeting}>Medicamentos</Text>
+          <Text style={styles.greeting}>Cuidado del paciente</Text>
           <Text style={styles.userName}>{paciente?.nombre_completo}</Text>
         </View>
-        <TouchableOpacity style={styles.addBtn} onPress={() => setModalOpen(true)}>
+        <TouchableOpacity style={styles.addBtn} onPress={() => tab === 'medicamentos' ? setModalOpen(true) : setModalRutinaOpen(true)}>
           <Text style={styles.addBtnText}>+ Agregar</Text>
         </TouchableOpacity>
       </View>
 
+      {/* TABS */}
+      <View style={styles.tabs}>
+        <TouchableOpacity
+          style={[styles.tab, tab === 'medicamentos' && styles.tabActive]}
+          onPress={() => setTab('medicamentos')}
+        >
+          <Text style={[styles.tabText, tab === 'medicamentos' && styles.tabTextActive]}>💊 Medicamentos</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, tab === 'rutinas' && styles.tabActive]}
+          onPress={() => setTab('rutinas')}
+        >
+          <Text style={[styles.tabText, tab === 'rutinas' && styles.tabTextActive]}>📋 Rutinas</Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-        {medicamentos.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyIcon}>💊</Text>
-            <Text style={styles.emptyTitle}>Sin medicamentos</Text>
-            <Text style={styles.emptyText}>Agrega los medicamentos del paciente</Text>
-            <TouchableOpacity style={styles.emptyBtn} onPress={() => setModalOpen(true)}>
-              <Text style={styles.emptyBtnText}>+ Agregar medicamento</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          medicamentos.map((m) => (
-            <View key={m.id} style={styles.medCard}>
-              <View style={styles.medHeader}>
-                <Text style={styles.medIcon}>💊</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.medNombre}>{m.nombre}</Text>
-                  <Text style={styles.medDosis}>{m.dosis} · {m.via_administracion}</Text>
-                </View>
-                <TouchableOpacity onPress={() => desactivar(m.id)} style={styles.medDeleteBtn}>
-                  <Text style={styles.medDeleteIcon}>✕</Text>
+        {tab === 'medicamentos' ? (
+          <>
+            {medicamentos.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyIcon}>💊</Text>
+                <Text style={styles.emptyTitle}>Sin medicamentos</Text>
+                <Text style={styles.emptyText}>Agrega los medicamentos del paciente</Text>
+                <TouchableOpacity style={styles.emptyBtn} onPress={() => setModalOpen(true)}>
+                  <Text style={styles.emptyBtnText}>+ Agregar medicamento</Text>
                 </TouchableOpacity>
               </View>
-              <View style={styles.medDetalles}>
-                <View style={styles.medPill}>
-                  <Text style={styles.medPillText}>🕐 {m.frecuencia}</Text>
-                </View>
-                {m.horarios?.length > 0 && (
-                  <View style={styles.medPill}>
-                    <Text style={styles.medPillText}>⏰ {m.horarios.join(' · ')}</Text>
+            ) : (
+              medicamentos.map((m) => (
+                <View key={m.id} style={styles.medCard}>
+                  <View style={styles.medHeader}>
+                    <Text style={styles.medIcon}>💊</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.medNombre}>{m.nombre}</Text>
+                      <Text style={styles.medDosis}>{m.dosis} · {m.via_administracion}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => desactivar(m.id)} style={styles.medDeleteBtn}>
+                      <Text style={styles.medDeleteIcon}>✕</Text>
+                    </TouchableOpacity>
                   </View>
-                )}
+                  <View style={styles.medDetalles}>
+                    <View style={styles.medPill}>
+                      <Text style={styles.medPillText}>🕐 {m.frecuencia}</Text>
+                    </View>
+                    {m.horarios?.length > 0 && (
+                      <View style={styles.medPill}>
+                        <Text style={styles.medPillText}>⏰ {m.horarios.join(' · ')}</Text>
+                      </View>
+                    )}
+                  </View>
+                  {m.indicaciones && (
+                    <Text style={styles.medIndicaciones}>{m.indicaciones}</Text>
+                  )}
+                </View>
+              ))
+            )}
+          </>
+        ) : (
+          <>
+            {tareasRec.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyIcon}>📋</Text>
+                <Text style={styles.emptyTitle}>Sin rutinas</Text>
+                <Text style={styles.emptyText}>Agrega las actividades diarias del paciente</Text>
+                <TouchableOpacity style={styles.emptyBtn} onPress={() => setModalRutinaOpen(true)}>
+                  <Text style={styles.emptyBtnText}>+ Agregar rutina</Text>
+                </TouchableOpacity>
               </View>
-              {m.indicaciones && (
-                <Text style={styles.medIndicaciones}>{m.indicaciones}</Text>
-              )}
-            </View>
-          ))
+            ) : (
+              tareasRec.map((t) => (
+                <View key={t.id} style={styles.medCard}>
+                  <View style={styles.medHeader}>
+                    <Text style={styles.medIcon}>{ICONOS_RUTINA[t.tipo] ?? '📝'}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.medNombre}>{t.descripcion}</Text>
+                      <Text style={styles.medDosis}>{t.tipo}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => desactivarRutina(t.id)} style={styles.medDeleteBtn}>
+                      <Text style={styles.medDeleteIcon}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.medDetalles}>
+                    <View style={styles.medPill}>
+                      <Text style={styles.medPillText}>⏰ {t.hora}</Text>
+                    </View>
+                  </View>
+                </View>
+              ))
+            )}
+          </>
         )}
         <View style={{ height: 60 }} />
       </ScrollView>
 
+      {/* MODAL MEDICAMENTO */}
       {modalOpen && (
         <View style={styles.modalOverlay}>
           <ScrollView>
             <View style={styles.modalCard}>
               <Text style={styles.modalTitle}>Nuevo medicamento</Text>
-
               <Text style={styles.label}>Nombre *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ej: Metformina"
-                placeholderTextColor={COLORS.textLight}
-                value={nombre}
-                onChangeText={setNombre}
-                autoFocus
-              />
-
+              <TextInput style={styles.input} placeholder="Ej: Metformina" placeholderTextColor={COLORS.textLight} value={nombre} onChangeText={setNombre} autoFocus />
               <Text style={styles.label}>Dosis *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ej: 500mg"
-                placeholderTextColor={COLORS.textLight}
-                value={dosis}
-                onChangeText={setDosis}
-              />
-
+              <TextInput style={styles.input} placeholder="Ej: 500mg" placeholderTextColor={COLORS.textLight} value={dosis} onChangeText={setDosis} />
               <Text style={styles.label}>Frecuencia</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
                 <View style={{ flexDirection: 'row', gap: 6 }}>
                   {FRECUENCIAS.map(f => (
-                    <TouchableOpacity
-                      key={f}
-                      style={[styles.chipBtn, frecuencia === f && styles.chipBtnActive]}
-                      onPress={() => setFrecuencia(f)}
-                    >
+                    <TouchableOpacity key={f} style={[styles.chipBtn, frecuencia === f && styles.chipBtnActive]} onPress={() => setFrecuencia(f)}>
                       <Text style={[styles.chipBtnText, frecuencia === f && styles.chipBtnTextActive]}>{f}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               </ScrollView>
-
               <Text style={styles.label}>Horarios (separados por coma)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="08:00, 20:00"
-                placeholderTextColor={COLORS.textLight}
-                value={horarios}
-                onChangeText={setHorarios}
-              />
-
+              <TextInput style={styles.input} placeholder="08:00, 20:00" placeholderTextColor={COLORS.textLight} value={horarios} onChangeText={setHorarios} />
               <Text style={styles.label}>Vía de administración</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
                 {VIAS.map(v => (
-                  <TouchableOpacity
-                    key={v}
-                    style={[styles.chipBtn, via === v && styles.chipBtnActive]}
-                    onPress={() => setVia(v)}
-                  >
+                  <TouchableOpacity key={v} style={[styles.chipBtn, via === v && styles.chipBtnActive]} onPress={() => setVia(v)}>
                     <Text style={[styles.chipBtnText, via === v && styles.chipBtnTextActive]}>{v}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
-
               <Text style={styles.label}>Indicaciones (opcional)</Text>
-              <TextInput
-                style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]}
-                placeholder="Tomar con alimentos..."
-                placeholderTextColor={COLORS.textLight}
-                multiline
-                value={indicaciones}
-                onChangeText={setIndicaciones}
-              />
-
+              <TextInput style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]} placeholder="Tomar con alimentos..." placeholderTextColor={COLORS.textLight} multiline value={indicaciones} onChangeText={setIndicaciones} />
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, { backgroundColor: COLORS.cream }]}
-                  onPress={() => setModalOpen(false)}
-                >
+                <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.cream }]} onPress={() => setModalOpen(false)}>
                   <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]}
-                  onPress={guardarMedicamento}
-                  disabled={guardando}
-                >
+                <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]} onPress={guardarMedicamento} disabled={guardando}>
                   <Text style={styles.modalBtnText}>{guardando ? 'Guardando...' : 'Guardar'}</Text>
                 </TouchableOpacity>
               </View>
@@ -253,6 +296,36 @@ export default function MedicamentosScreen() {
           </ScrollView>
         </View>
       )}
+
+      {/* MODAL RUTINA */}
+      {modalRutinaOpen && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Nueva rutina</Text>
+            <Text style={styles.label}>Descripción *</Text>
+            <TextInput style={styles.input} placeholder="Ej: Baño completo" placeholderTextColor={COLORS.textLight} value={rutinaDesc} onChangeText={setRutinaDesc} autoFocus />
+            <Text style={styles.label}>Tipo</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+              {TIPOS_RUTINA.map(t => (
+                <TouchableOpacity key={t} style={[styles.chipBtn, rutinaTipo === t && styles.chipBtnActive]} onPress={() => setRutinaTipo(t)}>
+                  <Text style={[styles.chipBtnText, rutinaTipo === t && styles.chipBtnTextActive]}>{ICONOS_RUTINA[t]} {t}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.label}>Hora</Text>
+            <TextInput style={styles.input} placeholder="09:00" placeholderTextColor={COLORS.textLight} value={rutinaHora} onChangeText={setRutinaHora} />
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.cream }]} onPress={() => setModalRutinaOpen(false)}>
+                <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]} onPress={guardarRutina} disabled={guardandoRutina}>
+                <Text style={styles.modalBtnText}>{guardandoRutina ? 'Guardando...' : 'Guardar'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
     </View>
   );
 }
@@ -269,6 +342,11 @@ const styles = StyleSheet.create({
   backIcon: { fontSize: 18, color: COLORS.white },
   addBtn: { backgroundColor: COLORS.gold, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
   addBtnText: { fontSize: 11, fontWeight: '700', color: COLORS.white },
+  tabs: { flexDirection: 'row', backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: COLORS.gold },
+  tabText: { fontSize: 12, fontWeight: '600', color: COLORS.textLight },
+  tabTextActive: { color: COLORS.gold, fontWeight: '700' },
   body: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
   emptyCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
   emptyIcon: { fontSize: 40, marginBottom: 12 },
