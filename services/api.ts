@@ -38,7 +38,20 @@ export const login = async (email: string, password: string) => {
   return data;
   
 };
+export const getTurnoActivo = async (pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/turnos/activo/${pacienteId}`, {
+    headers: headers(),
+  });
+  return res.json();
+};
 
+export const completarTarea = async (tareaId: string) => {
+  const res = await fetch(`${BASE_URL}/tareas/${tareaId}/completar`, {
+    method: 'PATCH',
+    headers: headers(),
+  });
+  return res.json();
+};
 // ── PACIENTES ─────────────────────────────
 export const getPacientes = async () => {
   const res = await fetch(`${BASE_URL}/medical/patients`, {

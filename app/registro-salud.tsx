@@ -105,7 +105,10 @@ export default function RegistroSaludScreen() {
       if (data.alertas?.length > 0) {
         setAlertas(data.alertas);
       } else {
-        router.back();
+        router.replace({
+          pathname: '/cuidador' as any,
+          params: { vistaInicial: 'turno', paciente: params.paciente }
+});
       }
     } catch (e) {
       console.error(e);
