@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { completarTarea, getPacientes, getToken, getTurnoActivo } from '../services/api';
 
@@ -87,6 +87,7 @@ export default function CuidadorScreen() {
   const [notaOpen, setNotaOpen] = useState(false);
   const [notaTexto, setNotaTexto] = useState('');
   const [guardandoNota, setGuardandoNota] = useState(false);
+  const turnoActivoRef = useRef<any>(null);
 
 
   useEffect(() => {
@@ -95,10 +96,13 @@ export default function CuidadorScreen() {
         console.log('CARGANDO TURNO PARA:', p.id);
         setPacienteActivo(p);
         getTurnoActivo(p.id).then(data => {
-          console.log('TURNO DATA:', data);
-          if (data.tareas) setTareas(data.tareas);
-          if (data.turno) setTurnoActivo(data.turno);
-        });
+        console.log('TURNO DATA:', data);
+        if (data.tareas) setTareas(data.tareas);
+        if (data.turno) {
+          setTurnoActivo(data.turno);
+          turnoActivoRef.current = data.turno;
+        }
+      });
         setVista('turno');
       }
     }, [params.vistaInicial, params.paciente]);
@@ -160,18 +164,20 @@ export default function CuidadorScreen() {
     setGuardandoNota(true);
     try {
       const token = getToken();
-      await fetch(`${BASE_URL}/notas`, {
+      const res = await fetch(`${BASE_URL}/notas`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          paciente_id: pacienteActivo.id,
-          turno_id: turnoActivo?.id,
-          texto: notaTexto,
-        }),
+        paciente_id: pacienteActivo.id,
+        turno_id: turnoActivoRef.current?.id,
+        texto: notaTexto,
+      }),
       });
+      const data = await res.json();
+      console.log('RESPUESTA NOTAS:', data);
       // Agregar la nota a la lista de tareas local
       setTareas(prev => [...prev, {
         id: Date.now().toString(),
@@ -377,38 +383,34 @@ export default function CuidadorScreen() {
           </View>
 
           <Text style={styles.sectionTitle}>Tareas del turno</Text>
-          {tareas.length === 0 ? (
+          {tareas.filter(t => t.tipo !== 'otro').length === 0 ? (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyText}>Sin tareas registradas</Text>
             </View>
           ) : (
-            tareas.map((t) => {
+            tareas.filter(t => t.tipo !== 'otro').map((t) => {
               const iconos: Record<string, string> = {
                 medicamento: '💊', alimentacion: '🍽️', ejercicio: '🚶',
-                higiene: '🛁', cita: '📅', otro: '📝',
+                higiene: '🛁', cita: '📅',
               };
               return (
                 <TouchableOpacity
-                    key={t.id}
-                    style={[
-                      styles.tareaCard, 
-                      t.completada && t.tipo !== 'otro' && styles.tareaCardDone,
-                      t.tipo === 'otro' && styles.tareaCardNota,
-                    ]}
-                    onPress={async () => {
-                      if (!t.completada && t.tipo !== 'otro') {
-                        await completarTarea(t.id);
-                        setTareas(prev => prev.map(tarea =>
-                          tarea.id === t.id ? { ...tarea, completada: true } : tarea
-                        ));
-                      }
-                    }}
-                  >
+                  key={t.id}
+                  style={[styles.tareaCard, t.completada && t.tipo !== 'otro' && styles.tareaCardDone]}
+                  onPress={async () => {
+                    if (!t.completada) {
+                      await completarTarea(t.id);
+                      setTareas(prev => prev.map(tarea =>
+                        tarea.id === t.id ? { ...tarea, completada: true } : tarea
+                      ));
+                    }
+                  }}
+                >
                   <Text style={styles.tareaIcon}>{iconos[t.tipo] ?? '📝'}</Text>
                   <View style={styles.tareaInfo}>
-                    <Text style={[styles.tareaTexto, t.completada && t.tipo !== 'otro' && { textDecorationLine: 'line-through' }]}>
-                    {t.descripcion}
-                  </Text>
+                    <Text style={[styles.tareaTexto, t.completada && { textDecorationLine: 'line-through' }]}>
+                      {t.descripcion}
+                    </Text>
                     <Text style={styles.tareaHora}>{t.hora_programada ?? '—'}</Text>
                   </View>
                   <View style={[styles.tareaCheck, t.completada && styles.tareaCheckDone]}>
@@ -419,6 +421,21 @@ export default function CuidadorScreen() {
                 </TouchableOpacity>
               );
             })
+          )}
+
+          {tareas.filter(t => t.tipo === 'otro').length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>Notas del turno</Text>
+              {tareas.filter(t => t.tipo === 'otro').map((t) => (
+                <View key={t.id} style={[styles.tareaCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0' }]}>
+                  <Text style={styles.tareaIcon}>📝</Text>
+                  <View style={styles.tareaInfo}>
+                    <Text style={styles.tareaTexto}>{t.descripcion?.replace('📝 ', '')}</Text>
+                    <Text style={styles.tareaHora}>{t.hora_completada ? new Date(t.hora_completada).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}</Text>
+                  </View>
+                </View>
+              ))}
+            </>
           )}
 
           <View style={styles.accionesRow}>
