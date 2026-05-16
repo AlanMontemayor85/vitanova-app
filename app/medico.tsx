@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getPacientes } from '../services/api';
+import { getPacientes, loadStoredToken } from '../services/api';
 
 const COLORS = {
   gold: '#BF9A40',
@@ -29,6 +29,7 @@ export default function MedicoScreen() {
   useEffect(() => {
     const cargar = async () => {
       try {
+        await loadStoredToken();
         const data = await getPacientes();
         if (data.patients) setPacientes(data.patients);
       } catch (e) {

@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { completarTarea, getPacientes, getToken, getTurnoActivo } from '../services/api';
+import { completarTarea, getPacientes, getToken, getTurnoActivo, loadStoredToken } from '../services/api';
 
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
@@ -132,6 +132,7 @@ export default function CuidadorScreen() {
   useEffect(() => {
     const cargar = async () => {
       try {
+        await loadStoredToken();
         const data = await getPacientes();
         if (data.patients) setPacientes(data.patients);
       } catch (e) {
