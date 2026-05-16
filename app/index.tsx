@@ -138,7 +138,10 @@ export default function HomeScreen() {
         {/* ACTIVIDAD RECIENTE */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Último turno</Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push({
+            pathname: '/historial' as any,
+            params: { pacienteId: paciente?.id, pacienteNombre: paciente?.nombre_completo }
+          })}>
             <Text style={styles.sectionLink}>Ver historial</Text>
           </TouchableOpacity>
         </View>
