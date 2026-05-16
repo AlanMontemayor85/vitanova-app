@@ -410,30 +410,66 @@ useEffect(() => {
               <Text style={styles.accionBtnIcon}>🚨</Text>
               <Text style={[styles.accionBtnText, { color: COLORS.red }]}>Incidente</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-            style={[styles.accionBtn, { backgroundColor: COLORS.amberPale, borderColor: 'rgba(212,134,10,0.2)' }]}
-            onPress={() => setNotaOpen(true)}
-          >
-            <Text style={styles.accionBtnIcon}>📝</Text>
-            <Text style={[styles.accionBtnText, { color: COLORS.amber }]}>Nota</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.accionBtn, { backgroundColor: COLORS.amberPale, borderColor: 'rgba(212,134,10,0.2)' }]}
+              onPress={() => setNotaOpen(true)}
+            >
+              <Text style={styles.accionBtnIcon}>📝</Text>
+              <Text style={[styles.accionBtnText, { color: COLORS.amber }]}>Nota</Text>
+            </TouchableOpacity>
           </View>
-           <TouchableOpacity 
-          style={[styles.accionBtn, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold }]}
-          onPress={() => router.push({
-            pathname: '/registro-salud' as any,
-            params: { paciente: JSON.stringify(pacienteActivo), momento: 'espontaneo' }
-          })}
-        >
-          <Text style={styles.accionBtnIcon}>🩺</Text>
-          <Text style={[styles.accionBtnText, { color: COLORS.gold }]}>Signos</Text>
-           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.accionBtn, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, marginBottom: 12 }]}
+            onPress={() => router.push({
+              pathname: '/registro-salud' as any,
+              params: { paciente: JSON.stringify(pacienteActivo), momento: 'espontaneo' }
+            })}
+          >
+            <Text style={styles.accionBtnIcon}>🩺</Text>
+            <Text style={[styles.accionBtnText, { color: COLORS.gold }]}>Signos</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.cerrarBtn} onPress={() => setVista('cierre')}>
             <Text style={styles.cerrarBtnText}>Cerrar turno</Text>
           </TouchableOpacity>
 
           <View style={{ height: 100 }} />
         </ScrollView>
+
+        {notaOpen && (
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Nota del turno</Text>
+              <TextInput
+                style={styles.notaInput}
+                placeholder="Escribe una observación..."
+                placeholderTextColor={COLORS.textLight}
+                multiline
+                numberOfLines={4}
+                value={notaTexto}
+                onChangeText={setNotaTexto}
+                autoFocus
+              />
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                <TouchableOpacity
+                  style={[styles.modalBtn, { backgroundColor: COLORS.cream }]}
+                  onPress={() => { setNotaOpen(false); setNotaTexto(''); }}
+                >
+                  <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]}
+                  onPress={guardarNota}
+                  disabled={guardandoNota}
+                >
+                  <Text style={styles.modalBtnText}>{guardandoNota ? 'Guardando...' : 'Guardar'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
       </View>
     );
   }
@@ -709,38 +745,7 @@ useEffect(() => {
       </View>
     );
   }
-  {notaOpen && (
-  <View style={styles.modalOverlay}>
-    <View style={styles.modalCard}>
-      <Text style={styles.modalTitle}>Nota del turno</Text>
-      <TextInput
-        style={styles.notaInput}
-        placeholder="Escribe una observación..."
-        placeholderTextColor={COLORS.textLight}
-        multiline
-        numberOfLines={4}
-        value={notaTexto}
-        onChangeText={setNotaTexto}
-        autoFocus
-      />
-      <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-        <TouchableOpacity
-          style={[styles.modalBtn, { backgroundColor: COLORS.cream }]}
-          onPress={() => { setNotaOpen(false); setNotaTexto(''); }}
-        >
-          <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]}
-          onPress={guardarNota}
-          disabled={guardandoNota}
-        >
-          <Text style={styles.modalBtnText}>{guardandoNota ? 'Guardando...' : 'Guardar'}</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  </View>
-)}
+  
   return null;
 }
 
