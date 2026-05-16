@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { completarTarea, getPacientes, getToken, getTurnoActivo } from '../services/api';
 
 
@@ -84,6 +84,9 @@ export default function CuidadorScreen() {
   const [turnoActivo, setTurnoActivo] = useState<any>(null);
   const [tareas, setTareas] = useState<any[]>([]);
   const params = useLocalSearchParams();
+  const [notaOpen, setNotaOpen] = useState(false);
+  const [notaTexto, setNotaTexto] = useState('');
+  const [guardandoNota, setGuardandoNota] = useState(false);
 
 
 useEffect(() => {
@@ -148,7 +151,31 @@ useEffect(() => {
       params: { paciente: JSON.stringify(paciente), momento: 'inicio_turno' },
     });
   };
-
+  const guardarNota = async () => {
+    if (!notaTexto.trim()) return;
+    setGuardandoNota(true);
+    try {
+      const token = getToken();
+      await fetch(`${BASE_URL}/notas`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          paciente_id: pacienteActivo.id,
+          turno_id: turnoActivo?.id,
+          texto: notaTexto,
+        }),
+      });
+      setNotaTexto('');
+      setNotaOpen(false);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setGuardandoNota(false);
+    }
+  };
   const confirmarCierre = async () => {
     try {
       const token = getToken();
@@ -383,10 +410,13 @@ useEffect(() => {
               <Text style={styles.accionBtnIcon}>🚨</Text>
               <Text style={[styles.accionBtnText, { color: COLORS.red }]}>Incidente</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.accionBtn, { backgroundColor: COLORS.amberPale, borderColor: 'rgba(212,134,10,0.2)' }]}>
-              <Text style={styles.accionBtnIcon}>📝</Text>
-              <Text style={[styles.accionBtnText, { color: COLORS.amber }]}>Nota</Text>
-            </TouchableOpacity>
+            <TouchableOpacity 
+            style={[styles.accionBtn, { backgroundColor: COLORS.amberPale, borderColor: 'rgba(212,134,10,0.2)' }]}
+            onPress={() => setNotaOpen(true)}
+          >
+            <Text style={styles.accionBtnIcon}>📝</Text>
+            <Text style={[styles.accionBtnText, { color: COLORS.amber }]}>Nota</Text>
+          </TouchableOpacity>
           </View>
            <TouchableOpacity 
           style={[styles.accionBtn, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold }]}
@@ -679,11 +709,62 @@ useEffect(() => {
       </View>
     );
   }
-
+  {notaOpen && (
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalCard}>
+      <Text style={styles.modalTitle}>Nota del turno</Text>
+      <TextInput
+        style={styles.notaInput}
+        placeholder="Escribe una observación..."
+        placeholderTextColor={COLORS.textLight}
+        multiline
+        numberOfLines={4}
+        value={notaTexto}
+        onChangeText={setNotaTexto}
+        autoFocus
+      />
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+        <TouchableOpacity
+          style={[styles.modalBtn, { backgroundColor: COLORS.cream }]}
+          onPress={() => { setNotaOpen(false); setNotaTexto(''); }}
+        >
+          <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]}
+          onPress={guardarNota}
+          disabled={guardandoNota}
+        >
+          <Text style={styles.modalBtnText}>{guardandoNota ? 'Guardando...' : 'Guardar'}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+)}
   return null;
 }
 
 const styles = StyleSheet.create({
+  modalOverlay: {
+  position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+  backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24,
+},
+modalCard: {
+  backgroundColor: COLORS.white, borderRadius: 16, padding: 20,
+},
+modalTitle: {
+  fontSize: 16, fontWeight: '800', color: COLORS.textDark, marginBottom: 12,
+},
+notaInput: {
+  backgroundColor: COLORS.cream, borderRadius: 10, padding: 12,
+  borderWidth: 1, borderColor: COLORS.border, fontSize: 14,
+  color: COLORS.textDark, minHeight: 100, textAlignVertical: 'top',
+},
+modalBtn: {
+  borderRadius: 10, padding: 12, alignItems: 'center',
+  borderWidth: 1, borderColor: COLORS.border,
+},
+modalBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.white },
   container: { flex: 1, backgroundColor: COLORS.cream },
   header: {
     backgroundColor: COLORS.cacao,
