@@ -89,17 +89,19 @@ export default function CuidadorScreen() {
   const [guardandoNota, setGuardandoNota] = useState(false);
 
 
-useEffect(() => {
-  if (params.vistaInicial === 'turno' && params.paciente) {
-    const p = JSON.parse(params.paciente as string);
-    setPacienteActivo(p);
-    getTurnoActivo(p.id).then(data => {
-      if (data.tareas) setTareas(data.tareas);
-      if (data.turno) setTurnoActivo(data.turno);
-    });
-    setVista('turno');
-  }
-}, [params.vistaInicial, params.paciente]);
+  useEffect(() => {
+      if (params.vistaInicial === 'turno' && params.paciente) {
+        const p = JSON.parse(params.paciente as string);
+        console.log('CARGANDO TURNO PARA:', p.id);
+        setPacienteActivo(p);
+        getTurnoActivo(p.id).then(data => {
+          console.log('TURNO DATA:', data);
+          if (data.tareas) setTareas(data.tareas);
+          if (data.turno) setTurnoActivo(data.turno);
+        });
+        setVista('turno');
+      }
+    }, [params.vistaInicial, params.paciente]);
   // Signos vitales
   const [spo2, setSpo2] = useState(98);
   const [sistolica, setSistolica] = useState(120);
@@ -152,6 +154,8 @@ useEffect(() => {
     });
   };
   const guardarNota = async () => {
+    console.log('TURNO ACTIVO:', turnoActivo);
+    console.log('PACIENTE ACTIVO:', pacienteActivo?.id);
     if (!notaTexto.trim()) return;
     setGuardandoNota(true);
     try {
