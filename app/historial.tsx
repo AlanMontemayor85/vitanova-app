@@ -78,71 +78,112 @@ export default function HistorialScreen() {
         ) : (
           cierres.map((c, i) => (
             <View key={c.id} style={styles.cierreCard}>
-              <View style={styles.cierreHeader}>
+                <View style={styles.cierreHeader}>
                 <Text style={styles.cierreEmoji}>{estadoEmoji[c.estado_paciente] ?? '—'}</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.cierreNombreCuidador}>
+                    <Text style={styles.cierreNombreCuidador}>
                     {c.usuarios?.nombre_completo ?? 'Cuidador'}
-                  </Text>
-                  <Text style={styles.cierreFecha}>
+                    </Text>
+                    <Text style={styles.cierreFecha}>
                     {new Date(c.created_at).toLocaleString('es-MX', {
-                      day: 'numeric', month: 'long',
-                      hour: '2-digit', minute: '2-digit'
+                        day: 'numeric', month: 'long',
+                        hour: '2-digit', minute: '2-digit'
                     })}
-                  </Text>
+                    </Text>
                 </View>
                 <View style={[styles.estadoPill, {
-                  backgroundColor: c.estado_paciente === 'bien' ? COLORS.greenPale :
+                    backgroundColor: c.estado_paciente === 'bien' ? COLORS.greenPale :
                     c.estado_paciente === 'preocupante' ? COLORS.redPale : COLORS.amberPale
                 }]}>
-                  <Text style={[styles.estadoPillText, {
+                    <Text style={[styles.estadoPillText, {
                     color: c.estado_paciente === 'bien' ? COLORS.green :
-                      c.estado_paciente === 'preocupante' ? COLORS.red : COLORS.amber
-                  }]}>{c.estado_paciente}</Text>
+                        c.estado_paciente === 'preocupante' ? COLORS.red : COLORS.amber
+                    }]}>{c.estado_paciente}</Text>
                 </View>
-              </View>
+                </View>
 
-              <View style={styles.signosRow}>
+                <View style={styles.signosRow}>
                 <View style={styles.signoItem}>
-                  <Text style={styles.signoVal}>{c.spo2 ?? '—'}%</Text>
-                  <Text style={styles.signoLabel}>SpO₂</Text>
+                    <Text style={styles.signoVal}>{c.spo2 ?? '—'}%</Text>
+                    <Text style={styles.signoLabel}>SpO₂</Text>
                 </View>
                 <View style={styles.signoItem}>
-                  <Text style={styles.signoVal}>{c.presion_sistolica ?? '—'}/{c.presion_diastolica ?? '—'}</Text>
-                  <Text style={styles.signoLabel}>Presión</Text>
+                    <Text style={styles.signoVal}>{c.presion_sistolica ?? '—'}/{c.presion_diastolica ?? '—'}</Text>
+                    <Text style={styles.signoLabel}>Presión</Text>
                 </View>
                 <View style={styles.signoItem}>
-                  <Text style={styles.signoVal}>{c.frecuencia_cardiaca ?? '—'}</Text>
-                  <Text style={styles.signoLabel}>FC bpm</Text>
+                    <Text style={styles.signoVal}>{c.frecuencia_cardiaca ?? '—'}</Text>
+                    <Text style={styles.signoLabel}>FC bpm</Text>
                 </View>
                 {c.peso_kg && (
-                  <View style={styles.signoItem}>
+                    <View style={styles.signoItem}>
                     <Text style={styles.signoVal}>{c.peso_kg}</Text>
                     <Text style={styles.signoLabel}>kg</Text>
-                  </View>
+                    </View>
                 )}
-              </View>
+                </View>
 
-              {c.barthel_total !== null && (
-                <View style={styles.escalaRow}>
-                  <Text style={styles.escalaLabel}>📋 Barthel</Text>
-                  <Text style={styles.escalaVal}>{c.barthel_total}/100 — {c.barthel_label}</Text>
+                {/* MEDICAMENTOS Y TAREAS */}
+                {c.tareas?.filter((t: any) => t.tipo !== 'otro').length > 0 && (
+                <View style={styles.tareasSection}>
+                    <Text style={styles.tareasSectionTitle}>Actividades</Text>
+                    {c.tareas.filter((t: any) => t.tipo !== 'otro').map((t: any, j: number) => {
+                    const iconos: Record<string, string> = {
+                        medicamento: '💊', alimentacion: '🍽️', ejercicio: '🚶',
+                        higiene: '🛁', cita: '📅',
+                    };
+                    return (
+                        <View key={j} style={styles.tareaItem}>
+                        <Text style={styles.tareaItemIcon}>{iconos[t.tipo] ?? '📝'}</Text>
+                        <Text style={[styles.tareaItemText, !t.completada && { color: COLORS.textLight }]}>
+                            {t.descripcion}
+                        </Text>
+                        <Text style={styles.tareaItemHora}>
+                            {t.hora_completada ? new Date(t.hora_completada).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                        </Text>
+                        <Text style={{ fontSize: 12 }}>{t.completada ? '✅' : '⬜'}</Text>
+                        </View>
+                    );
+                    })}
                 </View>
-              )}
-              {c.morse_total !== null && (
-                <View style={styles.escalaRow}>
-                  <Text style={styles.escalaLabel}>⚠️ Morse</Text>
-                  <Text style={styles.escalaVal}>{c.morse_total} pts — {c.morse_label}</Text>
+                )}
+
+                {/* NOTAS */}
+                {c.tareas?.filter((t: any) => t.tipo === 'otro').length > 0 && (
+                <View style={styles.notasSection}>
+                    <Text style={styles.tareasSectionTitle}>Notas</Text>
+                    {c.tareas.filter((t: any) => t.tipo === 'otro').map((t: any, j: number) => (
+                    <View key={j} style={styles.notaItem}>
+                        <Text style={styles.notaItemText}>{t.descripcion?.replace('📝 ', '')}</Text>
+                        <Text style={styles.tareaItemHora}>
+                        {t.hora_completada ? new Date(t.hora_completada).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                        </Text>
+                    </View>
+                    ))}
                 </View>
-              )}
-              {c.mna_total !== null && (
+                )}
+
+                {/* ESCALAS */}
+                {c.barthel_total !== null && (
                 <View style={styles.escalaRow}>
-                  <Text style={styles.escalaLabel}>🍽️ MNA</Text>
-                  <Text style={styles.escalaVal}>{c.mna_total} pts — {c.mna_label}</Text>
+                    <Text style={styles.escalaLabel}>📋 Barthel</Text>
+                    <Text style={styles.escalaVal}>{c.barthel_total}/100 — {c.barthel_label}</Text>
                 </View>
-              )}
+                )}
+                {c.morse_total !== null && (
+                <View style={styles.escalaRow}>
+                    <Text style={styles.escalaLabel}>⚠️ Morse</Text>
+                    <Text style={styles.escalaVal}>{c.morse_total} pts — {c.morse_label}</Text>
+                </View>
+                )}
+                {c.mna_total !== null && (
+                <View style={styles.escalaRow}>
+                    <Text style={styles.escalaLabel}>🍽️ MNA</Text>
+                    <Text style={styles.escalaVal}>{c.mna_total} pts — {c.mna_label}</Text>
+                </View>
+                )}
             </View>
-          ))
+            ))
         )}
         <View style={{ height: 60 }} />
       </ScrollView>
@@ -179,4 +220,27 @@ const styles = StyleSheet.create({
   escalaRow: { flexDirection: 'row', gap: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: COLORS.border, marginTop: 4, alignItems: 'center' },
   escalaLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textDark, minWidth: 70 },
   escalaVal: { fontSize: 11, color: COLORS.textLight, flex: 1 },
+  tareasSection: {
+  borderTopWidth: 1, borderTopColor: COLORS.border,
+  paddingTop: 10, marginTop: 8,
+},
+notasSection: {
+  borderTopWidth: 1, borderTopColor: COLORS.border,
+  paddingTop: 10, marginTop: 4,
+},
+tareasSectionTitle: {
+  fontSize: 9, fontWeight: '700', letterSpacing: 1.5,
+  textTransform: 'uppercase', color: COLORS.textLight, marginBottom: 8,
+},
+tareaItem: {
+  flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6,
+},
+tareaItemIcon: { fontSize: 14 },
+tareaItemText: { flex: 1, fontSize: 12, fontWeight: '600', color: COLORS.textDark },
+tareaItemHora: { fontSize: 10, color: COLORS.textLight },
+notaItem: {
+  backgroundColor: COLORS.amberPale, borderRadius: 8, padding: 8,
+  marginBottom: 6, flexDirection: 'row', gap: 8, alignItems: 'center',
+},
+notaItemText: { flex: 1, fontSize: 12, color: COLORS.textDark },
 });
