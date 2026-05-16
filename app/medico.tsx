@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getPacientes, loadStoredToken } from '../services/api';
+import { clearToken, getPacientes, loadStoredToken } from '../services/api';
 
 const COLORS = {
   gold: '#BF9A40',
@@ -59,9 +59,15 @@ export default function MedicoScreen() {
           <Text style={styles.greeting}>Panel médico</Text>
           <Text style={styles.userName}>{nombre}</Text>
         </View>
-        <View style={styles.notifBtn}>
-          <Text style={styles.notifIcon}>🔔</Text>
-        </View>
+        <TouchableOpacity
+        style={styles.notifBtn}
+        onPress={async () => {
+          await clearToken();
+          router.replace('/login');
+  }}
+>
+  <Text style={styles.notifIcon}>🚪</Text>
+</TouchableOpacity>
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
