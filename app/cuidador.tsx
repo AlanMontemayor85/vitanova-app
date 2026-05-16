@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { completarTarea, getPacientes, getToken, getTurnoActivo, loadStoredToken } from '../services/api';
+import { clearToken, completarTarea, getPacientes, getToken, getTurnoActivo, loadStoredToken } from '../services/api';
 
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
@@ -263,9 +263,15 @@ export default function CuidadorScreen() {
             <Text style={styles.greeting}>Bienvenido</Text>
             <Text style={styles.userName}>{nombre}</Text>
           </View>
-          <View style={styles.notifBtn}>
-            <Text style={styles.notifIcon}>🔔</Text>
-          </View>
+          <TouchableOpacity
+          style={styles.notifBtn}
+          onPress={async () => {
+            await clearToken();
+            router.replace('/login');
+          }}
+        >
+          <Text style={styles.notifIcon}>🚪</Text>
+        </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
