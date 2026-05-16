@@ -168,6 +168,14 @@ useEffect(() => {
           texto: notaTexto,
         }),
       });
+      // Agregar la nota a la lista de tareas local
+      setTareas(prev => [...prev, {
+        id: Date.now().toString(),
+        tipo: 'otro',
+        descripcion: `📝 ${notaTexto}`,
+        hora_programada: null,
+        completada: true,
+      }]);
       setNotaTexto('');
       setNotaOpen(false);
     } catch (e) {

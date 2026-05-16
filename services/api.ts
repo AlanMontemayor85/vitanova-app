@@ -52,6 +52,13 @@ export const completarTarea = async (tareaId: string) => {
   });
   return res.json();
 };
+
+export const getNotasTurno = async (pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/notas-turno`, {
+    headers: headers(),
+  });
+  return res.json();
+};
 // ── PACIENTES ─────────────────────────────
 export const getPacientes = async () => {
   const res = await fetch(`${BASE_URL}/medical/patients`, {

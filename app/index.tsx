@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getPacientes, getUltimoCierre } from '../services/api';
+import { getNotasTurno, getPacientes, getUltimoCierre } from '../services/api';
 
 const COLORS = {
   gold: '#BF9A40',
@@ -29,6 +29,7 @@ export default function HomeScreen() {
   const [paciente, setPaciente] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [ultimoCierre, setUltimoCierre] = useState<any>(null);
+  const [notas, setNotas] = useState<any[]>([]);
   useEffect(() => {
     const init = async () => {
       try {
@@ -44,7 +45,9 @@ export default function HomeScreen() {
           setPaciente(p);
           const cierreData = await getUltimoCierre(p.id);
           if (cierreData.cierre) setUltimoCierre(cierreData.cierre);
-        }
+          const notasData = await getNotasTurno(p.id);
+          if (notasData.notas) setNotas(notasData.notas);
+}
       } catch (e) {
         console.error('Error init:', e);
         router.replace('/login');
@@ -202,8 +205,28 @@ export default function HomeScreen() {
               <Text style={styles.qaIcon}>{item.icon}</Text>
               <Text style={styles.qaLabel}>{item.label}</Text>
             </TouchableOpacity>
+            
           ))}
         </View>
+
+        {notas.length > 0 && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Notas del cuidador</Text>
+            </View>
+            {notas.map((n, i) => (
+              <View key={i} style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0' }]}>
+                <Text style={styles.alertIcon}>📝</Text>
+                <View style={styles.alertContent}>
+                  <Text style={styles.alertTitle}>{n.descripcion?.replace('📝 ', '')}</Text>
+                  <Text style={styles.alertSub}>
+                    {n.usuarios?.nombre_completo ?? 'Cuidador'} · {n.hora_completada ? new Date(n.hora_completada).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </>
+        )}
         {/* TURNO ACTIVO */}
         <Text style={[styles.sectionTitle, { marginTop: 8, marginBottom: 12 }]}>Turno activo</Text>
         <View style={styles.turnoCard}>
@@ -224,7 +247,7 @@ export default function HomeScreen() {
 
         <View style={{ height: 100 }} />
       </ScrollView>
-
+       
       {/* BOTTOM NAV */}
 <View style={styles.bottomNav}>
   {[
