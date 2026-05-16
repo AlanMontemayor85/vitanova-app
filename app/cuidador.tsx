@@ -385,22 +385,26 @@ useEffect(() => {
               };
               return (
                 <TouchableOpacity
-                  key={t.id}
-                  style={[styles.tareaCard, t.completada && styles.tareaCardDone]}
-                  onPress={async () => {
-                    if (!t.completada) {
-                      await completarTarea(t.id);
-                      setTareas(prev => prev.map(tarea =>
-                        tarea.id === t.id ? { ...tarea, completada: true } : tarea
-                      ));
-                    }
-                  }}
-                >
+                    key={t.id}
+                    style={[
+                      styles.tareaCard, 
+                      t.completada && t.tipo !== 'otro' && styles.tareaCardDone,
+                      t.tipo === 'otro' && styles.tareaCardNota,
+                    ]}
+                    onPress={async () => {
+                      if (!t.completada && t.tipo !== 'otro') {
+                        await completarTarea(t.id);
+                        setTareas(prev => prev.map(tarea =>
+                          tarea.id === t.id ? { ...tarea, completada: true } : tarea
+                        ));
+                      }
+                    }}
+                  >
                   <Text style={styles.tareaIcon}>{iconos[t.tipo] ?? '📝'}</Text>
                   <View style={styles.tareaInfo}>
-                    <Text style={[styles.tareaTexto, t.completada && { textDecorationLine: 'line-through' }]}>
-                      {t.descripcion}
-                    </Text>
+                    <Text style={[styles.tareaTexto, t.completada && t.tipo !== 'otro' && { textDecorationLine: 'line-through' }]}>
+                    {t.descripcion}
+                  </Text>
                     <Text style={styles.tareaHora}>{t.hora_programada ?? '—'}</Text>
                   </View>
                   <View style={[styles.tareaCheck, t.completada && styles.tareaCheckDone]}>
@@ -776,6 +780,10 @@ notaInput: {
 modalBtn: {
   borderRadius: 10, padding: 12, alignItems: 'center',
   borderWidth: 1, borderColor: COLORS.border,
+},
+tareaCardNota: { 
+  backgroundColor: COLORS.amberPale, 
+  borderColor: '#F5DBA0' 
 },
 modalBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.white },
   container: { flex: 1, backgroundColor: COLORS.cream },
