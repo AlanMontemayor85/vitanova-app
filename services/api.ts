@@ -98,7 +98,29 @@ export const completarTarea = async (tareaId: string) => {
   });
   return res.json();
 };
+export const getMedicamentos = async (pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/medicamentos/${pacienteId}`, {
+    headers: headers(),
+  });
+  return res.json();
+};
 
+export const crearMedicamento = async (medicamento: object) => {
+  const res = await fetch(`${BASE_URL}/medicamentos`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify(medicamento),
+  });
+  return res.json();
+};
+
+export const desactivarMedicamento = async (medicamentoId: string) => {
+  const res = await fetch(`${BASE_URL}/medicamentos/${medicamentoId}/desactivar`, {
+    method: 'PATCH',
+    headers: headers(),
+  });
+  return res.json();
+};
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',
