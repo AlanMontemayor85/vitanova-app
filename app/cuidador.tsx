@@ -1,7 +1,8 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getPacientes, getToken } from '../services/api';
+import { completarTarea, getPacientes, getToken, getTurnoActivo } from '../services/api';
+
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 const COLORS = {
@@ -80,7 +81,22 @@ export default function CuidadorScreen() {
   const [pacientes, setPacientes] = useState<any[]>([]);
   const [pacienteActivo, setPacienteActivo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [turnoActivo, setTurnoActivo] = useState<any>(null);
+  const [tareas, setTareas] = useState<any[]>([]);
+  const params = useLocalSearchParams();
 
+
+useEffect(() => {
+  if (params.vistaInicial === 'turno' && params.paciente) {
+    const p = JSON.parse(params.paciente as string);
+    setPacienteActivo(p);
+    getTurnoActivo(p.id).then(data => {
+      if (data.tareas) setTareas(data.tareas);
+      if (data.turno) setTurnoActivo(data.turno);
+    });
+    setVista('turno');
+  }
+}, [params.vistaInicial, params.paciente]);
   // Signos vitales
   const [spo2, setSpo2] = useState(98);
   const [sistolica, setSistolica] = useState(120);
@@ -118,14 +134,18 @@ export default function CuidadorScreen() {
     cargar();
   }, []);
 
-  const iniciarTurno = (paciente: any) => {
+  const iniciarTurno = async (paciente: any) => {
     setPacienteActivo(paciente);
+    try {
+      const data = await getTurnoActivo(paciente.id);
+      if (data.tareas) setTareas(data.tareas);
+      if (data.turno) setTurnoActivo(data.turno);
+    } catch (e) {
+      console.error(e);
+    }
     router.push({
-      pathname: '/registro-salud'as any,
-      params: {
-        paciente: JSON.stringify(paciente),
-        momento: 'inicio_turno',
-      },
+      pathname: '/registro-salud' as any,
+      params: { paciente: JSON.stringify(paciente), momento: 'inicio_turno' },
     });
   };
 
@@ -318,25 +338,45 @@ export default function CuidadorScreen() {
           </View>
 
           <Text style={styles.sectionTitle}>Tareas del turno</Text>
-          {[
-            { icon: '💊', texto: 'Metformina 500mg', hora: '8:00 AM', done: true },
-            { icon: '🍽️', texto: 'Desayuno', hora: '9:00 AM', done: true },
-            { icon: '🚶', texto: 'Caminata 20 min', hora: '11:00 AM', done: false },
-            { icon: '💊', texto: 'Losartán 50mg', hora: '3:00 PM', done: false },
-            { icon: '🛁', texto: 'Baño e higiene', hora: '4:00 PM', done: false },
-            { icon: '😴', texto: 'Siesta', hora: '2:00 PM', done: false },
-          ].map((t, i) => (
-            <View key={i} style={[styles.tareaCard, t.done && styles.tareaCardDone]}>
-              <Text style={styles.tareaIcon}>{t.icon}</Text>
-              <View style={styles.tareaInfo}>
-                <Text style={[styles.tareaTexto, t.done && { textDecorationLine: 'line-through' }]}>{t.texto}</Text>
-                <Text style={styles.tareaHora}>{t.hora}</Text>
-              </View>
-              <View style={[styles.tareaCheck, t.done && styles.tareaCheckDone]}>
-                <Text style={{ fontSize: 12, color: COLORS.white, fontWeight: '800' }}>{t.done ? '✓' : ''}</Text>
-              </View>
+          {tareas.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>Sin tareas registradas</Text>
             </View>
-          ))}
+          ) : (
+            tareas.map((t) => {
+              const iconos: Record<string, string> = {
+                medicamento: '💊', alimentacion: '🍽️', ejercicio: '🚶',
+                higiene: '🛁', cita: '📅', otro: '📝',
+              };
+              return (
+                <TouchableOpacity
+                  key={t.id}
+                  style={[styles.tareaCard, t.completada && styles.tareaCardDone]}
+                  onPress={async () => {
+                    if (!t.completada) {
+                      await completarTarea(t.id);
+                      setTareas(prev => prev.map(tarea =>
+                        tarea.id === t.id ? { ...tarea, completada: true } : tarea
+                      ));
+                    }
+                  }}
+                >
+                  <Text style={styles.tareaIcon}>{iconos[t.tipo] ?? '📝'}</Text>
+                  <View style={styles.tareaInfo}>
+                    <Text style={[styles.tareaTexto, t.completada && { textDecorationLine: 'line-through' }]}>
+                      {t.descripcion}
+                    </Text>
+                    <Text style={styles.tareaHora}>{t.hora_programada ?? '—'}</Text>
+                  </View>
+                  <View style={[styles.tareaCheck, t.completada && styles.tareaCheckDone]}>
+                    <Text style={{ fontSize: 12, color: COLORS.white, fontWeight: '800' }}>
+                      {t.completada ? '✓' : ''}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
 
           <View style={styles.accionesRow}>
             <TouchableOpacity style={[styles.accionBtn, { backgroundColor: COLORS.redPale, borderColor: 'rgba(217,79,79,0.3)' }]}>
