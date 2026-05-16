@@ -121,6 +121,21 @@ export const desactivarMedicamento = async (medicamentoId: string) => {
   });
   return res.json();
 };
+
+const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      ...((options.headers as any) ?? {}),
+    },
+  });
+  if (res.status === 401) {
+    await clearToken();
+  }
+  return res;
+};
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',
