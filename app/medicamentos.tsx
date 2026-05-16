@@ -68,8 +68,8 @@ export default function MedicamentosScreen() {
           if (rutinas.tareas) setTareasRec(rutinas.tareas);
         }
       } catch (e) {
-        console.error(e);
-      } finally {
+      console.error('ERROR RUTINA:', e);
+    }   finally {
         setLoading(false);
       }
     };
@@ -105,24 +105,26 @@ export default function MedicamentosScreen() {
   const guardarRutina = async () => {
     if (!rutinaDesc.trim() || !paciente?.id) return;
     setGuardandoRutina(true);
+    console.log('GUARDANDO RUTINA:', { paciente_id: paciente?.id, tipo: rutinaTipo, descripcion: rutinaDesc, hora: rutinaHora });
     try {
-      await crearTareaRecurrente({
+      const resultado = await crearTareaRecurrente({
         paciente_id: paciente.id,
         tipo: rutinaTipo,
         descripcion: rutinaDesc.trim(),
         hora: rutinaHora,
       });
+      console.log('RESPUESTA RUTINA:', resultado);
       const rutinas = await getTareasRecurrentes(paciente.id);
       if (rutinas.tareas) setTareasRec(rutinas.tareas);
       setRutinaDesc(''); setRutinaTipo('higiene'); setRutinaHora('09:00');
       setModalRutinaOpen(false);
     } catch (e) {
-      console.error(e);
-    } finally {
+    console.error('ERROR GUARDANDO RUTINA:', JSON.stringify(e));
+  }   finally {
       setGuardandoRutina(false);
     }
   };
-
+  
   const desactivar = async (id: string) => {
     await desactivarMedicamento(id);
     setMedicamentos(prev => prev.filter(m => m.id !== id));
