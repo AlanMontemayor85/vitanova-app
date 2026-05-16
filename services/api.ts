@@ -2,28 +2,45 @@
 // Vitanova API — conexión al backend Railway
 // ─────────────────────────────────────────
 
+import * as SecureStore from 'expo-secure-store';
+
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
-// Guardar token en memoria (en producción usar SecureStore)
 let authToken: string | null = null;
-
-export const setToken = (token: string) => { authToken = token; };
-export const getToken = () => authToken;
 let userNombre: string | null = null;
+let userTipo: string | null = null;
+
+export const setToken = async (token: string) => {
+  authToken = token;
+  await SecureStore.setItemAsync('vitanova_token', token);
+};
+
+export const getToken = () => authToken;
 export const getUserNombre = () => userNombre;
+export const getUserTipo = () => userTipo;
+
+export const loadStoredToken = async () => {
+  try {
+    const token = await SecureStore.getItemAsync('vitanova_token');
+    if (token) authToken = token;
+    return token;
+  } catch {
+    return null;
+  }
+};
+
+export const clearToken = async () => {
+  authToken = null;
+  userNombre = null;
+  userTipo = null;
+  await SecureStore.deleteItemAsync('vitanova_token');
+};
 
 const headers = () => ({
   'Content-Type': 'application/json',
   ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
 });
 
-export const getUltimoCierre = async (pacienteId: string) => {
-  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/ultimo-cierre`, {
-    headers: headers(),
-  });
-  return res.json();
-};
-// ── AUTH ──────────────────────────────────
 export const login = async (email: string, password: string) => {
   const res = await fetch(`${BASE_URL}/auth/login`, {
     method: 'POST',
@@ -32,12 +49,41 @@ export const login = async (email: string, password: string) => {
   });
   const data = await res.json();
   if (data.access_token) {
-    authToken = data.access_token;
+    await setToken(data.access_token);
     userNombre = data.nombre ?? null;
-}
+    userTipo = data.tipo ?? null;
+  }
   return data;
-  
 };
+
+export const getPacientes = async () => {
+  const res = await fetch(`${BASE_URL}/medical/patients`, {
+    headers: headers(),
+  });
+  return res.json();
+};
+
+export const getUltimoCierre = async (pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/ultimo-cierre`, {
+    headers: headers(),
+  });
+  return res.json();
+};
+
+export const getNotasTurno = async (pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/notas-turno`, {
+    headers: headers(),
+  });
+  return res.json();
+};
+
+export const getHistorialCierres = async (pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/historial-cierres`, {
+    headers: headers(),
+  });
+  return res.json();
+};
+
 export const getTurnoActivo = async (pacienteId: string) => {
   const res = await fetch(`${BASE_URL}/turnos/activo/${pacienteId}`, {
     headers: headers(),
@@ -52,27 +98,7 @@ export const completarTarea = async (tareaId: string) => {
   });
   return res.json();
 };
-export const getHistorialCierres = async (pacienteId: string) => {
-  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/historial-cierres`, {
-    headers: headers(),
-  });
-  return res.json();
-};
-export const getNotasTurno = async (pacienteId: string) => {
-  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/notas-turno`, {
-    headers: headers(),
-  });
-  return res.json();
-};
-// ── PACIENTES ─────────────────────────────
-export const getPacientes = async () => {
-  const res = await fetch(`${BASE_URL}/medical/patients`, {
-    headers: headers(),
-  });
-  return res.json();
-};
 
-// ── LEADS ─────────────────────────────────
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',
@@ -81,4 +107,3 @@ export const crearLead = async (lead: object) => {
   });
   return res.json();
 };
-

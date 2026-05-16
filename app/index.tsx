@@ -1,8 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getNotasTurno, getPacientes, getUltimoCierre } from '../services/api';
-
+import { clearToken, getNotasTurno, getPacientes, getUltimoCierre, loadStoredToken } from '../services/api';
 const COLORS = {
   gold: '#BF9A40',
   goldLight: '#D4B060',
@@ -33,8 +32,7 @@ export default function HomeScreen() {
   useEffect(() => {
     const init = async () => {
       try {
-        const { getToken } = await import('../services/api');
-        const token = getToken();
+        const token = await loadStoredToken();
         if (!token) {
           router.replace('/login');
           return;
@@ -47,7 +45,7 @@ export default function HomeScreen() {
           if (cierreData.cierre) setUltimoCierre(cierreData.cierre);
           const notasData = await getNotasTurno(p.id);
           if (notasData.notas) setNotas(notasData.notas);
-}
+        }
       } catch (e) {
         console.error('Error init:', e);
         router.replace('/login');
@@ -81,9 +79,15 @@ export default function HomeScreen() {
           <Text style={styles.greeting}>Buenos días</Text>
           <Text style={styles.userName}>Ana Leal</Text>
         </View>
-        <View style={styles.notifBtn}>
-          <Text style={styles.notifIcon}>🔔</Text>
-        </View>
+        <TouchableOpacity 
+          style={styles.notifBtn}
+          onPress={async () => {
+            await clearToken();
+            router.replace('/login');
+          }}
+        >
+          <Text style={styles.notifIcon}>🚪</Text>
+        </TouchableOpacity>
       </View>
 
       {/* PATIENT CARD */}
