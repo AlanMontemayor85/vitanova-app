@@ -39,9 +39,13 @@ export default function MedicamentosScreen() {
 
   useEffect(() => {
     const cargar = async () => {
-      try {
-        await loadStoredToken();
-        const data = await getPacientes();
+  try {
+    const token = await loadStoredToken();
+    if (!token) {
+      router.replace('/login');
+      return;
+    }
+    const data = await getPacientes();
         if (data.patients && data.patients.length > 0) {
           const p = data.patients[0];
           setPaciente(p);
@@ -59,6 +63,10 @@ export default function MedicamentosScreen() {
 
   const guardarMedicamento = async () => {
     if (!nombre.trim() || !dosis.trim()) return;
+    if (!paciente?.id) {
+      console.error('Paciente no cargado');
+      return;
+    }
     setGuardando(true);
     try {
       const horariosArr = horarios.split(',').map(h => h.trim()).filter(h => h);
