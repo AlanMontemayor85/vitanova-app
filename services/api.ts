@@ -181,6 +181,12 @@ export const getAlertas = async (pacienteId: string) => {
   });
   return res.json();
 };
+export const getUbicacion = async (pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/ubicacion`, {
+    headers: headers(),
+  });
+  return res.json();
+};
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',
