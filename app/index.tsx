@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { clearToken, getNotasTurno, getPacientes, getUltimoCierre, loadStoredToken } from '../services/api';
@@ -31,6 +31,7 @@ export default function HomeScreen() {
   const [notas, setNotas] = useState<any[]>([]);
   const [pacientes, setPacientes] = useState<any[]>([]);
   const [pacienteIndex, setPacienteIndex] = useState(0);
+  const params = useLocalSearchParams();
   useEffect(() => {
   const init = async () => {
     try {
@@ -62,7 +63,7 @@ export default function HomeScreen() {
     }
   };
   init();
-}, []);
+}, [params.refresh]);
 
 useEffect(() => {
   if (pacientes.length === 0) return;

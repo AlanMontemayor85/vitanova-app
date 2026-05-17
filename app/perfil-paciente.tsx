@@ -66,16 +66,16 @@ export default function PerfilPacienteScreen() {
   };
 
   const desactivar = async () => {
-    setGuardando(true);
-    try {
-      await actualizarPaciente(paciente.id, { activo: false });
-      router.replace('/');
-    } catch (e) {
-      setError('Error al desactivar');
-    } finally {
-      setGuardando(false);
-    }
-  };
+  setGuardando(true);
+  try {
+    await actualizarPaciente(paciente.id, { activo: false });
+    router.replace({ pathname: '/' as any, params: { refresh: Date.now().toString() } });
+  } catch (e) {
+    setError('Error al desactivar');
+  } finally {
+    setGuardando(false);
+  }
+};
 
   return (
     <View style={styles.container}>
