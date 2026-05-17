@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { actualizarPaciente } from '../services/api';
 
 const COLORS = {
@@ -76,7 +76,7 @@ export default function PerfilPacienteScreen() {
     setGuardando(false);
   }
 };
-
+ 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
@@ -149,11 +149,20 @@ export default function PerfilPacienteScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.btnDesactivar}
-          onPress={desactivar}
-          disabled={guardando}
+        style={styles.btnDesactivar}
+        onPress={() => {
+            Alert.alert(
+            'Desactivar paciente',
+            `¿Estás seguro de que quieres desactivar a ${paciente?.nombre_completo}? El historial se conservará.`,
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Desactivar', style: 'destructive', onPress: desactivar },
+            ]
+            );
+        }}
+        disabled={guardando}
         >
-          <Text style={styles.btnDesactivarText}>Desactivar paciente</Text>
+        <Text style={styles.btnDesactivarText}>Desactivar paciente</Text>
         </TouchableOpacity>
 
         <View style={{ height: 60 }} />
