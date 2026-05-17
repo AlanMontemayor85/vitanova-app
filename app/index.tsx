@@ -33,19 +33,24 @@ export default function HomeScreen() {
     const init = async () => {
       try {
         const token = await loadStoredToken();
-        if (!token) {
-          router.replace('/login');
-          return;
-        }
-        const data = await getPacientes();
-        if (data.patients && data.patients.length > 0) {
-          const p = data.patients[0];
-          setPaciente(p);
-          const cierreData = await getUltimoCierre(p.id);
-          if (cierreData.cierre) setUltimoCierre(cierreData.cierre);
-          const notasData = await getNotasTurno(p.id);
-          if (notasData.notas) setNotas(notasData.notas);
-        }
+      if (!token) {
+        router.replace('/login');
+        return;
+      }
+      const data = await getPacientes();
+      if (data.error || data.detail === 'Not authenticated') {
+        await clearToken();
+        router.replace('/login');
+        return;
+      }
+      if (data.patients && data.patients.length > 0) {
+        const p = data.patients[0];
+        setPaciente(p);
+        const cierreData = await getUltimoCierre(p.id);
+        if (cierreData.cierre) setUltimoCierre(cierreData.cierre);
+        const notasData = await getNotasTurno(p.id);
+        if (notasData.notas) setNotas(notasData.notas);
+      }
       } catch (e) {
         console.error('Error init:', e);
         router.replace('/login');
@@ -75,10 +80,16 @@ export default function HomeScreen() {
       
       {/* HEADER */}
       <View style={styles.header}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.greeting}>Buenos días</Text>
           <Text style={styles.userName}>Ana Leal</Text>
         </View>
+        <TouchableOpacity 
+          style={[styles.notifBtn, { marginRight: 8 }]}
+          onPress={() => router.push('/nuevo-paciente' as any)}
+        >
+          <Text style={{ color: COLORS.gold, fontSize: 22, fontWeight: '800' }}>+</Text>
+        </TouchableOpacity>
         <TouchableOpacity 
           style={styles.notifBtn}
           onPress={async () => {
