@@ -25,9 +25,10 @@ export default function NuevoPacienteScreen() {
   const router = useRouter();
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
-
   const [nombre, setNombre] = useState('');
-  const [fechaNac, setFechaNac] = useState('');
+  const [dia, setDia] = useState('');
+  const [mes, setMes] = useState('');
+  const [anio, setAnio] = useState('');
   const [sexo, setSexo] = useState<'M' | 'F' | 'otro'>('F');
   const [condiciones, setCondiciones] = useState<string[]>([]);
   const [medico, setMedico] = useState('');
@@ -42,8 +43,9 @@ export default function NuevoPacienteScreen() {
   };
 
   const guardar = async () => {
+    const fechaNac = `${anio.padStart(4,'0')}-${mes.padStart(2,'0')}-${dia.padStart(2,'0')}`;
     if (!nombre.trim()) { setError('El nombre es obligatorio'); return; }
-    if (!fechaNac.trim()) { setError('La fecha de nacimiento es obligatoria'); return; }
+    if (!dia || !mes || !anio) { setError('La fecha de nacimiento es obligatoria'); return; }
     setGuardando(true);
     setError('');
     try {
@@ -93,15 +95,36 @@ export default function NuevoPacienteScreen() {
           onChangeText={setNombre}
         />
 
-        <Text style={styles.label}>Fecha de nacimiento * (YYYY-MM-DD)</Text>
+        <Text style={styles.label}>Fecha de nacimiento *</Text>
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
         <TextInput
-          style={styles.input}
-          placeholder="1945-03-12"
-          placeholderTextColor={COLORS.textLight}
-          value={fechaNac}
-          onChangeText={setFechaNac}
-          keyboardType="numeric"
+            style={[styles.input, { flex: 1, marginBottom: 0 }]}
+            placeholder="Día"
+            placeholderTextColor={COLORS.textLight}
+            value={dia}
+            onChangeText={setDia}
+            keyboardType="numeric"
+            maxLength={2}
         />
+        <TextInput
+            style={[styles.input, { flex: 1, marginBottom: 0 }]}
+            placeholder="Mes"
+            placeholderTextColor={COLORS.textLight}
+            value={mes}
+            onChangeText={setMes}
+            keyboardType="numeric"
+            maxLength={2}
+        />
+        <TextInput
+            style={[styles.input, { flex: 2, marginBottom: 0 }]}
+            placeholder="Año"
+            placeholderTextColor={COLORS.textLight}
+            value={anio}
+            onChangeText={setAnio}
+            keyboardType="numeric"
+            maxLength={4}
+        />
+        </View>
 
         <Text style={styles.label}>Sexo</Text>
         <View style={styles.sexoRow}>
@@ -144,31 +167,22 @@ export default function NuevoPacienteScreen() {
         </View>
 
         <Text style={styles.label}>Médico tratante</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Dr. Hernández — Neumología"
-          placeholderTextColor={COLORS.textLight}
-          value={medico}
-          onChangeText={setMedico}
-        />
+        <View style={[styles.input, { opacity: 0.5, flexDirection: 'row', alignItems: 'center' }]}>
+        <Text style={{ fontSize: 16, marginRight: 8 }}>🔒</Text>
+        <Text style={{ color: COLORS.textLight, fontSize: 13 }}>Disponible próximamente</Text>
+        </View>
 
         <Text style={styles.label}>Aseguradora</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Banorte Seguros"
-          placeholderTextColor={COLORS.textLight}
-          value={aseguradora}
-          onChangeText={setAseguradora}
-        />
+        <View style={[styles.input, { opacity: 0.5, flexDirection: 'row', alignItems: 'center' }]}>
+        <Text style={{ fontSize: 16, marginRight: 8 }}>🔒</Text>
+        <Text style={{ color: COLORS.textLight, fontSize: 13 }}>Disponible próximamente</Text>
+        </View>
 
         <Text style={styles.label}>Número de póliza</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="POL-123456"
-          placeholderTextColor={COLORS.textLight}
-          value={poliza}
-          onChangeText={setPoliza}
-        />
+        <View style={[styles.input, { opacity: 0.5, flexDirection: 'row', alignItems: 'center' }]}>
+        <Text style={{ fontSize: 16, marginRight: 8 }}>🔒</Text>
+        <Text style={{ color: COLORS.textLight, fontSize: 13 }}>Disponible próximamente</Text>
+        </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 

@@ -29,10 +29,12 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [ultimoCierre, setUltimoCierre] = useState<any>(null);
   const [notas, setNotas] = useState<any[]>([]);
+  const [pacientes, setPacientes] = useState<any[]>([]);
+  const [pacienteIndex, setPacienteIndex] = useState(0);
   useEffect(() => {
-    const init = async () => {
-      try {
-        const token = await loadStoredToken();
+  const init = async () => {
+    try {
+      const token = await loadStoredToken();
       if (!token) {
         router.replace('/login');
         return;
@@ -44,6 +46,7 @@ export default function HomeScreen() {
         return;
       }
       if (data.patients && data.patients.length > 0) {
+        setPacientes(data.patients);
         const p = data.patients[0];
         setPaciente(p);
         const cierreData = await getUltimoCierre(p.id);
@@ -51,16 +54,30 @@ export default function HomeScreen() {
         const notasData = await getNotasTurno(p.id);
         if (notasData.notas) setNotas(notasData.notas);
       }
-      } catch (e) {
-        console.error('Error init:', e);
-        router.replace('/login');
-      } finally {
-        setLoading(false);
-      }
-    };
-    init();
-  }, []);
+    } catch (e) {
+      console.error('Error init:', e);
+      router.replace('/login');
+    } finally {
+      setLoading(false);
+    }
+  };
+  init();
+}, []);
 
+useEffect(() => {
+  if (pacientes.length === 0) return;
+  const p = pacientes[pacienteIndex];
+  setPaciente(p);
+  setUltimoCierre(null);
+  setNotas([]);
+  const cargarDatos = async () => {
+    const cierreData = await getUltimoCierre(p.id);
+    if (cierreData.cierre) setUltimoCierre(cierreData.cierre);
+    const notasData = await getNotasTurno(p.id);
+    if (notasData.notas) setNotas(notasData.notas);
+  };
+  cargarDatos();
+}, [pacienteIndex]);
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAFAF7' }}>
@@ -103,23 +120,43 @@ export default function HomeScreen() {
 
       {/* PATIENT CARD */}
       <View style={styles.patientCard}>
+        {pacientes.length > 1 && (
+          <TouchableOpacity onPress={() => {
+            const newIndex = (pacienteIndex - 1 + pacientes.length) % pacientes.length;
+            setPacienteIndex(newIndex);
+            setPaciente(pacientes[newIndex]);
+          }}>
+            <Text style={{ color: COLORS.gold, fontSize: 20, marginRight: 4 }}>‹</Text>
+          </TouchableOpacity>
+        )}
         <View style={styles.patientAvatar}>
           <Text style={styles.patientAvatarText}>{iniciales}</Text>
         </View>
         <View style={styles.patientInfo}>
           <Text style={styles.patientName}>{nombre}</Text>
           <Text style={styles.patientAge}>{condiciones}</Text>
+          {pacientes.length > 1 && (
+            <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>{pacienteIndex + 1} de {pacientes.length}</Text>
+          )}
         </View>
         <View style={styles.statusPill}>
           <View style={styles.statusDot} />
           <Text style={styles.statusText}>Bien</Text>
         </View>
+        {pacientes.length > 1 && (
+          <TouchableOpacity onPress={() => {
+            const newIndex = (pacienteIndex + 1) % pacientes.length;
+            setPacienteIndex(newIndex);
+            setPaciente(pacientes[newIndex]);
+          }}>
+            <Text style={{ color: COLORS.gold, fontSize: 20, marginLeft: 4 }}>›</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
 
         {/* VITALS */}
-        
         <View style={styles.vitalsRow}>
           <View style={styles.vitalCard}>
             <Text style={styles.vitalVal}>{ultimoCierre?.spo2 ?? '—'}</Text>
@@ -205,7 +242,6 @@ export default function HomeScreen() {
           </View>
         )}
 
-        
         {/* ACCESOS RÁPIDOS */}
         <Text style={[styles.sectionTitle, { marginTop: 8, marginBottom: 12 }]}>Accesos rápidos</Text>
         <View style={styles.quickActions}>
@@ -223,7 +259,6 @@ export default function HomeScreen() {
               <Text style={styles.qaIcon}>{item.icon}</Text>
               <Text style={styles.qaLabel}>{item.label}</Text>
             </TouchableOpacity>
-            
           ))}
         </View>
 
@@ -245,6 +280,7 @@ export default function HomeScreen() {
             ))}
           </>
         )}
+
         {/* TURNO ACTIVO */}
         <Text style={[styles.sectionTitle, { marginTop: 8, marginBottom: 12 }]}>Turno activo</Text>
         <View style={styles.turnoCard}>
@@ -265,30 +301,28 @@ export default function HomeScreen() {
 
         <View style={{ height: 100 }} />
       </ScrollView>
-       
+
       {/* BOTTOM NAV */}
-<View style={styles.bottomNav}>
-  {[
-    { icon: '🏠', label: 'Inicio', ruta: '/', active: true },
-    { icon: '📍', label: 'Mapa', ruta: '/mapa', active: false },
-    { icon: '🔔', label: 'Alertas', ruta: '/alertas' },
-    { icon: '📋', label: 'Medicam.', ruta: '/medicamentos', active: false },
-    
-  ].map((item) => (
-    <TouchableOpacity
-      key={item.label}
-      style={styles.navItem}
-      onPress={() => item.ruta && router.push(item.ruta as any)}
-    >
-      <Text style={styles.navIcon}>{item.icon}</Text>
-      <Text style={[styles.navLabel, item.active && { color: COLORS.gold }]}>
-        {item.label}
-      </Text>
-    </TouchableOpacity>
-  ))}
-</View>
+      <View style={styles.bottomNav}>
+        {[
+          { icon: '🏠', label: 'Inicio', ruta: '/', active: true },
+          { icon: '📍', label: 'Mapa', ruta: '/mapa', active: false },
+          { icon: '🔔', label: 'Alertas', ruta: '/alertas' },
+          { icon: '📋', label: 'Medicam.', ruta: '/medicamentos', active: false },
+        ].map((item) => (
+          <TouchableOpacity
+            key={item.label}
+            style={styles.navItem}
+            onPress={() => item.ruta && router.push(item.ruta as any)}
+          >
+            <Text style={styles.navIcon}>{item.icon}</Text>
+            <Text style={[styles.navLabel, item.active && { color: COLORS.gold }]}>
+              {item.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     </View>
-        
   );
 }
 
