@@ -129,9 +129,15 @@ useEffect(() => {
             <Text style={{ color: COLORS.gold, fontSize: 20, marginRight: 4 }}>‹</Text>
           </TouchableOpacity>
         )}
-        <View style={styles.patientAvatar}>
-          <Text style={styles.patientAvatarText}>{iniciales}</Text>
-        </View>
+        <TouchableOpacity 
+        onPress={() => router.push({
+          pathname: '/perfil-paciente' as any,
+          params: { paciente: JSON.stringify(paciente) }
+        })}
+        style={styles.patientAvatar}
+      >
+        <Text style={styles.patientAvatarText}>{iniciales}</Text>
+      </TouchableOpacity>
         <View style={styles.patientInfo}>
           <Text style={styles.patientName}>{nombre}</Text>
           <Text style={styles.patientAge}>{condiciones}</Text>

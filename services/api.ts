@@ -160,6 +160,14 @@ export const crearPaciente = async (paciente: object) => {
   });
   return res.json();
 };
+export const actualizarPaciente = async (pacienteId: string, datos: object) => {
+  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}`, {
+    method: 'PATCH',
+    headers: headers(),
+    body: JSON.stringify(datos),
+  });
+  return res.json();
+};
 export const desactivarTareaRecurrente = async (tareaId: string) => {
   const res = await fetch(`${BASE_URL}/tareas-recurrentes/${tareaId}/desactivar`, {
     method: 'PATCH',
