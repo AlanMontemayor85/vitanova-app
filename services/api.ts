@@ -175,6 +175,12 @@ export const desactivarTareaRecurrente = async (tareaId: string) => {
   });
   return res.json();
 };
+export const getAlertas = async (pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/alertas`, {
+    headers: headers(),
+  });
+  return res.json();
+};
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',

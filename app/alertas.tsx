@@ -1,5 +1,8 @@
 import { useRouter } from 'expo-router';
-import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { getAlertas, getPacientes, loadStoredToken } from '../services/api';
+
 const COLORS = {
   gold: '#BF9A40',
   goldPale: '#F5EDD8',
@@ -17,126 +20,114 @@ const COLORS = {
   redPale: '#FDEAEA',
 };
 
-const alertas = [
-  {
-    tipo: 'red',
-    icon: '🆘',
-    titulo: 'Botón SOS presionado',
-    tiempo: 'Hace 2 días · 4:32 PM',
-    estado: 'Resuelta',
-    desc: 'Se presionó el botón de emergencia. Rosa confirmó que fue accidental.',
-    ubicacion: 'Col. Del Valle, MTY',
-  },
-  {
-    tipo: 'amber',
-    icon: '⏰',
-    titulo: 'Medicamento no tomado',
-    tiempo: 'Hace 3 días · 8:00 PM',
-    estado: 'Ver',
-    desc: 'Losartán 50mg no fue confirmado en el horario programado.',
-    ubicacion: null,
-  },
-  {
-    tipo: 'green',
-    icon: '✅',
-    titulo: 'Dispositivo reconectado',
-    tiempo: 'Hace 4 días · 9:15 AM',
-    estado: null,
-    desc: 'El dispositivo SOS estuvo offline 2 horas. Batería cargada.',
-    ubicacion: null,
-  },
-  {
-    tipo: 'amber',
-    icon: '🚶',
-    titulo: 'Salió de zona segura',
-    tiempo: 'Hace 5 días · 11:30 AM',
-    estado: 'Resuelta',
-    desc: 'María Guadalupe salió del perímetro configurado. Regresó 20 min después.',
-    ubicacion: 'Av. Garza Sada, MTY',
-  },
-];
-
-const tabColors: Record<string, string> = { red: COLORS.red, amber: COLORS.amber, green: COLORS.green };
-const tabBg: Record<string, string> = { red: COLORS.redPale, amber: COLORS.amberPale, green: COLORS.greenPale };
+const TIPO_CONFIG: Record<string, { icon: string; color: string; bg: string }> = {
+  SOS: { icon: '🚨', color: '#D94F4F', bg: '#FDEAEA' },
+  caida: { icon: '⚠️', color: '#D4860A', bg: '#FFF4E0' },
+  geocerca: { icon: '📍', color: '#D4860A', bg: '#FFF4E0' },
+  medicamento: { icon: '💊', color: '#BF9A40', bg: '#F5EDD8' },
+  dispositivo: { icon: '📱', color: '#8A8078', bg: '#F1EFE8' },
+  signo_vital: { icon: '🩺', color: '#D94F4F', bg: '#FDEAEA' },
+  otro: { icon: '🔔', color: '#8A8078', bg: '#F1EFE8' },
+};
 
 export default function AlertasScreen() {
   const router = useRouter();
+  const [paciente, setPaciente] = useState<any>(null);
+  const [alertas, setAlertas] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const cargar = async () => {
+      try {
+        await loadStoredToken();
+        const data = await getPacientes();
+        if (data.patients && data.patients.length > 0) {
+          const p = data.patients[0];
+          setPaciente(p);
+          const alertasData = await getAlertas(p.id);
+          if (alertasData.alertas) setAlertas(alertasData.alertas);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    cargar();
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
+        <ActivityIndicator size="large" color={COLORS.gold} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
-
-      {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
-        <View>
-          <Text style={styles.title}>Alertas</Text>
-          <Text style={styles.subtitle}>María Guadalupe · Últimos 7 días</Text>
-        </View>
-      </View>
-
-      {/* TABS */}
-      <View style={styles.tabsWrap}>
-        <View style={styles.tabs}>
-          {['Hoy', 'Semana', 'Mes'].map((tab, i) => (
-            <View key={tab} style={[styles.tab, i === 1 && styles.tabActive]}>
-              <Text style={[styles.tabText, i === 1 && styles.tabTextActive]}>{tab}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      {/* RESUMEN */}
-      <View style={styles.resumenRow}>
-        <View style={styles.resumenCard}>
-          <Text style={[styles.resumenNum, { color: COLORS.red }]}>1</Text>
-          <Text style={styles.resumenLabel}>SOS</Text>
-        </View>
-        <View style={styles.resumenCard}>
-          <Text style={[styles.resumenNum, { color: COLORS.amber }]}>2</Text>
-          <Text style={styles.resumenLabel}>Medicam.</Text>
-        </View>
-        <View style={styles.resumenCard}>
-          <Text style={[styles.resumenNum, { color: COLORS.green }]}>1</Text>
-          <Text style={styles.resumenLabel}>Info</Text>
-        </View>
-        <View style={styles.resumenCard}>
-          <Text style={[styles.resumenNum, { color: COLORS.gold }]}>4</Text>
-          <Text style={styles.resumenLabel}>Total</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.greeting}>Alertas</Text>
+          <Text style={styles.userName}>{paciente?.nombre_completo}</Text>
         </View>
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-        {alertas.map((alerta, i) => (
-          <View key={i} style={styles.alertCard}>
-            <View style={styles.alertHeader}>
-              <View style={[styles.alertBadge, { backgroundColor: tabBg[alerta.tipo] }]}>
-                <Text style={styles.alertBadgeIcon}>{alerta.icon}</Text>
-              </View>
-              <View style={styles.alertHeaderInfo}>
-                <Text style={styles.alertTitulo}>{alerta.titulo}</Text>
-                <Text style={styles.alertTiempo}>{alerta.tiempo}</Text>
-              </View>
-              {alerta.estado && (
-                <View style={[styles.estadoPill, { backgroundColor: tabBg[alerta.tipo] }]}>
-                  <Text style={[styles.estadoText, { color: tabColors[alerta.tipo] }]}>
-                    {alerta.estado}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <Text style={styles.alertDesc}>{alerta.desc}</Text>
-            {alerta.ubicacion && (
-              <View style={styles.ubicacionWrap}>
-                <Text style={styles.ubicacionIcon}>📍</Text>
-                <Text style={styles.ubicacionText}>{alerta.ubicacion}</Text>
-              </View>
-            )}
+        {alertas.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyIcon}>✅</Text>
+            <Text style={styles.emptyTitle}>Sin alertas</Text>
+            <Text style={styles.emptyText}>Todo está en orden</Text>
           </View>
-        ))}
-        <View style={{ height: 40 }} />
+        ) : (
+          alertas.map((a) => {
+            const config = TIPO_CONFIG[a.tipo] ?? TIPO_CONFIG.otro;
+            return (
+              <View key={a.id} style={[styles.alertaCard, { backgroundColor: config.bg, borderColor: config.color + '40' }]}>
+                <View style={[styles.alertaIconWrap, { backgroundColor: config.color + '20' }]}>
+                  <Text style={styles.alertaIcon}>{config.icon}</Text>
+                </View>
+                <View style={styles.alertaContent}>
+                  <View style={styles.alertaHeader}>
+                    <Text style={[styles.alertaTipo, { color: config.color }]}>{a.tipo.toUpperCase()}</Text>
+                    <View style={[styles.severidadPill, {
+                      backgroundColor: a.severidad === 'alta' ? COLORS.redPale :
+                        a.severidad === 'media' ? COLORS.amberPale : COLORS.greenPale
+                    }]}>
+                      <Text style={[styles.severidadText, {
+                        color: a.severidad === 'alta' ? COLORS.red :
+                          a.severidad === 'media' ? COLORS.amber : COLORS.green
+                      }]}>{a.severidad}</Text>
+                    </View>
+                  </View>
+                  {a.descripcion && (
+                    <Text style={styles.alertaDesc}>{a.descripcion}</Text>
+                  )}
+                  <Text style={styles.alertaFecha}>
+                    {new Date(a.created_at).toLocaleString('es-MX', {
+                      day: 'numeric', month: 'short',
+                      hour: '2-digit', minute: '2-digit'
+                    })}
+                  </Text>
+                  {!a.resuelta && (
+                    <TouchableOpacity style={styles.resolverBtn}>
+                      <Text style={styles.resolverBtnText}>Marcar como resuelta</Text>
+                    </TouchableOpacity>
+                  )}
+                  {a.resuelta && (
+                    <Text style={styles.resueltaText}>✅ Resuelta</Text>
+                  )}
+                </View>
+              </View>
+            );
+          })
+        )}
+        <View style={{ height: 60 }} />
       </ScrollView>
     </View>
   );
@@ -145,84 +136,29 @@ export default function AlertasScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.cream },
   header: {
-    backgroundColor: COLORS.cacao,
-    paddingTop: 56,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
+    backgroundColor: COLORS.cacao, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
   },
-  backBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  backIcon: { fontSize: 18, color: '#fff' },
-  title: { fontSize: 20, fontWeight: '800', color: '#fff' },
-  subtitle: { fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
-  tabsWrap: {
-    backgroundColor: COLORS.cacao,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-  },
-  tabs: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 8, padding: 3,
-  },
-  tab: {
-    flex: 1, paddingVertical: 7, borderRadius: 6, alignItems: 'center',
-  },
-  tabActive: { backgroundColor: COLORS.gold },
-  tabText: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.4)' },
-  tabTextActive: { color: '#fff' },
-  resumenRow: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 8,
-  },
-  resumenCard: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-    borderRadius: 12, padding: 12,
-    alignItems: 'center',
-    borderWidth: 1, borderColor: COLORS.border,
-  },
-  resumenNum: { fontSize: 22, fontWeight: '800' },
-  resumenLabel: { fontSize: 9, fontWeight: '600', color: COLORS.textLight, marginTop: 2 },
-  body: { flex: 1, paddingHorizontal: 16 },
-  alertCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 14, padding: 14,
-    marginBottom: 10,
-    borderWidth: 1, borderColor: COLORS.border,
-  },
-  alertHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    gap: 10, marginBottom: 8,
-  },
-  alertBadge: {
-    width: 38, height: 38, borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0,
-  },
-  alertBadgeIcon: { fontSize: 18 },
-  alertHeaderInfo: { flex: 1 },
-  alertTitulo: { fontSize: 12, fontWeight: '700', color: COLORS.textDark },
-  alertTiempo: { fontSize: 10, color: COLORS.textLight, marginTop: 2 },
-  estadoPill: {
-    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4,
-  },
-  estadoText: { fontSize: 9, fontWeight: '700' },
-  alertDesc: {
-    fontSize: 11, color: COLORS.textLight, lineHeight: 16,
-  },
-  ubicacionWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    marginTop: 8, paddingTop: 8,
-    borderTopWidth: 1, borderTopColor: COLORS.border,
-  },
-  ubicacionIcon: { fontSize: 12 },
-  ubicacionText: { fontSize: 10, color: COLORS.textLight, fontWeight: '600' },
+  greeting: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: 2 },
+  userName: { fontSize: 20, fontWeight: '800', color: COLORS.white },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
+  backIcon: { fontSize: 18, color: COLORS.white },
+  body: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
+  emptyCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 40, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, marginTop: 20 },
+  emptyIcon: { fontSize: 48, marginBottom: 12 },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textDark, marginBottom: 6 },
+  emptyText: { fontSize: 13, color: COLORS.textLight },
+  alertaCard: { borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, flexDirection: 'row', gap: 12 },
+  alertaIconWrap: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  alertaIcon: { fontSize: 22 },
+  alertaContent: { flex: 1 },
+  alertaHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  alertaTipo: { fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+  severidadPill: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  severidadText: { fontSize: 9, fontWeight: '700' },
+  alertaDesc: { fontSize: 13, color: COLORS.textDark, marginBottom: 4 },
+  alertaFecha: { fontSize: 10, color: COLORS.textLight, marginBottom: 8 },
+  resolverBtn: { backgroundColor: COLORS.white, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, alignSelf: 'flex-start', borderWidth: 1, borderColor: COLORS.border },
+  resolverBtnText: { fontSize: 11, fontWeight: '600', color: COLORS.textDark },
+  resueltaText: { fontSize: 11, color: COLORS.green, fontWeight: '600' },
 });
