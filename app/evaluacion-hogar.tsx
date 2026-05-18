@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { crearEvaluacion, crearLead, getEvaluaciones, getPacientes, loadStoredToken } from '../services/api';
 
 
@@ -33,6 +33,8 @@ export default function EvaluacionHogarScreen() {
   const [resultado, setResultado] = useState<any>(null);
   const [ultimaEvaluacion, setUltimaEvaluacion] = useState<any>(null);
   const [loadingEval, setLoadingEval] = useState(true);
+  const [modalContacto, setModalContacto] = useState(false);
+  const [contactoTel, setContactoTel] = useState('');
 
   useEffect(() => {
     const cargar = async () => {
@@ -292,8 +294,11 @@ if (ultimaEvaluacion && paso === 'perfil' && !resultado) {
           </View>
         ))}
 
-        {ultimaEvaluacion.nivel_riesgo !== 'bajo' && (
-          <TouchableOpacity style={styles.solicitarBtn}>
+       {ultimaEvaluacion.nivel_riesgo !== 'bajo' && (
+          <TouchableOpacity 
+            style={styles.solicitarBtn}
+            onPress={() => setModalContacto(true)}
+          >
             <Text style={styles.solicitarBtnText}>📋 Solicitar evaluación profesional</Text>
             <Text style={styles.solicitarBtnSub}>Un especialista certificado visitará el hogar</Text>
           </TouchableOpacity>
@@ -308,6 +313,55 @@ if (ultimaEvaluacion && paso === 'perfil' && !resultado) {
 
         <View style={{ height: 60 }} />
       </ScrollView>
+
+      {modalContacto && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>¿A qué número te llamamos?</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ej: 81 1234 5678"
+              placeholderTextColor={COLORS.textLight}
+              value={contactoTel}
+              onChangeText={setContactoTel}
+              keyboardType="phone-pad"
+              autoFocus
+            />
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: COLORS.cream }]}
+                onPress={() => setModalContacto(false)}
+              >
+                <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]}
+                onPress={async () => {
+                  if (!contactoTel.trim()) {
+                    Alert.alert('Requerido', 'Por favor ingresa tu teléfono');
+                    return;
+                  }
+                  try {
+                    await crearLead({
+                      nombre: paciente?.nombre_completo ?? 'Familiar',
+                      telefono: contactoTel.trim(),
+                      motivo: 'adaptacion_hogar',
+                      mensaje: `Solicitud de evaluación profesional del hogar. Nivel de riesgo: ${ultimaEvaluacion?.nivel_riesgo ?? resultado?.nivel_riesgo}. Score: ${ultimaEvaluacion?.score_total ?? resultado?.score_total} pts.`,
+                    });
+                    setModalContacto(false);
+                    Alert.alert('¡Solicitud enviada!', 'Te contactaremos pronto.');
+                  } catch (e) {
+                    console.error(e);
+                  }
+                }}
+              >
+                <Text style={styles.modalBtnText}>Enviar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
     </View>
   );
 }
@@ -477,6 +531,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     borderWidth: 1, borderColor: COLORS.border,
   },
+  modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', padding: 24, justifyContent: 'center' },
+    modalCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20 },
+    modalTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textDark, marginBottom: 16 },
+    input: { backgroundColor: COLORS.cream, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: COLORS.border, fontSize: 14, color: COLORS.textDark, marginBottom: 10 },
+    modalBtn: { borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+    modalBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.white },
   perfilBtnActive: { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold },
   perfilBtnText: { fontSize: 14, color: COLORS.textDark, fontWeight: '600' },
   perfilBtnTextActive: { color: COLORS.gold },
