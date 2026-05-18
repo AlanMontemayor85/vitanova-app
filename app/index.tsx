@@ -2,6 +2,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { clearToken, getNotasTurno, getPacientes, getUltimoCierre, loadStoredToken } from '../services/api';
+import { registrarNotificaciones } from '../services/notifications';
+
 const COLORS = {
   gold: '#BF9A40',
   goldLight: '#D4B060',
@@ -35,6 +37,7 @@ export default function HomeScreen() {
   useEffect(() => {
   const init = async () => {
     try {
+      await registrarNotificaciones();
       const token = await loadStoredToken();
       if (!token) {
         router.replace('/login');

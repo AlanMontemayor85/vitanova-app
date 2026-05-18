@@ -187,6 +187,14 @@ export const getUbicacion = async (pacienteId: string) => {
   });
   return res.json();
 };
+export const registrarPushToken = async (token: string, plataforma: string) => {
+  const res = await fetch(`${BASE_URL}/push/register`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ token, plataforma }),
+  });
+  return res.json();
+};
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',
