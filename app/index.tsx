@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -37,12 +38,18 @@ export default function HomeScreen() {
   useEffect(() => {
   const init = async () => {
     try {
+      const onboardingCompletado = await AsyncStorage.getItem('onboarding_completado');
+      if (!onboardingCompletado) {
+        router.replace('/onboarding');
+        return;
+      }
       await registrarNotificaciones();
       const token = await loadStoredToken();
       if (!token) {
         router.replace('/login');
         return;
       }
+      
       const data = await getPacientes();
       if (data.error || data.detail === 'Not authenticated') {
         await clearToken();
