@@ -267,6 +267,7 @@ useEffect(() => {
             { icon: '💊', label: 'Medicam.', ruta: '/medicamentos' },
             { icon: '🔔', label: 'Alertas', ruta: '/alertas' },
             { icon: '💬', label: 'Cuidadores', ruta: '/cuidadora' },
+            { icon: '🏠', label: 'Evaluación', ruta: '/evaluacion-hogar' },
           ].map((item) => (
             <TouchableOpacity
               key={item.label}

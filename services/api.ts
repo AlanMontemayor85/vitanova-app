@@ -195,6 +195,21 @@ export const registrarPushToken = async (token: string, plataforma: string) => {
   });
   return res.json();
 };
+export const crearEvaluacion = async (data: object) => {
+  const res = await fetch(`${BASE_URL}/evaluaciones/hogar`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify(data),
+  });
+  return res.json();
+};
+
+export const getEvaluaciones = async (pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/evaluaciones/hogar/${pacienteId}`, {
+    headers: headers(),
+  });
+  return res.json();
+};
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',
