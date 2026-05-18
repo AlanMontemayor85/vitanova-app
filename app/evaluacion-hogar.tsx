@@ -208,7 +208,7 @@ export default function EvaluacionHogarScreen() {
                     motivo: 'adaptacion_hogar',
                     mensaje: `Solicitud de evaluación profesional del hogar. Nivel de riesgo: ${resultado?.nivel_riesgo ?? ultimaEvaluacion?.nivel_riesgo}. Score: ${resultado?.score_total ?? ultimaEvaluacion?.score_total} pts.`,
                 });
-                Alert('¡Solicitud enviada! Te contactaremos pronto.');
+                Alert.alert('¡Solicitud enviada! Te contactaremos pronto.');
                 } catch (e) {
                 console.error(e);
                 }
