@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { crearEvaluacion, crearLead, getEvaluaciones, getPacientes, loadStoredToken } from '../services/api';
+
 
 const COLORS = {
   gold: '#BF9A40',
@@ -199,6 +200,7 @@ export default function EvaluacionHogarScreen() {
             <TouchableOpacity 
             style={styles.solicitarBtn}
             onPress={async () => {
+                console.log('SOLICITAR PRESSED');
                 try {
                 await crearLead({
                     nombre: paciente?.nombre_completo ?? 'Familiar',
@@ -206,7 +208,7 @@ export default function EvaluacionHogarScreen() {
                     motivo: 'adaptacion_hogar',
                     mensaje: `Solicitud de evaluación profesional del hogar. Nivel de riesgo: ${resultado?.nivel_riesgo ?? ultimaEvaluacion?.nivel_riesgo}. Score: ${resultado?.score_total ?? ultimaEvaluacion?.score_total} pts.`,
                 });
-                alert('¡Solicitud enviada! Te contactaremos pronto.');
+                Alert('¡Solicitud enviada! Te contactaremos pronto.');
                 } catch (e) {
                 console.error(e);
                 }
