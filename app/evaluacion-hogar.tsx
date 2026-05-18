@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { crearEvaluacion, getPacientes, loadStoredToken } from '../services/api';
+import { crearEvaluacion, getEvaluaciones, getPacientes, loadStoredToken } from '../services/api';
 
 const COLORS = {
   gold: '#BF9A40',
@@ -22,12 +22,38 @@ const COLORS = {
 
 type Paso = 'perfil' | 'entrada' | 'bano' | 'sala' | 'recamara' | 'escaleras' | 'demencia' | 'respiratorio' | 'resultado';
 
+
 export default function EvaluacionHogarScreen() {
+
   const router = useRouter();
   const [paso, setPaso] = useState<Paso>('perfil');
   const [paciente, setPaciente] = useState<any>(null);
   const [guardando, setGuardando] = useState(false);
   const [resultado, setResultado] = useState<any>(null);
+  const [ultimaEvaluacion, setUltimaEvaluacion] = useState<any>(null);
+  const [loadingEval, setLoadingEval] = useState(true);
+
+  useEffect(() => {
+    const cargar = async () => {
+      try {
+        await loadStoredToken();
+        const data = await getPacientes();
+        if (data.patients && data.patients.length > 0) {
+          const p = data.patients[0];
+          setPaciente(p);
+          const evals = await getEvaluaciones(p.id);
+          if (evals.evaluaciones && evals.evaluaciones.length > 0) {
+            setUltimaEvaluacion(evals.evaluaciones[0]);
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingEval(false);
+      }
+    };
+    cargar();
+  }, []);
 
   // PERFIL
   const [tieneDemencia, setTieneDemencia] = useState(false);
@@ -185,7 +211,89 @@ export default function EvaluacionHogarScreen() {
       </View>
     );
   }
+if (loadingEval) {
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
+      <ActivityIndicator size="large" color={COLORS.gold} />
+    </View>
+  );
+}
 
+if (ultimaEvaluacion && paso === 'perfil' && !resultado) {
+  const color = ultimaEvaluacion.nivel_riesgo === 'alto' ? COLORS.red :
+    ultimaEvaluacion.nivel_riesgo === 'moderado' ? COLORS.amber : COLORS.green;
+  const bg = ultimaEvaluacion.nivel_riesgo === 'alto' ? COLORS.redPale :
+    ultimaEvaluacion.nivel_riesgo === 'moderado' ? COLORS.amberPale : COLORS.greenPale;
+  const emoji = ultimaEvaluacion.nivel_riesgo === 'alto' ? '🔴' :
+    ultimaEvaluacion.nivel_riesgo === 'moderado' ? '🟡' : '🟢';
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.greeting}>Evaluación del hogar</Text>
+          <Text style={styles.userName}>Última evaluación</Text>
+        </View>
+      </View>
+
+      <ScrollView style={styles.body}>
+        <View style={[styles.resultadoCard, { backgroundColor: bg, borderColor: color + '40' }]}>
+          <Text style={styles.resultadoEmoji}>{emoji}</Text>
+          <Text style={[styles.resultadoNivel, { color }]}>
+            Riesgo {ultimaEvaluacion.nivel_riesgo.toUpperCase()}
+          </Text>
+          <Text style={styles.resultadoScore}>Score: {ultimaEvaluacion.score_total} pts</Text>
+          <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 6 }}>
+            {new Date(ultimaEvaluacion.created_at).toLocaleDateString('es-MX', {
+              day: 'numeric', month: 'long', year: 'numeric'
+            })}
+          </Text>
+        </View>
+
+        <Text style={styles.sectionTitle}>
+          {ultimaEvaluacion.recomendaciones?.length ?? 0} recomendaciones pendientes
+        </Text>
+
+        {ultimaEvaluacion.recomendaciones?.map((rec: any, i: number) => (
+          <View key={i} style={styles.recCard}>
+            <View style={styles.recHeader}>
+              <View style={[styles.recPrioridadDot, {
+                backgroundColor: rec.prioridad === 'alta' ? COLORS.red : COLORS.amber
+              }]} />
+              <Text style={styles.recCategoria}>{rec.categoria}</Text>
+            </View>
+            <Text style={styles.recItem}>{rec.item}</Text>
+            {rec.producto && (
+              <View style={styles.recProducto}>
+                <Text style={styles.recProductoText}>🛍️ {rec.producto}</Text>
+              </View>
+            )}
+          </View>
+        ))}
+
+        {ultimaEvaluacion.nivel_riesgo !== 'bajo' && (
+          <TouchableOpacity style={styles.solicitarBtn}>
+            <Text style={styles.solicitarBtnText}>📋 Solicitar evaluación profesional</Text>
+            <Text style={styles.solicitarBtnSub}>Un especialista certificado visitará el hogar</Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity
+          style={[styles.cerrarBtn, { backgroundColor: COLORS.cacao, marginTop: 8 }]}
+          onPress={() => setUltimaEvaluacion(null)}
+        >
+          <Text style={styles.cerrarBtnText}>🔄 Hacer nueva evaluación</Text>
+        </TouchableOpacity>
+
+        <View style={{ height: 60 }} />
+      </ScrollView>
+    </View>
+  );
+}
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
