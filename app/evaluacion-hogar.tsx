@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { crearEvaluacion, getEvaluaciones, getPacientes, loadStoredToken } from '../services/api';
+import { crearEvaluacion, crearLead, getEvaluaciones, getPacientes, loadStoredToken } from '../services/api';
 
 const COLORS = {
   gold: '#BF9A40',
@@ -196,9 +196,24 @@ export default function EvaluacionHogarScreen() {
           ))}
 
           {resultado.nivel_riesgo !== 'bajo' && (
-            <TouchableOpacity style={styles.solicitarBtn}>
-              <Text style={styles.solicitarBtnText}>📋 Solicitar evaluación profesional</Text>
-              <Text style={styles.solicitarBtnSub}>Un especialista certificado visitará el hogar</Text>
+            <TouchableOpacity 
+            style={styles.solicitarBtn}
+            onPress={async () => {
+                try {
+                await crearLead({
+                    nombre: paciente?.nombre_completo ?? 'Familiar',
+                    telefono: '—',
+                    motivo: 'adaptacion_hogar',
+                    mensaje: `Solicitud de evaluación profesional del hogar. Nivel de riesgo: ${resultado?.nivel_riesgo ?? ultimaEvaluacion?.nivel_riesgo}. Score: ${resultado?.score_total ?? ultimaEvaluacion?.score_total} pts.`,
+                });
+                alert('¡Solicitud enviada! Te contactaremos pronto.');
+                } catch (e) {
+                console.error(e);
+                }
+            }}
+            >
+            <Text style={styles.solicitarBtnText}>📋 Solicitar evaluación profesional</Text>
+            <Text style={styles.solicitarBtnSub}>Un especialista certificado visitará el hogar</Text>
             </TouchableOpacity>
           )}
 
