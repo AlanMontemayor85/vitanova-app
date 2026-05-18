@@ -152,7 +152,7 @@ export default function EvaluacionHogarScreen() {
       resultado.nivel_riesgo === 'moderado' ? COLORS.amberPale : COLORS.greenPale;
     const emoji = resultado.nivel_riesgo === 'alto' ? '🔴' :
       resultado.nivel_riesgo === 'moderado' ? '🟡' : '🟢';
-
+    console.log('NIVEL RIESGO:', resultado?.nivel_riesgo);
     return (
       <View style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
