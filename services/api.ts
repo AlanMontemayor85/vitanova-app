@@ -210,6 +210,28 @@ export const getEvaluaciones = async (pacienteId: string) => {
   });
   return res.json();
 };
+export const verificarEscalas = async (pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/escalas/verificar/${pacienteId}`, {
+    headers: headers(),
+  });
+  return res.json();
+};
+
+export const guardarEscala = async (escala: object) => {
+  const res = await fetch(`${BASE_URL}/escalas`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify(escala),
+  });
+  return res.json();
+};
+
+export const getEscalas = async (pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/escalas/${pacienteId}`, {
+    headers: headers(),
+  });
+  return res.json();
+};
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',

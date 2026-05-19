@@ -1,8 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { clearToken, completarTarea, getPacientes, getToken, getTurnoActivo, loadStoredToken } from '../services/api';
-
+import { clearToken, completarTarea, getPacientes, getToken, getTurnoActivo, loadStoredToken, verificarEscalas } from '../services/api';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 const COLORS = {
@@ -88,6 +87,10 @@ export default function CuidadorScreen() {
   const [notaTexto, setNotaTexto] = useState('');
   const [guardandoNota, setGuardandoNota] = useState(false);
   const turnoActivoRef = useRef<any>(null);
+  const [escalaRequerida, setEscalaRequerida] = useState(false);
+  const [escalasLista, setEscalasLista] = useState<string[]>([]);
+  const [escalaMotivo, setEscalaMotivo] = useState('');
+  const [escalasMensaje, setEscalasMensaje] = useState('');
 
 
   useEffect(() => {
@@ -470,7 +473,17 @@ export default function CuidadorScreen() {
             <Text style={[styles.accionBtnText, { color: COLORS.gold }]}>Signos</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.cerrarBtn} onPress={() => setVista('cierre')}>
+          <TouchableOpacity 
+            style={styles.cerrarBtn} 
+            onPress={async () => {
+              const verificacion = await verificarEscalas(pacienteActivo.id);
+              setEscalaRequerida(verificacion.requiere_escalas);
+              setEscalasLista(verificacion.escalas ?? []);
+              setEscalaMotivo(verificacion.motivo);
+              setEscalasMensaje(verificacion.mensaje);
+              setVista('cierre');
+            }}
+          >
             <Text style={styles.cerrarBtnText}>Cerrar turno</Text>
           </TouchableOpacity>
 
@@ -550,24 +563,8 @@ export default function CuidadorScreen() {
             ))}
           </View>
 
-          {/* RESUMEN SIGNOS */}
-          <Text style={styles.sectionTitle}>Resumen de signos</Text>
-          <View style={styles.resumenSignos}>
-            <View style={styles.resumenSignoItem}>
-              <Text style={styles.resumenSignoVal}>{spo2}%</Text>
-              <Text style={styles.resumenSignoLabel}>SpO₂</Text>
-            </View>
-            <View style={styles.resumenSignoItem}>
-              <Text style={styles.resumenSignoVal}>{sistolica}/{diastolica}</Text>
-              <Text style={styles.resumenSignoLabel}>Presión</Text>
-            </View>
-            <View style={styles.resumenSignoItem}>
-              <Text style={styles.resumenSignoVal}>{fc}</Text>
-              <Text style={styles.resumenSignoLabel}>FC bpm</Text>
-            </View>
-          </View>
-          {/* PESO */}
-          <Text style={styles.sectionTitle}>Peso</Text>
+          {/* PESO OPCIONAL */}
+          <Text style={styles.sectionTitle}>Peso (opcional)</Text>
           <View style={styles.signoCard}>
             <Text style={styles.signoLabel}>Peso (kg)</Text>
             <View style={styles.signoControles}>
@@ -581,200 +578,171 @@ export default function CuidadorScreen() {
             </View>
           </View>
 
-          {/* EVALUACIONES OPCIONALES */}
-          <Text style={styles.sectionTitle}>Evaluaciones opcionales</Text>
-
-          {/* BARTHEL */}
-          <View style={styles.evaluacionCard}>
-            <TouchableOpacity
-              style={styles.evaluacionHeader}
-              onPress={() => { setBarthelOpen(!barthelOpen); setBarthelTocado(true); }}
-            >
-              <View style={styles.evaluacionIconWrap}>
-                <Text style={{ fontSize: 16 }}>📋</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.evaluacionTitle}>Índice de Barthel</Text>
-                <Text style={styles.evaluacionSub}>Independencia funcional</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                {barthelTotal > 0 && (
-                  <Text style={styles.evaluacionScore}>{barthelTotal}/100</Text>
-                )}
-                <Text style={{ fontSize: 16, color: COLORS.textLight }}>{barthelOpen ? '▲' : '▼'}</Text>
-              </View>
-            </TouchableOpacity>
-
-            {barthelOpen && (
-              <View style={styles.evaluacionContent}>
-                <Text style={{ fontSize: 11, color: COLORS.textLight, marginBottom: 12 }}>
-                  Selecciona el nivel de independencia en cada actividad
-                </Text>
-                {BARTHEL_ITEMS.map((item, i) => (
-                  <View key={i} style={{ marginBottom: 14 }}>
-                    <Text style={styles.barthelItemLabel}>{item.label}</Text>
-                    <View style={styles.barthelOpciones}>
-                      {item.opciones.map((op) => (
-                        <TouchableOpacity
-                          key={op.val}
-                          style={[
-                            styles.barthelOpcion,
-                            barthelScores[i] === op.val && styles.barthelOpcionActive,
-                          ]}
-                          onPress={() => {
-                            const nuevos = [...barthelScores];
-                            nuevos[i] = op.val;
-                            setBarthelScores(nuevos);
-                          }}
-                        >
-                          <Text style={[
-                            styles.barthelOpcionText,
-                            barthelScores[i] === op.val && styles.barthelOpcionTextActive,
-                          ]}>
-                            {op.val} — {op.txt}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
+          {/* ESCALAS — solo si el sistema las requiere */}
+          {escalaRequerida && (
+            <>
+              <View style={[styles.evaluacionCard, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, marginBottom: 12 }]}>
+                <View style={{ padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Text style={{ fontSize: 20 }}>📋</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: COLORS.cacao }}>
+                      {escalaMotivo === 'inicial' ? 'Evaluación inicial requerida' : 'Re-evaluación sugerida'}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 2 }}>
+                      {escalasMensaje}
+                    </Text>
                   </View>
-                ))}
-
-                <View style={styles.barthelTotal}>
-                  <Text style={styles.barthelTotalLabel}>Puntaje total</Text>
-                  <Text style={styles.barthelTotalVal}>{barthelTotal} / 100</Text>
                 </View>
-                <Text style={styles.barthelTotalDesc}>{getBarthelLabel(barthelTotal)}</Text>
               </View>
-            )}
-          </View>
 
-          {/* MORSE — placeholder */}
-          <View style={styles.evaluacionCard}>
-            <TouchableOpacity
-              style={styles.evaluacionHeader}
-              onPress={() => { setMorseOpen(!morseOpen); setMorseTocado(true); }}
-            >
-              <View style={styles.evaluacionIconWrap}>
-                <Text style={{ fontSize: 16 }}>⚠️</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.evaluacionTitle}>Escala de Morse</Text>
-                <Text style={styles.evaluacionSub}>Riesgo de caídas</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                {morseTotal > 0 && (
-                  <Text style={styles.evaluacionScore}>{morseTotal} pts</Text>
-                )}
-                <Text style={{ fontSize: 16, color: COLORS.textLight }}>{morseOpen ? '▲' : '▼'}</Text>
-              </View>
-            </TouchableOpacity>
-
-            {morseOpen && (
-              <View style={styles.evaluacionContent}>
-                <Text style={{ fontSize: 11, color: COLORS.textLight, marginBottom: 12 }}>
-                  Evalúa el riesgo de caída del paciente
-                </Text>
-                {MORSE_ITEMS.map((item, i) => (
-                  <View key={i} style={{ marginBottom: 14 }}>
-                    <Text style={styles.barthelItemLabel}>{item.label}</Text>
-                    <View style={styles.barthelOpciones}>
-                      {item.opciones.map((op) => (
-                        <TouchableOpacity
-                          key={op.val}
-                          style={[
-                            styles.barthelOpcion,
-                            morseScores[i] === op.val && morseScores[i] !== 0 && styles.barthelOpcionActive,
-                          ]}
-                          onPress={() => {
-                            const nuevos = [...morseScores];
-                            nuevos[i] = op.val;
-                            setMorseScores(nuevos);
-                          }}
-                        >
-                          <Text style={[
-                            styles.barthelOpcionText,
-                            morseScores[i] === op.val && morseScores[i] !== 0 && styles.barthelOpcionTextActive,
-                          ]}>
-                            {op.val} — {op.txt}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
+              {/* BARTHEL */}
+              {escalasLista.includes('barthel') && (
+                <View style={styles.evaluacionCard}>
+                  <TouchableOpacity
+                    style={styles.evaluacionHeader}
+                    onPress={() => setBarthelOpen(!barthelOpen)}
+                  >
+                    <View style={styles.evaluacionIconWrap}>
+                      <Text style={{ fontSize: 16 }}>📋</Text>
                     </View>
-                  </View>
-                ))}
-
-                <View style={styles.barthelTotal}>
-                  <Text style={styles.barthelTotalLabel}>Puntaje total</Text>
-                  <Text style={styles.barthelTotalVal}>{morseTotal} pts</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.evaluacionTitle}>Índice de Barthel</Text>
+                      <Text style={styles.evaluacionSub}>Independencia funcional</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                      {barthelTotal > 0 && <Text style={styles.evaluacionScore}>{barthelTotal}/100</Text>}
+                      <Text style={{ fontSize: 16, color: COLORS.textLight }}>{barthelOpen ? '▲' : '▼'}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  {barthelOpen && (
+                    <View style={styles.evaluacionContent}>
+                      {BARTHEL_ITEMS.map((item, i) => (
+                        <View key={i} style={{ marginBottom: 14 }}>
+                          <Text style={styles.barthelItemLabel}>{item.label}</Text>
+                          <View style={styles.barthelOpciones}>
+                            {item.opciones.map((op) => (
+                              <TouchableOpacity
+                                key={op.val}
+                                style={[styles.barthelOpcion, barthelScores[i] === op.val && styles.barthelOpcionActive]}
+                                onPress={() => { const n = [...barthelScores]; n[i] = op.val; setBarthelScores(n); }}
+                              >
+                                <Text style={[styles.barthelOpcionText, barthelScores[i] === op.val && styles.barthelOpcionTextActive]}>
+                                  {op.val} — {op.txt}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+                      ))}
+                      <View style={styles.barthelTotal}>
+                        <Text style={styles.barthelTotalLabel}>Puntaje total</Text>
+                        <Text style={styles.barthelTotalVal}>{barthelTotal} / 100</Text>
+                      </View>
+                      <Text style={styles.barthelTotalDesc}>{getBarthelLabel(barthelTotal)}</Text>
+                    </View>
+                  )}
                 </View>
-                <Text style={styles.barthelTotalDesc}>{getMorseLabel(morseTotal)}</Text>
-              </View>
-            )}
-          </View>
-
-          {/* MNA — placeholder */}
-          <View style={styles.evaluacionCard}>
-          <TouchableOpacity
-            style={styles.evaluacionHeader}
-            onPress={() => { setMnaOpen(!mnaOpen); setMnaTocado(true); }}
-          >
-            <View style={styles.evaluacionIconWrap}>
-              <Text style={{ fontSize: 16 }}>🍽️</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.evaluacionTitle}>Nutrición MNA</Text>
-              <Text style={styles.evaluacionSub}>Mini nutritional assessment</Text>
-            </View>
-            <View style={{ alignItems: 'flex-end', gap: 2 }}>
-              {mnaTotal > 0 && (
-                <Text style={styles.evaluacionScore}>{mnaTotal} pts</Text>
               )}
-              <Text style={{ fontSize: 16, color: COLORS.textLight }}>{mnaOpen ? '▲' : '▼'}</Text>
-            </View>
-          </TouchableOpacity>
 
-          {mnaOpen && (
-            <View style={styles.evaluacionContent}>
-              <Text style={{ fontSize: 11, color: COLORS.textLight, marginBottom: 12 }}>
-                Evalúa el estado nutricional del paciente
-              </Text>
-              {MNA_ITEMS.map((item, i) => (
-                <View key={i} style={{ marginBottom: 14 }}>
-                  <Text style={styles.barthelItemLabel}>{item.label}</Text>
-                  <View style={styles.barthelOpciones}>
-                    {item.opciones.map((op) => (
-                      <TouchableOpacity
-                        key={op.val}
-                        style={[
-                          styles.barthelOpcion,
-                          mnaScores[i] === op.val && mnaScores[i] !== 0 && styles.barthelOpcionActive,
-                        ]}
-                        onPress={() => {
-                          const nuevos = [...mnaScores];
-                          nuevos[i] = op.val;
-                          setMnaScores(nuevos);
-                        }}
-                      >
-                        <Text style={[
-                          styles.barthelOpcionText,
-                          mnaScores[i] === op.val && mnaScores[i] !== 0 && styles.barthelOpcionTextActive,
-                        ]}>
-                          {op.val} — {op.txt}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+              {/* MORSE */}
+              {escalasLista.includes('morse') && (
+                <View style={styles.evaluacionCard}>
+                  <TouchableOpacity
+                    style={styles.evaluacionHeader}
+                    onPress={() => setMorseOpen(!morseOpen)}
+                  >
+                    <View style={styles.evaluacionIconWrap}>
+                      <Text style={{ fontSize: 16 }}>⚠️</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.evaluacionTitle}>Escala de Morse</Text>
+                      <Text style={styles.evaluacionSub}>Riesgo de caídas</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                      {morseTotal > 0 && <Text style={styles.evaluacionScore}>{morseTotal} pts</Text>}
+                      <Text style={{ fontSize: 16, color: COLORS.textLight }}>{morseOpen ? '▲' : '▼'}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  {morseOpen && (
+                    <View style={styles.evaluacionContent}>
+                      {MORSE_ITEMS.map((item, i) => (
+                        <View key={i} style={{ marginBottom: 14 }}>
+                          <Text style={styles.barthelItemLabel}>{item.label}</Text>
+                          <View style={styles.barthelOpciones}>
+                            {item.opciones.map((op) => (
+                              <TouchableOpacity
+                                key={op.val}
+                                style={[styles.barthelOpcion, morseScores[i] === op.val && morseScores[i] !== 0 && styles.barthelOpcionActive]}
+                                onPress={() => { const n = [...morseScores]; n[i] = op.val; setMorseScores(n); }}
+                              >
+                                <Text style={[styles.barthelOpcionText, morseScores[i] === op.val && morseScores[i] !== 0 && styles.barthelOpcionTextActive]}>
+                                  {op.val} — {op.txt}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+                      ))}
+                      <View style={styles.barthelTotal}>
+                        <Text style={styles.barthelTotalLabel}>Puntaje total</Text>
+                        <Text style={styles.barthelTotalVal}>{morseTotal} pts</Text>
+                      </View>
+                      <Text style={styles.barthelTotalDesc}>{getMorseLabel(morseTotal)}</Text>
+                    </View>
+                  )}
                 </View>
-              ))}
+              )}
 
-              <View style={styles.barthelTotal}>
-                <Text style={styles.barthelTotalLabel}>Puntaje total</Text>
-                <Text style={styles.barthelTotalVal}>{mnaTotal} pts</Text>
-              </View>
-              <Text style={styles.barthelTotalDesc}>{getMNALabel(mnaTotal)}</Text>
-            </View>
+              {/* MNA */}
+              {escalasLista.includes('mna') && (
+                <View style={styles.evaluacionCard}>
+                  <TouchableOpacity
+                    style={styles.evaluacionHeader}
+                    onPress={() => setMnaOpen(!mnaOpen)}
+                  >
+                    <View style={styles.evaluacionIconWrap}>
+                      <Text style={{ fontSize: 16 }}>🍽️</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.evaluacionTitle}>Nutrición MNA</Text>
+                      <Text style={styles.evaluacionSub}>Mini nutritional assessment</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                      {mnaTotal > 0 && <Text style={styles.evaluacionScore}>{mnaTotal} pts</Text>}
+                      <Text style={{ fontSize: 16, color: COLORS.textLight }}>{mnaOpen ? '▲' : '▼'}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  {mnaOpen && (
+                    <View style={styles.evaluacionContent}>
+                      {MNA_ITEMS.map((item, i) => (
+                        <View key={i} style={{ marginBottom: 14 }}>
+                          <Text style={styles.barthelItemLabel}>{item.label}</Text>
+                          <View style={styles.barthelOpciones}>
+                            {item.opciones.map((op) => (
+                              <TouchableOpacity
+                                key={op.val}
+                                style={[styles.barthelOpcion, mnaScores[i] === op.val && mnaScores[i] !== 0 && styles.barthelOpcionActive]}
+                                onPress={() => { const n = [...mnaScores]; n[i] = op.val; setMnaScores(n); }}
+                              >
+                                <Text style={[styles.barthelOpcionText, mnaScores[i] === op.val && mnaScores[i] !== 0 && styles.barthelOpcionTextActive]}>
+                                  {op.val} — {op.txt}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+                      ))}
+                      <View style={styles.barthelTotal}>
+                        <Text style={styles.barthelTotalLabel}>Puntaje total</Text>
+                        <Text style={styles.barthelTotalVal}>{mnaTotal} pts</Text>
+                      </View>
+                      <Text style={styles.barthelTotalDesc}>{getMNALabel(mnaTotal)}</Text>
+                    </View>
+                  )}
+                </View>
+              )}
+            </>
           )}
-        </View>
 
           <TouchableOpacity style={styles.confirmarBtn} onPress={confirmarCierre}>
             <Text style={styles.confirmarBtnText}>Confirmar y cerrar turno</Text>
