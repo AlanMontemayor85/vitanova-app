@@ -232,6 +232,19 @@ export const getEscalas = async (pacienteId: string) => {
   });
   return res.json();
 };
+export const getDashboardMedico = async () => {
+  const res = await fetch(`${BASE_URL}/medico/dashboard`, {
+    headers: headers(),
+  });
+  return res.json();
+};
+
+export const getEvolucionPaciente = async (pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/medico/paciente/${pacienteId}/evolucion`, {
+    headers: headers(),
+  });
+  return res.json();
+};
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',
