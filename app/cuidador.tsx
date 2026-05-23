@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { clearToken, completarTarea, getPacientes, getToken, getTurnoActivo, getUserNombre, loadStoredToken, verificarEscalas } from '../services/api';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
@@ -579,7 +579,31 @@ export default function CuidadorScreen() {
       </View>
     );
   }
+const compartirWhatsApp = () => {
+  const emoji = estadoPaciente === 'bien' ? '😊' : estadoPaciente === 'preocupante' ? '😟' : '😐';
+  const estado = estadoPaciente === 'bien' ? 'Bien' : estadoPaciente === 'preocupante' ? 'Preocupante' : 'Regular';
 
+  const mensaje = `🏠 *Vitanova Integralis — Resumen de turno*
+
+👤 Paciente: *${pacienteActivo?.nombre_completo}*
+${emoji} Estado: *${estado}*
+
+📊 *Signos vitales:*
+- SpO₂: ${spo2}%
+- Presión: ${sistolica}/${diastolica} mmHg
+- Frec. cardíaca: ${fc} bpm
+${peso ? `• Peso: ${peso} kg` : ''}
+
+✅ Turno cerrado por ${getUserNombre() ?? 'Cuidador'}
+🕐 ${new Date().toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+
+_Vitanova Integralis — Cuidado profesional en el hogar_`;
+
+  const url = `whatsapp://send?text=${encodeURIComponent(mensaje)}`;
+  Linking.openURL(url).catch(() => {
+    Alert.alert('WhatsApp no disponible', 'Instala WhatsApp para compartir el resumen');
+  });
+};
   // ── VISTA CIERRE ──────────────────────────────────────────
   if (vista === 'cierre' && pacienteActivo) {
     return (
@@ -796,15 +820,23 @@ export default function CuidadorScreen() {
               )}
             </>
           )}
+          <TouchableOpacity 
+            style={[styles.confirmarBtn, { backgroundColor: '#25D366', marginBottom: 8 }]} 
+            onPress={compartirWhatsApp}
+          >
+            <Text style={styles.confirmarBtnText}>📲 Compartir por WhatsApp</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity style={styles.confirmarBtn} onPress={confirmarCierre}>
             <Text style={styles.confirmarBtnText}>Confirmar y cerrar turno</Text>
           </TouchableOpacity>
-
+          
           <View style={{ height: 40 }} />
         </ScrollView>
       </View>
     );
+
+    
   }
   
   return null;
