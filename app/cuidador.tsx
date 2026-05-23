@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { clearToken, completarTarea, getPacientes, getToken, getTurnoActivo, loadStoredToken, verificarEscalas } from '../services/api';
+import { clearToken, completarTarea, getPacientes, getToken, getTurnoActivo, getUserNombre, loadStoredToken, verificarEscalas } from '../services/api';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 const COLORS = {
@@ -258,15 +258,15 @@ export default function CuidadorScreen() {
 
   // ── VISTA LISTA ──────────────────────────────────────────
   if (vista === 'lista') {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Bienvenido</Text>
-            <Text style={styles.userName}>{nombre}</Text>
-          </View>
-          <TouchableOpacity
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
+      <View style={styles.header}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.greeting}>Bienvenido</Text>
+          <Text style={styles.userName}>{getUserNombre() ?? 'Cuidador'}</Text>
+        </View>
+        <TouchableOpacity
           style={styles.notifBtn}
           onPress={async () => {
             await clearToken();
@@ -275,43 +275,96 @@ export default function CuidadorScreen() {
         >
           <Text style={styles.notifIcon}>🚪</Text>
         </TouchableOpacity>
-        </View>
+      </View>
 
-        <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-          <Text style={styles.sectionTitle}>Tus pacientes hoy</Text>
+      <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+        <Text style={styles.sectionTitle}>Tus pacientes hoy</Text>
 
-          {pacientes.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyIcon}>👤</Text>
-              <Text style={styles.emptyTitle}>Sin pacientes asignados</Text>
-              <Text style={styles.emptyText}>Pide al familiar que te invite al equipo de cuidado</Text>
-            </View>
-          ) : (
-            pacientes.map((p) => {
-              const iniciales = p.nombre_completo?.split(' ').map((n: string) => n[0]).slice(0, 2).join('') ?? 'P';
-              return (
-                <TouchableOpacity key={p.id} style={styles.pacienteCard} onPress={() => iniciarTurno(p)}>
+        {loading ? (
+          <ActivityIndicator color={COLORS.gold} style={{ marginTop: 40 }} />
+        ) : pacientes.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyIcon}>👤</Text>
+            <Text style={styles.emptyTitle}>Sin pacientes asignados</Text>
+            <Text style={styles.emptyText}>Contacta a tu coordinador para recibir una asignación</Text>
+          </View>
+        ) : (
+          pacientes.map((p) => {
+            const estadoTurno = p.estado_turno ?? 'no_iniciado';
+            const condiciones = p.condiciones_medicas?.join(' · ') ?? '—';
+            const iniciales = p.nombre_completo?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+
+            return (
+              <View key={p.id} style={styles.pacienteCard}>
+                {/* INFO PACIENTE */}
+                <View style={styles.pacienteRow}>
                   <View style={styles.pacienteAvatar}>
                     <Text style={styles.pacienteAvatarText}>{iniciales}</Text>
                   </View>
-                  <View style={styles.pacienteInfo}>
+                  <View style={{ flex: 1 }}>
                     <Text style={styles.pacienteNombre}>{p.nombre_completo}</Text>
-                    <Text style={styles.pacienteCondiciones}>
-                      {p.condiciones_medicas?.join(' · ') ?? '—'}
-                    </Text>
+                    <Text style={styles.pacienteCondiciones}>{condiciones}</Text>
                   </View>
-                  <View style={styles.iniciarBtn}>
+                  {/* ESTADO BADGE */}
+                  {estadoTurno === 'activo' && (
+                    <View style={styles.badgeActivo}>
+                      <View style={styles.activoDot} />
+                      <Text style={styles.badgeActivoText}>Activo</Text>
+                    </View>
+                  )}
+                  {estadoTurno === 'finalizado' && (
+                    <View style={styles.badgeFinalizado}>
+                      <Text style={styles.badgeFinalizadoText}>✓ Finalizado</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* BOTÓN SEGÚN ESTADO */}
+                {estadoTurno === 'no_iniciado' && (
+                  <TouchableOpacity
+                    style={styles.iniciarBtn}
+                    onPress={() => router.push({
+                      pathname: '/registro-salud' as any,
+                      params: { paciente: JSON.stringify(p), momento: 'inicio_turno' }
+                    })}
+                  >
                     <Text style={styles.iniciarBtnText}>Iniciar turno →</Text>
+                  </TouchableOpacity>
+                )}
+
+                {estadoTurno === 'activo' && (
+                  <TouchableOpacity
+                    style={[styles.iniciarBtn, { backgroundColor: COLORS.greenPale, borderColor: COLORS.green }]}
+                    onPress={() => {
+                      setPacienteActivo(p);
+                      getTurnoActivo(p.id).then(data => {
+                        if (data.tareas) setTareas(data.tareas);
+                        if (data.turno) {
+                          setTurnoActivo(data.turno);
+                          turnoActivoRef.current = data.turno;
+                        }
+                      });
+                      setVista('turno');
+                    }}
+                  >
+                    <Text style={[styles.iniciarBtnText, { color: COLORS.green }]}>Continuar turno →</Text>
+                  </TouchableOpacity>
+                )}
+
+                {estadoTurno === 'finalizado' && (
+                  <View style={[styles.iniciarBtn, { backgroundColor: COLORS.cream, borderColor: COLORS.border }]}>
+                    <Text style={[styles.iniciarBtnText, { color: COLORS.textLight }]}>Turno completado hoy ✓</Text>
                   </View>
-                </TouchableOpacity>
-              );
-            })
-          )}
-          <View style={{ height: 100 }} />
-        </ScrollView>
-      </View>
-    );
-  }
+                )}
+              </View>
+            );
+          })
+        )}
+        <View style={{ height: 60 }} />
+      </ScrollView>
+    </View>
+  );
+}
 
   // ── VISTA TURNO ──────────────────────────────────────────
   if (vista === 'turno' && pacienteActivo) {
@@ -947,4 +1000,18 @@ modalBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.white },
     paddingVertical: 16, alignItems: 'center', marginTop: 8,
   },
   confirmarBtnText: { fontSize: 14, fontWeight: '800', color: COLORS.white, letterSpacing: 1 },
+  pacienteRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+badgeActivo: {
+  flexDirection: 'row', alignItems: 'center', gap: 4,
+  backgroundColor: 'rgba(61,170,106,0.15)', borderRadius: 20,
+  paddingHorizontal: 8, paddingVertical: 4,
+  borderWidth: 1, borderColor: 'rgba(61,170,106,0.3)',
+},
+badgeActivoText: { fontSize: 9, fontWeight: '700', color: COLORS.green },
+badgeFinalizado: {
+  backgroundColor: COLORS.cream, borderRadius: 20,
+  paddingHorizontal: 8, paddingVertical: 4,
+  borderWidth: 1, borderColor: COLORS.border,
+},
+badgeFinalizadoText: { fontSize: 9, fontWeight: '700', color: COLORS.textLight },
 });
