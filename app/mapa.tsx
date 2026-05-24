@@ -64,7 +64,17 @@ export default function MapaScreen() {
       </View>
     );
   }
-
+const crearYCargar = async (radio: number) => {
+  await crearGeocerca({
+    paciente_id: paciente.id,
+    nombre: 'Casa',
+    lat: ubicacion.lat,
+    lng: ubicacion.lng,
+    radio_metros: radio,
+  });
+  const data = await getGeocercas(paciente.id);
+  if (data.geocercas) setGeocercas(data.geocercas);
+};
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
@@ -168,22 +178,12 @@ export default function MapaScreen() {
                 if (!ubicacion) return;
                 Alert.alert(
                   'Crear zona segura',
-                  '¿Crear zona segura de 200m alrededor de la ubicación actual?',
+                  '¿Qué radio quieres para la zona segura?',
                   [
                     { text: 'Cancelar', style: 'cancel' },
-                    {
-                      text: 'Crear', onPress: async () => {
-                        await crearGeocerca({
-                          paciente_id: paciente.id,
-                          nombre: 'Casa',
-                          lat: ubicacion.lat,
-                          lng: ubicacion.lng,
-                          radio_metros: 200,
-                        });
-                        const data = await getGeocercas(paciente.id);
-                        if (data.geocercas) setGeocercas(data.geocercas);
-                      }
-                    }
+                    { text: '50m (casa)', onPress: async () => await crearYCargar(50) },
+                    { text: '100m (condominio)', onPress: async () => await crearYCargar(100) },
+                    { text: '200m (rancho)', onPress: async () => await crearYCargar(200) },
                   ]
                 );
               }}
@@ -218,6 +218,7 @@ export default function MapaScreen() {
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.cream },
