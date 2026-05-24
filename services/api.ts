@@ -4,6 +4,7 @@
 
 import * as SecureStore from 'expo-secure-store';
 
+
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
 let authToken: string | null = null;
@@ -245,11 +246,35 @@ export const getEvolucionPaciente = async (pacienteId: string) => {
   });
   return res.json();
 };
+export const crearGeocerca = async (data: object) => {
+  const res = await fetch(`${BASE_URL}/geocercas`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify(data),
+  });
+  return res.json();
+};
+
+export const getGeocercas = async (pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/geocercas/${pacienteId}`, {
+    headers: headers(),
+  });
+  return res.json();
+};
+
+export const eliminarGeocerca = async (geocercaId: string) => {
+  const res = await fetch(`${BASE_URL}/geocercas/${geocercaId}`, {
+    method: 'DELETE',
+    headers: headers(),
+  });
+  return res.json();
+};
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',
     headers: headers(),
     body: JSON.stringify(lead),
   });
+  
   return res.json();
 };

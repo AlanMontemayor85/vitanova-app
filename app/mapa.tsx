@@ -1,8 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { getPacientes, getUbicacion, loadStoredToken } from '../services/api';
+import { ActivityIndicator, Alert, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { crearGeocerca, eliminarGeocerca, getGeocercas, getPacientes, getUbicacion, loadStoredToken } from '../services/api';
 
 const COLORS = {
   gold: '#BF9A40',
@@ -22,6 +22,8 @@ export default function MapaScreen() {
   const [paciente, setPaciente] = useState<any>(null);
   const [ubicacion, setUbicacion] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [geocercas, setGeocercas] = useState<any[]>([]);
+ 
 
   useEffect(() => {
     const cargar = async () => {
@@ -33,6 +35,8 @@ export default function MapaScreen() {
           setPaciente(p);
           const ubData = await getUbicacion(p.id);
           if (ubData.ubicacion) setUbicacion(ubData.ubicacion);
+          const geocercaData = await getGeocercas(p.id);
+          if (geocercaData.geocercas) setGeocercas(geocercaData.geocercas);
         }
       } catch (e) {
         console.error(e);
@@ -98,8 +102,17 @@ export default function MapaScreen() {
           <Marker
             coordinate={{ latitude: ubicacion.lat, longitude: ubicacion.lng }}
             title={paciente?.nombre_completo}
-            description={`Última actualización: ${ubicacion.ultima_conexion ? new Date(ubicacion.ultima_conexion).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}`}
           />
+          {geocercas.map((g) => (
+            <Circle
+              key={g.id}
+              center={{ latitude: g.lat, longitude: g.lng }}
+              radius={g.radio_metros}
+              strokeColor="rgba(191,154,64,0.8)"
+              fillColor="rgba(191,154,64,0.1)"
+              strokeWidth={2}
+            />
+          ))}
         </MapView>
       ) : (
         <View style={styles.sinUbicacion}>
@@ -146,6 +159,60 @@ export default function MapaScreen() {
           >
             <Text style={styles.centrarBtnText}>📍 Centrar en el mapa</Text>
           </TouchableOpacity>
+
+          <Text style={[styles.infoLabel, { marginTop: 12, marginBottom: 8 }]}>Zona segura</Text>
+          {geocercas.length === 0 ? (
+            <TouchableOpacity
+              style={styles.centrarBtn}
+              onPress={() => {
+                if (!ubicacion) return;
+                Alert.alert(
+                  'Crear zona segura',
+                  '¿Crear zona segura de 200m alrededor de la ubicación actual?',
+                  [
+                    { text: 'Cancelar', style: 'cancel' },
+                    {
+                      text: 'Crear', onPress: async () => {
+                        await crearGeocerca({
+                          paciente_id: paciente.id,
+                          nombre: 'Casa',
+                          lat: ubicacion.lat,
+                          lng: ubicacion.lng,
+                          radio_metros: 200,
+                        });
+                        const data = await getGeocercas(paciente.id);
+                        if (data.geocercas) setGeocercas(data.geocercas);
+                      }
+                    }
+                  ]
+                );
+              }}
+            >
+              <Text style={styles.centrarBtnText}>+ Crear zona segura</Text>
+            </TouchableOpacity>
+          ) : (
+            geocercas.map((g) => (
+              <View key={g.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <Text style={styles.infoVal}>📍 {g.nombre} — {g.radio_metros}m</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    Alert.alert('Eliminar zona', '¿Eliminar esta zona segura?', [
+                      { text: 'Cancelar', style: 'cancel' },
+                      {
+                        text: 'Eliminar', style: 'destructive', onPress: async () => {
+                          await eliminarGeocerca(g.id);
+                          const data = await getGeocercas(paciente.id);
+                          if (data.geocercas) setGeocercas(data.geocercas);
+                        }
+                      }
+                    ]);
+                  }}
+                >
+                  <Text style={{ color: '#D94F4F', fontSize: 12, fontWeight: '700' }}>✕ Eliminar</Text>
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
         </View>
       )}
     </View>
