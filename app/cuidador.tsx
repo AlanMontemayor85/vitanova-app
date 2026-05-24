@@ -289,15 +289,15 @@ export default function CuidadorScreen() {
             <Text style={styles.emptyText}>Contacta a tu coordinador para recibir una asignación</Text>
           </View>
         ) : (
-          pacientes.map((p) => {
+         pacientes.map((p) => {
             const estadoTurno = p.estado_turno ?? 'no_iniciado';
             const condiciones = p.condiciones_medicas?.join(' · ') ?? '—';
             const iniciales = p.nombre_completo?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
 
             return (
               <View key={p.id} style={styles.pacienteCard}>
-                {/* INFO PACIENTE */}
-                <View style={styles.pacienteRow}>
+                {/* FILA INFO */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                   <View style={styles.pacienteAvatar}>
                     <Text style={styles.pacienteAvatarText}>{iniciales}</Text>
                   </View>
@@ -305,7 +305,6 @@ export default function CuidadorScreen() {
                     <Text style={styles.pacienteNombre}>{p.nombre_completo}</Text>
                     <Text style={styles.pacienteCondiciones}>{condiciones}</Text>
                   </View>
-                  {/* ESTADO BADGE */}
                   {estadoTurno === 'activo' && (
                     <View style={styles.badgeActivo}>
                       <View style={styles.activoDot} />
@@ -314,7 +313,7 @@ export default function CuidadorScreen() {
                   )}
                   {estadoTurno === 'finalizado' && (
                     <View style={styles.badgeFinalizado}>
-                      <Text style={styles.badgeFinalizadoText}>✓ Finalizado</Text>
+                      <Text style={styles.badgeFinalizadoText}>✓ Listo</Text>
                     </View>
                   )}
                 </View>
@@ -322,19 +321,19 @@ export default function CuidadorScreen() {
                 {/* BOTÓN SEGÚN ESTADO */}
                 {estadoTurno === 'no_iniciado' && (
                   <TouchableOpacity
-                    style={styles.iniciarBtn}
+                    style={[styles.iniciarBtn, { marginTop: 10, alignSelf: 'stretch' }]}
                     onPress={() => router.push({
                       pathname: '/registro-salud' as any,
                       params: { paciente: JSON.stringify(p), momento: 'inicio_turno' }
                     })}
                   >
-                    <Text style={styles.iniciarBtnText}>Iniciar turno →</Text>
+                    <Text style={[styles.iniciarBtnText, { textAlign: 'center' }]}>Iniciar turno →</Text>
                   </TouchableOpacity>
                 )}
 
                 {estadoTurno === 'activo' && (
                   <TouchableOpacity
-                    style={[styles.iniciarBtn, { backgroundColor: COLORS.greenPale, borderColor: COLORS.green }]}
+                    style={[styles.iniciarBtn, { backgroundColor: COLORS.greenPale, borderColor: COLORS.green, marginTop: 10, alignSelf: 'stretch' }]}
                     onPress={() => {
                       setPacienteActivo(p);
                       getTurnoActivo(p.id).then(data => {
@@ -347,13 +346,13 @@ export default function CuidadorScreen() {
                       setVista('turno');
                     }}
                   >
-                    <Text style={[styles.iniciarBtnText, { color: COLORS.green }]}>Continuar turno →</Text>
+                    <Text style={[styles.iniciarBtnText, { color: COLORS.green, textAlign: 'center' }]}>Continuar turno →</Text>
                   </TouchableOpacity>
                 )}
 
                 {estadoTurno === 'finalizado' && (
-                  <View style={[styles.iniciarBtn, { backgroundColor: COLORS.cream, borderColor: COLORS.border }]}>
-                    <Text style={[styles.iniciarBtnText, { color: COLORS.textLight }]}>Turno completado hoy ✓</Text>
+                  <View style={[styles.iniciarBtn, { backgroundColor: COLORS.cream, borderColor: COLORS.border, marginTop: 10, alignSelf: 'stretch' }]}>
+                    <Text style={[styles.iniciarBtnText, { color: COLORS.textLight, textAlign: 'center' }]}>Turno completado hoy ✓</Text>
                   </View>
                 )}
               </View>
@@ -365,7 +364,6 @@ export default function CuidadorScreen() {
     </View>
   );
 }
-
   // ── VISTA TURNO ──────────────────────────────────────────
   if (vista === 'turno' && pacienteActivo) {
     return (
