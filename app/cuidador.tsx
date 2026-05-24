@@ -912,7 +912,7 @@ modalBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.white },
   emptyText: { fontSize: 12, color: COLORS.textLight, textAlign: 'center' },
   pacienteCard: {
     backgroundColor: COLORS.white, borderRadius: 14, padding: 14,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
+    flexDirection: 'column',
     borderWidth: 1, borderColor: COLORS.border, marginBottom: 10,
   },
   pacienteAvatar: {
