@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { crearGeocerca, eliminarGeocerca, getGeocercas, getPacientes, getUbicacion, loadStoredToken } from '../services/api';
 
@@ -133,88 +133,90 @@ const crearYCargar = async (radio: number) => {
       )}
 
       {/* INFO CARD */}
-      {ubicacion && (
-        <View style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Dispositivo</Text>
-            <Text style={styles.infoVal}>{ubicacion.modelo ?? ubicacion.device_id}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Última actualización</Text>
-            <Text style={styles.infoVal}>
-              {ubicacion.ultima_conexion
-                ? new Date(ubicacion.ultima_conexion).toLocaleString('es-MX', {
-                    day: 'numeric', month: 'short',
-                    hour: '2-digit', minute: '2-digit'
-                  })
-                : '—'}
-            </Text>
-          </View>
-          {ubicacion.bateria_pct && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Batería</Text>
-              <Text style={[styles.infoVal, { color: ubicacion.bateria_pct < 20 ? COLORS.red : COLORS.green }]}>
-                {ubicacion.bateria_pct}%
-              </Text>
-            </View>
-          )}
-          <TouchableOpacity
-            style={styles.centrarBtn}
-            onPress={() => mapRef.current?.animateToRegion({
-              latitude: ubicacion.lat,
-              longitude: ubicacion.lng,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            })}
-          >
-            <Text style={styles.centrarBtnText}>📍 Centrar en el mapa</Text>
-          </TouchableOpacity>
+    {ubicacion && (
+  <ScrollView style={styles.infoCard} showsVerticalScrollIndicator={false}>
+    <View style={styles.infoRow}>
+      <Text style={styles.infoLabel}>Dispositivo</Text>
+      <Text style={styles.infoVal}>{ubicacion.modelo ?? ubicacion.device_id}</Text>
+    </View>
+    <View style={styles.infoRow}>
+      <Text style={styles.infoLabel}>Última actualización</Text>
+      <Text style={styles.infoVal}>
+        {ubicacion.ultima_conexion
+          ? new Date(ubicacion.ultima_conexion).toLocaleString('es-MX', {
+              day: 'numeric', month: 'short',
+              hour: '2-digit', minute: '2-digit'
+            })
+          : '—'}
+      </Text>
+    </View>
+    {ubicacion.bateria_pct && (
+      <View style={styles.infoRow}>
+        <Text style={styles.infoLabel}>Batería</Text>
+        <Text style={[styles.infoVal, { color: ubicacion.bateria_pct < 20 ? COLORS.red : COLORS.green }]}>
+          {ubicacion.bateria_pct}%
+        </Text>
+      </View>
+    )}
+    <TouchableOpacity
+      style={styles.centrarBtn}
+      onPress={() => mapRef.current?.animateToRegion({
+        latitude: ubicacion.lat,
+        longitude: ubicacion.lng,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      })}
+    >
+      <Text style={styles.centrarBtnText}>📍 Centrar en el mapa</Text>
+    </TouchableOpacity>
 
-          <Text style={[styles.infoLabel, { marginTop: 12, marginBottom: 8 }]}>Zona segura</Text>
-          {geocercas.length === 0 ? (
-            <TouchableOpacity
-              style={styles.centrarBtn}
-              onPress={() => {
-                if (!ubicacion) return;
-                Alert.alert(
-                  'Crear zona segura',
-                  '¿Qué radio quieres para la zona segura?',
-                  [
-                    { text: 'Cancelar', style: 'cancel' },
-                    { text: '50m (casa)', onPress: async () => await crearYCargar(50) },
-                    { text: '100m (condominio)', onPress: async () => await crearYCargar(100) },
-                    { text: '200m (rancho)', onPress: async () => await crearYCargar(200) },
-                  ]
-                );
-              }}
-            >
-              <Text style={styles.centrarBtnText}>+ Crear zona segura</Text>
-            </TouchableOpacity>
-          ) : (
-            geocercas.map((g) => (
-              <View key={g.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <Text style={styles.infoVal}>📍 {g.nombre} — {g.radio_metros}m</Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    Alert.alert('Eliminar zona', '¿Eliminar esta zona segura?', [
-                      { text: 'Cancelar', style: 'cancel' },
-                      {
-                        text: 'Eliminar', style: 'destructive', onPress: async () => {
-                          await eliminarGeocerca(g.id);
-                          const data = await getGeocercas(paciente.id);
-                          if (data.geocercas) setGeocercas(data.geocercas);
-                        }
-                      }
-                    ]);
-                  }}
-                >
-                  <Text style={{ color: '#D94F4F', fontSize: 12, fontWeight: '700' }}>✕ Eliminar</Text>
-                </TouchableOpacity>
-              </View>
-            ))
-          )}
+    <Text style={[styles.infoLabel, { marginTop: 12, marginBottom: 8 }]}>Zona segura</Text>
+    {geocercas.length === 0 ? (
+      <TouchableOpacity
+        style={styles.centrarBtn}
+        onPress={() => {
+          if (!ubicacion) return;
+          Alert.alert(
+            'Crear zona segura',
+            '¿Qué radio quieres para la zona segura?',
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: '50m (casa)', onPress: async () => await crearYCargar(50) },
+              { text: '100m (condominio)', onPress: async () => await crearYCargar(100) },
+              { text: '200m (rancho)', onPress: async () => await crearYCargar(200) },
+            ]
+          );
+        }}
+      >
+        <Text style={styles.centrarBtnText}>+ Crear zona segura</Text>
+      </TouchableOpacity>
+    ) : (
+      geocercas.map((g) => (
+        <View key={g.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, marginTop: 4 }}>
+          <Text style={styles.infoVal}>📍 {g.nombre} — {g.radio_metros}m</Text>
+          <TouchableOpacity
+            style={{ backgroundColor: '#FDEAEA', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}
+            onPress={() => {
+              Alert.alert('Eliminar zona', '¿Eliminar esta zona segura?', [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                  text: 'Eliminar', style: 'destructive', onPress: async () => {
+                    await eliminarGeocerca(g.id);
+                    const data = await getGeocercas(paciente.id);
+                    if (data.geocercas) setGeocercas(data.geocercas);
+                  }
+                }
+              ]);
+            }}
+          >
+            <Text style={{ color: '#D94F4F', fontSize: 12, fontWeight: '700' }}>✕ Eliminar</Text>
+          </TouchableOpacity>
         </View>
-      )}
+      ))
+    )}
+    <View style={{ height: 20 }} />
+  </ScrollView>
+)} 
     </View>
   );
 }
@@ -247,6 +249,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white, padding: 16,
     borderTopWidth: 1, borderTopColor: COLORS.border,
   },
+  
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   infoLabel: { fontSize: 11, color: COLORS.textLight, fontWeight: '600' },
   infoVal: { fontSize: 12, color: COLORS.textDark, fontWeight: '700' },
@@ -255,4 +258,5 @@ const styles = StyleSheet.create({
     alignItems: 'center', marginTop: 12,
   },
   centrarBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.white },
+  
 });
