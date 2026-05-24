@@ -180,10 +180,9 @@ const crearYCargar = async (radio: number) => {
             'Crear zona segura',
             '¿Qué radio quieres para la zona segura?',
             [
-              { text: 'Cancelar', style: 'cancel' },
-              { text: '50m (casa)', onPress: async () => await crearYCargar(50) },
-              { text: '100m (condominio)', onPress: async () => await crearYCargar(100) },
-              { text: '200m (rancho)', onPress: async () => await crearYCargar(200) },
+              { text: '24m (casa)', onPress: async () => await crearYCargar(24) },
+              { text: '30m (jardín/patio)', onPress: async () => await crearYCargar(30) },
+              { text: '40m (condominio)', onPress: async () => await crearYCargar(40) },
             ]
           );
         }}
