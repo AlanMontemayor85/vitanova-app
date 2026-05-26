@@ -293,14 +293,13 @@ export default function CuidadorScreen() {
             <Text style={styles.emptyText}>Contacta a tu coordinador para recibir una asignación</Text>
           </View>
         ) : (
-         pacientes.map((p) => {
+          pacientes.map((p) => {
             const estadoTurno = p.estado_turno ?? 'no_iniciado';
             const condiciones = p.condiciones_medicas?.join(' · ') ?? '—';
             const iniciales = p.nombre_completo?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
 
             return (
               <View key={p.id} style={styles.pacienteCard}>
-                {/* FILA INFO */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                   <View style={styles.pacienteAvatar}>
                     <Text style={styles.pacienteAvatarText}>{iniciales}</Text>
@@ -322,7 +321,6 @@ export default function CuidadorScreen() {
                   )}
                 </View>
 
-                {/* BOTÓN SEGÚN ESTADO */}
                 {estadoTurno === 'no_iniciado' && (
                   <TouchableOpacity
                     style={[styles.iniciarBtn, { marginTop: 10, alignSelf: 'stretch' }]}
@@ -355,8 +353,26 @@ export default function CuidadorScreen() {
                 )}
 
                 {estadoTurno === 'finalizado' && (
-                  <View style={[styles.iniciarBtn, { backgroundColor: COLORS.cream, borderColor: COLORS.border, marginTop: 10, alignSelf: 'stretch' }]}>
-                    <Text style={[styles.iniciarBtnText, { color: COLORS.textLight, textAlign: 'center' }]}>Turno completado hoy ✓</Text>
+                  <View style={{ gap: 8, marginTop: 10 }}>
+                    <View style={[styles.iniciarBtn, { backgroundColor: COLORS.cream, borderColor: COLORS.border, alignSelf: 'stretch' }]}>
+                      <Text style={[styles.iniciarBtnText, { color: COLORS.textLight, textAlign: 'center' }]}>Turno completado hoy ✓</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.iniciarBtn, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, alignSelf: 'stretch' }]}
+                      onPress={() => {
+                        setPacienteActivo(p);
+                        getTurnoActivo(p.id).then(data => {
+                          if (data.tareas) setTareas(data.tareas);
+                          if (data.turno) {
+                            setTurnoActivo(data.turno);
+                            turnoActivoRef.current = data.turno;
+                          }
+                        });
+                        setVista('turno');
+                      }}
+                    >
+                      <Text style={[styles.iniciarBtnText, { color: COLORS.gold, textAlign: 'center' }]}>Ver turno →</Text>
+                    </TouchableOpacity>
                   </View>
                 )}
               </View>
@@ -829,8 +845,30 @@ _Vitanova Integralis — Cuidado profesional en el hogar_`;
             <Text style={styles.confirmarBtnText}>📲 Compartir por WhatsApp</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.confirmarBtn} onPress={confirmarCierre}>
-            <Text style={styles.confirmarBtnText}>Confirmar y cerrar turno</Text>
+          <TouchableOpacity 
+            style={styles.cerrarBtn} 
+            onPress={() => {
+              Alert.alert(
+                'Cerrar turno',
+                '¿Estás seguro de que quieres cerrar el turno?',
+                [
+                  { text: 'Cancelar', style: 'cancel' },
+                  {
+                    text: 'Cerrar turno', style: 'destructive',
+                    onPress: async () => {
+                      const verificacion = await verificarEscalas(pacienteActivo.id);
+                      setEscalaRequerida(verificacion.requiere_escalas);
+                      setEscalasLista(verificacion.escalas ?? []);
+                      setEscalaMotivo(verificacion.motivo);
+                      setEscalasMensaje(verificacion.mensaje);
+                      setVista('cierre');
+                    }
+                  }
+                ]
+              );
+            }}
+          >
+            <Text style={styles.cerrarBtnText}>Cerrar turno</Text>
           </TouchableOpacity>
           
           <View style={{ height: 40 }} />
