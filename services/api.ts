@@ -276,6 +276,30 @@ export const eliminarGeocerca = async (geocercaId: string) => {
   });
   return res.json();
 };
+export const detectarCambiosTurno = async (pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/turnos/cambios/${pacienteId}`, {
+    headers: headers(),
+  });
+  return res.json();
+};
+
+export const transferirPendientes = async (turnoId: string, pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/turnos/transferir-pendientes`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ turno_id: turnoId, paciente_id: pacienteId }),
+  });
+  return res.json();
+};
+
+export const agregarTareaManual = async (tarea: object) => {
+  const res = await fetch(`${BASE_URL}/tareas`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify(tarea),
+  });
+  return res.json();
+};
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',
