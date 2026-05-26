@@ -266,7 +266,7 @@ useEffect(() => {
             { icon: '📍', label: 'Ubicación', ruta: '/mapa' },
             { icon: '💊', label: 'Medicam.', ruta: '/medicamentos' },
             { icon: '🔔', label: 'Alertas', ruta: '/alertas' },
-            { icon: '💬', label: 'Cuidadores', ruta: '/cuidadora' },
+            { icon: '💬', label: 'Cuidadores', ruta: '/cuidador' },
             { icon: '🏠', label: 'Evaluación', ruta: '/evaluacion-hogar' },
           ].map((item) => (
             <TouchableOpacity
