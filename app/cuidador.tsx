@@ -234,18 +234,22 @@ export default function CuidadorScreen() {
     } catch (e) {
       console.error('Error cerrando turno:', e);
     } finally {
-      setPacienteActivo(null);
-      setBarthelScores(new Array(10).fill(0));
-      setMorseScores(new Array(6).fill(0));
-      setMnaScores(new Array(6).fill(0));
-      setBarthelOpen(false);
-      setMorseOpen(false);
-      setMnaOpen(false);
-      setVista('lista');
-      setBarthelTocado(false);
-      setMorseTocado(false);
-      setMnaTocado(false);
-    }
+  setPacienteActivo(null);
+  setBarthelScores(new Array(10).fill(0));
+  setMorseScores(new Array(6).fill(0));
+  setMnaScores(new Array(6).fill(0));
+  setBarthelOpen(false);
+  setMorseOpen(false);
+  setMnaOpen(false);
+  setVista('lista');
+  setBarthelTocado(false);
+  setMorseTocado(false);
+  setMnaTocado(false);
+  
+  // Recargar lista de pacientes con estado actualizado
+  const data = await getPacientes();
+  if (data.patients) setPacientes(data.patients);
+}
   };
 
   if (loading) {
