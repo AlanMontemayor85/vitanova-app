@@ -1,8 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getToken } from '../services/api';
-
+import { getToken, iniciarTurno } from '../services/api';
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
 const COLORS = {
@@ -103,13 +102,14 @@ export default function RegistroSaludScreen() {
       });
       const data = await res.json();
       if (data.alertas?.length > 0) {
-        setAlertas(data.alertas);
-      } else {
-        router.replace({
-          pathname: '/cuidador' as any,
-          params: { vistaInicial: 'turno', paciente: params.paciente }
-});
-      }
+      setAlertas(data.alertas);
+    } else {
+      await iniciarTurno(paciente.id);
+      router.replace({
+        pathname: '/cuidador' as any,
+        params: { vistaInicial: 'turno', paciente: params.paciente }
+      });
+    }
     } catch (e) {
       console.error(e);
     } finally {

@@ -261,7 +261,14 @@ export const getGeocercas = async (pacienteId: string) => {
   });
   return res.json();
 };
-
+export const iniciarTurno = async (pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/turnos/iniciar`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ paciente_id: pacienteId }),
+  });
+  return res.json();
+};
 export const eliminarGeocerca = async (geocercaId: string) => {
   const res = await fetch(`${BASE_URL}/geocercas/${geocercaId}`, {
     method: 'DELETE',
