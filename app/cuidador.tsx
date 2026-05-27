@@ -1,7 +1,17 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { agregarTareaManual, clearToken, completarTarea, detectarCambiosTurno, getPacientes, getToken, getTurnoActivo, getUserNombre, loadStoredToken, transferirPendientes, verificarEscalas } from '../services/api';
+import {
+  ActivityIndicator, Alert, Linking, Modal, ScrollView,
+  StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View
+} from 'react-native';
+import {
+  agregarTareaManual, clearToken, completarTarea, detectarCambiosTurno,
+  getPacientes,
+  getTareasHoy,
+  getToken,
+  getTurnoActivo,
+  getUserNombre, loadStoredToken, verificarEscalas
+} from '../services/api';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
@@ -11,6 +21,8 @@ const COLORS = {
   border: '#E0D8CC', green: '#3DAA6A', greenPale: '#EAF5E8', amber: '#D4860A',
   amberPale: '#FFF4E0', red: '#D94F4F', redPale: '#FDEAEA',
 };
+
+// ── ESCALAS CLÍNICAS ──────────────────────────────────────────
 
 const BARTHEL_ITEMS = [
   { label: 'Comer', opciones: [{ val: 0, txt: 'Dependiente' }, { val: 5, txt: 'Necesita ayuda' }, { val: 10, txt: 'Independiente' }] },
@@ -25,14 +37,6 @@ const BARTHEL_ITEMS = [
   { label: 'Escaleras', opciones: [{ val: 0, txt: 'Dependiente' }, { val: 5, txt: 'Necesita ayuda' }, { val: 10, txt: 'Independiente' }] },
 ];
 
-function getBarthelLabel(total: number) {
-  if (total === 100) return '🟢 Independiente total';
-  if (total >= 60) return '🟡 Dependencia leve';
-  if (total >= 40) return '🟠 Dependencia moderada';
-  if (total >= 20) return '🔴 Dependencia severa';
-  return '🔴 Dependencia total';
-}
-
 const MORSE_ITEMS = [
   { label: 'Historial de caídas', opciones: [{ val: 0, txt: 'No' }, { val: 25, txt: 'Sí' }] },
   { label: 'Diagnóstico secundario', opciones: [{ val: 0, txt: 'No' }, { val: 15, txt: 'Sí' }] },
@@ -42,12 +46,6 @@ const MORSE_ITEMS = [
   { label: 'Estado mental', opciones: [{ val: 0, txt: 'Orientado' }, { val: 15, txt: 'Sobreestima su capacidad' }] },
 ];
 
-function getMorseLabel(total: number) {
-  if (total < 25) return '🟢 Sin riesgo';
-  if (total < 45) return '🟡 Riesgo bajo';
-  return '🔴 Riesgo alto';
-}
-
 const MNA_ITEMS = [
   { label: 'Ingesta de alimentos', opciones: [{ val: 0, txt: 'Reducción severa' }, { val: 1, txt: 'Reducción moderada' }, { val: 2, txt: 'Sin reducción' }] },
   { label: 'Pérdida de peso reciente', opciones: [{ val: 0, txt: 'Más de 3kg' }, { val: 1, txt: 'No sabe' }, { val: 2, txt: 'Entre 1-3kg' }, { val: 3, txt: 'Sin pérdida' }] },
@@ -56,6 +54,20 @@ const MNA_ITEMS = [
   { label: 'Problemas neuropsicológicos', opciones: [{ val: 0, txt: 'Demencia severa' }, { val: 1, txt: 'Demencia leve' }, { val: 2, txt: 'Sin problemas' }] },
   { label: 'Índice de masa corporal (IMC)', opciones: [{ val: 0, txt: 'Menos de 19' }, { val: 1, txt: 'Entre 19-21' }, { val: 2, txt: 'Entre 21-23' }, { val: 3, txt: 'Mayor de 23' }] },
 ];
+
+function getBarthelLabel(total: number) {
+  if (total === 100) return '🟢 Independiente total';
+  if (total >= 60) return '🟡 Dependencia leve';
+  if (total >= 40) return '🟠 Dependencia moderada';
+  if (total >= 20) return '🔴 Dependencia severa';
+  return '🔴 Dependencia total';
+}
+
+function getMorseLabel(total: number) {
+  if (total < 25) return '🟢 Sin riesgo';
+  if (total < 45) return '🟡 Riesgo bajo';
+  return '🔴 Riesgo alto';
+}
 
 function getMNALabel(total: number) {
   if (total >= 12) return '🟢 Estado nutricional normal';
@@ -70,18 +82,24 @@ const ICONOS_TIPO: Record<string, string> = {
 
 type Vista = 'lista' | 'turno' | 'cierre';
 
+// ── COMPONENTE PRINCIPAL ──────────────────────────────────────
+
 export default function CuidadorScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+
+  // ── ESTADO DE NAVEGACIÓN ──
   const [vista, setVista] = useState<Vista>('lista');
+  const [loading, setLoading] = useState(true);
+
+  // ── PACIENTES Y TURNO ──
   const [pacientes, setPacientes] = useState<any[]>([]);
   const [pacienteActivo, setPacienteActivo] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [turnoActivo, setTurnoActivo] = useState<any>(null);
   const [tareas, setTareas] = useState<any[]>([]);
   const turnoActivoRef = useRef<any>(null);
 
-  // MODALES
+  // ── MODALES ──
   const [notaOpen, setNotaOpen] = useState(false);
   const [notaTexto, setNotaTexto] = useState('');
   const [guardandoNota, setGuardandoNota] = useState(false);
@@ -91,17 +109,29 @@ export default function CuidadorScreen() {
   const [tareaHora, setTareaHora] = useState('');
   const [guardandoTarea, setGuardandoTarea] = useState(false);
 
-  // CAMBIOS DETECTADOS
+  // ── CAMBIOS DE TURNO ──
   const [cambiosModal, setCambiosModal] = useState(false);
   const [cambiosPendientes, setCambiosPendientes] = useState<any[]>([]);
 
-  // ESCALAS
+  // ── ESCALAS CLÍNICAS ──
   const [escalaRequerida, setEscalaRequerida] = useState(false);
   const [escalasLista, setEscalasLista] = useState<string[]>([]);
   const [escalaMotivo, setEscalaMotivo] = useState('');
   const [escalasMensaje, setEscalasMensaje] = useState('');
+  const [barthelOpen, setBarthelOpen] = useState(false);
+  const [barthelScores, setBarthelScores] = useState<number[]>(new Array(10).fill(0));
+  const [barthelTocado, setBarthelTocado] = useState(false);
+  const barthelTotal = barthelScores.reduce((a, b) => a + b, 0);
+  const [morseOpen, setMorseOpen] = useState(false);
+  const [morseScores, setMorseScores] = useState<number[]>(new Array(6).fill(0));
+  const [morseTocado, setMorseTocado] = useState(false);
+  const morseTotal = morseScores.reduce((a, b) => a + b, 0);
+  const [mnaOpen, setMnaOpen] = useState(false);
+  const [mnaScores, setMnaScores] = useState<number[]>(new Array(6).fill(0));
+  const [mnaTocado, setMnaTocado] = useState(false);
+  const mnaTotal = mnaScores.reduce((a, b) => a + b, 0);
 
-  // SIGNOS VITALES
+  // ── SIGNOS VITALES CIERRE ──
   const [spo2, setSpo2] = useState(98);
   const [sistolica, setSistolica] = useState(120);
   const [diastolica, setDiastolica] = useState(80);
@@ -109,21 +139,8 @@ export default function CuidadorScreen() {
   const [estadoPaciente, setEstadoPaciente] = useState('bien');
   const [peso, setPeso] = useState(70.0);
 
-  // ESCALAS SCORES
-  const [barthelOpen, setBarthelOpen] = useState(false);
-  const [barthelScores, setBarthelScores] = useState<number[]>(new Array(10).fill(0));
-  const barthelTotal = barthelScores.reduce((a, b) => a + b, 0);
-  const [barthelTocado, setBarthelTocado] = useState(false);
-  const [morseOpen, setMorseOpen] = useState(false);
-  const [morseScores, setMorseScores] = useState<number[]>(new Array(6).fill(0));
-  const morseTotal = morseScores.reduce((a, b) => a + b, 0);
-  const [morseTocado, setMorseTocado] = useState(false);
-  const [mnaOpen, setMnaOpen] = useState(false);
-  const [mnaScores, setMnaScores] = useState<number[]>(new Array(6).fill(0));
-  const mnaTotal = mnaScores.reduce((a, b) => a + b, 0);
-  const [mnaTocado, setMnaTocado] = useState(false);
+  // ── CARGA INICIAL ──────────────────────────────────────────
 
-  // Cargar pacientes
   useEffect(() => {
     const cargar = async () => {
       try {
@@ -139,45 +156,59 @@ export default function CuidadorScreen() {
     cargar();
   }, []);
 
-  // Navegar directo al turno desde params
+  // Navegación directa al turno desde registro-salud
   useEffect(() => {
-  if (params.vistaInicial === 'turno' && params.paciente) {
-    try {
-      const raw = params.paciente as string;
-      const p = JSON.parse(raw);
-      setPacienteActivo(p);
-      getTurnoActivo(p.id).then(data => {
-        if (data.tareas) setTareas(data.tareas);
-        if (data.turno) {
-          setTurnoActivo(data.turno);
-          turnoActivoRef.current = data.turno;
-        }
-      });
-      setVista('turno');
-    } catch (e) {
-      console.error('Error parseando paciente:', e, params.paciente);
+    if (params.vistaInicial === 'turno' && params.paciente) {
+      try {
+        const p = JSON.parse(params.paciente as string);
+        setPacienteActivo(p);
+        cargarTurno(p.id);
+        setVista('turno');
+      } catch (e) {
+        console.error('Error parseando paciente:', e, params.paciente);
+      }
     }
-  }
-}, [params.vistaInicial, params.paciente]);
+  }, [params.vistaInicial, params.paciente]);
+
+  // ── HELPERS ───────────────────────────────────────────────
+
+  const cargarTurno = async (pacienteId: string) => {
+    const [turnoData, tareasData] = await Promise.all([
+      getTurnoActivo(pacienteId),
+      getTareasHoy(pacienteId),
+    ]);
+    if (turnoData.turno) {
+      setTurnoActivo(turnoData.turno);
+      turnoActivoRef.current = turnoData.turno;
+    }
+    if (tareasData.tareas) setTareas(tareasData.tareas);
+  };
 
   const resetEstados = () => {
     setPacienteActivo(null);
+    setTurnoActivo(null);
+    turnoActivoRef.current = null;
+    setTareas([]);
+    setEstadoPaciente('bien');
+    setPeso(70.0);
+    setSpo2(98); setSistolica(120); setDiastolica(80); setFc(72);
     setBarthelScores(new Array(10).fill(0));
     setMorseScores(new Array(6).fill(0));
     setMnaScores(new Array(6).fill(0));
-    setBarthelOpen(false);
-    setMorseOpen(false);
-    setMnaOpen(false);
-    setBarthelTocado(false);
-    setMorseTocado(false);
-    setMnaTocado(false);
-    setEstadoPaciente('bien');
-    setTareas([]);
-    setTurnoActivo(null);
-    turnoActivoRef.current = null;
+    setBarthelOpen(false); setMorseOpen(false); setMnaOpen(false);
+    setBarthelTocado(false); setMorseTocado(false); setMnaTocado(false);
+    setEscalaRequerida(false); setEscalasLista([]);
   };
 
-  // ── FASE 2: Iniciar turno con detección de cambios ──
+  const irARegistroSalud = (p: any) => {
+    router.push({
+      pathname: '/registro-salud' as any,
+      params: { paciente: JSON.stringify(p), momento: 'inicio_turno' },
+    });
+  };
+
+  // ── INICIO DE TURNO ───────────────────────────────────────
+
   const manejarInicioTurno = async (p: any) => {
     try {
       const cambiosData = await detectarCambiosTurno(p.id);
@@ -193,14 +224,8 @@ export default function CuidadorScreen() {
     }
   };
 
-  const irARegistroSalud = (p: any) => {
-    router.push({
-      pathname: '/registro-salud' as any,
-      params: { paciente: JSON.stringify(p), momento: 'inicio_turno' },
-    });
-  };
+  // ── NOTAS ─────────────────────────────────────────────────
 
-  // ── GUARDAR NOTA ──
   const guardarNota = async () => {
     if (!notaTexto.trim()) return;
     setGuardandoNota(true);
@@ -231,7 +256,8 @@ export default function CuidadorScreen() {
     }
   };
 
-  // ── FASE 3: AGREGAR TAREA MANUAL ──
+  // ── TAREAS MANUALES (INCIDENTALES) ────────────────────────
+
   const guardarTareaManual = async () => {
     if (!tareaDesc.trim()) return;
     setGuardandoTarea(true);
@@ -242,6 +268,7 @@ export default function CuidadorScreen() {
         tipo: tareaTipo,
         descripcion: tareaDesc.trim(),
         hora_programada: tareaHora || null,
+        es_incidental: true,
       });
       setTareas(prev => [...prev, {
         id: res.tarea_id ?? Date.now().toString(),
@@ -249,6 +276,7 @@ export default function CuidadorScreen() {
         descripcion: tareaDesc.trim(),
         hora_programada: tareaHora || null,
         completada: false,
+        es_incidental: true,
       }]);
       setTareaDesc('');
       setTareaTipo('otro');
@@ -261,40 +289,26 @@ export default function CuidadorScreen() {
     }
   };
 
-  // ── COMPARTIR WHATSAPP ──
+  // ── CIERRE DE TURNO ───────────────────────────────────────
+
   const compartirWhatsApp = () => {
     const emoji = estadoPaciente === 'bien' ? '😊' : estadoPaciente === 'preocupante' ? '😟' : '😐';
     const estado = estadoPaciente === 'bien' ? 'Bien' : estadoPaciente === 'preocupante' ? 'Preocupante' : 'Regular';
-    const mensaje = `🏠 *Vitanova Integralis — Resumen de turno*\n\n👤 Paciente: *${pacienteActivo?.nombre_completo}*\n${emoji} Estado: *${estado}*\n\n📊 *Signos vitales:*\n- SpO₂: ${spo2}%\n- Presión: ${sistolica}/${diastolica} mmHg\n- FC: ${fc} bpm\n${peso ? `- Peso: ${peso} kg` : ''}\n\n✅ Turno cerrado por ${getUserNombre() ?? 'Cuidador'}\n🕐 ${new Date().toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}\n\n_Vitanova Integralis — Cuidado profesional en el hogar_`;
+    const mensaje = `🏠 *Vitanova Integralis — Resumen de turno*\n\n👤 Paciente: *${pacienteActivo?.nombre_completo}*\n${emoji} Estado: *${estado}*\n\n📊 *Signos vitales:*\n- SpO₂: ${spo2}%\n- Presión: ${sistolica}/${diastolica} mmHg\n- FC: ${fc} bpm\n- Peso: ${peso} kg\n\n✅ Turno cerrado por ${getUserNombre() ?? 'Cuidador'}\n🕐 ${new Date().toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}\n\n_Vitanova Integralis — Cuidado profesional en el hogar_`;
     Linking.openURL(`whatsapp://send?text=${encodeURIComponent(mensaje)}`).catch(() => {
       Alert.alert('WhatsApp no disponible', 'Instala WhatsApp para compartir el resumen');
     });
   };
 
-  // ── FASE 4: CONFIRMAR CIERRE CON HANDOVER ──
   const confirmarCierre = async () => {
-    const tareasPendientes = tareas.filter(t => !t.completada && t.tipo !== 'otro');
-
+    const tareasPendientes = tareas.filter(t => !t.completada && t.tipo !== 'otro' && !t.es_incidental);
     if (tareasPendientes.length > 0) {
       Alert.alert(
         '⚠️ Tareas pendientes',
-        `Tienes ${tareasPendientes.length} tarea${tareasPendientes.length > 1 ? 's' : ''} sin completar:\n${tareasPendientes.map(t => `• ${t.descripcion}`).join('\n')}\n\n¿Qué deseas hacer?`,
+        `Tienes ${tareasPendientes.length} tarea${tareasPendientes.length > 1 ? 's' : ''} sin completar:\n${tareasPendientes.map(t => `• ${t.descripcion}`).join('\n')}\n\n¿Deseas cerrar de todas formas?`,
         [
           { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Transferir al siguiente turno',
-            onPress: async () => {
-              await transferirPendientes(turnoActivoRef.current?.id, pacienteActivo.id);
-              await ejecutarCierre();
-            }
-          },
-          {
-            text: 'Cerrar sin transferir',
-            style: 'destructive',
-            onPress: async () => {
-              await ejecutarCierre();
-            }
-          }
+          { text: 'Cerrar turno', style: 'destructive', onPress: ejecutarCierre },
         ]
       );
     } else {
@@ -303,51 +317,48 @@ export default function CuidadorScreen() {
   };
 
   const ejecutarCierre = async () => {
-  try {
-    const token = getToken();
-    const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        paciente_id: pacienteActivo.id,
-        estado_paciente: estadoPaciente,
-        spo2, presion_sistolica: sistolica, presion_diastolica: diastolica,
-        frecuencia_cardiaca: fc,
-        barthel_scores: barthelTocado ? barthelScores : null,
-        barthel_total: barthelTocado ? barthelTotal : null,
-        barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
-        morse_scores: morseTocado ? morseScores : null,
-        morse_total: morseTocado ? morseTotal : null,
-        morse_label: morseTocado ? getMorseLabel(morseTotal) : null,
-        mna_scores: mnaTocado ? mnaScores : null,
-        mna_total: mnaTocado ? mnaTotal : null,
-        mna_label: mnaTocado ? getMNALabel(mnaTotal) : null,
-        peso_kg: peso,
-        imc: pacienteActivo.talla_cm
-          ? parseFloat((peso / Math.pow(pacienteActivo.talla_cm / 100, 2)).toFixed(1))
-          : null,
-      }),
-    });
-    const data = await res.json();
-
-    if (data.status === 'ok') {
-      // 1. Resetear estado local
-      resetEstados();
-      // 2. Recargar pacientes
-      const pData = await getPacientes();
-      if (pData.patients) setPacientes(pData.patients);
-      // 3. Navegar a lista ANTES del Alert para que ya esté renderizada
-      setVista('lista');
-      // 4. Alert informativo (no bloquea la navegación)
-      Alert.alert('✅ Turno cerrado', 'El resumen fue enviado al familiar.');
-    } else {
-      Alert.alert('Error', data.detail ?? 'No se pudo cerrar el turno.');
+    try {
+      const token = getToken();
+      const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          paciente_id: pacienteActivo.id,
+          estado_paciente: estadoPaciente,
+          spo2, presion_sistolica: sistolica, presion_diastolica: diastolica,
+          frecuencia_cardiaca: fc,
+          barthel_scores: barthelTocado ? barthelScores : null,
+          barthel_total: barthelTocado ? barthelTotal : null,
+          barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
+          morse_scores: morseTocado ? morseScores : null,
+          morse_total: morseTocado ? morseTotal : null,
+          morse_label: morseTocado ? getMorseLabel(morseTotal) : null,
+          mna_scores: mnaTocado ? mnaScores : null,
+          mna_total: mnaTocado ? mnaTotal : null,
+          mna_label: mnaTocado ? getMNALabel(mnaTotal) : null,
+          peso_kg: peso,
+          imc: pacienteActivo.talla_cm
+            ? parseFloat((peso / Math.pow(pacienteActivo.talla_cm / 100, 2)).toFixed(1))
+            : null,
+        }),
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        resetEstados();
+        const pData = await getPacientes();
+        if (pData.patients) setPacientes(pData.patients);
+        setVista('lista');
+        Alert.alert('✅ Turno cerrado', 'El resumen fue enviado al familiar.');
+      } else {
+        Alert.alert('Error', data.detail ?? 'No se pudo cerrar el turno.');
+      }
+    } catch (e) {
+      console.error('Error cerrando turno:', e);
+      Alert.alert('Error', 'No se pudo cerrar el turno. Intenta de nuevo.');
     }
-  } catch (e) {
-    console.error('Error cerrando turno:', e);
-    Alert.alert('Error', 'No se pudo cerrar el turno. Intenta de nuevo.');
-  }
-};
+  };
+
+  // ── LOADING ───────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -357,7 +368,8 @@ export default function CuidadorScreen() {
     );
   }
 
-  // ── VISTA LISTA ──
+  // ── VISTA LISTA ───────────────────────────────────────────
+
   if (vista === 'lista') {
     return (
       <View style={styles.container}>
@@ -374,10 +386,12 @@ export default function CuidadorScreen() {
 
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
           <Text style={styles.sectionTitle}>Tus pacientes hoy</Text>
+
           {pacientes.map((p) => {
             const estadoTurno = p.estado_turno ?? 'no_iniciado';
             const condiciones = p.condiciones_medicas?.join(' · ') ?? '—';
             const iniciales = p.nombre_completo?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+
             return (
               <View key={p.id} style={styles.pacienteCard}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -415,10 +429,7 @@ export default function CuidadorScreen() {
                     style={[styles.iniciarBtn, { backgroundColor: COLORS.greenPale, borderColor: COLORS.green, marginTop: 10, alignSelf: 'stretch' }]}
                     onPress={() => {
                       setPacienteActivo(p);
-                      getTurnoActivo(p.id).then(data => {
-                        if (data.tareas) setTareas(data.tareas);
-                        if (data.turno) { setTurnoActivo(data.turno); turnoActivoRef.current = data.turno; }
-                      });
+                      cargarTurno(p.id);
                       setVista('turno');
                     }}
                   >
@@ -429,20 +440,13 @@ export default function CuidadorScreen() {
                 {estadoTurno === 'finalizado' && (
                   <View style={{ gap: 8, marginTop: 10 }}>
                     <View style={[styles.iniciarBtn, { backgroundColor: COLORS.cream, borderColor: COLORS.border, alignSelf: 'stretch' }]}>
-                      <Text style={[styles.iniciarBtnText, { color: COLORS.textLight, textAlign: 'center' }]}>Turno completado hoy ✓</Text>
+                      <Text style={[styles.iniciarBtnText, { color: COLORS.textLight, textAlign: 'center' }]}>Turno completado ✓</Text>
                     </View>
                     <TouchableOpacity
                       style={[styles.iniciarBtn, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, alignSelf: 'stretch' }]}
-                      onPress={() => {
-                        setPacienteActivo(p);
-                        getTurnoActivo(p.id).then(data => {
-                          if (data.tareas) setTareas(data.tareas);
-                          if (data.turno) { setTurnoActivo(data.turno); turnoActivoRef.current = data.turno; }
-                        });
-                        setVista('turno');
-                      }}
+                      onPress={() => manejarInicioTurno(p)}
                     >
-                      <Text style={[styles.iniciarBtnText, { color: COLORS.gold, textAlign: 'center' }]}>Ver turno →</Text>
+                      <Text style={[styles.iniciarBtnText, { textAlign: 'center' }]}>Iniciar nuevo turno →</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -452,7 +456,7 @@ export default function CuidadorScreen() {
           <View style={{ height: 60 }} />
         </ScrollView>
 
-        {/* MODAL CAMBIOS DETECTADOS - FASE 2 */}
+        {/* MODAL CAMBIOS DETECTADOS */}
         <Modal visible={cambiosModal} transparent animationType="slide">
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
@@ -467,10 +471,7 @@ export default function CuidadorScreen() {
               ))}
               <TouchableOpacity
                 style={[styles.modalBtn, { backgroundColor: COLORS.gold, marginTop: 16 }]}
-                onPress={() => {
-                  setCambiosModal(false);
-                  irARegistroSalud(pacienteActivo);
-                }}
+                onPress={() => { setCambiosModal(false); irARegistroSalud(pacienteActivo); }}
               >
                 <Text style={styles.modalBtnText}>Entendido — Continuar</Text>
               </TouchableOpacity>
@@ -481,9 +482,14 @@ export default function CuidadorScreen() {
     );
   }
 
-  // ── VISTA TURNO - FASE 3 ──
+  // ── VISTA TURNO ───────────────────────────────────────────
+
   if (vista === 'turno' && pacienteActivo) {
-    const tareasPendientesCount = tareas.filter(t => !t.completada && t.tipo !== 'otro').length;
+    const tareasNormales = tareas.filter(t => t.tipo !== 'otro');
+    const tareasNotas = tareas.filter(t => t.tipo === 'otro');
+    const tareasAtrasadas = tareasNormales.filter(t => t.atrasada && !t.completada);
+    const tareasBloque = tareasNormales.filter(t => !t.atrasada);
+
     return (
       <View style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
@@ -502,31 +508,276 @@ export default function CuidadorScreen() {
         </View>
 
         {/* BARRA DE PROGRESO */}
-        {tareas.filter(t => t.tipo !== 'otro').length > 0 && (
+        {tareasNormales.length > 0 && (
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, {
-              width: `${((tareas.filter(t => t.completada && t.tipo !== 'otro').length / tareas.filter(t => t.tipo !== 'otro').length) * 100)}%` as any
+              width: `${(tareasNormales.filter(t => t.completada).length / tareasNormales.length * 100)}%` as any
             }]} />
             <Text style={styles.progressText}>
-              {tareas.filter(t => t.completada && t.tipo !== 'otro').length}/{tareas.filter(t => t.tipo !== 'otro').length} tareas
+              {tareasNormales.filter(t => t.completada).length}/{tareasNormales.length} tareas
             </Text>
           </View>
         )}
 
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
 
-          {/* FASE 1: Si no hay turno iniciado correctamente */}
-          {tareas.length === 0 && (
-            <View style={[styles.emptyCard, { marginTop: 20, backgroundColor: COLORS.goldPale, borderColor: COLORS.gold }]}>
+          {/* TAREAS ATRASADAS */}
+          {tareasAtrasadas.length > 0 && (
+            <>
+              <Text style={[styles.sectionTitle, { color: COLORS.amber }]}>⚠️ Tareas atrasadas</Text>
+              {tareasAtrasadas.map((t) => (
+                <TouchableOpacity
+                  key={t.id}
+                  style={[styles.tareaCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0' }]}
+                  onPress={async () => {
+                    if (!t.completada && t.registro_id) {
+                      await completarTarea(t.registro_id);
+                      setTareas(prev => prev.map(tarea =>
+                        tarea.id === t.id ? { ...tarea, completada: true } : tarea
+                      ));
+                    }
+                  }}
+                >
+                  <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📝'}</Text>
+                  <View style={styles.tareaInfo}>
+                    <Text style={styles.tareaTexto}>{t.descripcion}</Text>
+                    <Text style={[styles.tareaHora, { color: COLORS.amber }]}>Atrasada · {t.hora ?? '—'}</Text>
+                  </View>
+                  <View style={[styles.tareaCheck, { borderColor: COLORS.amber }]}>
+                    <Text style={{ fontSize: 12, color: COLORS.white, fontWeight: '800' }}>{t.completada ? '✓' : ''}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </>
+          )}
+
+          {/* TAREAS DEL BLOQUE */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, marginTop: 4 }}>
+            <Text style={styles.sectionTitle}>Tareas del turno</Text>
+            <TouchableOpacity
+              style={[styles.iniciarBtn, { paddingHorizontal: 12, paddingVertical: 4 }]}
+              onPress={() => setTareaOpen(true)}
+            >
+              <Text style={[styles.iniciarBtnText, { fontSize: 11 }]}>+ Agregar</Text>
+            </TouchableOpacity>
+          </View>
+
+          {tareasBloque.length === 0 && tareasAtrasadas.length === 0 && (
+            <View style={[styles.emptyCard, { marginBottom: 16, backgroundColor: COLORS.goldPale, borderColor: COLORS.gold }]}>
               <Text style={{ fontSize: 24, marginBottom: 8 }}>📋</Text>
               <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao, textAlign: 'center', marginBottom: 4 }}>
-                No hay tareas cargadas
+                No hay tareas para este bloque
               </Text>
               <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
-                Inicia el turno desde la pantalla anterior para cargar las tareas del día
+                Agrega tareas incidentales con el botón + Agregar
               </Text>
             </View>
           )}
+
+          {tareasBloque.map((t) => (
+            <TouchableOpacity
+              key={t.id}
+              style={[styles.tareaCard, t.completada && styles.tareaCardDone]}
+              onPress={async () => {
+                if (!t.completada) {
+                  const id = t.registro_id ?? t.id;
+                  await completarTarea(id);
+                  setTareas(prev => prev.map(tarea =>
+                    tarea.id === t.id ? { ...tarea, completada: true } : tarea
+                  ));
+                }
+              }}
+            >
+              <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📝'}</Text>
+              <View style={styles.tareaInfo}>
+                <Text style={[styles.tareaTexto, t.completada && { textDecorationLine: 'line-through' }]}>
+                  {t.descripcion}
+                </Text>
+                <Text style={styles.tareaHora}>
+                  {t.hora ?? t.hora_programada ?? '—'}
+                  {t.es_incidental ? ' · Incidental' : ''}
+                </Text>
+              </View>
+              <View style={[styles.tareaCheck, t.completada && styles.tareaCheckDone]}>
+                <Text style={{ fontSize: 12, color: COLORS.white, fontWeight: '800' }}>{t.completada ? '✓' : ''}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+
+          {/* NOTAS */}
+          {tareasNotas.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>Notas del turno</Text>
+              {tareasNotas.map((t) => (
+                <View key={t.id} style={[styles.tareaCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0' }]}>
+                  <Text style={styles.tareaIcon}>📝</Text>
+                  <View style={styles.tareaInfo}>
+                    <Text style={styles.tareaTexto}>{t.descripcion?.replace('📝 ', '')}</Text>
+                    <Text style={styles.tareaHora}>
+                      {t.hora_completada
+                        ? new Date(t.hora_completada).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                        : '—'}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
+
+          {/* ACCIONES */}
+          <View style={styles.accionesRow}>
+            <TouchableOpacity style={[styles.accionBtn, { backgroundColor: COLORS.redPale, borderColor: 'rgba(217,79,79,0.3)' }]}>
+              <Text style={styles.accionBtnIcon}>🚨</Text>
+              <Text style={[styles.accionBtnText, { color: COLORS.red }]}>Incidente</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.accionBtn, { backgroundColor: COLORS.amberPale, borderColor: 'rgba(212,134,10,0.2)' }]}
+              onPress={() => setNotaOpen(true)}
+            >
+              <Text style={styles.accionBtnIcon}>📝</Text>
+              <Text style={[styles.accionBtnText, { color: COLORS.amber }]}>Nota</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.accionBtn, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, marginBottom: 12 }]}
+            onPress={() => router.push({
+              pathname: '/registro-salud' as any,
+              params: { paciente: JSON.stringify(pacienteActivo), momento: 'espontaneo' },
+            })}
+          >
+            <Text style={styles.accionBtnIcon}>🩺</Text>
+            <Text style={[styles.accionBtnText, { color: COLORS.gold }]}>Signos espontáneos</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.cerrarBtn}
+            onPress={async () => {
+              const verificacion = await verificarEscalas(pacienteActivo.id);
+              setEscalaRequerida(verificacion.requiere_escalas);
+              setEscalasLista(verificacion.escalas ?? []);
+              setEscalaMotivo(verificacion.motivo);
+              setEscalasMensaje(verificacion.mensaje);
+              setVista('cierre');
+            }}
+          >
+            <Text style={styles.cerrarBtnText}>Cerrar turno</Text>
+          </TouchableOpacity>
+
+          <View style={{ height: 100 }} />
+        </ScrollView>
+
+        {/* MODAL NOTA */}
+        {notaOpen && (
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Nota del turno</Text>
+              <TextInput
+                style={styles.notaInput}
+                placeholder="Escribe una observación..."
+                placeholderTextColor={COLORS.textLight}
+                multiline numberOfLines={4}
+                value={notaTexto}
+                onChangeText={setNotaTexto}
+                autoFocus
+              />
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.cream }]} onPress={() => { setNotaOpen(false); setNotaTexto(''); }}>
+                  <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]} onPress={guardarNota} disabled={guardandoNota}>
+                  <Text style={styles.modalBtnText}>{guardandoNota ? 'Guardando...' : 'Guardar'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* MODAL TAREA INCIDENTAL */}
+        {tareaOpen && (
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Nueva tarea incidental</Text>
+              <TextInput
+                style={styles.notaInput}
+                placeholder="Descripción de la tarea..."
+                placeholderTextColor={COLORS.textLight}
+                value={tareaDesc}
+                onChangeText={setTareaDesc}
+                autoFocus
+              />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 10 }}>
+                {TIPOS_TAREA.map(t => (
+                  <TouchableOpacity
+                    key={t}
+                    style={[styles.chipBtn, tareaTipo === t && styles.chipBtnActive]}
+                    onPress={() => setTareaTipo(t)}
+                  >
+                    <Text style={[styles.chipBtnText, tareaTipo === t && styles.chipBtnTextActive]}>
+                      {ICONOS_TIPO[t]} {t}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TextInput
+                style={[styles.notaInput, { minHeight: 40 }]}
+                placeholder="Hora (opcional, ej: 15:00)"
+                placeholderTextColor={COLORS.textLight}
+                value={tareaHora}
+                onChangeText={setTareaHora}
+                keyboardType="numbers-and-punctuation"
+              />
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.cream }]} onPress={() => setTareaOpen(false)}>
+                  <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]} onPress={guardarTareaManual} disabled={guardandoTarea}>
+                  <Text style={styles.modalBtnText}>{guardandoTarea ? 'Guardando...' : 'Agregar'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  // ── VISTA CIERRE ──────────────────────────────────────────
+
+  if (vista === 'cierre' && pacienteActivo) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => setVista('turno')} style={styles.backBtn}>
+            <Text style={styles.backIcon}>←</Text>
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.greeting}>Cerrar turno</Text>
+            <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
+          </View>
+        </View>
+
+        <ScrollView style={styles.body}>
+
+          {/* ESTADO DEL PACIENTE */}
+          <Text style={styles.sectionTitle}>¿Cómo queda el paciente?</Text>
+          <View style={styles.estadoRow}>
+            {[
+              { val: 'bien', icon: '😊', label: 'Bien' },
+              { val: 'regular', icon: '😐', label: 'Regular' },
+              { val: 'preocupante', icon: '😟', label: 'Preocupante' },
+            ].map((e) => (
+              <TouchableOpacity
+                key={e.val}
+                style={[styles.estadoCard, estadoPaciente === e.val && styles.estadoCardActive]}
+                onPress={() => setEstadoPaciente(e.val)}
+              >
+                <Text style={{ fontSize: 28 }}>{e.icon}</Text>
+                <Text style={[styles.estadoLabel, estadoPaciente === e.val && { color: COLORS.gold }]}>{e.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
           {/* SIGNOS VITALES */}
           <Text style={styles.sectionTitle}>Signos vitales</Text>
@@ -587,216 +838,6 @@ export default function CuidadorScreen() {
             </View>
           </View>
 
-          {/* TAREAS */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, marginTop: 4 }}>
-            <Text style={styles.sectionTitle}>Tareas del turno</Text>
-            <TouchableOpacity
-              style={[styles.iniciarBtn, { paddingHorizontal: 12, paddingVertical: 4 }]}
-              onPress={() => setTareaOpen(true)}
-            >
-              <Text style={[styles.iniciarBtnText, { fontSize: 11 }]}>+ Agregar</Text>
-            </TouchableOpacity>
-          </View>
-
-          {tareas.filter(t => t.tipo !== 'otro').map((t) => (
-            <TouchableOpacity
-              key={t.id}
-              style={[styles.tareaCard, t.completada && styles.tareaCardDone]}
-              onPress={async () => {
-                if (!t.completada) {
-                  await completarTarea(t.id);
-                  setTareas(prev => prev.map(tarea =>
-                    tarea.id === t.id ? { ...tarea, completada: true } : tarea
-                  ));
-                }
-              }}
-            >
-              <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📝'}</Text>
-              <View style={styles.tareaInfo}>
-                <Text style={[styles.tareaTexto, t.completada && { textDecorationLine: 'line-through' }]}>
-                  {t.descripcion}
-                </Text>
-                <Text style={styles.tareaHora}>{t.hora_programada ?? '—'}</Text>
-              </View>
-              <View style={[styles.tareaCheck, t.completada && styles.tareaCheckDone]}>
-                <Text style={{ fontSize: 12, color: COLORS.white, fontWeight: '800' }}>
-                  {t.completada ? '✓' : ''}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-
-          {/* NOTAS */}
-          {tareas.filter(t => t.tipo === 'otro').length > 0 && (
-            <>
-              <Text style={styles.sectionTitle}>Notas del turno</Text>
-              {tareas.filter(t => t.tipo === 'otro').map((t) => (
-                <View key={t.id} style={[styles.tareaCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0' }]}>
-                  <Text style={styles.tareaIcon}>📝</Text>
-                  <View style={styles.tareaInfo}>
-                    <Text style={styles.tareaTexto}>{t.descripcion?.replace('📝 ', '')}</Text>
-                    <Text style={styles.tareaHora}>
-                      {t.hora_completada ? new Date(t.hora_completada).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </>
-          )}
-
-          {/* ACCIONES */}
-          <View style={styles.accionesRow}>
-            <TouchableOpacity style={[styles.accionBtn, { backgroundColor: COLORS.redPale, borderColor: 'rgba(217,79,79,0.3)' }]}>
-              <Text style={styles.accionBtnIcon}>🚨</Text>
-              <Text style={[styles.accionBtnText, { color: COLORS.red }]}>Incidente</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.accionBtn, { backgroundColor: COLORS.amberPale, borderColor: 'rgba(212,134,10,0.2)' }]}
-              onPress={() => setNotaOpen(true)}
-            >
-              <Text style={styles.accionBtnIcon}>📝</Text>
-              <Text style={[styles.accionBtnText, { color: COLORS.amber }]}>Nota</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            style={[styles.accionBtn, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, marginBottom: 12 }]}
-            onPress={() => router.push({
-              pathname: '/registro-salud' as any,
-              params: { paciente: JSON.stringify(pacienteActivo), momento: 'espontaneo' }
-            })}
-          >
-            <Text style={styles.accionBtnIcon}>🩺</Text>
-            <Text style={[styles.accionBtnText, { color: COLORS.gold }]}>Signos</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.cerrarBtn}
-            onPress={async () => {
-              const verificacion = await verificarEscalas(pacienteActivo.id);
-              setEscalaRequerida(verificacion.requiere_escalas);
-              setEscalasLista(verificacion.escalas ?? []);
-              setEscalaMotivo(verificacion.motivo);
-              setEscalasMensaje(verificacion.mensaje);
-              setVista('cierre');
-            }}
-          >
-            <Text style={styles.cerrarBtnText}>Cerrar turno</Text>
-          </TouchableOpacity>
-
-          <View style={{ height: 100 }} />
-        </ScrollView>
-
-        {/* MODAL NOTA */}
-        {notaOpen && (
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Nota del turno</Text>
-              <TextInput
-                style={styles.notaInput}
-                placeholder="Escribe una observación..."
-                placeholderTextColor={COLORS.textLight}
-                multiline numberOfLines={4}
-                value={notaTexto}
-                onChangeText={setNotaTexto}
-                autoFocus
-              />
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.cream }]} onPress={() => { setNotaOpen(false); setNotaTexto(''); }}>
-                  <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]} onPress={guardarNota} disabled={guardandoNota}>
-                  <Text style={styles.modalBtnText}>{guardandoNota ? 'Guardando...' : 'Guardar'}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* MODAL AGREGAR TAREA */}
-        {tareaOpen && (
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Nueva tarea</Text>
-              <TextInput
-                style={styles.notaInput}
-                placeholder="Descripción de la tarea..."
-                placeholderTextColor={COLORS.textLight}
-                value={tareaDesc}
-                onChangeText={setTareaDesc}
-                autoFocus
-              />
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 10 }}>
-                {TIPOS_TAREA.map(t => (
-                  <TouchableOpacity
-                    key={t}
-                    style={[styles.chipBtn, tareaTipo === t && styles.chipBtnActive]}
-                    onPress={() => setTareaTipo(t)}
-                  >
-                    <Text style={[styles.chipBtnText, tareaTipo === t && styles.chipBtnTextActive]}>
-                      {ICONOS_TIPO[t]} {t}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <TextInput
-                style={[styles.notaInput, { minHeight: 40 }]}
-                placeholder="Hora (opcional, ej: 15:00)"
-                placeholderTextColor={COLORS.textLight}
-                value={tareaHora}
-                onChangeText={setTareaHora}
-                keyboardType="numbers-and-punctuation"
-              />
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.cream }]} onPress={() => setTareaOpen(false)}>
-                  <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]} onPress={guardarTareaManual} disabled={guardandoTarea}>
-                  <Text style={styles.modalBtnText}>{guardandoTarea ? 'Guardando...' : 'Agregar'}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        )}
-      </View>
-    );
-  }
-
-  // ── VISTA CIERRE - FASE 4 ──
-  if (vista === 'cierre' && pacienteActivo) {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => setVista('turno')} style={styles.backBtn}>
-            <Text style={styles.backIcon}>←</Text>
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>Cerrar turno</Text>
-            <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
-          </View>
-        </View>
-
-        <ScrollView style={styles.body}>
-          <Text style={styles.sectionTitle}>¿Cómo queda el paciente?</Text>
-          <View style={styles.estadoRow}>
-            {[
-              { val: 'bien', icon: '😊', label: 'Bien' },
-              { val: 'regular', icon: '😐', label: 'Regular' },
-              { val: 'preocupante', icon: '😟', label: 'Preocupante' },
-            ].map((e) => (
-              <TouchableOpacity
-                key={e.val}
-                style={[styles.estadoCard, estadoPaciente === e.val && styles.estadoCardActive]}
-                onPress={() => setEstadoPaciente(e.val)}
-              >
-                <Text style={{ fontSize: 28 }}>{e.icon}</Text>
-                <Text style={[styles.estadoLabel, estadoPaciente === e.val && { color: COLORS.gold }]}>{e.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <Text style={styles.sectionTitle}>Peso (opcional)</Text>
           <View style={styles.signoCard}>
             <Text style={styles.signoLabel}>Peso (kg)</Text>
             <View style={styles.signoControles}>
@@ -810,6 +851,7 @@ export default function CuidadorScreen() {
             </View>
           </View>
 
+          {/* ESCALAS CLÍNICAS */}
           {escalaRequerida && (
             <>
               <View style={[styles.evaluacionCard, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, marginBottom: 12 }]}>
@@ -975,6 +1017,8 @@ export default function CuidadorScreen() {
   return null;
 }
 
+// ── ESTILOS ───────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.cream },
   header: {
@@ -995,14 +1039,10 @@ const styles = StyleSheet.create({
   progressText: { fontSize: 11, color: COLORS.white, fontWeight: '600', zIndex: 1 },
   body: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
   sectionTitle: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: COLORS.textLight, marginBottom: 10, marginTop: 4 },
-  emptyCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  emptyIcon: { fontSize: 40, marginBottom: 12 },
-  emptyTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textDark, marginBottom: 6 },
-  emptyText: { fontSize: 12, color: COLORS.textLight, textAlign: 'center' },
+  emptyCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, marginBottom: 16 },
   pacienteCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 14, flexDirection: 'column', borderWidth: 1, borderColor: COLORS.border, marginBottom: 10 },
   pacienteAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: COLORS.goldPale, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: COLORS.gold },
   pacienteAvatarText: { fontSize: 16, fontWeight: '800', color: COLORS.gold },
-  pacienteInfo: { flex: 1 },
   pacienteNombre: { fontSize: 14, fontWeight: '700', color: COLORS.textDark },
   pacienteCondiciones: { fontSize: 10, color: COLORS.textLight, marginTop: 2 },
   iniciarBtn: { backgroundColor: COLORS.goldPale, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: COLORS.gold, alignItems: 'center' },
@@ -1065,6 +1105,4 @@ const styles = StyleSheet.create({
   chipBtnActive: { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold },
   chipBtnText: { fontSize: 11, color: COLORS.textLight },
   chipBtnTextActive: { color: COLORS.gold, fontWeight: '700' },
-  tareaCardNota: { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0' },
-  pacienteRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
 });

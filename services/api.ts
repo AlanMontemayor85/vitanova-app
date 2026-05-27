@@ -305,6 +305,12 @@ export const agregarTareaManual = async (tarea: object) => {
   });
   return res.json();
 };
+export const getTareasHoy = async (pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/tareas-hoy`, {
+    headers: headers(),
+  });
+  return res.json();
+};
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',
