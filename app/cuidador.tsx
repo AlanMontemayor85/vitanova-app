@@ -440,14 +440,29 @@ const manejarInicioTurno = async (p: any) => {
                 )}
 
                 {estadoTurno === 'finalizado' && (
-                  <View style={styles.badgeFinalizado}>
+                <View style={{ gap: 8, marginTop: 10 }}>
+                  <View style={[styles.badgeFinalizado, { alignSelf: 'flex-start' }]}>
                     <Text style={styles.badgeFinalizadoText}>
-                      ✓ {p.turno_hora_fin 
-                        ? new Date(p.turno_hora_fin).toLocaleString('es-MX', { hour: '2-digit', minute: '2-digit' })
+                      ✓ {p.turno_hora_fin
+                        ? `Completado el ${new Date(p.turno_hora_fin).toLocaleString('es-MX', { 
+                            day: 'numeric', 
+                            month: 'long',
+                            year: 'numeric',
+                            hour: '2-digit', 
+                            minute: '2-digit',
+                            timeZone: 'America/Monterrey'
+                          })}`
                         : 'Completado hoy'}
                     </Text>
                   </View>
-                )}
+                  <TouchableOpacity
+                    style={[styles.iniciarBtn, { alignSelf: 'stretch' }]}
+                    onPress={() => manejarInicioTurno(p)}
+                  >
+                    <Text style={[styles.iniciarBtnText, { textAlign: 'center' }]}>Iniciar nuevo turno →</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
               </View>
             );
           })}
