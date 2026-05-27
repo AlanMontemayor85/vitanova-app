@@ -267,7 +267,12 @@ export const iniciarTurno = async (pacienteId: string) => {
     headers: headers(),
     body: JSON.stringify({ paciente_id: pacienteId }),
   });
-  return res.json();
+  
+  const raw = await res.text();
+  console.log('iniciarTurno status:', res.status);
+  console.log('iniciarTurno raw:', raw);
+  
+  return JSON.parse(raw);
 };
 export const eliminarGeocerca = async (geocercaId: string) => {
   const res = await fetch(`${BASE_URL}/geocercas/${geocercaId}`, {
