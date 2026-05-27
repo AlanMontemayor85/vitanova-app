@@ -320,6 +320,24 @@ export const completarActividad = async (actividadId: string, pacienteId: string
   });
   return res.json();
 };
+export const completarMedicamento = async (
+  medId: string, 
+  pacienteId: string, 
+  descripcion: string,
+  horaProgramada: string
+) => {
+  const res = await fetch(`${BASE_URL}/medicamentos/completar`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ 
+      med_id: medId, 
+      paciente_id: pacienteId,
+      descripcion,
+      hora_programada: horaProgramada
+    }),
+  });
+  return res.json();
+};
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',

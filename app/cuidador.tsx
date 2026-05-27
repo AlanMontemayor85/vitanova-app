@@ -5,7 +5,7 @@ import {
   StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native';
 import {
-  agregarTareaManual, clearToken, completarActividad, completarTarea,
+  agregarTareaManual, clearToken, completarActividad, completarMedicamento, completarTarea,
   detectarCambiosTurno, getPacientes, getTareasHoy, getToken,
   getTurnoActivo, getUserNombre, loadStoredToken, verificarEscalas
 } from '../services/api';
@@ -544,7 +544,11 @@ const manejarInicioTurno = async (p: any) => {
                   style={[styles.tareaCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0' }]}
                   onPress={async () => {
                   if (!t.completada) {
-                    await completarActividad(t.id, pacienteActivo.id);
+                    if (t.med_id) {
+                      await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora_programada);
+                    } else {
+                      await completarActividad(t.id, pacienteActivo.id);
+                    }
                     setTareas(prev => prev.map(tarea =>
                       tarea.id === t.id ? { ...tarea, completada: true } : tarea
                     ));
@@ -593,7 +597,9 @@ const manejarInicioTurno = async (p: any) => {
               style={[styles.tareaCard, t.completada && styles.tareaCardDone]}
               onPress={async () => {
               if (!t.completada) {
-                if (t.actividad_id || !t.registro_id) {
+                if (t.med_id) {
+                  await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora_programada);
+                } else if (t.actividad_id || !t.registro_id) {
                   await completarActividad(t.id, pacienteActivo.id);
                 } else {
                   await completarTarea(t.registro_id ?? t.id);
