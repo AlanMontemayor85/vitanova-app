@@ -325,6 +325,20 @@ export const completarActividad = async (actividadId: string, pacienteId: string
   });
   return res.json();
 };
+
+export const actualizarHorarioCuidador = async (
+  pacienteId: string,
+  usuarioId: string,
+  datos: { horario_inicio: string; horario_fin: string; dias_semana: string[] }
+) => {
+  const res = await fetch(`${BASE_URL}/equipo/${pacienteId}/${usuarioId}/horario`, {
+    method: 'PATCH',
+    headers: headers(),
+    body: JSON.stringify(datos),
+  });
+  return res.json();
+};
+
 export const completarMedicamento = async (
   medId: string, 
   pacienteId: string, 
