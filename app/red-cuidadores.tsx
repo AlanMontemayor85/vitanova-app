@@ -1,7 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getEquipoPaciente } from '../services/api';
+import {
+    ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text,
+    TextInput, TouchableOpacity, View
+} from 'react-native';
+import { actualizarHorarioCuidador, getEquipoPaciente } from '../services/api';
 
 const COLORS = {
   gold: '#BF9A40', goldPale: '#F5EDD8', cacao: '#4A4540', cream: '#FAFAF7',
@@ -49,6 +52,11 @@ export default function RedCuidadoresScreen() {
 
   const [equipo, setEquipo] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editando, setEditando] = useState<any>(null);
+  const [horaInicio, setHoraInicio] = useState('');
+  const [horaFin, setHoraFin] = useState('');
+  const [diasSeleccionados, setDiasSeleccionados] = useState<string[]>([]);
+  const [guardandoHorario, setGuardandoHorario] = useState(false);
 
   useEffect(() => {
     const cargar = async () => {
@@ -64,18 +72,31 @@ export default function RedCuidadoresScreen() {
     cargar();
   }, []);
 
-  // Separar por rol
   const familiares = equipo.filter(m => m.rol === 'familiar_principal' || m.rol === 'familiar');
   const cuidadores = equipo.filter(m => m.rol === 'cuidador_contratado');
   const medicos = equipo.filter(m => m.rol === 'medico');
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
-        <ActivityIndicator size="large" color={COLORS.gold} />
-      </View>
-    );
-  }
+  const guardarHorario = async () => {
+    if (!editando || !horaInicio || !horaFin) return;
+    setGuardandoHorario(true);
+    try {
+      await actualizarHorarioCuidador(pacienteId, editando.usuario_id, {
+        horario_inicio: horaInicio + ':00',
+        horario_fin: horaFin + ':00',
+        dias_semana: diasSeleccionados,
+      });
+      setEquipo(prev => prev.map(m =>
+        m.usuario_id === editando.usuario_id
+          ? { ...m, horario_inicio: horaInicio + ':00', horario_fin: horaFin + ':00', dias_semana: diasSeleccionados }
+          : m
+      ));
+      setEditando(null);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setGuardandoHorario(false);
+    }
+  };
 
   const renderMiembro = (m: any) => {
     const iniciales = m.nombre?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() ?? '??';
@@ -85,48 +106,67 @@ export default function RedCuidadoresScreen() {
 
     return (
       <View key={m.usuario_id} style={styles.miembroCard}>
-        <View style={styles.miembroLeft}>
-          <View style={[styles.avatar, { backgroundColor: colores.bg, borderColor: colores.border }]}>
-            <Text style={[styles.avatarText, { color: colores.text }]}>{iniciales}</Text>
+        <View style={styles.miembroTop}>
+          <View style={styles.miembroLeft}>
+            <View style={[styles.avatar, { backgroundColor: colores.bg, borderColor: colores.border }]}>
+              <Text style={[styles.avatarText, { color: colores.text }]}>{iniciales}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.miembroNombre}>{m.nombre}</Text>
+              <Text style={styles.miembroEmail}>{m.email}</Text>
+              {horario && (
+                <View style={styles.horarioRow}>
+                  <Text style={styles.horarioIcon}>🕐</Text>
+                  <Text style={styles.horarioText}>{horario}</Text>
+                </View>
+              )}
+              {dias.length > 0 && (
+                <View style={styles.diasRow}>
+                  {['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'].map(d => (
+                    <View
+                      key={d}
+                      style={[styles.diaChip, dias.includes(d) && { backgroundColor: colores.bg, borderColor: colores.border }]}
+                    >
+                      <Text style={[styles.diaChipText, dias.includes(d) && { color: colores.text, fontWeight: '700' }]}>
+                        {DIAS_CORTO[d]}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.miembroNombre}>{m.nombre}</Text>
-            <Text style={styles.miembroEmail}>{m.email}</Text>
-
-            {/* Horario */}
-            {horario && (
-              <View style={styles.horarioRow}>
-                <Text style={styles.horarioIcon}>🕐</Text>
-                <Text style={styles.horarioText}>{horario}</Text>
-              </View>
-            )}
-
-            {/* Días */}
-            {dias.length > 0 && (
-              <View style={styles.diasRow}>
-                {['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'].map(d => (
-                  <View
-                    key={d}
-                    style={[styles.diaChip, dias.includes(d) && { backgroundColor: colores.bg, borderColor: colores.border }]}
-                  >
-                    <Text style={[styles.diaChipText, dias.includes(d) && { color: colores.text, fontWeight: '700' }]}>
-                      {DIAS_CORTO[d]}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
+          <View style={[styles.rolPill, { backgroundColor: colores.bg, borderColor: colores.border }]}>
+            <Text style={[styles.rolPillText, { color: colores.text }]}>
+              {ROL_ICON[m.rol]} {ROL_LABEL[m.rol] ?? m.rol}
+            </Text>
           </View>
         </View>
 
-        <View style={[styles.rolPill, { backgroundColor: colores.bg, borderColor: colores.border }]}>
-          <Text style={[styles.rolPillText, { color: colores.text }]}>
-            {ROL_ICON[m.rol]} {ROL_LABEL[m.rol] ?? m.rol}
-          </Text>
-        </View>
+        {(m.rol === 'cuidador_contratado' || m.rol === 'medico') && (
+          <TouchableOpacity
+            style={styles.editarBtn}
+            onPress={() => {
+              setEditando(m);
+              setHoraInicio(m.horario_inicio?.slice(0, 5) ?? '08:00');
+              setHoraFin(m.horario_fin?.slice(0, 5) ?? '18:00');
+              setDiasSeleccionados(m.dias_semana ?? []);
+            }}
+          >
+            <Text style={styles.editarBtnText}>✏️ Editar horario</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
+        <ActivityIndicator size="large" color={COLORS.gold} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -145,7 +185,6 @@ export default function RedCuidadoresScreen() {
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-
         {equipo.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={{ fontSize: 40, marginBottom: 12 }}>👥</Text>
@@ -164,14 +203,12 @@ export default function RedCuidadoresScreen() {
                 {familiares.map(renderMiembro)}
               </>
             )}
-
             {cuidadores.length > 0 && (
               <>
                 <Text style={styles.sectionTitle}>Cuidadores</Text>
                 {cuidadores.map(renderMiembro)}
               </>
             )}
-
             {medicos.length > 0 && (
               <>
                 <Text style={styles.sectionTitle}>Médicos</Text>
@@ -180,9 +217,72 @@ export default function RedCuidadoresScreen() {
             )}
           </>
         )}
-
         <View style={{ height: 60 }} />
       </ScrollView>
+
+      {/* MODAL EDITAR HORARIO */}
+      {editando && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Horario de {editando.nombre}</Text>
+
+            <Text style={styles.modalLabel}>Hora inicio (HH:MM)</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={horaInicio}
+              onChangeText={setHoraInicio}
+              placeholder="08:00"
+              placeholderTextColor={COLORS.textLight}
+              keyboardType="numbers-and-punctuation"
+            />
+
+            <Text style={styles.modalLabel}>Hora fin (HH:MM)</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={horaFin}
+              onChangeText={setHoraFin}
+              placeholder="18:00"
+              placeholderTextColor={COLORS.textLight}
+              keyboardType="numbers-and-punctuation"
+            />
+
+            <Text style={styles.modalLabel}>Días de la semana</Text>
+            <View style={styles.diasModalRow}>
+              {['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'].map(d => (
+                <TouchableOpacity
+                  key={d}
+                  style={[styles.diaModalChip, diasSeleccionados.includes(d) && styles.diaModalChipActive]}
+                  onPress={() => setDiasSeleccionados(prev =>
+                    prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]
+                  )}
+                >
+                  <Text style={[styles.diaModalChipText, diasSeleccionados.includes(d) && styles.diaModalChipTextActive]}>
+                    {DIAS_CORTO[d]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: COLORS.cream, flex: 1 }]}
+                onPress={() => setEditando(null)}
+              >
+                <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]}
+                onPress={guardarHorario}
+                disabled={guardandoHorario}
+              >
+                <Text style={styles.modalBtnText}>
+                  {guardandoHorario ? 'Guardando...' : 'Guardar'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -202,11 +302,8 @@ const styles = StyleSheet.create({
   body: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
   sectionTitle: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: COLORS.textLight, marginBottom: 10, marginTop: 4 },
   emptyCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  miembroCard: {
-    backgroundColor: COLORS.white, borderRadius: 14, padding: 14,
-    marginBottom: 10, borderWidth: 1, borderColor: COLORS.border,
-    flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10,
-  },
+  miembroCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: COLORS.border },
+  miembroTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 },
   miembroLeft: { flexDirection: 'row', gap: 12, flex: 1 },
   avatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
   avatarText: { fontSize: 16, fontWeight: '800' },
@@ -220,4 +317,18 @@ const styles = StyleSheet.create({
   diaChipText: { fontSize: 9, color: COLORS.textLight },
   rolPill: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, alignSelf: 'flex-start' },
   rolPillText: { fontSize: 10, fontWeight: '700' },
+  editarBtn: { marginTop: 10, paddingVertical: 8, alignItems: 'center', borderRadius: 8, backgroundColor: COLORS.goldPale, borderWidth: 1, borderColor: COLORS.gold },
+  editarBtnText: { fontSize: 11, fontWeight: '700', color: COLORS.gold },
+  modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 },
+  modalCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20 },
+  modalTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textDark, marginBottom: 16 },
+  modalLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textLight, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, marginTop: 8 },
+  modalInput: { backgroundColor: COLORS.cream, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: COLORS.border, fontSize: 14, color: COLORS.textDark, marginBottom: 4 },
+  diasModalRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 4 },
+  diaModalChip: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.cream },
+  diaModalChipActive: { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold },
+  diaModalChipText: { fontSize: 12, color: COLORS.textLight, fontWeight: '600' },
+  diaModalChipTextActive: { color: COLORS.gold, fontWeight: '800' },
+  modalBtn: { borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+  modalBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.white },
 });
