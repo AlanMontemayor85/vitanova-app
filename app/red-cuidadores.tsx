@@ -4,7 +4,7 @@ import {
     ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text,
     TextInput, TouchableOpacity, View
 } from 'react-native';
-import { actualizarHorarioCuidador, getEquipoPaciente } from '../services/api';
+import { actualizarHorarioCuidador, crearInvitacion, getEquipoPaciente } from '../services/api';
 
 const COLORS = {
   gold: '#BF9A40', goldPale: '#F5EDD8', cacao: '#4A4540', cream: '#FAFAF7',
@@ -52,11 +52,21 @@ export default function RedCuidadoresScreen() {
 
   const [equipo, setEquipo] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Editar horario
   const [editando, setEditando] = useState<any>(null);
   const [horaInicio, setHoraInicio] = useState('');
   const [horaFin, setHoraFin] = useState('');
   const [diasSeleccionados, setDiasSeleccionados] = useState<string[]>([]);
   const [guardandoHorario, setGuardandoHorario] = useState(false);
+
+  // Invitar
+  const [invitandoOpen, setInvitandoOpen] = useState(false);
+  const [invEmail, setInvEmail] = useState('');
+  const [invRol, setInvRol] = useState<'cuidador_contratado' | 'medico' | 'familiar'>('cuidador_contratado');
+  const [invMensaje, setInvMensaje] = useState('');
+  const [enviandoInv, setEnviandoInv] = useState(false);
+  const [invExito, setInvExito] = useState(false);
 
   useEffect(() => {
     const cargar = async () => {
@@ -95,6 +105,32 @@ export default function RedCuidadoresScreen() {
       console.error(e);
     } finally {
       setGuardandoHorario(false);
+    }
+  };
+
+  const enviarInvitacion = async () => {
+    if (!invEmail.trim()) return;
+    setEnviandoInv(true);
+    try {
+      const res = await crearInvitacion({
+        paciente_id: pacienteId,
+        email_invitado: invEmail.trim(),
+        rol: invRol,
+        mensaje: invMensaje.trim() || null,
+      });
+      if (res.status === 'ok') {
+        setInvExito(true);
+        setTimeout(() => {
+          setInvitandoOpen(false);
+          setInvEmail('');
+          setInvMensaje('');
+          setInvExito(false);
+        }, 2000);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setEnviandoInv(false);
     }
   };
 
@@ -143,7 +179,7 @@ export default function RedCuidadoresScreen() {
           </View>
         </View>
 
-        {(m.rol === 'cuidador_contratado' || m.rol === 'medico') && (
+        {m.rol === 'cuidador_contratado' && (
           <TouchableOpacity
             style={styles.editarBtn}
             onPress={() => {
@@ -171,6 +207,8 @@ export default function RedCuidadoresScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
+
+      {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backIcon}>←</Text>
@@ -182,8 +220,12 @@ export default function RedCuidadoresScreen() {
         <View style={styles.totalPill}>
           <Text style={styles.totalText}>{equipo.length} miembros</Text>
         </View>
+        <TouchableOpacity style={styles.invitarBtn} onPress={() => setInvitandoOpen(true)}>
+          <Text style={styles.invitarBtnText}>+ Invitar</Text>
+        </TouchableOpacity>
       </View>
 
+      {/* LISTA */}
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
         {equipo.length === 0 ? (
           <View style={styles.emptyCard}>
@@ -192,7 +234,7 @@ export default function RedCuidadoresScreen() {
               Sin equipo registrado
             </Text>
             <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
-              Invita cuidadores y familiares desde la configuración
+              Toca "+ Invitar" para agregar miembros al equipo
             </Text>
           </View>
         ) : (
@@ -283,6 +325,79 @@ export default function RedCuidadoresScreen() {
           </View>
         </View>
       )}
+
+      {/* MODAL INVITAR */}
+      {invitandoOpen && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Invitar al equipo</Text>
+
+            <Text style={styles.modalLabel}>Email</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={invEmail}
+              onChangeText={setInvEmail}
+              placeholder="correo@ejemplo.com"
+              placeholderTextColor={COLORS.textLight}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+
+            <Text style={styles.modalLabel}>Rol</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+              {([
+                { val: 'cuidador_contratado', label: '🧑‍⚕️ Cuidador' },
+                { val: 'medico', label: '👨‍⚕️ Médico' },
+                { val: 'familiar', label: '👨‍👩‍👧 Familiar' },
+              ] as const).map(r => (
+                <TouchableOpacity
+                  key={r.val}
+                  style={[styles.rolBtn, invRol === r.val && styles.rolBtnActive]}
+                  onPress={() => setInvRol(r.val)}
+                >
+                  <Text style={[styles.rolBtnText, invRol === r.val && styles.rolBtnTextActive]}>
+                    {r.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.modalLabel}>Mensaje (opcional)</Text>
+            <TextInput
+              style={[styles.modalInput, { minHeight: 70, textAlignVertical: 'top' }]}
+              value={invMensaje}
+              onChangeText={setInvMensaje}
+              placeholder="Te invito a cuidar a María..."
+              placeholderTextColor={COLORS.textLight}
+              multiline
+            />
+
+            {invExito && (
+              <Text style={{ color: COLORS.green, fontSize: 13, fontWeight: '700', textAlign: 'center', marginBottom: 8 }}>
+                ✅ Invitación enviada
+              </Text>
+            )}
+
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: COLORS.cream, flex: 1 }]}
+                onPress={() => { setInvitandoOpen(false); setInvEmail(''); setInvMensaje(''); }}
+              >
+                <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]}
+                onPress={enviarInvitacion}
+                disabled={enviandoInv}
+              >
+                <Text style={styles.modalBtnText}>
+                  {enviandoInv ? 'Enviando...' : 'Enviar invitación'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -299,6 +414,8 @@ const styles = StyleSheet.create({
   backIcon: { fontSize: 18, color: COLORS.white },
   totalPill: { backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
   totalText: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
+  invitarBtn: { backgroundColor: COLORS.gold, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, marginLeft: 8 },
+  invitarBtnText: { fontSize: 11, fontWeight: '800', color: COLORS.white },
   body: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
   sectionTitle: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: COLORS.textLight, marginBottom: 10, marginTop: 4 },
   emptyCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
@@ -329,6 +446,10 @@ const styles = StyleSheet.create({
   diaModalChipActive: { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold },
   diaModalChipText: { fontSize: 12, color: COLORS.textLight, fontWeight: '600' },
   diaModalChipTextActive: { color: COLORS.gold, fontWeight: '800' },
+  rolBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.cream, alignItems: 'center' },
+  rolBtnActive: { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold },
+  rolBtnText: { fontSize: 10, fontWeight: '600', color: COLORS.textLight },
+  rolBtnTextActive: { color: COLORS.gold, fontWeight: '800' },
   modalBtn: { borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
   modalBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.white },
 });

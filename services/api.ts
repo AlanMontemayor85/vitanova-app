@@ -357,6 +357,14 @@ export const completarMedicamento = async (
   });
   return res.json();
 };
+export const crearInvitacion = async (datos: object) => {
+  const res = await fetch(`${BASE_URL}/invitaciones`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify(datos),
+  });
+  return res.json();
+};
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',
