@@ -107,7 +107,12 @@ export default function RegistroSaludScreen() {
       await iniciarTurno(paciente.id);
       router.replace({
         pathname: '/cuidador' as any,
-        params: { vistaInicial: 'turno', paciente: params.paciente }
+        params: { 
+          vistaInicial: 'turno', 
+          paciente: typeof params.paciente === 'string' 
+            ? params.paciente  // ya es string JSON, no re-serializar
+            : JSON.stringify(paciente) 
+        }
       });
     }
     } catch (e) {

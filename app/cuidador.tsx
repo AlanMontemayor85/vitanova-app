@@ -141,8 +141,10 @@ export default function CuidadorScreen() {
 
   // Navegar directo al turno desde params
   useEffect(() => {
-    if (params.vistaInicial === 'turno' && params.paciente) {
-      const p = JSON.parse(params.paciente as string);
+  if (params.vistaInicial === 'turno' && params.paciente) {
+    try {
+      const raw = params.paciente as string;
+      const p = JSON.parse(raw);
       setPacienteActivo(p);
       getTurnoActivo(p.id).then(data => {
         if (data.tareas) setTareas(data.tareas);
@@ -152,8 +154,11 @@ export default function CuidadorScreen() {
         }
       });
       setVista('turno');
+    } catch (e) {
+      console.error('Error parseando paciente:', e, params.paciente);
     }
-  }, [params.vistaInicial, params.paciente]);
+  }
+}, [params.vistaInicial, params.paciente]);
 
   const resetEstados = () => {
     setPacienteActivo(null);
