@@ -5,12 +5,9 @@ import {
   StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native';
 import {
-  agregarTareaManual, clearToken, completarTarea, detectarCambiosTurno,
-  getPacientes,
-  getTareasHoy,
-  getToken,
-  getTurnoActivo,
-  getUserNombre, loadStoredToken, verificarEscalas
+  agregarTareaManual, clearToken, completarActividad, completarTarea,
+  detectarCambiosTurno, getPacientes, getTareasHoy, getToken,
+  getTurnoActivo, getUserNombre, loadStoredToken, verificarEscalas
 } from '../services/api';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
@@ -209,21 +206,26 @@ export default function CuidadorScreen() {
 
   // ── INICIO DE TURNO ───────────────────────────────────────
 
-  const manejarInicioTurno = async (p: any) => {
-    try {
-      const cambiosData = await detectarCambiosTurno(p.id);
-      if (cambiosData.cambios && cambiosData.cambios.length > 0) {
-        setCambiosPendientes(cambiosData.cambios);
-        setPacienteActivo(p);
-        setCambiosModal(true);
-      } else {
-        irARegistroSalud(p);
-      }
-    } catch (e) {
+  const [iniciando, setIniciando] = useState(false);
+
+const manejarInicioTurno = async (p: any) => {
+  if (iniciando) return;
+  setIniciando(true);
+  try {
+    const cambiosData = await detectarCambiosTurno(p.id);
+    if (cambiosData.cambios && cambiosData.cambios.length > 0) {
+      setCambiosPendientes(cambiosData.cambios);
+      setPacienteActivo(p);
+      setCambiosModal(true);
+    } else {
       irARegistroSalud(p);
     }
-  };
-
+  } catch (e) {
+    irARegistroSalud(p);
+  } finally {
+    setIniciando(false);
+  }
+};
   // ── NOTAS ─────────────────────────────────────────────────
 
   const guardarNota = async () => {
@@ -438,16 +440,12 @@ export default function CuidadorScreen() {
                 )}
 
                 {estadoTurno === 'finalizado' && (
-                  <View style={{ gap: 8, marginTop: 10 }}>
-                    <View style={[styles.iniciarBtn, { backgroundColor: COLORS.cream, borderColor: COLORS.border, alignSelf: 'stretch' }]}>
-                      <Text style={[styles.iniciarBtnText, { color: COLORS.textLight, textAlign: 'center' }]}>Turno completado ✓</Text>
-                    </View>
-                    <TouchableOpacity
-                      style={[styles.iniciarBtn, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, alignSelf: 'stretch' }]}
-                      onPress={() => manejarInicioTurno(p)}
-                    >
-                      <Text style={[styles.iniciarBtnText, { textAlign: 'center' }]}>Iniciar nuevo turno →</Text>
-                    </TouchableOpacity>
+                  <View style={styles.badgeFinalizado}>
+                    <Text style={styles.badgeFinalizadoText}>
+                      ✓ {p.turno_hora_fin 
+                        ? new Date(p.turno_hora_fin).toLocaleString('es-MX', { hour: '2-digit', minute: '2-digit' })
+                        : 'Completado hoy'}
+                    </Text>
                   </View>
                 )}
               </View>
@@ -530,13 +528,13 @@ export default function CuidadorScreen() {
                   key={t.id}
                   style={[styles.tareaCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0' }]}
                   onPress={async () => {
-                    if (!t.completada && t.registro_id) {
-                      await completarTarea(t.registro_id);
-                      setTareas(prev => prev.map(tarea =>
-                        tarea.id === t.id ? { ...tarea, completada: true } : tarea
-                      ));
-                    }
-                  }}
+                  if (!t.completada) {
+                    await completarActividad(t.id, pacienteActivo.id);
+                    setTareas(prev => prev.map(tarea =>
+                      tarea.id === t.id ? { ...tarea, completada: true } : tarea
+                    ));
+                  }
+                }}
                 >
                   <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📝'}</Text>
                   <View style={styles.tareaInfo}>
@@ -579,14 +577,17 @@ export default function CuidadorScreen() {
               key={t.id}
               style={[styles.tareaCard, t.completada && styles.tareaCardDone]}
               onPress={async () => {
-                if (!t.completada) {
-                  const id = t.registro_id ?? t.id;
-                  await completarTarea(id);
-                  setTareas(prev => prev.map(tarea =>
-                    tarea.id === t.id ? { ...tarea, completada: true } : tarea
-                  ));
+              if (!t.completada) {
+                if (t.actividad_id || !t.registro_id) {
+                  await completarActividad(t.id, pacienteActivo.id);
+                } else {
+                  await completarTarea(t.registro_id ?? t.id);
                 }
-              }}
+                setTareas(prev => prev.map(tarea =>
+                  tarea.id === t.id ? { ...tarea, completada: true } : tarea
+                ));
+              }
+            }}
             >
               <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📝'}</Text>
               <View style={styles.tareaInfo}>
