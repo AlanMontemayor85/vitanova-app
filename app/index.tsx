@@ -266,13 +266,25 @@ useEffect(() => {
             { icon: '📍', label: 'Ubicación', ruta: '/mapa' },
             { icon: '💊', label: 'Medicam.', ruta: '/medicamentos' },
             { icon: '🔔', label: 'Alertas', ruta: '/alertas' },
-            { icon: '💬', label: 'Cuidadores', ruta: '/cuidador' },
+            { icon: '💬', label: 'Cuidadores', ruta: null },
             { icon: '🏠', label: 'Evaluación', ruta: '/evaluacion-hogar' },
           ].map((item) => (
             <TouchableOpacity
               key={item.label}
               style={styles.qaBtn}
-              onPress={() => item.ruta && router.push(item.ruta as any)}
+              onPress={() => {
+                if (item.label === 'Cuidadores') {
+                  router.push({
+                    pathname: '/red-cuidadores' as any,
+                    params: {
+                      pacienteId: paciente?.id,
+                      pacienteNombre: paciente?.nombre_completo,
+                    }
+                  });
+                } else {
+                  item.ruta && router.push(item.ruta as any);
+                }
+              }}
             >
               <Text style={styles.qaIcon}>{item.icon}</Text>
               <Text style={styles.qaLabel}>{item.label}</Text>

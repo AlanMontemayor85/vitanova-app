@@ -22,8 +22,12 @@ function formatFecha(iso: string) {
 }
 
 function formatHora(iso: string) {
-  return new Date(iso).toLocaleTimeString('es-MX', {
-    hour: '2-digit', minute: '2-digit',
+  return new Date(iso).toLocaleString('es-MX', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 

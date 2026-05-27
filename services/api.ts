@@ -84,7 +84,12 @@ export const getHistorialCierres = async (pacienteId: string) => {
   });
   return res.json();
 };
-
+export const getEquipoPaciente = async (pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/equipo`, {
+    headers: headers(),
+  });
+  return res.json();
+};
 export const getTurnoActivo = async (pacienteId: string) => {
   const res = await fetch(`${BASE_URL}/turnos/activo/${pacienteId}`, {
     headers: headers(),
