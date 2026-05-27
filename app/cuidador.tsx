@@ -303,45 +303,51 @@ export default function CuidadorScreen() {
   };
 
   const ejecutarCierre = async () => {
-    try {
-      const token = getToken();
-      const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          paciente_id: pacienteActivo.id,
-          estado_paciente: estadoPaciente,
-          spo2, presion_sistolica: sistolica, presion_diastolica: diastolica,
-          frecuencia_cardiaca: fc,
-          barthel_scores: barthelTocado ? barthelScores : null,
-          barthel_total: barthelTocado ? barthelTotal : null,
-          barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
-          morse_scores: morseTocado ? morseScores : null,
-          morse_total: morseTocado ? morseTotal : null,
-          morse_label: morseTocado ? getMorseLabel(morseTotal) : null,
-          mna_scores: mnaTocado ? mnaScores : null,
-          mna_total: mnaTocado ? mnaTotal : null,
-          mna_label: mnaTocado ? getMNALabel(mnaTotal) : null,
-          peso_kg: peso,
-          imc: pacienteActivo.talla_cm ? parseFloat((peso / Math.pow(pacienteActivo.talla_cm / 100, 2)).toFixed(1)) : null,
-        }),
-      });
-      const data = await res.json();
-      if (data.status === 'ok') {
-        Alert.alert('✅ Turno cerrado', 'El resumen fue enviado al familiar.', [{
-          text: 'OK', onPress: async () => {
-            resetEstados();
-            setVista('lista');
-            const pData = await getPacientes();
-            if (pData.patients) setPacientes(pData.patients);
-          }
-        }]);
-      }
-    } catch (e) {
-      console.error('Error cerrando turno:', e);
-      Alert.alert('Error', 'No se pudo cerrar el turno. Intenta de nuevo.');
+  try {
+    const token = getToken();
+    const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        paciente_id: pacienteActivo.id,
+        estado_paciente: estadoPaciente,
+        spo2, presion_sistolica: sistolica, presion_diastolica: diastolica,
+        frecuencia_cardiaca: fc,
+        barthel_scores: barthelTocado ? barthelScores : null,
+        barthel_total: barthelTocado ? barthelTotal : null,
+        barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
+        morse_scores: morseTocado ? morseScores : null,
+        morse_total: morseTocado ? morseTotal : null,
+        morse_label: morseTocado ? getMorseLabel(morseTotal) : null,
+        mna_scores: mnaTocado ? mnaScores : null,
+        mna_total: mnaTocado ? mnaTotal : null,
+        mna_label: mnaTocado ? getMNALabel(mnaTotal) : null,
+        peso_kg: peso,
+        imc: pacienteActivo.talla_cm
+          ? parseFloat((peso / Math.pow(pacienteActivo.talla_cm / 100, 2)).toFixed(1))
+          : null,
+      }),
+    });
+    const data = await res.json();
+
+    if (data.status === 'ok') {
+      // 1. Resetear estado local
+      resetEstados();
+      // 2. Recargar pacientes
+      const pData = await getPacientes();
+      if (pData.patients) setPacientes(pData.patients);
+      // 3. Navegar a lista ANTES del Alert para que ya esté renderizada
+      setVista('lista');
+      // 4. Alert informativo (no bloquea la navegación)
+      Alert.alert('✅ Turno cerrado', 'El resumen fue enviado al familiar.');
+    } else {
+      Alert.alert('Error', data.detail ?? 'No se pudo cerrar el turno.');
     }
-  };
+  } catch (e) {
+    console.error('Error cerrando turno:', e);
+    Alert.alert('Error', 'No se pudo cerrar el turno. Intenta de nuevo.');
+  }
+};
 
   if (loading) {
     return (
