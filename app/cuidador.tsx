@@ -450,7 +450,7 @@ const manejarInicioTurno = async (p: any) => {
                             year: 'numeric',
                             hour: '2-digit', 
                             minute: '2-digit',
-                            timeZone: 'America/Monterrey'
+                          
                           })}`
                         : 'Completado hoy'}
                     </Text>
