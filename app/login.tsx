@@ -27,6 +27,7 @@ export default function LoginScreen() {
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const handleLogin = async () => {
     if (!email || !password) { setError('Ingresa tu email y contraseña'); return; }
@@ -51,6 +52,10 @@ export default function LoginScreen() {
 
   const handleRegistro = async () => {
     if (!email || !password) { setError('Ingresa tu email y contraseña'); return; }
+    if (password !== confirmPassword) {   
+      setError('Las contraseñas no coinciden');
+      return;
+    }
     if (password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return; }
     setLoading(true); setError('');
     try {
@@ -126,6 +131,23 @@ export default function LoginScreen() {
             <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁️'}</Text>
           </TouchableOpacity>
         </View>
+        {modo === 'registro' && (
+          <>
+            <Text style={styles.label}>Confirmar contraseña</Text>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={[styles.input, { flex: 1, marginBottom: 0, borderWidth: 0 }]}
+                placeholder="••••••••"
+                placeholderTextColor={COLORS.textLight}
+                secureTextEntry={!showPassword}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+              />
+            </View>
+          </>
+        )}
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -144,7 +166,11 @@ export default function LoginScreen() {
 
         <TouchableOpacity
           style={styles.toggleBtn}
-          onPress={() => { setModo(modo === 'login' ? 'registro' : 'login'); setError(''); }}
+          onPress={() => { 
+            setModo(modo === 'login' ? 'registro' : 'login'); 
+            setError(''); 
+            setConfirmPassword(''); 
+          }}
         >
           <Text style={styles.toggleBtnText}>
             {modo === 'login' ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
