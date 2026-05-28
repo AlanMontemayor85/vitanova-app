@@ -389,9 +389,13 @@ export const buscarInvitacion = async (codigo: string) => {
 };
 
 export const aceptarInvitacion = async (token: string) => {
+  const authToken = await loadStoredToken();
   const res = await fetch(`${BASE_URL}/invitaciones/${token}/aceptar`, {
     method: 'POST',
-    headers: headers(),
+    headers: {
+      'Content-Type': 'application/json',
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+    },
   });
   return res.json();
 };
