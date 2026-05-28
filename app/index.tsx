@@ -341,7 +341,10 @@ useEffect(() => {
             Sin turno activo en este momento
           </Text>
         </View>
-      )}
+          )}
+
+        <View style={{ height: 100 }} />
+      </ScrollView>
 
       {/* BOTTOM NAV */}
       <View style={styles.bottomNav}>
