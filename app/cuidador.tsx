@@ -388,7 +388,25 @@ const manejarInicioTurno = async (p: any) => {
 
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
           <Text style={styles.sectionTitle}>Tus pacientes hoy</Text>
-
+         {pacientes.length === 0 && (
+            <View style={{ alignItems: 'center', marginTop: 60, paddingHorizontal: 32 }}>
+              <Text style={{ fontSize: 40, marginBottom: 16 }}>👥</Text>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.textDark, marginBottom: 8, textAlign: 'center' }}>
+                Sin pacientes asignados
+              </Text>
+              <Text style={{ fontSize: 13, color: COLORS.textLight, textAlign: 'center', marginBottom: 24 }}>
+                ¿Te invitaron a cuidar a alguien? Ingresa tu código de invitación.
+              </Text>
+              <TouchableOpacity
+                style={{ backgroundColor: COLORS.gold, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 28 }}
+                onPress={() => router.push('/aceptar-invitacion' as any)}
+              >
+                <Text style={{ color: COLORS.white, fontSize: 14, fontWeight: '800' }}>
+                  Tengo un código de invitación
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
           {pacientes.map((p) => {
             const estadoTurno = p.estado_turno ?? 'no_iniciado';
             const condiciones = p.condiciones_medicas?.join(' · ') ?? '—';
