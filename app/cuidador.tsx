@@ -381,6 +381,12 @@ const manejarInicioTurno = async (p: any) => {
             <Text style={styles.greeting}>Bienvenido</Text>
             <Text style={styles.userName}>{getUserNombre() ?? 'Cuidador'}</Text>
           </View>
+          <TouchableOpacity
+            style={[styles.notifBtn, { marginRight: 8 }]}
+            onPress={() => router.push('/aceptar-invitacion' as any)}
+          >
+            <Text style={styles.notifIcon}>🔗</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.notifBtn} onPress={async () => { await clearToken(); router.replace('/login'); }}>
             <Text style={styles.notifIcon}>🚪</Text>
           </TouchableOpacity>
