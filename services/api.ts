@@ -365,6 +365,18 @@ export const crearInvitacion = async (datos: object) => {
   });
   return res.json();
 };
+export const buscarInvitacion = async (codigo: string) => {
+  const res = await fetch(`${BASE_URL}/invitaciones/buscar?codigo=${codigo.toLowerCase()}`);
+  return res.json();
+};
+
+export const aceptarInvitacion = async (token: string) => {
+  const res = await fetch(`${BASE_URL}/invitaciones/${token}/aceptar`, {
+    method: 'POST',
+    headers: headers(),
+  });
+  return res.json();
+};
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',
