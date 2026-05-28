@@ -399,6 +399,13 @@ export const aceptarInvitacion = async (token: string) => {
   });
   return res.json();
 };
+export const removerDelEquipo = async (pacienteId: string, usuarioId: string) => {
+  const res = await fetch(`${BASE_URL}/equipo/${pacienteId}/${usuarioId}`, {
+    method: 'DELETE',
+    headers: headers(),
+  });
+  return res.json();
+};
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',

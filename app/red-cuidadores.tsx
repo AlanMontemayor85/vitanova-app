@@ -1,10 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text,
+    ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text,
     TextInput, TouchableOpacity, View
 } from 'react-native';
-import { actualizarHorarioCuidador, crearInvitacion, getEquipoPaciente } from '../services/api';
+import { actualizarHorarioCuidador, crearInvitacion, getEquipoPaciente, removerDelEquipo } from '../services/api';
 
 const COLORS = {
   gold: '#BF9A40', goldPale: '#F5EDD8', cacao: '#4A4540', cream: '#FAFAF7',
@@ -188,11 +188,35 @@ export default function RedCuidadoresScreen() {
               setHoraFin(m.horario_fin?.slice(0, 5) ?? '18:00');
               setDiasSeleccionados(m.dias_semana ?? []);
             }}
-          >
+          >{m.rol !== 'familiar_principal' && (
+            <TouchableOpacity
+                style={styles.removerBtn}
+                onPress={() => {
+                Alert.alert(
+                    'Remover del equipo',
+                    `¿Seguro que quieres remover a ${m.nombre} del equipo de cuidado?`,
+                    [
+                    { text: 'Cancelar', style: 'cancel' },
+                    {
+                        text: 'Remover',
+                        style: 'destructive',
+                        onPress: async () => {
+                        await removerDelEquipo(pacienteId, m.usuario_id);
+                        setEquipo(prev => prev.filter(x => x.usuario_id !== m.usuario_id));
+                        }
+                    }
+                    ]
+                );
+                }}
+            >
+                <Text style={styles.removerBtnText}>🗑️ Remover del equipo</Text>
+            </TouchableOpacity>
+            )}
             <Text style={styles.editarBtnText}>✏️ Editar horario</Text>
           </TouchableOpacity>
         )}
       </View>
+      
     );
   };
 
@@ -450,6 +474,8 @@ const styles = StyleSheet.create({
   rolBtnActive: { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold },
   rolBtnText: { fontSize: 10, fontWeight: '600', color: COLORS.textLight },
   rolBtnTextActive: { color: COLORS.gold, fontWeight: '800' },
+  removerBtn: { marginTop: 6, paddingVertical: 8, alignItems: 'center', borderRadius: 8, backgroundColor: COLORS.redPale, borderWidth: 1, borderColor: COLORS.red },
+ removerBtnText: { fontSize: 11, fontWeight: '700', color: COLORS.red },
   modalBtn: { borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
   modalBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.white },
 });
