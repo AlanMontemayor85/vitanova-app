@@ -36,22 +36,31 @@ export default function AceptarInvitacionScreen() {
   };
 
   const handleAceptar = async () => {
-    if (!invitacion) return;
-    setLoading(true);
-    try {
-      const data = await aceptarInvitacion(invitacion.token);
-      if (data.status === 'ok') {
-        setExito(true);
-        setTimeout(() => router.replace('/'), 2000);
-      } else {
-        setError(data.error ?? 'Error al aceptar');
-      }
-    } catch (e) {
-      setError('Error al aceptar la invitación');
-    } finally {
-      setLoading(false);
+  if (!invitacion) return;
+  setLoading(true);
+  try {
+    const data = await aceptarInvitacion(invitacion.token);
+    if (data.status === 'ok') {
+      setExito(true);
+      setTimeout(() => {
+        // Redirigir según el rol de la invitación
+        if (invitacion.rol === 'cuidador_contratado' || invitacion.rol === 'cuidador') {
+          router.replace('/cuidador');
+        } else if (invitacion.rol === 'medico') {
+          router.replace('/medico');
+        } else {
+          router.replace('/');
+        }
+      }, 2000);
+    } else {
+      setError(data.error ?? 'Error al aceptar');
     }
-  };
+  } catch (e) {
+    setError('Error al aceptar la invitación');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <View style={styles.container}>
