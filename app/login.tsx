@@ -2,7 +2,7 @@ import { makeRedirectUri } from 'expo-auth-session';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { login } from '../services/api';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -73,8 +73,8 @@ export default function LoginScreen() {
       setLoadingGoogle(false);
     }
   };
-
-  return (
+  
+    return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -87,7 +87,7 @@ export default function LoginScreen() {
         />
       </View>
 
-      <View style={styles.form}>
+      <ScrollView style={styles.form} contentContainerStyle={{ paddingBottom: 48 }}>
         <Text style={styles.title}>Iniciar sesión</Text>
 
         <Text style={styles.label}>Correo electrónico</Text>
@@ -148,8 +148,15 @@ export default function LoginScreen() {
               </>
           }
         </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+
+        <TouchableOpacity
+          style={styles.invitacionBtn}
+          onPress={() => router.push('/aceptar-invitacion' as any)}
+        >
+          <Text style={styles.invitacionBtnText}>¿Tienes un código de invitación?</Text>
+        </TouchableOpacity>
+      </ScrollView>
+     </KeyboardAvoidingView>
   );
 }
 
@@ -158,10 +165,10 @@ const styles = StyleSheet.create({
   header: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
   logoImg: { width: 240, height: 180 },
   form: {
-    backgroundColor: COLORS.cream,
-    borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    padding: 32, paddingBottom: 48,
-  },
+  backgroundColor: COLORS.cream,
+  borderTopLeftRadius: 28, borderTopRightRadius: 28,
+  padding: 32,
+},
   title: { fontSize: 20, fontWeight: '800', color: COLORS.textDark, marginBottom: 24 },
   label: {
     fontSize: 11, fontWeight: '700', color: COLORS.textLight,
@@ -179,6 +186,8 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: COLORS.border,
     marginBottom: 16, paddingHorizontal: 16,
   },
+  invitacionBtn: { paddingVertical: 16, alignItems: 'center', marginTop: 8 },
+  invitacionBtnText: { color: COLORS.textLight, fontSize: 13, fontWeight: '600' },
   eyeBtn: { paddingLeft: 8 },
   eyeIcon: { fontSize: 18 },
   error: { color: COLORS.red, fontSize: 12, marginBottom: 12, textAlign: 'center' },
