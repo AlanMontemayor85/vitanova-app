@@ -406,6 +406,12 @@ export const removerDelEquipo = async (pacienteId: string, usuarioId: string) =>
   });
   return res.json();
 };
+export const getTurnoActivoResumen = async (pacienteId: string) => {
+  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/turno-activo-resumen`, {
+    headers: headers(),
+  });
+  return res.json();
+};
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',

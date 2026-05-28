@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { clearToken, getNotasTurno, getPacientes, getUltimoCierre, loadStoredToken } from '../services/api';
+import { clearToken, getNotasTurno, getPacientes, getTurnoActivoResumen, getUltimoCierre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 
 const COLORS = {
@@ -35,6 +35,7 @@ export default function HomeScreen() {
   const [pacientes, setPacientes] = useState<any[]>([]);
   const [pacienteIndex, setPacienteIndex] = useState(0);
   const params = useLocalSearchParams();
+  const [turnoResumen, setTurnoResumen] = useState<any>(null);
   useEffect(() => {
   const init = async () => {
     try {
@@ -82,11 +83,14 @@ useEffect(() => {
   setUltimoCierre(null);
   setNotas([]);
   const cargarDatos = async () => {
-    const cierreData = await getUltimoCierre(p.id);
-    if (cierreData.cierre) setUltimoCierre(cierreData.cierre);
-    const notasData = await getNotasTurno(p.id);
-    if (notasData.notas) setNotas(notasData.notas);
-  };
+  const cierreData = await getUltimoCierre(p.id);
+  if (cierreData.cierre) setUltimoCierre(cierreData.cierre);
+  const notasData = await getNotasTurno(p.id);
+  if (notasData.notas) setNotas(notasData.notas);
+  const turnoRes = await getTurnoActivoResumen(p.id);
+  if (turnoRes.turno) setTurnoResumen(turnoRes.turno);
+  else setTurnoResumen(null);
+};
   cargarDatos();
 }, [pacienteIndex]);
   if (loading) {
@@ -312,25 +316,32 @@ useEffect(() => {
         )}
 
         {/* TURNO ACTIVO */}
-        <Text style={[styles.sectionTitle, { marginTop: 8, marginBottom: 12 }]}>Turno activo</Text>
+      <Text style={[styles.sectionTitle, { marginTop: 8, marginBottom: 12 }]}>Turno activo</Text>
+      {turnoResumen ? (
         <View style={styles.turnoCard}>
           <View style={styles.turnoLeft}>
             <View style={styles.turnoAvatar}>
-              <Text style={styles.turnoAvatarText}>RL</Text>
+              <Text style={styles.turnoAvatarText}>
+                {turnoResumen.cuidador_nombre?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+              </Text>
             </View>
             <View>
-              <Text style={styles.turnoName}>Rosa López</Text>
-              <Text style={styles.turnoHora}>8:00 AM — 6:00 PM</Text>
+              <Text style={styles.turnoName}>{turnoResumen.cuidador_nombre}</Text>
+              <Text style={styles.turnoHora}>{turnoResumen.horario}</Text>
             </View>
           </View>
           <View style={styles.turnoProgress}>
-            <Text style={styles.turnoProgressText}>3/5</Text>
+            <Text style={styles.turnoProgressText}>{turnoResumen.completadas}/{turnoResumen.total}</Text>
             <Text style={styles.turnoProgressLabel}>tareas</Text>
           </View>
         </View>
-
-        <View style={{ height: 100 }} />
-      </ScrollView>
+      ) : (
+        <View style={[styles.turnoCard, { justifyContent: 'center' }]}>
+          <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
+            Sin turno activo en este momento
+          </Text>
+        </View>
+      )}
 
       {/* BOTTOM NAV */}
       <View style={styles.bottomNav}>
