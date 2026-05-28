@@ -365,7 +365,22 @@ export const crearInvitacion = async (datos: object) => {
   });
   return res.json();
 };
-
+export const register = async (email: string, password: string) => {
+  console.log('Registrando en:', `${BASE_URL}/auth/register`);
+  try {
+    const res = await fetch(`${BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    console.log('Respuesta registro:', data);
+    return data;
+  } catch (e) {
+    console.log('Error fetch registro:', e);
+    throw e;
+  }
+};
 export const buscarInvitacion = async (codigo: string) => {
   const res = await fetch(`${BASE_URL}/invitaciones/buscar?codigo=${codigo.toLowerCase()}`);
   const raw = await res.text();
