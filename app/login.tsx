@@ -6,7 +6,7 @@ import {
   ActivityIndicator, Image, KeyboardAvoidingView, Platform,
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native';
-import { login, register } from '../services/api';
+import { login, register, setToken } from '../services/api';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -57,23 +57,18 @@ export default function LoginScreen() {
   setLoading(true); setError('');
   try {
     const data = await register(email.trim(), password);
-    if (data.user_id) {
-      // Login automático para guardar el token
-      const loginData = await login(email.trim(), password);
-      if (loginData.access_token) {
-        router.push('/aceptar-invitacion' as any);
-      } else {
+      if (data.access_token) {
+        await setToken(data.access_token);
         router.replace('/completar-perfil');
+      } else {
+        setError(data.error ?? 'Error al crear cuenta');
       }
-    } else {
-      setError(data.error ?? 'Error al crear cuenta');
+    } catch (e) {
+      setError('Error de conexión');
+    } finally {
+      setLoading(false);
     }
-  } catch (e) {
-    setError('Error de conexión');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleGoogle = async () => {
     setLoadingGoogle(true);
