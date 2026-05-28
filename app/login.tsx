@@ -51,26 +51,29 @@ export default function LoginScreen() {
   };
 
   const handleRegistro = async () => {
-    if (!email || !password) { setError('Ingresa tu email y contraseña'); return; }
-    if (password !== confirmPassword) {   
-      setError('Las contraseñas no coinciden');
-      return;
-    }
-    if (password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return; }
-    setLoading(true); setError('');
-    try {
-      const data = await register(email.trim(), password);
-      if (data.user_id) {
-        router.replace('/completar-perfil');
+  if (!email || !password) { setError('Ingresa tu email y contraseña'); return; }
+  if (password !== confirmPassword) { setError('Las contraseñas no coinciden'); return; }
+  if (password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return; }
+  setLoading(true); setError('');
+  try {
+    const data = await register(email.trim(), password);
+    if (data.user_id) {
+      // Login automático para guardar el token
+      const loginData = await login(email.trim(), password);
+      if (loginData.access_token) {
+        router.push('/aceptar-invitacion' as any);
       } else {
-        setError(data.error ?? 'Error al crear cuenta');
+        router.replace('/completar-perfil');
       }
-    } catch (e) {
-      setError('Error de conexión');
-    } finally {
-      setLoading(false);
+    } else {
+      setError(data.error ?? 'Error al crear cuenta');
     }
-  };
+  } catch (e) {
+    setError('Error de conexión');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleGoogle = async () => {
     setLoadingGoogle(true);
