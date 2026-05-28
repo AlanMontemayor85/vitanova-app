@@ -2,28 +2,25 @@ import { makeRedirectUri } from 'expo-auth-session';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { login } from '../services/api';
+import {
+  ActivityIndicator, Image, KeyboardAvoidingView, Platform,
+  ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
+} from 'react-native';
+import { login, register } from '../services/api';
 
 WebBrowser.maybeCompleteAuthSession();
 
 const SUPABASE_URL = 'https://kywafcpnhnetetpsrtjx.supabase.co';
-const GOOGLE_CLIENT_ID = '630533307649-46m1oi78o6ecmbbkjddfqq91ocjubvgf.apps.googleusercontent.com'; // el que copiaste de Google Cloud
 
 const COLORS = {
-  gold: '#BF9A40',
-  goldPale: '#F5EDD8',
-  cacao: '#4A4540',
-  cream: '#FAFAF7',
-  white: '#FFFFFF',
-  textDark: '#2C2820',
-  textLight: '#8A8078',
-  border: '#E0D8CC',
-  red: '#D94F4F',
+  gold: '#BF9A40', goldPale: '#F5EDD8', cacao: '#4A4540', cream: '#FAFAF7',
+  white: '#FFFFFF', textDark: '#2C2820', textLight: '#8A8078',
+  border: '#E0D8CC', red: '#D94F4F',
 };
 
 export default function LoginScreen() {
   const router = useRouter();
+  const [modo, setModo] = useState<'login' | 'registro'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -31,14 +28,9 @@ export default function LoginScreen() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // ── Login con email ──────────────────────
   const handleLogin = async () => {
-    if (!email || !password) {
-      setError('Ingresa tu email y contraseña');
-      return;
-    }
-    setLoading(true);
-    setError('');
+    if (!email || !password) { setError('Ingresa tu email y contraseña'); return; }
+    setLoading(true); setError('');
     try {
       const data = await login(email.trim(), password);
       if (data.access_token) {
@@ -57,7 +49,24 @@ export default function LoginScreen() {
     }
   };
 
-  // ── Login con Google ─────────────────────
+  const handleRegistro = async () => {
+    if (!email || !password) { setError('Ingresa tu email y contraseña'); return; }
+    if (password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return; }
+    setLoading(true); setError('');
+    try {
+      const data = await register(email.trim(), password);
+      if (data.user_id) {
+        router.replace('/completar-perfil');
+      } else {
+        setError(data.error ?? 'Error al crear cuenta');
+      }
+    } catch (e) {
+      setError('Error de conexión');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleGoogle = async () => {
     setLoadingGoogle(true);
     try {
@@ -73,8 +82,8 @@ export default function LoginScreen() {
       setLoadingGoogle(false);
     }
   };
-  
-    return (
+
+  return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -88,7 +97,9 @@ export default function LoginScreen() {
       </View>
 
       <ScrollView style={styles.form} contentContainerStyle={{ paddingBottom: 48 }}>
-        <Text style={styles.title}>Iniciar sesión</Text>
+        <Text style={styles.title}>
+          {modo === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
+        </Text>
 
         <Text style={styles.label}>Correo electrónico</Text>
         <TextInput
@@ -120,13 +131,24 @@ export default function LoginScreen() {
 
         <TouchableOpacity
           style={[styles.btn, loading && { opacity: 0.7 }]}
-          onPress={handleLogin}
+          onPress={modo === 'login' ? handleLogin : handleRegistro}
           disabled={loading}
         >
           {loading
             ? <ActivityIndicator color={COLORS.white} />
-            : <Text style={styles.btnText}>Entrar</Text>
+            : <Text style={styles.btnText}>
+                {modo === 'login' ? 'Entrar' : 'Crear cuenta'}
+              </Text>
           }
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.toggleBtn}
+          onPress={() => { setModo(modo === 'login' ? 'registro' : 'login'); setError(''); }}
+        >
+          <Text style={styles.toggleBtnText}>
+            {modo === 'login' ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
+          </Text>
         </TouchableOpacity>
 
         <View style={styles.divider}>
@@ -156,7 +178,7 @@ export default function LoginScreen() {
           <Text style={styles.invitacionBtnText}>¿Tienes un código de invitación?</Text>
         </TouchableOpacity>
       </ScrollView>
-     </KeyboardAvoidingView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -164,50 +186,24 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.cacao },
   header: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
   logoImg: { width: 240, height: 180 },
-  form: {
-  backgroundColor: COLORS.cream,
-  borderTopLeftRadius: 28, borderTopRightRadius: 28,
-  padding: 32,
-},
+  form: { backgroundColor: COLORS.cream, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 32 },
   title: { fontSize: 20, fontWeight: '800', color: COLORS.textDark, marginBottom: 24 },
-  label: {
-    fontSize: 11, fontWeight: '700', color: COLORS.textLight,
-    letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6,
-  },
-  input: {
-    backgroundColor: COLORS.white, borderRadius: 12,
-    borderWidth: 1, borderColor: COLORS.border,
-    paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 14, color: COLORS.textDark, marginBottom: 16,
-  },
-  inputWrapper: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: COLORS.white, borderRadius: 12,
-    borderWidth: 1, borderColor: COLORS.border,
-    marginBottom: 16, paddingHorizontal: 16,
-  },
-  invitacionBtn: { paddingVertical: 16, alignItems: 'center', marginTop: 8 },
-  invitacionBtnText: { color: COLORS.textLight, fontSize: 13, fontWeight: '600' },
+  label: { fontSize: 11, fontWeight: '700', color: COLORS.textLight, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 },
+  input: { backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 16, paddingVertical: 14, fontSize: 14, color: COLORS.textDark, marginBottom: 16 },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, marginBottom: 16, paddingHorizontal: 16 },
   eyeBtn: { paddingLeft: 8 },
   eyeIcon: { fontSize: 18 },
   error: { color: COLORS.red, fontSize: 12, marginBottom: 12, textAlign: 'center' },
-  btn: {
-    backgroundColor: COLORS.gold, borderRadius: 14,
-    paddingVertical: 16, alignItems: 'center', marginTop: 8,
-  },
+  btn: { backgroundColor: COLORS.gold, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
   btnText: { color: COLORS.white, fontSize: 15, fontWeight: '800', letterSpacing: 1 },
-  divider: {
-    flexDirection: 'row', alignItems: 'center',
-    marginVertical: 20, gap: 12,
-  },
+  toggleBtn: { paddingVertical: 12, alignItems: 'center', marginTop: 4 },
+  toggleBtnText: { color: COLORS.gold, fontSize: 13, fontWeight: '700' },
+  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 20, gap: 12 },
   dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.border },
   dividerText: { color: COLORS.textLight, fontSize: 12 },
-  btnGoogle: {
-    backgroundColor: COLORS.white, borderRadius: 14,
-    paddingVertical: 14, alignItems: 'center',
-    borderWidth: 1, borderColor: COLORS.border,
-    flexDirection: 'row', justifyContent: 'center', gap: 10,
-  },
+  btnGoogle: { backgroundColor: COLORS.white, borderRadius: 14, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, flexDirection: 'row', justifyContent: 'center', gap: 10 },
   googleIcon: { fontSize: 16, fontWeight: '900', color: '#4285F4' },
   btnGoogleText: { fontSize: 14, fontWeight: '700', color: COLORS.textDark },
+  invitacionBtn: { paddingVertical: 16, alignItems: 'center', marginTop: 8 },
+  invitacionBtnText: { color: COLORS.textLight, fontSize: 13, fontWeight: '600' },
 });
