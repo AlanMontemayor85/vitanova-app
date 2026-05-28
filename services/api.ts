@@ -365,9 +365,12 @@ export const crearInvitacion = async (datos: object) => {
   });
   return res.json();
 };
+
 export const buscarInvitacion = async (codigo: string) => {
   const res = await fetch(`${BASE_URL}/invitaciones/buscar?codigo=${codigo.toLowerCase()}`);
-  return res.json();
+  const raw = await res.text();
+  console.log('buscarInvitacion raw:', raw);
+  return JSON.parse(raw);
 };
 
 export const aceptarInvitacion = async (token: string) => {
