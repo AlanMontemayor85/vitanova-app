@@ -406,6 +406,12 @@ export const removerDelEquipo = async (pacienteId: string, usuarioId: string) =>
   });
   return res.json();
 };
+export const getSignosVitalesHistorico = async (pacienteId: string, limit: number = 10) => {
+  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/signos-vitales-historico?limit=${limit}`, {
+    headers: headers(),
+  });
+  return res.json();
+};
 export const getTurnoActivoResumen = async (pacienteId: string) => {
   const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/turno-activo-resumen`, {
     headers: headers(),
