@@ -208,6 +208,15 @@ useEffect(() => {
             <Text style={styles.vitalUnit}>bpm</Text>
             <Text style={styles.vitalLabel}>F. Card.</Text>
           </View>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Último turno</Text>
+            <TouchableOpacity onPress={() => router.push({
+              pathname: '/grafica-signos' as any,
+              params: { pacienteId: paciente?.id, pacienteNombre: paciente?.nombre_completo }
+            })}>
+              <Text style={styles.sectionLink}>Ver gráficas</Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.vitalCard}>
             <Text style={[styles.vitalVal, { color: ultimoCierre?.estado_paciente === 'bien' ? COLORS.green : ultimoCierre?.estado_paciente === 'preocupante' ? COLORS.red : COLORS.amber }]}>
               {ultimoCierre?.estado_paciente === 'bien' ? '😊' : ultimoCierre?.estado_paciente === 'preocupante' ? '😟' : ultimoCierre ? '😐' : '—'}

@@ -685,7 +685,27 @@ export default function CuidadorScreen() {
             <Text style={styles.accionBtnIcon}>🩺</Text>
             <Text style={[styles.accionBtnText, { color: COLORS.gold }]}>Signos espontáneos</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.accionBtn, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, marginBottom: 12 }]}
+            onPress={() => router.push({
+              pathname: '/registro-salud' as any,
+              params: { paciente: JSON.stringify(pacienteActivo), momento: 'espontaneo' },
+            })}
+          >
+            <Text style={styles.accionBtnIcon}>🩺</Text>
+            <Text style={[styles.accionBtnText, { color: COLORS.gold }]}>Signos espontáneos</Text>
+          </TouchableOpacity>
 
+          <TouchableOpacity
+            style={[styles.accionBtn, { backgroundColor: COLORS.greenPale, borderColor: COLORS.green, marginBottom: 12 }]}
+            onPress={() => router.push({
+              pathname: '/grafica-signos' as any,
+              params: { pacienteId: pacienteActivo.id, pacienteNombre: pacienteActivo.nombre_completo },
+            })}
+          >
+            <Text style={styles.accionBtnIcon}>📊</Text>
+            <Text style={[styles.accionBtnText, { color: COLORS.green }]}>Ver gráficas</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.cerrarBtn}
             onPress={async () => {
@@ -771,7 +791,9 @@ export default function CuidadorScreen() {
               </View>
             </View>
           </View>
+          
         )}
+        
       </View>
     );
   }
