@@ -272,12 +272,13 @@ export const iniciarTurno = async (pacienteId: string) => {
     headers: headers(),
     body: JSON.stringify({ paciente_id: pacienteId }),
   });
-  
-  const raw = await res.text();
+  const data = await res.json();
   console.log('iniciarTurno status:', res.status);
-  console.log('iniciarTurno raw:', raw);
-  
-  return JSON.parse(raw);
+  console.log('iniciarTurno raw:', JSON.stringify(data));
+  if (data.error === 'sin_horario') {
+    return { sin_horario: true, mensaje: data.mensaje };
+  }
+  return data;
 };
 export const eliminarGeocerca = async (geocercaId: string) => {
   const res = await fetch(`${BASE_URL}/geocercas/${geocercaId}`, {
@@ -424,6 +425,7 @@ export const getAlertaPeso = async (pacienteId: string) => {
   });
   return res.json();
 };
+
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',
