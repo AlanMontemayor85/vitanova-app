@@ -161,16 +161,26 @@ export default function CuidadorScreen() {
 
   // ── HELPERS ──
   const cargarTurno = async (pacienteId: string) => {
-    const [turnoData, tareasData] = await Promise.all([
-      getTurnoActivo(pacienteId),
-      getTareasHoy(pacienteId),
-    ]);
-    if (turnoData.turno) {
-      setTurnoActivo(turnoData.turno);
-      turnoActivoRef.current = turnoData.turno;
-    }
-    if (tareasData.tareas) setTareas(tareasData.tareas);
-  };
+  const [turnoData, tareasData] = await Promise.all([
+    getTurnoActivo(pacienteId),
+    getTareasHoy(pacienteId),
+  ]);
+
+  if (tareasData.sin_horario) {
+    Alert.alert(
+      'Sin horario asignado',
+      'El familiar aún no ha configurado tu horario. Pídele que lo haga desde la sección Cuidadores.',
+      [{ text: 'Entendido', onPress: () => setVista('lista') }]
+    );
+    return;
+  }
+
+  if (turnoData.turno) {
+    setTurnoActivo(turnoData.turno);
+    turnoActivoRef.current = turnoData.turno;
+  }
+  if (tareasData.tareas) setTareas(tareasData.tareas);
+};
 
   const resetEstados = () => {
     setPacienteActivo(null);
