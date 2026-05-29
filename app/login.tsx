@@ -208,7 +208,7 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.cacao },
-  header: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
+  header: { height: 260, alignItems: 'center', justifyContent: 'center', paddingTop: 40 },
   logoImg: { width: 240, height: 180 },
   form: { backgroundColor: COLORS.cream, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 32 },
   title: { fontSize: 20, fontWeight: '800', color: COLORS.textDark, marginBottom: 24 },
