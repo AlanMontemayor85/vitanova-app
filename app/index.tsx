@@ -65,6 +65,9 @@ export default function HomeScreen() {
         if (cierreData.cierre) setUltimoCierre(cierreData.cierre);
         const notasData = await getNotasTurno(p.id);
         if (notasData.notas) setNotas(notasData.notas);
+        const turnoRes = await getTurnoActivoResumen(p.id);
+        if (turnoRes.turno) setTurnoResumen(turnoRes.turno);
+        else setTurnoResumen(null);
       }
     } catch (e) {
       console.error('Error init:', e);
