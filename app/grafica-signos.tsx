@@ -222,7 +222,8 @@ export default function GraficaSignosScreen() {
                         <MiniChart
                         datos={diastolicaData}
                         color={COLORS.amber}
-                        min={40} max={130}
+                        min={Math.min(...diastolicaData) - 10}
+                        max={Math.max(...diastolicaData) + 10}
                         unidad=" mmHg"
                         />
                     </View>
@@ -256,8 +257,8 @@ export default function GraficaSignosScreen() {
                 <MiniChart
                   datos={pesoData}
                   color={COLORS.cacao}
-                  min={Math.min(...pesoData) - 5}
-                  max={Math.max(...pesoData) + 5}
+                  min={Math.min(...fcData) - 10}
+                  max={Math.max(...fcData) + 10}
                   unidad=" kg"
                 />
               </View>
