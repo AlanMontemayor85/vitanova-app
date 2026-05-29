@@ -197,38 +197,37 @@ export default function GraficaSignosScreen() {
             )}
 
             {/* PRESIÓN */}
-            {sistolicaData.length > 0 && (
-              <View style={styles.chartCard}>
-                <View style={styles.chartHeader}>
-                  <Text style={styles.chartTitle}>Presión arterial</Text>
-                  <View style={[styles.chartBadge, { backgroundColor: COLORS.greenPale }]}>
-                    <Text style={[styles.chartBadgeText, { color: COLORS.green }]}>Normal: 120/80</Text>
-                  </View>
+                {sistolicaData.length > 0 && (
+                <View style={styles.chartCard}>
+                    <View style={styles.chartHeader}>
+                    <Text style={styles.chartTitle}>Presión arterial</Text>
+                    <View style={[styles.chartBadge, { backgroundColor: COLORS.greenPale }]}>
+                        <Text style={[styles.chartBadgeText, { color: COLORS.green }]}>Normal: 120/80</Text>
+                    </View>
+                    </View>
+                    <View style={{ gap: 16 }}>
+                    <View>
+                        <Text style={styles.chartSubtitle}>Sistólica</Text>
+                        <MiniChart
+                        datos={sistolicaData}
+                        color={COLORS.red}
+                        min={80} max={200}
+                        unidad=" mmHg"
+                        alerta={180}
+                        />
+                    </View>
+                    <View>
+                        <Text style={styles.chartSubtitle}>Diastólica</Text>
+                        <MiniChart
+                        datos={diastolicaData}
+                        color={COLORS.amber}
+                        min={40} max={130}
+                        unidad=" mmHg"
+                        />
+                    </View>
+                    </View>
                 </View>
-                <View style={{ flexDirection: 'row', gap: 16 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.chartSubtitle}>Sistólica</Text>
-                    <MiniChart
-                      datos={sistolicaData}
-                      color={COLORS.red}
-                      min={80} max={200}
-                      unidad=" mmHg"
-                      alerta={180}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.chartSubtitle}>Diastólica</Text>
-                    <MiniChart
-                      datos={diastolicaData}
-                      color={COLORS.amber}
-                      min={40} max={130}
-                      unidad=" mmHg"
-                    />
-                  </View>
-                </View>
-              </View>
-            )}
-
+                )}
             {/* FC */}
             {fcData.length > 0 && (
               <View style={styles.chartCard}>
