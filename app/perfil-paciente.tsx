@@ -4,17 +4,9 @@ import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, Text
 import { actualizarPaciente } from '../services/api';
 
 const COLORS = {
-  gold: '#BF9A40',
-  goldPale: '#F5EDD8',
-  cacao: '#4A4540',
-  cream: '#FAFAF7',
-  white: '#FFFFFF',
-  textDark: '#2C2820',
-  textLight: '#8A8078',
-  border: '#E0D8CC',
-  red: '#D94F4F',
-  redPale: '#FDEAEA',
-  green: '#3DAA6A',
+  gold: '#BF9A40', goldPale: '#F5EDD8', cacao: '#4A4540', cream: '#FAFAF7',
+  white: '#FFFFFF', textDark: '#2C2820', textLight: '#8A8078',
+  border: '#E0D8CC', red: '#D94F4F', redPale: '#FDEAEA', green: '#3DAA6A',
 };
 
 const CONDICIONES = [
@@ -36,6 +28,10 @@ export default function PerfilPacienteScreen() {
   const [medico, setMedico] = useState(paciente?.medico_tratante ?? '');
   const [talla, setTalla] = useState(paciente?.talla_cm?.toString() ?? '');
   const [condiciones, setCondiciones] = useState<string[]>(paciente?.condiciones_medicas ?? []);
+  const [telefonoEmergencia, setTelefonoEmergencia] = useState(paciente?.telefono_emergencia ?? '');
+  const [nombreAseguradora, setNombreAseguradora] = useState(paciente?.nombre_aseguradora ?? '');
+  const [telefonoAseguradora, setTelefonoAseguradora] = useState(paciente?.telefono_aseguradora ?? '');
+  const [telefonoAmbulancia, setTelefonoAmbulancia] = useState(paciente?.telefono_ambulancia ?? '');
 
   const toggleCondicion = (c: string) => {
     setCondiciones(prev =>
@@ -53,11 +49,13 @@ export default function PerfilPacienteScreen() {
         condiciones_medicas: condiciones,
         medico_tratante: medico.trim() || null,
         talla_cm: talla ? parseFloat(talla) : null,
+        telefono_emergencia: telefonoEmergencia.trim() || null,
+        nombre_aseguradora: nombreAseguradora.trim() || null,
+        telefono_aseguradora: telefonoAseguradora.trim() || null,
+        telefono_ambulancia: telefonoAmbulancia.trim() || null,
       });
       setExito(true);
-      setTimeout(() => {
-        router.back();
-      }, 1000);
+      setTimeout(() => router.back(), 1000);
     } catch (e) {
       setError('Error al guardar');
     } finally {
@@ -66,17 +64,17 @@ export default function PerfilPacienteScreen() {
   };
 
   const desactivar = async () => {
-  setGuardando(true);
-  try {
-    await actualizarPaciente(paciente.id, { activo: false });
-    router.replace({ pathname: '/' as any, params: { refresh: Date.now().toString() } });
-  } catch (e) {
-    setError('Error al desactivar');
-  } finally {
-    setGuardando(false);
-  }
-};
- 
+    setGuardando(true);
+    try {
+      await actualizarPaciente(paciente.id, { activo: false });
+      router.replace({ pathname: '/' as any, params: { refresh: Date.now().toString() } });
+    } catch (e) {
+      setError('Error al desactivar');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
@@ -134,6 +132,50 @@ export default function PerfilPacienteScreen() {
           ))}
         </View>
 
+        {/* SECCIÓN EMERGENCIAS */}
+        <View style={styles.seccionEmergencia}>
+          <Text style={styles.seccionTitulo}>🚨 Contactos de emergencia</Text>
+        </View>
+
+        <Text style={styles.label}>Teléfono de emergencia</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="81 1234 5678"
+          placeholderTextColor={COLORS.textLight}
+          value={telefonoEmergencia}
+          onChangeText={setTelefonoEmergencia}
+          keyboardType="phone-pad"
+        />
+
+        <Text style={styles.label}>Aseguradora</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Banorte Seguros"
+          placeholderTextColor={COLORS.textLight}
+          value={nombreAseguradora}
+          onChangeText={setNombreAseguradora}
+        />
+
+        <Text style={styles.label}>Teléfono aseguradora</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="800 123 4567"
+          placeholderTextColor={COLORS.textLight}
+          value={telefonoAseguradora}
+          onChangeText={setTelefonoAseguradora}
+          keyboardType="phone-pad"
+        />
+
+        <Text style={styles.label}>Teléfono ambulancia</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="065 o número privado"
+          placeholderTextColor={COLORS.textLight}
+          value={telefonoAmbulancia}
+          onChangeText={setTelefonoAmbulancia}
+          keyboardType="phone-pad"
+        />
+
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {exito ? <Text style={styles.exito}>✅ Guardado correctamente</Text> : null}
 
@@ -149,20 +191,20 @@ export default function PerfilPacienteScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-        style={styles.btnDesactivar}
-        onPress={() => {
+          style={styles.btnDesactivar}
+          onPress={() => {
             Alert.alert(
-            'Desactivar paciente',
-            `¿Estás seguro de que quieres desactivar a ${paciente?.nombre_completo}? El historial se conservará.`,
-            [
+              'Desactivar paciente',
+              `¿Estás seguro de que quieres desactivar a ${paciente?.nombre_completo}? El historial se conservará.`,
+              [
                 { text: 'Cancelar', style: 'cancel' },
                 { text: 'Desactivar', style: 'destructive', onPress: desactivar },
-            ]
+              ]
             );
-        }}
-        disabled={guardando}
+          }}
+          disabled={guardando}
         >
-        <Text style={styles.btnDesactivarText}>Desactivar paciente</Text>
+          <Text style={styles.btnDesactivarText}>Desactivar paciente</Text>
         </TouchableOpacity>
 
         <View style={{ height: 60 }} />
@@ -189,6 +231,8 @@ const styles = StyleSheet.create({
   condicionBtnActive: { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold },
   condicionBtnText: { fontSize: 12, color: COLORS.textLight },
   condicionBtnTextActive: { color: COLORS.gold, fontWeight: '700' },
+  seccionEmergencia: { backgroundColor: COLORS.redPale, borderRadius: 10, padding: 12, marginBottom: 12, marginTop: 8, borderWidth: 1, borderColor: 'rgba(217,79,79,0.2)' },
+  seccionTitulo: { fontSize: 12, fontWeight: '800', color: COLORS.red },
   error: { color: COLORS.red, fontSize: 12, marginBottom: 12, textAlign: 'center' },
   exito: { color: COLORS.green, fontSize: 12, marginBottom: 12, textAlign: 'center' },
   btn: { backgroundColor: COLORS.gold, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
