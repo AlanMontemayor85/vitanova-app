@@ -159,6 +159,9 @@ useEffect(() => {
         <Text style={styles.patientAvatarText}>{iniciales}</Text>
       </TouchableOpacity>
         <View style={styles.patientInfo}>
+          <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 }}>
+            Persona a tu cuidado
+          </Text>
           <Text style={styles.patientName}>{nombre}</Text>
           <Text style={styles.patientAge}>{condiciones}</Text>
           {pacientes.length > 1 && (
