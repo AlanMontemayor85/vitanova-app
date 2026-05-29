@@ -211,7 +211,8 @@ export default function GraficaSignosScreen() {
                         <MiniChart
                         datos={sistolicaData}
                         color={COLORS.red}
-                        min={80} max={200}
+                        min={Math.min(...sistolicaData) - 10} 
+                        max={Math.max(...sistolicaData) + 10}
                         unidad=" mmHg"
                         alerta={180}
                         />
