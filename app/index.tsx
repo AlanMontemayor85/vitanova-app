@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { clearToken, getNotasTurno, getPacientes, getTurnoActivoResumen, getUltimoCierre, loadStoredToken } from '../services/api';
+import { clearToken, getNotasTurno, getPacientes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 
 const COLORS = {
@@ -116,8 +116,10 @@ useEffect(() => {
       {/* HEADER */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.greeting}>Buenos días</Text>
-          <Text style={styles.userName}>Ana Leal</Text>
+          <Text style={styles.greeting}>
+            {new Date().getHours() < 12 ? 'Buenos días' : new Date().getHours() < 19 ? 'Buenas tardes' : 'Buenas noches'}
+          </Text>
+          <Text style={styles.userName}>{getUserNombre() ?? 'Familiar'}</Text>
         </View>
         <TouchableOpacity 
           style={[styles.notifBtn, { marginRight: 8 }]}
