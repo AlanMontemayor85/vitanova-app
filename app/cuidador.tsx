@@ -88,7 +88,7 @@ export default function CuidadorScreen() {
   const [turnoActivo, setTurnoActivo] = useState<any>(null);
   const [tareas, setTareas] = useState<any[]>([]);
   const turnoActivoRef = useRef<any>(null);
-
+  const [incidenteOpen, setIncidenteOpen] = useState(false);
   const [notaOpen, setNotaOpen] = useState(false);
   const [notaTexto, setNotaTexto] = useState('');
   const [guardandoNota, setGuardandoNota] = useState(false);
@@ -682,7 +682,10 @@ export default function CuidadorScreen() {
           )}
 
           <View style={styles.accionesRow}>
-            <TouchableOpacity style={[styles.accionBtn, { backgroundColor: COLORS.redPale, borderColor: 'rgba(217,79,79,0.3)' }]}>
+            <TouchableOpacity 
+              style={[styles.accionBtn, { backgroundColor: COLORS.redPale, borderColor: 'rgba(217,79,79,0.3)' }]}
+              onPress={() => setIncidenteOpen(true)}
+            >
               <Text style={styles.accionBtnIcon}>🚨</Text>
               <Text style={[styles.accionBtnText, { color: COLORS.red }]}>Incidente</Text>
             </TouchableOpacity>
@@ -803,7 +806,72 @@ export default function CuidadorScreen() {
           </View>
           
         )}
-        
+        {incidenteOpen && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>🚨 Incidente de emergencia</Text>
+            <Text style={{ fontSize: 12, color: COLORS.textLight, marginBottom: 16 }}>
+              Selecciona una acción de emergencia para {pacienteActivo.nombre_completo}
+            </Text>
+
+            {pacienteActivo.telefono_ambulancia && (
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: COLORS.red, marginBottom: 8, flexDirection: 'row', gap: 8 }]}
+                onPress={() => {
+                  setIncidenteOpen(false);
+                  Linking.openURL(`tel:${pacienteActivo.telefono_ambulancia}`);
+                }}
+              >
+                <Text style={{ fontSize: 16 }}>🚑</Text>
+                <Text style={styles.modalBtnText}>Llamar ambulancia</Text>
+              </TouchableOpacity>
+            )}
+
+            {pacienteActivo.telefono_aseguradora && (
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: COLORS.amber, marginBottom: 8, flexDirection: 'row', gap: 8 }]}
+                onPress={() => {
+                  setIncidenteOpen(false);
+                  Linking.openURL(`tel:${pacienteActivo.telefono_aseguradora}`);
+                }}
+              >
+                <Text style={{ fontSize: 16 }}>📞</Text>
+                <Text style={styles.modalBtnText}>
+                  Llamar {pacienteActivo.nombre_aseguradora ?? 'aseguradora'}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {pacienteActivo.telefono_emergencia && (
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: COLORS.cacao, marginBottom: 8, flexDirection: 'row', gap: 8 }]}
+                onPress={() => {
+                  setIncidenteOpen(false);
+                  Linking.openURL(`tel:${pacienteActivo.telefono_emergencia}`);
+                }}
+              >
+                <Text style={{ fontSize: 16 }}>👤</Text>
+                <Text style={styles.modalBtnText}>Llamar contacto de emergencia</Text>
+              </TouchableOpacity>
+            )}
+
+            {!pacienteActivo.telefono_ambulancia && !pacienteActivo.telefono_aseguradora && !pacienteActivo.telefono_emergencia && (
+              <View style={{ backgroundColor: COLORS.goldPale, borderRadius: 10, padding: 12, marginBottom: 12 }}>
+                <Text style={{ fontSize: 12, color: COLORS.amber, textAlign: 'center' }}>
+                  No hay contactos de emergencia configurados. Pide al familiar que los agregue en el perfil del paciente.
+                </Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[styles.modalBtn, { backgroundColor: COLORS.cream, borderColor: COLORS.border }]}
+              onPress={() => setIncidenteOpen(false)}
+            >
+              <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
       </View>
     );
   }
