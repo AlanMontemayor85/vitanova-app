@@ -212,23 +212,33 @@ export default function CuidadorScreen() {
 
   // ── INICIO DE TURNO ──
   const manejarInicioTurno = async (p: any) => {
-    if (iniciando) return;
-    setIniciando(true);
-    try {
-      const cambiosData = await detectarCambiosTurno(p.id);
-      if (cambiosData.cambios && cambiosData.cambios.length > 0) {
-        setCambiosPendientes(cambiosData.cambios);
-        setPacienteActivo(p);
-        setCambiosModal(true);
-      } else {
-        irARegistroSalud(p);
-      }
-    } catch (e) {
-      irARegistroSalud(p);
-    } finally {
-      setIniciando(false);
+  if (iniciando) return;
+  setIniciando(true);
+  try {
+    // Verificar horario primero
+    const tareasCheck = await getTareasHoy(p.id);
+    if (tareasCheck.sin_horario) {
+      Alert.alert(
+        'Sin horario asignado',
+        'El familiar aún no ha configurado tu horario. Pídele que lo haga desde la sección Cuidadores.',
+      );
+      return;
     }
-  };
+
+    const cambiosData = await detectarCambiosTurno(p.id);
+    if (cambiosData.cambios && cambiosData.cambios.length > 0) {
+      setCambiosPendientes(cambiosData.cambios);
+      setPacienteActivo(p);
+      setCambiosModal(true);
+    } else {
+      irARegistroSalud(p);
+    }
+  } catch (e) {
+    irARegistroSalud(p);
+  } finally {
+    setIniciando(false);
+  }
+};
 
   // ── NOTAS ──
   const guardarNota = async () => {
