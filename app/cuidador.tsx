@@ -19,8 +19,6 @@ const COLORS = {
   amberPale: '#FFF4E0', red: '#D94F4F', redPale: '#FDEAEA',
 };
 
-// ── ESCALAS CLÍNICAS ──────────────────────────────────────────
-
 const BARTHEL_ITEMS = [
   { label: 'Comer', opciones: [{ val: 0, txt: 'Dependiente' }, { val: 5, txt: 'Necesita ayuda' }, { val: 10, txt: 'Independiente' }] },
   { label: 'Bañarse', opciones: [{ val: 0, txt: 'Dependiente' }, { val: 5, txt: 'Independiente' }] },
@@ -79,24 +77,18 @@ const ICONOS_TIPO: Record<string, string> = {
 
 type Vista = 'lista' | 'turno' | 'cierre';
 
-// ── COMPONENTE PRINCIPAL ──────────────────────────────────────
-
 export default function CuidadorScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  // ── ESTADO DE NAVEGACIÓN ──
   const [vista, setVista] = useState<Vista>('lista');
   const [loading, setLoading] = useState(true);
-
-  // ── PACIENTES Y TURNO ──
   const [pacientes, setPacientes] = useState<any[]>([]);
   const [pacienteActivo, setPacienteActivo] = useState<any>(null);
   const [turnoActivo, setTurnoActivo] = useState<any>(null);
   const [tareas, setTareas] = useState<any[]>([]);
   const turnoActivoRef = useRef<any>(null);
 
-  // ── MODALES ──
   const [notaOpen, setNotaOpen] = useState(false);
   const [notaTexto, setNotaTexto] = useState('');
   const [guardandoNota, setGuardandoNota] = useState(false);
@@ -106,11 +98,9 @@ export default function CuidadorScreen() {
   const [tareaHora, setTareaHora] = useState('');
   const [guardandoTarea, setGuardandoTarea] = useState(false);
 
-  // ── CAMBIOS DE TURNO ──
   const [cambiosModal, setCambiosModal] = useState(false);
   const [cambiosPendientes, setCambiosPendientes] = useState<any[]>([]);
 
-  // ── ESCALAS CLÍNICAS ──
   const [escalaRequerida, setEscalaRequerida] = useState(false);
   const [escalasLista, setEscalasLista] = useState<string[]>([]);
   const [escalaMotivo, setEscalaMotivo] = useState('');
@@ -128,16 +118,15 @@ export default function CuidadorScreen() {
   const [mnaTocado, setMnaTocado] = useState(false);
   const mnaTotal = mnaScores.reduce((a, b) => a + b, 0);
 
-  // ── SIGNOS VITALES CIERRE ──
   const [spo2, setSpo2] = useState(98);
   const [sistolica, setSistolica] = useState(120);
   const [diastolica, setDiastolica] = useState(80);
   const [fc, setFc] = useState(72);
   const [estadoPaciente, setEstadoPaciente] = useState('bien');
   const [peso, setPeso] = useState(70.0);
+  const [iniciando, setIniciando] = useState(false);
 
-  // ── CARGA INICIAL ──────────────────────────────────────────
-
+  // ── CARGA INICIAL ──
   useEffect(() => {
     const cargar = async () => {
       try {
@@ -153,26 +142,24 @@ export default function CuidadorScreen() {
     cargar();
   }, []);
 
-  // Navegación directa al turno desde registro-salud
+  // ── NAVEGACIÓN DESDE REGISTRO-SALUD ──
   useEffect(() => {
-  if (params.vistaInicial === 'turno' && params.paciente) {
-    try {
-      const p = JSON.parse(params.paciente as string);
-      setPacienteActivo(p);
-      cargarTurno(p.id);
-      setVista('turno');
-      // Recargar pacientes para actualizar estado_turno
-      getPacientes().then(data => {
-        if (data.patients) setPacientes(data.patients);
-      });
-    } catch (e) {
-      console.error('Error parseando paciente:', e, params.paciente);
+    if (params.vistaInicial === 'turno' && params.paciente) {
+      try {
+        const p = JSON.parse(params.paciente as string);
+        setPacienteActivo(p);
+        cargarTurno(p.id);
+        setVista('turno');
+        getPacientes().then(data => {
+          if (data.patients) setPacientes(data.patients);
+        });
+      } catch (e) {
+        console.error('Error parseando paciente:', e);
+      }
     }
-  }
-}, [params.vistaInicial, params.paciente]);
+  }, [params.vistaInicial, params.paciente]);
 
-  // ── HELPERS ───────────────────────────────────────────────
-
+  // ── HELPERS ──
   const cargarTurno = async (pacienteId: string) => {
     const [turnoData, tareasData] = await Promise.all([
       getTurnoActivo(pacienteId),
@@ -208,30 +195,32 @@ export default function CuidadorScreen() {
     });
   };
 
-  // ── INICIO DE TURNO ───────────────────────────────────────
+  const recargarPacientes = async () => {
+    const data = await getPacientes();
+    if (data.patients) setPacientes(data.patients);
+  };
 
-  const [iniciando, setIniciando] = useState(false);
-
-const manejarInicioTurno = async (p: any) => {
-  if (iniciando) return;
-  setIniciando(true);
-  try {
-    const cambiosData = await detectarCambiosTurno(p.id);
-    if (cambiosData.cambios && cambiosData.cambios.length > 0) {
-      setCambiosPendientes(cambiosData.cambios);
-      setPacienteActivo(p);
-      setCambiosModal(true);
-    } else {
+  // ── INICIO DE TURNO ──
+  const manejarInicioTurno = async (p: any) => {
+    if (iniciando) return;
+    setIniciando(true);
+    try {
+      const cambiosData = await detectarCambiosTurno(p.id);
+      if (cambiosData.cambios && cambiosData.cambios.length > 0) {
+        setCambiosPendientes(cambiosData.cambios);
+        setPacienteActivo(p);
+        setCambiosModal(true);
+      } else {
+        irARegistroSalud(p);
+      }
+    } catch (e) {
       irARegistroSalud(p);
+    } finally {
+      setIniciando(false);
     }
-  } catch (e) {
-    irARegistroSalud(p);
-  } finally {
-    setIniciando(false);
-  }
-};
-  // ── NOTAS ─────────────────────────────────────────────────
+  };
 
+  // ── NOTAS ──
   const guardarNota = async () => {
     if (!notaTexto.trim()) return;
     setGuardandoNota(true);
@@ -262,8 +251,7 @@ const manejarInicioTurno = async (p: any) => {
     }
   };
 
-  // ── TAREAS MANUALES (INCIDENTALES) ────────────────────────
-
+  // ── TAREAS MANUALES ──
   const guardarTareaManual = async () => {
     if (!tareaDesc.trim()) return;
     setGuardandoTarea(true);
@@ -295,8 +283,7 @@ const manejarInicioTurno = async (p: any) => {
     }
   };
 
-  // ── CIERRE DE TURNO ───────────────────────────────────────
-
+  // ── CIERRE DE TURNO ──
   const compartirWhatsApp = () => {
     const emoji = estadoPaciente === 'bien' ? '😊' : estadoPaciente === 'preocupante' ? '😟' : '😐';
     const estado = estadoPaciente === 'bien' ? 'Bien' : estadoPaciente === 'preocupante' ? 'Preocupante' : 'Regular';
@@ -350,9 +337,10 @@ const manejarInicioTurno = async (p: any) => {
       });
       const data = await res.json();
       if (data.status === 'ok') {
-        resetEstados();
+        // Recargar ANTES de resetear para mostrar estado finalizado
         const pData = await getPacientes();
         if (pData.patients) setPacientes(pData.patients);
+        resetEstados();
         setVista('lista');
         Alert.alert('✅ Turno cerrado', 'El resumen fue enviado al familiar.');
       } else {
@@ -364,8 +352,6 @@ const manejarInicioTurno = async (p: any) => {
     }
   };
 
-  // ── LOADING ───────────────────────────────────────────────
-
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
@@ -374,8 +360,7 @@ const manejarInicioTurno = async (p: any) => {
     );
   }
 
-  // ── VISTA LISTA ───────────────────────────────────────────
-
+  // ── VISTA LISTA ──
   if (vista === 'lista') {
     return (
       <View style={styles.container}>
@@ -398,7 +383,8 @@ const manejarInicioTurno = async (p: any) => {
 
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
           <Text style={styles.sectionTitle}>Tus pacientes hoy</Text>
-         {pacientes.length === 0 && (
+
+          {pacientes.length === 0 && (
             <View style={{ alignItems: 'center', marginTop: 60, paddingHorizontal: 32 }}>
               <Text style={{ fontSize: 40, marginBottom: 16 }}>👥</Text>
               <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.textDark, marginBottom: 8, textAlign: 'center' }}>
@@ -417,6 +403,7 @@ const manejarInicioTurno = async (p: any) => {
               </TouchableOpacity>
             </View>
           )}
+
           {pacientes.map((p) => {
             const estadoTurno = p.estado_turno ?? 'no_iniciado';
             const condiciones = p.condiciones_medicas?.join(' · ') ?? '—';
@@ -449,8 +436,11 @@ const manejarInicioTurno = async (p: any) => {
                   <TouchableOpacity
                     style={[styles.iniciarBtn, { marginTop: 10, alignSelf: 'stretch' }]}
                     onPress={() => manejarInicioTurno(p)}
+                    disabled={iniciando}
                   >
-                    <Text style={[styles.iniciarBtnText, { textAlign: 'center' }]}>Iniciar turno →</Text>
+                    <Text style={[styles.iniciarBtnText, { textAlign: 'center' }]}>
+                      {iniciando ? 'Iniciando...' : 'Iniciar turno →'}
+                    </Text>
                   </TouchableOpacity>
                 )}
 
@@ -468,36 +458,32 @@ const manejarInicioTurno = async (p: any) => {
                 )}
 
                 {estadoTurno === 'finalizado' && (
-                <View style={{ gap: 8, marginTop: 10 }}>
-                  <View style={[styles.badgeFinalizado, { alignSelf: 'flex-start' }]}>
-                    <Text style={styles.badgeFinalizadoText}>
-                      ✓ {p.turno_hora_fin
-                        ? `Completado el ${new Date(p.turno_hora_fin).toLocaleString('es-MX', { 
-                            day: 'numeric', 
-                            month: 'long',
-                            year: 'numeric',
-                            hour: '2-digit', 
-                            minute: '2-digit',
-                          
-                          })}`
-                        : 'Completado hoy'}
-                    </Text>
+                  <View style={{ gap: 8, marginTop: 10 }}>
+                    <View style={[styles.badgeFinalizado, { alignSelf: 'flex-start' }]}>
+                      <Text style={styles.badgeFinalizadoText}>
+                        ✓ {p.turno_hora_fin
+                          ? `Completado el ${new Date(p.turno_hora_fin).toLocaleString('es-MX', {
+                              day: 'numeric', month: 'long', year: 'numeric',
+                              hour: '2-digit', minute: '2-digit',
+                            })}`
+                          : 'Completado hoy'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.iniciarBtn, { alignSelf: 'stretch' }]}
+                      onPress={() => manejarInicioTurno(p)}
+                    >
+                      <Text style={[styles.iniciarBtnText, { textAlign: 'center' }]}>Iniciar nuevo turno →</Text>
+                    </TouchableOpacity>
                   </View>
-                  <TouchableOpacity
-                    style={[styles.iniciarBtn, { alignSelf: 'stretch' }]}
-                    onPress={() => manejarInicioTurno(p)}
-                  >
-                    <Text style={[styles.iniciarBtnText, { textAlign: 'center' }]}>Iniciar nuevo turno →</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+                )}
               </View>
             );
           })}
           <View style={{ height: 60 }} />
         </ScrollView>
 
-        {/* MODAL CAMBIOS DETECTADOS */}
+        {/* MODAL CAMBIOS */}
         <Modal visible={cambiosModal} transparent animationType="slide">
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
@@ -523,8 +509,7 @@ const manejarInicioTurno = async (p: any) => {
     );
   }
 
-  // ── VISTA TURNO ───────────────────────────────────────────
-
+  // ── VISTA TURNO ──
   if (vista === 'turno' && pacienteActivo) {
     const tareasNormales = tareas.filter(t => t.tipo !== 'otro');
     const tareasNotas = tareas.filter(t => t.tipo === 'otro');
@@ -535,7 +520,13 @@ const manejarInicioTurno = async (p: any) => {
       <View style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => setVista('lista')} style={styles.backBtn}>
+          <TouchableOpacity
+            onPress={async () => {
+              setVista('lista');
+              await recargarPacientes();
+            }}
+            style={styles.backBtn}
+          >
             <Text style={styles.backIcon}>←</Text>
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
@@ -548,7 +539,6 @@ const manejarInicioTurno = async (p: any) => {
           </View>
         </View>
 
-        {/* BARRA DE PROGRESO */}
         {tareasNormales.length > 0 && (
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, {
@@ -562,7 +552,6 @@ const manejarInicioTurno = async (p: any) => {
 
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
 
-          {/* TAREAS ATRASADAS */}
           {tareasAtrasadas.length > 0 && (
             <>
               <Text style={[styles.sectionTitle, { color: COLORS.amber }]}>⚠️ Tareas atrasadas</Text>
@@ -571,17 +560,17 @@ const manejarInicioTurno = async (p: any) => {
                   key={t.id}
                   style={[styles.tareaCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0' }]}
                   onPress={async () => {
-                  if (!t.completada) {
-                    if (t.med_id) {
-                      await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora_programada);
-                    } else {
-                      await completarActividad(t.id, pacienteActivo.id);
+                    if (!t.completada) {
+                      if (t.med_id) {
+                        await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora_programada);
+                      } else {
+                        await completarActividad(t.id, pacienteActivo.id);
+                      }
+                      setTareas(prev => prev.map(tarea =>
+                        tarea.id === t.id ? { ...tarea, completada: true } : tarea
+                      ));
                     }
-                    setTareas(prev => prev.map(tarea =>
-                      tarea.id === t.id ? { ...tarea, completada: true } : tarea
-                    ));
-                  }
-                }}
+                  }}
                 >
                   <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📝'}</Text>
                   <View style={styles.tareaInfo}>
@@ -596,7 +585,6 @@ const manejarInicioTurno = async (p: any) => {
             </>
           )}
 
-          {/* TAREAS DEL BLOQUE */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, marginTop: 4 }}>
             <Text style={styles.sectionTitle}>Tareas del turno</Text>
             <TouchableOpacity
@@ -624,19 +612,19 @@ const manejarInicioTurno = async (p: any) => {
               key={t.id}
               style={[styles.tareaCard, t.completada && styles.tareaCardDone]}
               onPress={async () => {
-              if (!t.completada) {
-                if (t.med_id) {
-                  await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora_programada);
-                } else if (t.actividad_id || !t.registro_id) {
-                  await completarActividad(t.id, pacienteActivo.id);
-                } else {
-                  await completarTarea(t.registro_id ?? t.id);
+                if (!t.completada) {
+                  if (t.med_id) {
+                    await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora_programada);
+                  } else if (t.actividad_id || !t.registro_id) {
+                    await completarActividad(t.id, pacienteActivo.id);
+                  } else {
+                    await completarTarea(t.registro_id ?? t.id);
+                  }
+                  setTareas(prev => prev.map(tarea =>
+                    tarea.id === t.id ? { ...tarea, completada: true } : tarea
+                  ));
                 }
-                setTareas(prev => prev.map(tarea =>
-                  tarea.id === t.id ? { ...tarea, completada: true } : tarea
-                ));
-              }
-            }}
+              }}
             >
               <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📝'}</Text>
               <View style={styles.tareaInfo}>
@@ -654,7 +642,6 @@ const manejarInicioTurno = async (p: any) => {
             </TouchableOpacity>
           ))}
 
-          {/* NOTAS */}
           {tareasNotas.length > 0 && (
             <>
               <Text style={styles.sectionTitle}>Notas del turno</Text>
@@ -674,7 +661,6 @@ const manejarInicioTurno = async (p: any) => {
             </>
           )}
 
-          {/* ACCIONES */}
           <View style={styles.accionesRow}>
             <TouchableOpacity style={[styles.accionBtn, { backgroundColor: COLORS.redPale, borderColor: 'rgba(217,79,79,0.3)' }]}>
               <Text style={styles.accionBtnIcon}>🚨</Text>
@@ -717,7 +703,6 @@ const manejarInicioTurno = async (p: any) => {
           <View style={{ height: 100 }} />
         </ScrollView>
 
-        {/* MODAL NOTA */}
         {notaOpen && (
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
@@ -743,7 +728,6 @@ const manejarInicioTurno = async (p: any) => {
           </View>
         )}
 
-        {/* MODAL TAREA INCIDENTAL */}
         {tareaOpen && (
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
@@ -792,8 +776,7 @@ const manejarInicioTurno = async (p: any) => {
     );
   }
 
-  // ── VISTA CIERRE ──────────────────────────────────────────
-
+  // ── VISTA CIERRE ──
   if (vista === 'cierre' && pacienteActivo) {
     return (
       <View style={styles.container}>
@@ -809,8 +792,6 @@ const manejarInicioTurno = async (p: any) => {
         </View>
 
         <ScrollView style={styles.body}>
-
-          {/* ESTADO DEL PACIENTE */}
           <Text style={styles.sectionTitle}>¿Cómo queda el paciente?</Text>
           <View style={styles.estadoRow}>
             {[
@@ -829,8 +810,8 @@ const manejarInicioTurno = async (p: any) => {
             ))}
           </View>
 
-          {/* SIGNOS VITALES */}
           <Text style={styles.sectionTitle}>Signos vitales</Text>
+
           <View style={styles.signoCard}>
             <Text style={styles.signoLabel}>SpO₂</Text>
             <View style={styles.signoControles}>
@@ -901,7 +882,6 @@ const manejarInicioTurno = async (p: any) => {
             </View>
           </View>
 
-          {/* ESCALAS CLÍNICAS */}
           {escalaRequerida && (
             <>
               <View style={[styles.evaluacionCard, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, marginBottom: 12 }]}>
@@ -1066,8 +1046,6 @@ const manejarInicioTurno = async (p: any) => {
 
   return null;
 }
-
-// ── ESTILOS ───────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.cream },
