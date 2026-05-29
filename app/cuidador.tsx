@@ -161,6 +161,9 @@ export default function CuidadorScreen() {
         setPacienteActivo(p);
         cargarTurno(p.id);
         setVista('turno');
+        getPacientes().then(data => {
+        if (data.patients) setPacientes(data.patients);
+      });
       } catch (e) {
         console.error('Error parseando paciente:', e, params.paciente);
       }
