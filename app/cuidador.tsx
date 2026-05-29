@@ -155,20 +155,21 @@ export default function CuidadorScreen() {
 
   // Navegación directa al turno desde registro-salud
   useEffect(() => {
-    if (params.vistaInicial === 'turno' && params.paciente) {
-      try {
-        const p = JSON.parse(params.paciente as string);
-        setPacienteActivo(p);
-        cargarTurno(p.id);
-        setVista('turno');
-        getPacientes().then(data => {
+  if (params.vistaInicial === 'turno' && params.paciente) {
+    try {
+      const p = JSON.parse(params.paciente as string);
+      setPacienteActivo(p);
+      cargarTurno(p.id);
+      setVista('turno');
+      // Recargar pacientes para actualizar estado_turno
+      getPacientes().then(data => {
         if (data.patients) setPacientes(data.patients);
       });
-      } catch (e) {
-        console.error('Error parseando paciente:', e, params.paciente);
-      }
+    } catch (e) {
+      console.error('Error parseando paciente:', e, params.paciente);
     }
-  }, [params.vistaInicial, params.paciente]);
+  }
+}, [params.vistaInicial, params.paciente]);
 
   // ── HELPERS ───────────────────────────────────────────────
 
