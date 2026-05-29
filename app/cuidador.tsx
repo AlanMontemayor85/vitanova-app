@@ -97,6 +97,8 @@ export default function CuidadorScreen() {
   const [tareaTipo, setTareaTipo] = useState('otro');
   const [tareaHora, setTareaHora] = useState('');
   const [guardandoTarea, setGuardandoTarea] = useState(false);
+  const [incidenteTexto, setIncidenteTexto] = useState('');
+  const [incidenteFormOpen, setIncidenteFormOpen] = useState(false);
 
   const [cambiosModal, setCambiosModal] = useState(false);
   const [cambiosPendientes, setCambiosPendientes] = useState<any[]>([]);
@@ -125,7 +127,20 @@ export default function CuidadorScreen() {
   const [estadoPaciente, setEstadoPaciente] = useState('bien');
   const [peso, setPeso] = useState(70.0);
   const [iniciando, setIniciando] = useState(false);
-
+  
+  const registrarIncidente = async (descripcion: string, tipo: string = 'otro') => {
+    const token = getToken();
+    await fetch(`${BASE_URL}/alertas`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        paciente_id: pacienteActivo.id,
+        tipo,
+        severidad: tipo === 'SOS' ? 'alta' : 'media',
+        descripcion,
+      }),
+    });
+  };
   // ── CARGA INICIAL ──
   useEffect(() => {
     const cargar = async () => {
@@ -807,71 +822,109 @@ export default function CuidadorScreen() {
           
         )}
         {incidenteOpen && (
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>🚨 Incidente de emergencia</Text>
-            <Text style={{ fontSize: 12, color: COLORS.textLight, marginBottom: 16 }}>
-              Selecciona una acción de emergencia para {pacienteActivo.nombre_completo}
-            </Text>
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalCard}>
+      <Text style={styles.modalTitle}>🚨 Incidente de emergencia</Text>
+      <Text style={{ fontSize: 12, color: COLORS.textLight, marginBottom: 16 }}>
+        Selecciona una acción para {pacienteActivo.nombre_completo}
+      </Text>
 
-            {pacienteActivo.telefono_ambulancia && (
-              <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: COLORS.red, marginBottom: 8, flexDirection: 'row', gap: 8 }]}
-                onPress={() => {
-                  setIncidenteOpen(false);
-                  Linking.openURL(`tel:${pacienteActivo.telefono_ambulancia}`);
-                }}
-              >
-                <Text style={{ fontSize: 16 }}>🚑</Text>
-                <Text style={styles.modalBtnText}>Llamar ambulancia</Text>
-              </TouchableOpacity>
-            )}
+      {pacienteActivo.telefono_ambulancia && (
+        <TouchableOpacity
+          style={[styles.modalBtn, { backgroundColor: COLORS.red, marginBottom: 8, flexDirection: 'row', gap: 8 }]}
+          onPress={async () => {
+            setIncidenteOpen(false);
+            await registrarIncidente('🚑 Cuidador llamó ambulancia durante el turno', 'SOS');
+            Linking.openURL(`tel:${pacienteActivo.telefono_ambulancia}`);
+          }}
+        >
+          <Text style={{ fontSize: 16 }}>🚑</Text>
+          <Text style={styles.modalBtnText}>Llamar ambulancia</Text>
+        </TouchableOpacity>
+      )}
 
-            {pacienteActivo.telefono_aseguradora && (
-              <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: COLORS.amber, marginBottom: 8, flexDirection: 'row', gap: 8 }]}
-                onPress={() => {
-                  setIncidenteOpen(false);
-                  Linking.openURL(`tel:${pacienteActivo.telefono_aseguradora}`);
-                }}
-              >
-                <Text style={{ fontSize: 16 }}>📞</Text>
-                <Text style={styles.modalBtnText}>
-                  Llamar {pacienteActivo.nombre_aseguradora ?? 'aseguradora'}
-                </Text>
-              </TouchableOpacity>
-            )}
+      {pacienteActivo.telefono_aseguradora && (
+        <TouchableOpacity
+          style={[styles.modalBtn, { backgroundColor: COLORS.amber, marginBottom: 8, flexDirection: 'row', gap: 8 }]}
+          onPress={async () => {
+            setIncidenteOpen(false);
+            await registrarIncidente(`📞 Cuidador llamó a ${pacienteActivo.nombre_aseguradora ?? 'aseguradora'}`, 'otro');
+            Linking.openURL(`tel:${pacienteActivo.telefono_aseguradora}`);
+          }}
+        >
+          <Text style={{ fontSize: 16 }}>📞</Text>
+          <Text style={styles.modalBtnText}>
+            Llamar {pacienteActivo.nombre_aseguradora ?? 'aseguradora'}
+          </Text>
+        </TouchableOpacity>
+      )}
 
-            {pacienteActivo.telefono_emergencia && (
-              <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: COLORS.cacao, marginBottom: 8, flexDirection: 'row', gap: 8 }]}
-                onPress={() => {
-                  setIncidenteOpen(false);
-                  Linking.openURL(`tel:${pacienteActivo.telefono_emergencia}`);
-                }}
-              >
-                <Text style={{ fontSize: 16 }}>👤</Text>
-                <Text style={styles.modalBtnText}>Llamar contacto de emergencia</Text>
-              </TouchableOpacity>
-            )}
+      {pacienteActivo.telefono_emergencia && (
+        <TouchableOpacity
+          style={[styles.modalBtn, { backgroundColor: COLORS.cacao, marginBottom: 8, flexDirection: 'row', gap: 8 }]}
+          onPress={async () => {
+            setIncidenteOpen(false);
+            await registrarIncidente('👤 Cuidador llamó al contacto de emergencia', 'otro');
+            Linking.openURL(`tel:${pacienteActivo.telefono_emergencia}`);
+          }}
+        >
+          <Text style={{ fontSize: 16 }}>👤</Text>
+          <Text style={styles.modalBtnText}>Llamar contacto de emergencia</Text>
+        </TouchableOpacity>
+      )}
 
-            {!pacienteActivo.telefono_ambulancia && !pacienteActivo.telefono_aseguradora && !pacienteActivo.telefono_emergencia && (
-              <View style={{ backgroundColor: COLORS.goldPale, borderRadius: 10, padding: 12, marginBottom: 12 }}>
-                <Text style={{ fontSize: 12, color: COLORS.amber, textAlign: 'center' }}>
-                  No hay contactos de emergencia configurados. Pide al familiar que los agregue en el perfil del paciente.
-                </Text>
-              </View>
-            )}
-
-            <TouchableOpacity
-              style={[styles.modalBtn, { backgroundColor: COLORS.cream, borderColor: COLORS.border }]}
-              onPress={() => setIncidenteOpen(false)}
-            >
-              <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
+      {!incidenteFormOpen ? (
+        <TouchableOpacity
+          style={[styles.modalBtn, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, marginBottom: 8, flexDirection: 'row', gap: 8 }]}
+          onPress={() => setIncidenteFormOpen(true)}
+        >
+          <Text style={{ fontSize: 16 }}>📝</Text>
+          <Text style={[styles.modalBtnText, { color: COLORS.gold }]}>Registrar incidente</Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={{ marginBottom: 8 }}>
+          <TextInput
+            style={styles.notaInput}
+            placeholder="Describe el incidente..."
+            placeholderTextColor={COLORS.textLight}
+            multiline
+            value={incidenteTexto}
+            onChangeText={setIncidenteTexto}
+            autoFocus
+          />
+          <TouchableOpacity
+            style={[styles.modalBtn, { backgroundColor: COLORS.gold, marginTop: 8 }]}
+            onPress={async () => {
+              if (!incidenteTexto.trim()) return;
+              await registrarIncidente(`📝 ${incidenteTexto.trim()}`, 'otro');
+              setIncidenteTexto('');
+              setIncidenteFormOpen(false);
+              setIncidenteOpen(false);
+              Alert.alert('✅ Incidente registrado', 'El familiar fue notificado.');
+            }}
+          >
+            <Text style={styles.modalBtnText}>Guardar incidente</Text>
+          </TouchableOpacity>
         </View>
       )}
+
+      {!pacienteActivo.telefono_ambulancia && !pacienteActivo.telefono_aseguradora && !pacienteActivo.telefono_emergencia && !incidenteFormOpen && (
+        <View style={{ backgroundColor: COLORS.goldPale, borderRadius: 10, padding: 12, marginBottom: 12 }}>
+          <Text style={{ fontSize: 12, color: COLORS.amber, textAlign: 'center' }}>
+            No hay contactos configurados. Pide al familiar que los agregue en el perfil del paciente.
+          </Text>
+        </View>
+      )}
+
+      <TouchableOpacity
+        style={[styles.modalBtn, { backgroundColor: COLORS.cream, borderColor: COLORS.border }]}
+        onPress={() => { setIncidenteOpen(false); setIncidenteFormOpen(false); setIncidenteTexto(''); }}
+      >
+        <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+)}
       </View>
     );
   }
