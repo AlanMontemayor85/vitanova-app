@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { clearToken, getNotasTurno, getPacientes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
+import { clearToken, getAlertaPeso, getNotasTurno, getPacientes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 
 const COLORS = {
@@ -36,6 +36,7 @@ export default function HomeScreen() {
   const [pacienteIndex, setPacienteIndex] = useState(0);
   const params = useLocalSearchParams();
   const [turnoResumen, setTurnoResumen] = useState<any>(null);
+  const [alertaPeso, setAlertaPeso] = useState<any>(null);
   useEffect(() => {
   const init = async () => {
     try {
@@ -68,6 +69,8 @@ export default function HomeScreen() {
         const turnoRes = await getTurnoActivoResumen(p.id);
         if (turnoRes.turno) setTurnoResumen(turnoRes.turno);
         else setTurnoResumen(null);
+        const alertaPesoData = await getAlertaPeso(p.id);
+        if (alertaPesoData.alerta) setAlertaPeso(alertaPesoData);
       }
     } catch (e) {
       console.error('Error init:', e);
@@ -93,6 +96,9 @@ useEffect(() => {
   const turnoRes = await getTurnoActivoResumen(p.id);
   if (turnoRes.turno) setTurnoResumen(turnoRes.turno);
   else setTurnoResumen(null);
+  const alertaPesoData = await getAlertaPeso(p.id);
+  if (alertaPesoData.alerta) setAlertaPeso(alertaPesoData);
+  else setAlertaPeso(null);
 };
   cargarDatos();
 }, [pacienteIndex]);
@@ -268,6 +274,7 @@ useEffect(() => {
                 </View>
               </View>
             )}
+            
           </>
         ) : (
           <View style={[styles.alertCard, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold }]}>
@@ -278,7 +285,17 @@ useEffect(() => {
             </View>
           </View>
         )}
+        {alertaPeso && (
+          <View style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0' }]}>
+            <Text style={styles.alertIcon}>⚖️</Text>
+            <View style={styles.alertContent}>
+              <Text style={styles.alertTitle}>Recordatorio de peso</Text>
+              <Text style={styles.alertSub}>{alertaPeso.mensaje}</Text>
+            </View>
+          </View>
+        )}
 
+       
         {/* ACCESOS RÁPIDOS */}
         <Text style={[styles.sectionTitle, { marginTop: 8, marginBottom: 12 }]}>Accesos rápidos</Text>
         <View style={styles.quickActions}>
