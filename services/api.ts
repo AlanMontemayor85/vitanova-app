@@ -68,7 +68,9 @@ export const getUltimoCierre = async (pacienteId: string) => {
   const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/ultimo-cierre`, {
     headers: headers(),
   });
-  return res.json();
+  const data = await res.json();
+  console.log('getPacientes:', JSON.stringify(data));
+  return data;
 };
 
 export const getNotasTurno = async (pacienteId: string) => {
