@@ -9,7 +9,6 @@ export default function RootLayout() {
       <Stack.Screen name="alertas" options={{ headerShown: false }} />
       <Stack.Screen name="mapa" options={{ headerShown: false }} />
       <Stack.Screen name="cuidador" options={{ headerShown: false }} />
-      <Stack.Screen name="cuidadora" options={{ headerShown: false }} />
       <Stack.Screen name="medico" options={{ headerShown: false }} />
       <Stack.Screen name="medicamentos" options={{ headerShown: false }} />
       <Stack.Screen name="historial" options={{ headerShown: false }} />
@@ -18,6 +17,9 @@ export default function RootLayout() {
       <Stack.Screen name="perfil-paciente" options={{ headerShown: false }} />
       <Stack.Screen name="completar-perfil" options={{ headerShown: false }} />
       <Stack.Screen name="evaluacion-hogar" options={{ headerShown: false }} />
+      <Stack.Screen name="red-cuidadores" options={{ headerShown: false }} />
+      <Stack.Screen name="aceptar-invitacion" options={{ headerShown: false }} />
+      <Stack.Screen name="grafica-signos" options={{ headerShown: false }} />
     </Stack>
   );
 }
