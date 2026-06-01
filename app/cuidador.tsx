@@ -179,16 +179,14 @@ export default function CuidadorScreen() {
     }
   }, [params.vistaInicial, params.paciente]);
   
-  const cargarTareasDia = async (pacienteId: string) => {
-    const data = await getTareasDia(pacienteId);
-    if (data.tareas) setTareasDia(data.tareas);
-  };
+  
   // ── HELPERS ──
   const cargarTurno = async (pacienteId: string) => {
   const [turnoData, tareasData] = await Promise.all([
     getTurnoActivo(pacienteId),
     getTareasDia(pacienteId), 
   ]);
+  console.log('tareasDia response:', JSON.stringify(tareasData));
 
   if (tareasData.sin_horario) {
     Alert.alert(
@@ -205,7 +203,10 @@ export default function CuidadorScreen() {
   }
   if (tareasData.tareas) setTareas(tareasData.tareas);
 };
-
+const cargarTareasDia = async (pacienteId: string) => {
+    const data = await getTareasDia(pacienteId);
+    if (data.tareas) setTareasDia(data.tareas);
+  };
   const resetEstados = () => {
     setPacienteActivo(null);
     setTurnoActivo(null);
