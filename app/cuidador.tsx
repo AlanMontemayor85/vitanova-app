@@ -5,9 +5,12 @@ import {
   StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native';
 import {
-  agregarTareaManual, clearToken, completarActividad, completarMedicamento, completarTarea,
-  detectarCambiosTurno, getPacientes, getTareasHoy, getToken,
-  getTurnoActivo, getUserNombre, loadStoredToken, verificarEscalas
+  agregarTareaManual, clearToken, completarActividad, completarMedicamento,
+  detectarCambiosTurno, getPacientes,
+  getTareasDia,
+  getTareasHoy, getToken,
+  getTurnoActivo, getUserNombre, loadStoredToken,
+  verificarEscalas
 } from '../services/api';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
@@ -99,6 +102,7 @@ export default function CuidadorScreen() {
   const [guardandoTarea, setGuardandoTarea] = useState(false);
   const [incidenteTexto, setIncidenteTexto] = useState('');
   const [incidenteFormOpen, setIncidenteFormOpen] = useState(false);
+  const [tareasDia, setTareasDia] = useState<any[]>([]);
 
   const [cambiosModal, setCambiosModal] = useState(false);
   const [cambiosPendientes, setCambiosPendientes] = useState<any[]>([]);
@@ -127,6 +131,7 @@ export default function CuidadorScreen() {
   const [estadoPaciente, setEstadoPaciente] = useState('bien');
   const [peso, setPeso] = useState(70.0);
   const [iniciando, setIniciando] = useState(false);
+  
   
   const registrarIncidente = async (descripcion: string, tipo: string = 'otro') => {
     const token = getToken();
@@ -173,12 +178,16 @@ export default function CuidadorScreen() {
       }
     }
   }, [params.vistaInicial, params.paciente]);
-
+  
+  const cargarTareasDia = async (pacienteId: string) => {
+    const data = await getTareasDia(pacienteId);
+    if (data.tareas) setTareasDia(data.tareas);
+  };
   // ── HELPERS ──
   const cargarTurno = async (pacienteId: string) => {
   const [turnoData, tareasData] = await Promise.all([
     getTurnoActivo(pacienteId),
-    getTareasHoy(pacienteId),
+    getTareasDia(pacienteId), 
   ]);
 
   if (tareasData.sin_horario) {
@@ -224,7 +233,8 @@ export default function CuidadorScreen() {
     const data = await getPacientes();
     if (data.patients) setPacientes(data.patients);
   };
-
+  
+  
   // ── INICIO DE TURNO ──
   const manejarInicioTurno = async (p: any) => {
   if (iniciando) return;
@@ -648,16 +658,25 @@ export default function CuidadorScreen() {
               style={[styles.tareaCard, t.completada && styles.tareaCardDone]}
               onPress={async () => {
                 if (!t.completada) {
-                  if (t.med_id) {
-                    await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora_programada);
-                  } else if (t.actividad_id || !t.registro_id) {
-                    await completarActividad(t.id, pacienteActivo.id);
-                  } else {
-                    await completarTarea(t.registro_id ?? t.id);
-                  }
-                  setTareas(prev => prev.map(tarea =>
-                    tarea.id === t.id ? { ...tarea, completada: true } : tarea
-                  ));
+                  Alert.alert(
+                    'Completar tarea',
+                    `¿Confirmas que completaste "${t.descripcion}"?`,
+                    [
+                      { text: 'Cancelar', style: 'cancel' },
+                      {
+                        text: 'Confirmar',
+                        onPress: async () => {
+                          if (t.med_id) {
+                            await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora);
+                          } else if (t.actividad_id) {
+                            await completarActividad(t.actividad_id, pacienteActivo.id);
+                          }
+                          const data = await getTareasDia(pacienteActivo.id);
+                          if (data.tareas) setTareas(data.tareas);
+                        }
+                      }
+                    ]
+                  );
                 }
               }}
             >
@@ -667,9 +686,14 @@ export default function CuidadorScreen() {
                   {t.descripcion}
                 </Text>
                 <Text style={styles.tareaHora}>
-                  {t.hora ?? t.hora_programada ?? '—'}
+                  {t.hora ?? '—'}
                   {t.es_incidental ? ' · Incidental' : ''}
                 </Text>
+                {t.completada && t.completada_por && (
+                  <Text style={{ fontSize: 9, color: COLORS.green, marginTop: 2 }}>
+                    ✓ {t.completada_por} · {t.completada_en ? new Date(t.completada_en).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : ''}
+                  </Text>
+                )}
               </View>
               <View style={[styles.tareaCheck, t.completada && styles.tareaCheckDone]}>
                 <Text style={{ fontSize: 12, color: COLORS.white, fontWeight: '800' }}>{t.completada ? '✓' : ''}</Text>
