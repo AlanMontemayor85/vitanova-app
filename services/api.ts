@@ -427,7 +427,13 @@ export const getAlertaPeso = async (pacienteId: string) => {
   });
   return res.json();
 };
-
+export const getTareasDia = async (pacienteId: string, fecha?: string) => {
+  const url = fecha
+    ? `${BASE_URL}/pacientes/${pacienteId}/tareas-dia?fecha=${fecha}`
+    : `${BASE_URL}/pacientes/${pacienteId}/tareas-dia`;
+  const res = await fetch(url, { headers: headers() });
+  return res.json();
+};
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',
