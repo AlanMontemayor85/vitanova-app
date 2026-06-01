@@ -558,8 +558,8 @@ export default function CuidadorScreen() {
   if (vista === 'turno' && pacienteActivo) {
     const tareasNormales = tareas.filter(t => t.tipo !== 'otro');
     const tareasNotas = tareas.filter(t => t.tipo === 'otro');
-    const tareasAtrasadas = tareasNormales.filter(t => t.atrasada && !t.completada);
-    const tareasBloque = tareasNormales.filter(t => !t.atrasada);
+    const tareasCompletadas = tareasNormales.filter(t => t.completada);
+    const tareasPendientes = tareasNormales.filter(t => !t.completada);
 
     return (
       <View style={styles.container}>
@@ -597,41 +597,9 @@ export default function CuidadorScreen() {
 
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
 
-          {tareasAtrasadas.length > 0 && (
-            <>
-              <Text style={[styles.sectionTitle, { color: COLORS.amber }]}>⚠️ Tareas atrasadas</Text>
-              {tareasAtrasadas.map((t) => (
-                <TouchableOpacity
-                  key={t.id}
-                  style={[styles.tareaCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0' }]}
-                  onPress={async () => {
-                    if (!t.completada) {
-                      if (t.med_id) {
-                        await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora_programada);
-                      } else {
-                        await completarActividad(t.id, pacienteActivo.id);
-                      }
-                      setTareas(prev => prev.map(tarea =>
-                        tarea.id === t.id ? { ...tarea, completada: true } : tarea
-                      ));
-                    }
-                  }}
-                >
-                  <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📝'}</Text>
-                  <View style={styles.tareaInfo}>
-                    <Text style={styles.tareaTexto}>{t.descripcion}</Text>
-                    <Text style={[styles.tareaHora, { color: COLORS.amber }]}>Atrasada · {t.hora ?? '—'}</Text>
-                  </View>
-                  <View style={[styles.tareaCheck, { borderColor: COLORS.amber }]}>
-                    <Text style={{ fontSize: 12, color: COLORS.white, fontWeight: '800' }}>{t.completada ? '✓' : ''}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </>
-          )}
-
+          {/* TAREAS PENDIENTES */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, marginTop: 4 }}>
-            <Text style={styles.sectionTitle}>Tareas del turno</Text>
+            <Text style={styles.sectionTitle}>Tareas pendientes ({tareasPendientes.length})</Text>
             <TouchableOpacity
               style={[styles.iniciarBtn, { paddingHorizontal: 12, paddingVertical: 4 }]}
               onPress={() => setTareaOpen(true)}
@@ -640,67 +608,80 @@ export default function CuidadorScreen() {
             </TouchableOpacity>
           </View>
 
-          {tareasBloque.length === 0 && tareasAtrasadas.length === 0 && (
+          {tareasPendientes.length === 0 && tareasCompletadas.length === 0 && (
             <View style={[styles.emptyCard, { marginBottom: 16, backgroundColor: COLORS.goldPale, borderColor: COLORS.gold }]}>
               <Text style={{ fontSize: 24, marginBottom: 8 }}>📋</Text>
               <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao, textAlign: 'center', marginBottom: 4 }}>
-                No hay tareas para este bloque
-              </Text>
-              <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
-                Agrega tareas incidentales con el botón + Agregar
+                No hay tareas para hoy
               </Text>
             </View>
           )}
 
-          {tareasBloque.map((t) => (
+          {tareasPendientes.map((t) => (
             <TouchableOpacity
               key={t.id}
-              style={[styles.tareaCard, t.completada && styles.tareaCardDone]}
-              onPress={async () => {
-                if (!t.completada) {
-                  Alert.alert(
-                    'Completar tarea',
-                    `¿Confirmas que completaste "${t.descripcion}"?`,
-                    [
-                      { text: 'Cancelar', style: 'cancel' },
-                      {
-                        text: 'Confirmar',
-                        onPress: async () => {
-                          if (t.med_id) {
-                            await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora);
-                          } else if (t.actividad_id) {
-                            await completarActividad(t.actividad_id, pacienteActivo.id);
-                          }
-                          const data = await getTareasDia(pacienteActivo.id);
-                          if (data.tareas) setTareas(data.tareas);
+              style={styles.tareaCard}
+              onPress={() => {
+                Alert.alert(
+                  'Completar tarea',
+                  `¿Confirmas que completaste "${t.descripcion}"?`,
+                  [
+                    { text: 'Cancelar', style: 'cancel' },
+                    {
+                      text: 'Confirmar',
+                      onPress: async () => {
+                        if (t.med_id) {
+                          await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora);
+                        } else if (t.actividad_id) {
+                          await completarActividad(t.actividad_id, pacienteActivo.id);
                         }
+                        const data = await getTareasDia(pacienteActivo.id);
+                        if (data.tareas) setTareas(data.tareas);
                       }
-                    ]
-                  );
-                }
+                    }
+                  ]
+                );
               }}
             >
               <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📝'}</Text>
               <View style={styles.tareaInfo}>
-                <Text style={[styles.tareaTexto, t.completada && { textDecorationLine: 'line-through' }]}>
-                  {t.descripcion}
-                </Text>
-                <Text style={styles.tareaHora}>
-                  {t.hora ?? '—'}
-                  {t.es_incidental ? ' · Incidental' : ''}
-                </Text>
-                {t.completada && t.completada_por && (
-                  <Text style={{ fontSize: 9, color: COLORS.green, marginTop: 2 }}>
-                    ✓ {t.completada_por} · {t.completada_en ? new Date(t.completada_en).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : ''}
-                  </Text>
-                )}
+                <Text style={styles.tareaTexto}>{t.descripcion}</Text>
+                <Text style={styles.tareaHora}>{t.hora ?? '—'}{t.es_incidental ? ' · Incidental' : ''}</Text>
               </View>
-              <View style={[styles.tareaCheck, t.completada && styles.tareaCheckDone]}>
-                <Text style={{ fontSize: 12, color: COLORS.white, fontWeight: '800' }}>{t.completada ? '✓' : ''}</Text>
+              <View style={styles.tareaCheck}>
+                <Text style={{ fontSize: 12, color: COLORS.white, fontWeight: '800' }}></Text>
               </View>
             </TouchableOpacity>
           ))}
 
+          {/* TAREAS COMPLETADAS */}
+          {tareasCompletadas.length > 0 && (
+            <>
+              <Text style={[styles.sectionTitle, { marginTop: 16, color: COLORS.green }]}>
+                ✓ Completadas ({tareasCompletadas.length})
+              </Text>
+              {tareasCompletadas.map((t) => (
+                <View key={t.id} style={[styles.tareaCard, styles.tareaCardDone]}>
+                  <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📝'}</Text>
+                  <View style={styles.tareaInfo}>
+                    <Text style={[styles.tareaTexto, { textDecorationLine: 'line-through' }]}>
+                      {t.descripcion}
+                    </Text>
+                    <Text style={styles.tareaHora}>{t.hora ?? '—'}</Text>
+                    {t.completada_por && (
+                      <Text style={{ fontSize: 9, color: COLORS.green, marginTop: 2 }}>
+                        ✓ {t.completada_por} · {t.completada_en ? new Date(t.completada_en).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : ''}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.tareaCheckDone}>
+                    <Text style={{ fontSize: 12, color: COLORS.white, fontWeight: '800' }}>✓</Text>
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
+            
           {tareasNotas.length > 0 && (
             <>
               <Text style={styles.sectionTitle}>Notas del turno</Text>
