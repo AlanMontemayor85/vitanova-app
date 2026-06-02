@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { clearToken, getAlertaPeso, getNotasTurno, getPacientes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 
@@ -305,6 +305,7 @@ useEffect(() => {
             { icon: '🔔', label: 'Alertas', ruta: '/alertas' },
             { icon: '💬', label: 'Cuidadores', ruta: null },
             { icon: '🏠', label: 'Evaluación', ruta: '/evaluacion-hogar' },
+            { icon: '🛏️', label: 'Solicitar', ruta: null },       
           ].map((item) => (
             <TouchableOpacity
               key={item.label}
@@ -318,6 +319,12 @@ useEffect(() => {
                       pacienteNombre: paciente?.nombre_completo,
                     }
                   });
+                } else if (item.label === 'Solicitar') {
+                  const nombrePaciente = paciente?.nombre_completo ?? 'el paciente';
+                  const mensaje = encodeURIComponent(
+                    `Hola Vitanova 👋, soy ${getUserNombre() ?? 'un familiar'} y quisiera solicitar equipo médico para *${nombrePaciente}*.\n\nEquipo requerido:\n- \n\nDirección de entrega:\n\nFecha estimada que lo necesito:\n\nGracias.`
+                  );
+                  Linking.openURL(`https://wa.me/528140078129?text=${mensaje}`);
                 } else {
                   item.ruta && router.push(item.ruta as any);
                 }
