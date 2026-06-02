@@ -429,9 +429,11 @@ export const getAlertaPeso = async (pacienteId: string) => {
 };
 export const getTareasDia = async (pacienteId: string, fecha?: string) => {
   const hoy = fecha || new Date().toLocaleDateString('en-CA');
-  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/tareas-dia?fecha=${hoy}`, { 
-    headers: headers() 
-  });
+  const offsetMinutos = new Date().getTimezoneOffset(); // 360 para CST, 300 para EST, 480 para PST
+  const res = await fetch(
+    `${BASE_URL}/pacientes/${pacienteId}/tareas-dia?fecha=${hoy}&offset=${offsetMinutos}`, 
+    { headers: headers() }
+  );
   return res.json();
 };
 export const crearLead = async (lead: object) => {
