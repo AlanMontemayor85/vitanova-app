@@ -719,6 +719,33 @@ const cargarTareasDia = async (pacienteId: string) => {
             </TouchableOpacity>
           </View>
 
+          {/* SOLICITAR EQUIPO — requiere autorización del familiar */}
+          <TouchableOpacity
+            style={[styles.accionBtn, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, marginBottom: 12 }]}
+            onPress={() => {
+              Alert.alert(
+                '🛏️ Solicitar equipo médico',
+                'Esta solicitud se enviará al familiar para su autorización antes de contactar a Vitanova.',
+                [
+                  { text: 'Cancelar', style: 'cancel' },
+                  {
+                    text: 'Solicitar',
+                    onPress: () => {
+                      const nombrePaciente = pacienteActivo?.nombre_completo ?? 'el paciente';
+                      const mensaje = encodeURIComponent(
+                        `Hola Vitanova 👋, soy cuidador/a de *${nombrePaciente}* y el familiar autorizó la siguiente solicitud de equipo médico:\n\nEquipo requerido:\n- \n\nMotivo:\n\nDirección de entrega:\n\nFecha estimada que se necesita:\n\nGracias.`
+                      );
+                      Linking.openURL(`https://wa.me/528140078129?text=${mensaje}`);
+                    }
+                  }
+                ]
+              );
+            }}
+          >
+            <Text style={styles.accionBtnIcon}>🛏️</Text>
+            <Text style={[styles.accionBtnText, { color: COLORS.gold }]}>Solicitar equipo</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={[styles.accionBtn, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, marginBottom: 12 }]}
             onPress={() => router.push({
