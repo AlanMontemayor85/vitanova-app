@@ -428,10 +428,10 @@ export const getAlertaPeso = async (pacienteId: string) => {
   return res.json();
 };
 export const getTareasDia = async (pacienteId: string, fecha?: string) => {
-  const url = fecha
-    ? `${BASE_URL}/pacientes/${pacienteId}/tareas-dia?fecha=${fecha}`
-    : `${BASE_URL}/pacientes/${pacienteId}/tareas-dia`;
-  const res = await fetch(url, { headers: headers() });
+  const hoy = fecha || new Date().toLocaleDateString('en-CA');
+  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/tareas-dia?fecha=${hoy}`, { 
+    headers: headers() 
+  });
   return res.json();
 };
 export const crearLead = async (lead: object) => {
