@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { clearToken, getAlertaPeso, getNotasTurno, getPacientes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 
@@ -37,6 +37,9 @@ export default function HomeScreen() {
   const params = useLocalSearchParams();
   const [turnoResumen, setTurnoResumen] = useState<any>(null);
   const [alertaPeso, setAlertaPeso] = useState<any>(null);
+  const [solicitudOpen, setSolicitudOpen] = useState(false);
+  const [solicitudItems, setSolicitudItems] = useState<string[]>([]);
+  const [solicitudNota, setSolicitudNota] = useState('');
   useEffect(() => {
   const init = async () => {
     try {
@@ -320,12 +323,8 @@ useEffect(() => {
                     }
                   });
                 } else if (item.label === 'Solicitar') {
-                  const nombrePaciente = paciente?.nombre_completo ?? 'el paciente';
-                  const mensaje = encodeURIComponent(
-                    `Hola Vitanova 👋, soy ${getUserNombre() ?? 'un familiar'} y quisiera solicitar equipo médico para *${nombrePaciente}*.\n\nEquipo requerido:\n- \n\nDirección de entrega:\n\nFecha estimada que lo necesito:\n\nGracias.`
-                  );
-                  Linking.openURL(`https://wa.me/528140078129?text=${mensaje}`);
-                } else {
+                  setSolicitudOpen(true);
+                  }else {
                   item.ruta && router.push(item.ruta as any);
                 }
               }}
@@ -334,6 +333,7 @@ useEffect(() => {
               <Text style={styles.qaLabel}>{item.label}</Text>
             </TouchableOpacity>
           ))}
+          
         </View>
 
         {notas.length > 0 && (
@@ -406,6 +406,103 @@ useEffect(() => {
           </TouchableOpacity>
         ))}
       </View>
+    <Modal visible={solicitudOpen} transparent animationType="slide">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: COLORS.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, maxHeight: '85%' }}>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.textDark, marginBottom: 4 }}>
+              🛏️ Solicitar equipo médico
+            </Text>
+            <Text style={{ fontSize: 11, color: COLORS.textLight, marginBottom: 16 }}>
+              Selecciona el equipo para {paciente?.nombre_completo?.split(' ')[0] ?? 'el paciente'}
+            </Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {[
+                { icon: '🛏️', label: 'Cama hospitalaria' },
+                { icon: '🪑', label: 'Silla de ruedas' },
+                { icon: '🚶', label: 'Andadera' },
+                { icon: '💨', label: 'Concentrador de oxígeno' },
+                { icon: '🫁', label: 'Oxígeno medicinal' },
+                { icon: '📡', label: 'Monitor de signos vitales' },
+                { icon: '🚿', label: 'Banco de baño' },
+                { icon: '🔒', label: 'Barras de seguridad' },
+                { icon: '🩺', label: 'Oxímetro' },
+                { icon: '🛌', label: 'Colchón antiescaras' },
+                { icon: '💊', label: 'Nebulizador' },
+                { icon: '🧴', label: 'Pañales' },
+              ].map((eq) => {
+                const seleccionado = solicitudItems.includes(eq.label);
+                return (
+                  <TouchableOpacity
+                    key={eq.label}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center', gap: 12,
+                      padding: 12, borderRadius: 10, marginBottom: 6,
+                      backgroundColor: seleccionado ? COLORS.goldPale : COLORS.cream,
+                      borderWidth: 1, borderColor: seleccionado ? COLORS.gold : COLORS.border,
+                    }}
+                    onPress={() => {
+                      setSolicitudItems(prev =>
+                        prev.includes(eq.label)
+                          ? prev.filter(i => i !== eq.label)
+                          : [...prev, eq.label]
+                      );
+                    }}
+                  >
+                    <Text style={{ fontSize: 20 }}>{eq.icon}</Text>
+                    <Text style={{ fontSize: 13, fontWeight: seleccionado ? '700' : '500', color: seleccionado ? COLORS.gold : COLORS.textDark, flex: 1 }}>
+                      {eq.label}
+                    </Text>
+                    {seleccionado && <Text style={{ fontSize: 14, color: COLORS.gold, fontWeight: '800' }}>✓</Text>}
+                  </TouchableOpacity>
+                );
+              })}
+              <TextInput
+                style={{
+                  backgroundColor: COLORS.cream, borderRadius: 10, padding: 12,
+                  borderWidth: 1, borderColor: COLORS.border, fontSize: 13,
+                  color: COLORS.textDark, minHeight: 60, textAlignVertical: 'top',
+                  marginTop: 8, marginBottom: 16,
+                }}
+                placeholder="Notas adicionales (urgencia, talla, detalles...)"
+                placeholderTextColor={COLORS.textLight}
+                multiline
+                value={solicitudNota}
+                onChangeText={setSolicitudNota}
+              />
+              <TouchableOpacity
+                style={{
+                  backgroundColor: solicitudItems.length > 0 ? '#25D366' : COLORS.border,
+                  borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 8,
+                }}
+                disabled={solicitudItems.length === 0}
+                onPress={() => {
+                  const nombrePaciente = paciente?.nombre_completo ?? 'el paciente';
+                  const listaEquipo = solicitudItems.map(i => `• ${i}`).join('\n');
+                  const mensaje = encodeURIComponent(
+                    `Hola Vitanova 👋\n\nSoy *${getUserNombre() ?? 'un familiar'}* y necesito equipo médico para *${nombrePaciente}*.\n\n*Equipo solicitado:*\n${listaEquipo}${solicitudNota ? `\n\n*Notas:* ${solicitudNota}` : ''}\n\n_Enviado desde la app Vitanova Integralis_`
+                  );
+                  Linking.openURL(`https://wa.me/528140078129?text=${mensaje}`);
+                  setSolicitudOpen(false);
+                  setSolicitudItems([]);
+                  setSolicitudNota('');
+                }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.white }}>
+                  {solicitudItems.length > 0 ? `📲 Enviar solicitud (${solicitudItems.length})` : 'Selecciona al menos un equipo'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}
+                onPress={() => { setSolicitudOpen(false); setSolicitudItems([]); setSolicitudNota(''); }}
+              >
+                <Text style={{ fontSize: 13, color: COLORS.textLight, fontWeight: '600' }}>Cancelar</Text>
+              </TouchableOpacity>
+              <View style={{ height: 20 }} />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
