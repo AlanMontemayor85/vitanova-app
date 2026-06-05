@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { Circle, Marker } from 'react-native-maps';
+import { WebView } from 'react-native-webview'; // ◀️ Componente para renderizar mapas libres sin API Keys
 import { crearGeocerca, eliminarGeocerca, getGeocercas, getPacientes, getUbicacion, loadStoredToken } from '../services/api';
 
 const COLORS = {
@@ -18,7 +18,6 @@ const COLORS = {
 
 export default function MapaScreen() {
   const router = useRouter();
-  const mapRef = useRef<MapView>(null);
   const [paciente, setPaciente] = useState<any>(null);
   const [ubicacion, setUbicacion] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -65,7 +64,7 @@ export default function MapaScreen() {
       } catch (e) {
         console.error("❌ Error al actualizar ubicación en segundo plano:", e);
       }
-    }, 30000); // 30 segundos
+    }, 30000);
 
     return () => clearInterval(interval);
   }, [paciente?.id]);
@@ -96,8 +95,16 @@ export default function MapaScreen() {
     }
   };
 
-  // Validación de seguridad de coordenadas para renderizado de la UI
   const tieneCoordenadasValidas = ubicacion && ubicacion.lat !== undefined && ubicacion.lng !== undefined;
+
+  // Construcción de URL incrustada de OpenStreetMap calculando la caja de mapa (bounding box) alrededor del paciente
+  const getMapHtmlUrl = () => {
+    if (!tieneCoordenadasValidas) return '';
+    const lat = Number(ubicacion.lat);
+    const lng = Number(ubicacion.lng);
+    const delta = 0.005; // Ajuste de zoom aproximado para el mapa base
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - delta}%2C${lat - delta}%2C${lng + delta}%2C${lat + delta}&layer=mapnik&marker=${lat}%2C${lng}`;
+  };
 
   return (
     <View style={styles.container}>
@@ -120,48 +127,19 @@ export default function MapaScreen() {
         )}
       </View>
 
-      {/* CUADRANTE DEL MAPA CON ESTRUCTURA RIGIDA */}
+      {/* CUADRANTE DEL MAPA SEGURO SIN DEPENDENCIAS DE GOOGLE CLOUD */}
       {tieneCoordenadasValidas ? (
         <View style={styles.mapContainer}>
-          <MapView
-            ref={mapRef}
+          <WebView
+            source={{ uri: getMapHtmlUrl() }}
             style={styles.mapa}
-            // provider={PROVIDER_GOOGLE} // ◀️ Descoméntalo solo cuando compiles la build nativa con la API Key activa
-            initialRegion={{
-              latitude: Number(ubicacion.lat) || 25.6866,
-              longitude: Number(ubicacion.lng) || -100.3161,
-              latitudeDelta: 0.0122,
-              longitudeDelta: 0.0121,
-            }}
-          >
-            {/* Marcador del Paciente */}
-            <Marker
-              coordinate={{ 
-                latitude: Number(ubicacion.lat), 
-                longitude: Number(ubicacion.lng) 
-              }}
-              title={paciente?.nombre_completo ?? "Paciente"}
-              description={`Batería: ${ubicacion.bateria_pct ?? 0}%`}
-            />
-
-            {/* Mapeo Seguro de Geocercas Activas */}
-            {Array.isArray(geocercas) && geocercas.map((g) => {
-              if (!g || g.lat === undefined || g.lng === undefined || !g.activa) return null;
-              return (
-                <Circle
-                  key={g.id ? String(g.id) : Math.random().toString()}
-                  center={{ 
-                    latitude: Number(g.lat), 
-                    longitude: Number(g.lng) 
-                  }}
-                  radius={Number(g.radio_metros) || 30}
-                  strokeColor="rgba(191,154,64,0.8)"
-                  fillColor="rgba(191,154,64,0.1)"
-                  strokeWidth={2}
-                />
-              );
-            })}
-          </MapView>
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            startInLoadingState={true}
+            renderLoading={() => (
+              <ActivityIndicator style={StyleSheet.absoluteFillObject} size="small" color={COLORS.gold} />
+            )}
+          />
         </View>
       ) : (
         <View style={styles.sinUbicacion}>
@@ -197,18 +175,6 @@ export default function MapaScreen() {
               </Text>
             </View>
           )}
-          
-          <TouchableOpacity
-            style={styles.centrarBtn}
-            onPress={() => mapRef.current?.animateToRegion({
-              latitude: Number(ubicacion.lat),
-              longitude: Number(ubicacion.lng),
-              latitudeDelta: 0.0122,
-              longitudeDelta: 0.0121,
-            })}
-          >
-            <Text style={styles.centrarBtnText}>📍 Centrar en el mapa</Text>
-          </TouchableOpacity>
 
           <Text style={[styles.infoLabel, { marginTop: 16, marginBottom: 8 }]}>Zona segura</Text>
           {geocercas.length === 0 ? (
@@ -278,17 +244,14 @@ const styles = StyleSheet.create({
   },
   activoDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.green },
   activoText: { fontSize: 9, fontWeight: '700', color: COLORS.green },
-  
-  // SECCIÓN CRÍTICA CORREGIDA PARA FLEXBOX NATIVO
   mapContainer: {
     flex: 1,
     width: '100%',
     backgroundColor: '#E0D8CC', 
   },
   mapa: { 
-    ...StyleSheet.absoluteFillObject 
+    flex: 1
   },
-  
   sinUbicacion: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
   sinUbicacionIcon: { fontSize: 48, marginBottom: 16 },
   sinUbicacionTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textDark, marginBottom: 8 },
@@ -296,7 +259,7 @@ const styles = StyleSheet.create({
   infoCard: {
     backgroundColor: COLORS.white, 
     padding: 16,
-    maxHeight: 280, // Limita el tamaño de la tarjeta para dejarle suficiente espacio al mapa
+    maxHeight: 240, 
     borderTopWidth: 1, 
     borderTopColor: COLORS.border,
   },
