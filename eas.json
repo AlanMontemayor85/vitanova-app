@@ -7,10 +7,7 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "environment": "development",
-      "android": {
-        "googleServicesFile": "$GOOGLE_SERVICES_JSON"
-      }
+      "environment": "development"
     },
     "preview": {
       "distribution": "internal",
