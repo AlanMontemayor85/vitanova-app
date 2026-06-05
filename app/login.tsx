@@ -71,20 +71,32 @@ export default function LoginScreen() {
   };
 
   const handleGoogle = async () => {
-    setLoadingGoogle(true);
-    try {
-      const redirectUri = makeRedirectUri({ scheme: 'vitanovaintegralis' });
-      const authUrl = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUri)}`;
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-      if (result.type === 'success') {
+  setLoadingGoogle(true);
+  try {
+    const redirectUri = makeRedirectUri({ scheme: 'vitanovaintegralis' });
+    const authUrl = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUri)}`;
+    const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+    
+    if (result.type === 'success' && result.url) {
+      // Extraer token de la URL de retorno
+      const url = result.url;
+      const accessToken = url.match(/access_token=([^&]+)/)?.[1];
+      
+      if (accessToken) {
+        await setToken(accessToken);
+        // Verificar si ya completó perfil
+        const { getUserNombre } = await import('../services/api');
         router.replace('/completar-perfil');
+      } else {
+        setError('No se pudo obtener el token de Google');
       }
-    } catch (e) {
-      setError('Error con Google');
-    } finally {
-      setLoadingGoogle(false);
     }
-  };
+  } catch (e) {
+    setError('Error con Google');
+  } finally {
+    setLoadingGoogle(false);
+  }
+};
 
   return (
     <KeyboardAvoidingView
