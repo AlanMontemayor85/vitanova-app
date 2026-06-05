@@ -127,9 +127,9 @@ export default function MapaScreen() {
             ref={mapRef}
             style={styles.mapa}
             provider={PROVIDER_GOOGLE} // ◀️ Descoméntalo solo cuando compiles la build nativa con la API Key activa
-            initialRegion={{
-              latitude: Number(ubicacion.lat) || 25.6866,
-              longitude: Number(ubicacion.lng) || -100.3161,
+            region={{
+              latitude: Number(ubicacion.lat),
+              longitude: Number(ubicacion.lng),
               latitudeDelta: 0.0122,
               longitudeDelta: 0.0121,
             }}
