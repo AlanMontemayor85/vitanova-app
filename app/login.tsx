@@ -57,6 +57,7 @@ export default function LoginScreen() {
   setLoading(true); setError('');
   try {
     const data = await register(email.trim(), password);
+    console.log('login response:', JSON.stringify(data));
       if (data.access_token) {
         await setToken(data.access_token);
         router.replace('/completar-perfil');
