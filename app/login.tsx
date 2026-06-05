@@ -73,7 +73,7 @@ export default function LoginScreen() {
   const handleGoogle = async () => {
     setLoadingGoogle(true);
     try {
-      const redirectUri = makeRedirectUri({ scheme: 'vitanovaapp' });
+      const redirectUri = makeRedirectUri({ scheme: 'vitanovaintegralis' });
       const authUrl = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUri)}`;
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
       if (result.type === 'success') {
