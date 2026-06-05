@@ -23,39 +23,54 @@ export default function MapaScreen() {
   const [ubicacion, setUbicacion] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [geocercas, setGeocercas] = useState<any[]>([]);
- 
 
+  // 1. EFECTO INICIAL: Carga los datos base del paciente al montar la pantalla
   useEffect(() => {
-    const cargar = async () => {
+    const cargarDatosIniciales = async () => {
       try {
         await loadStoredToken();
         const data = await getPacientes();
+        
         if (data.patients && data.patients.length > 0) {
           const p = data.patients[0];
           setPaciente(p);
+          
+          // Carga inmediata de ubicación inicial y geocercas
           const ubData = await getUbicacion(p.id);
           if (ubData.ubicacion) setUbicacion(ubData.ubicacion);
+          
           const geocercaData = await getGeocercas(p.id);
           if (geocercaData.geocercas) setGeocercas(geocercaData.geocercas);
         }
       } catch (e) {
-        console.error(e);
+        console.error("Error en la carga inicial del mapa:", e);
       } finally {
         setLoading(false);
       }
     };
-    cargar();
+    
+    cargarDatosIniciales();
+  }, []);
 
-    // Actualizar ubicación cada 30 segundos
+  // 2. EFECTO SECUNDARIO: Monitorea y actualiza la ubicación en tiempo real cada 30 segundos
+  useEffect(() => {
+    // Si no hay paciente asignado todavía, no activamos el reloj
+    if (!paciente?.id) return;
+
     const interval = setInterval(async () => {
-      if (paciente?.id) {
+      try {
         const ubData = await getUbicacion(paciente.id);
-        if (ubData.ubicacion) setUbicacion(ubData.ubicacion);
+        // Validamos que la API realmente devuelva datos de ubicación vigentes
+        if (ubData.ubicacion) {
+          setUbicacion(ubData.ubicacion);
+        }
+      } catch (e) {
+        console.error("Error al actualizar ubicación en segundo plano:", e);
       }
-    }, 30000);
+    }, 30000); // 30 segundos
 
     return () => clearInterval(interval);
-  }, []);
+  }, [paciente?.id]); // Reacciona de inmediato en cuanto 'paciente' deje de ser null
 
   if (loading) {
     return (
@@ -64,17 +79,28 @@ export default function MapaScreen() {
       </View>
     );
   }
-const crearYCargar = async (radio: number) => {
-  await crearGeocerca({
-    paciente_id: paciente.id,
-    nombre: 'Casa',
-    lat: ubicacion.lat,
-    lng: ubicacion.lng,
-    radio_metros: radio,
-  });
-  const data = await getGeocercas(paciente.id);
-  if (data.geocercas) setGeocercas(data.geocercas);
-};
+
+  const crearYCargar = async (radio: number) => {
+    if (!ubicacion?.lat || !ubicacion?.lng) return;
+    
+    try {
+      await crearGeocerca({
+        paciente_id: paciente.id,
+        nombre: 'Casa',
+        lat: ubicacion.lat,
+        lng: ubicacion.lng,
+        radio_metros: radio,
+      });
+      const data = await getGeocercas(paciente.id);
+      if (data.geocercas) setGeocercas(data.geocercas);
+    } catch (e) {
+      console.error("Error al crear geocerca:", e);
+    }
+  };
+
+  // Validación de seguridad para confirmar si el objeto ubicación trae coordenadas válidas para pintar el mapa
+  const tieneCoordenadasValidas = ubicacion && ubicacion.lat !== undefined && ubicacion.lng !== undefined;
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
@@ -86,9 +112,9 @@ const crearYCargar = async (radio: number) => {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={styles.greeting}>Ubicación</Text>
-          <Text style={styles.userName}>{paciente?.nombre_completo}</Text>
+          <Text style={styles.userName}>{paciente?.nombre_completo ?? 'No asignado'}</Text>
         </View>
-        {ubicacion && (
+        {tieneCoordenadasValidas && (
           <View style={styles.activoPill}>
             <View style={styles.activoDot} />
             <Text style={styles.activoText}>En línea</Text>
@@ -97,27 +123,27 @@ const crearYCargar = async (radio: number) => {
       </View>
 
       {/* MAPA */}
-      {ubicacion ? (
+      {tieneCoordenadasValidas ? (
         <MapView
           ref={mapRef}
           style={styles.mapa}
           provider={PROVIDER_GOOGLE}
           initialRegion={{
-            latitude: ubicacion.lat,
-            longitude: ubicacion.lng,
+            latitude: Number(ubicacion.lat),
+            longitude: Number(ubicacion.lng),
             latitudeDelta: 0.01,
             longitudeDelta: 0.01,
           }}
         >
           <Marker
-            coordinate={{ latitude: ubicacion.lat, longitude: ubicacion.lng }}
+            coordinate={{ latitude: Number(ubicacion.lat), longitude: Number(ubicacion.lng) }}
             title={paciente?.nombre_completo}
           />
           {geocercas.map((g) => (
             <Circle
               key={g.id}
-              center={{ latitude: g.lat, longitude: g.lng }}
-              radius={g.radio_metros}
+              center={{ latitude: Number(g.lat), longitude: Number(g.lng) }}
+              radius={Number(g.radio_metros)}
               strokeColor="rgba(191,154,64,0.8)"
               fillColor="rgba(191,154,64,0.1)"
               strokeWidth={2}
@@ -128,104 +154,104 @@ const crearYCargar = async (radio: number) => {
         <View style={styles.sinUbicacion}>
           <Text style={styles.sinUbicacionIcon}>📍</Text>
           <Text style={styles.sinUbicacionTitle}>Sin ubicación disponible</Text>
-          <Text style={styles.sinUbicacionText}>El dispositivo GPS no está activo</Text>
+          <Text style={styles.sinUbicacionText}>El dispositivo GPS no está enviando señal válida en este momento.</Text>
         </View>
       )}
 
       {/* INFO CARD */}
-    {ubicacion && (
-  <ScrollView style={styles.infoCard} showsVerticalScrollIndicator={false}>
-    <View style={styles.infoRow}>
-      <Text style={styles.infoLabel}>Dispositivo</Text>
-      <Text style={styles.infoVal}>{ubicacion.modelo ?? ubicacion.device_id}</Text>
-    </View>
-    <View style={styles.infoRow}>
-      <Text style={styles.infoLabel}>Última actualización</Text>
-      <Text style={styles.infoVal}>
-        {ubicacion.ultima_conexion
-          ? new Date(ubicacion.ultima_conexion).toLocaleString('es-MX', {
-              day: 'numeric', month: 'short',
-              hour: '2-digit', minute: '2-digit'
-            })
-          : '—'}
-      </Text>
-    </View>
-    {ubicacion.bateria_pct && (
-      <View style={styles.infoRow}>
-        <Text style={styles.infoLabel}>Batería</Text>
-        <Text style={[styles.infoVal, { color: ubicacion.bateria_pct < 20 ? COLORS.red : COLORS.green }]}>
-          {ubicacion.bateria_pct}%
-        </Text>
-      </View>
-    )}
-    <TouchableOpacity
-      style={styles.centrarBtn}
-      onPress={() => mapRef.current?.animateToRegion({
-        latitude: ubicacion.lat,
-        longitude: ubicacion.lng,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      })}
-    >
-      <Text style={styles.centrarBtnText}>📍 Centrar en el mapa</Text>
-    </TouchableOpacity>
-
-    <Text style={[styles.infoLabel, { marginTop: 12, marginBottom: 8 }]}>Zona segura</Text>
-    {geocercas.length === 0 ? (
-      <TouchableOpacity
-        style={styles.centrarBtn}
-        onPress={() => {
-          if (!ubicacion) return;
-          Alert.alert(
-            'Crear zona segura',
-            '¿Qué radio quieres para la zona segura?',
-            [
-              { text: '24m (casa)', onPress: async () => await crearYCargar(24) },
-              { text: '30m (jardín/patio)', onPress: async () => await crearYCargar(30) },
-              { text: '40m (condominio)', onPress: async () => await crearYCargar(40) },
-            ]
-          );
-        }}
-      >
-        <Text style={styles.centrarBtnText}>+ Crear zona segura</Text>
-      </TouchableOpacity>
-    ) : (
-      geocercas.map((g) => (
-        <View key={g.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, marginTop: 4 }}>
-          <Text style={styles.infoVal}>📍 {g.nombre} — {g.radio_metros}m</Text>
+      {tieneCoordenadasValidas && (
+        <ScrollView style={styles.infoCard} showsVerticalScrollIndicator={false}>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Dispositivo</Text>
+            <Text style={styles.infoVal}>{ubicacion.modelo ?? ubicacion.device_id ?? 'Desconocido'}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Última actualización</Text>
+            <Text style={styles.infoVal}>
+              {ubicacion.ultima_conexion
+                ? new Date(ubicacion.ultima_conexion).toLocaleString('es-MX', {
+                    day: 'numeric', month: 'short',
+                    hour: '2-digit', minute: '2-digit'
+                  })
+                : '—'}
+            </Text>
+          </View>
+          {ubicacion.bateria_pct !== undefined && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Batería</Text>
+              <Text style={[styles.infoVal, { color: ubicacion.bateria_pct < 20 ? COLORS.red : COLORS.green }]}>
+                {ubicacion.bateria_pct}%
+              </Text>
+            </View>
+          )}
+          
           <TouchableOpacity
-            style={{ backgroundColor: '#FDEAEA', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}
-            onPress={() => {
-              Alert.alert('Eliminar zona', '¿Eliminar esta zona segura?', [
-                { text: 'Cancelar', style: 'cancel' },
-                {
-                  text: 'Eliminar', style: 'destructive', onPress: async () => {
-                    await eliminarGeocerca(g.id);
-                    const data = await getGeocercas(paciente.id);
-                    if (data.geocercas) setGeocercas(data.geocercas);
-                  }
-                }
-              ]);
-            }}
+            style={styles.centrarBtn}
+            onPress={() => mapRef.current?.animateToRegion({
+              latitude: Number(ubicacion.lat),
+              longitude: Number(ubicacion.lng),
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            })}
           >
-            <Text style={{ color: '#D94F4F', fontSize: 12, fontWeight: '700' }}>✕ Eliminar</Text>
+            <Text style={styles.centrarBtnText}>📍 Centrar en el mapa</Text>
           </TouchableOpacity>
-        </View>
-      ))
-    )}
-    <View style={{ height: 20 }} />
-  </ScrollView>
-)} 
+
+          <Text style={[styles.infoLabel, { marginTop: 12, marginBottom: 8 }]}>Zona segura</Text>
+          {geocercas.length === 0 ? (
+            <TouchableOpacity
+              style={styles.centrarBtn}
+              onPress={() => {
+                Alert.alert(
+                  'Crear zona segura',
+                  '¿Qué radio quieres para la zona segura?',
+                  [
+                    { text: '24m (casa)', onPress: async () => await crearYCargar(24) },
+                    { text: '30m (jardín/patio)', onPress: async () => await crearYCargar(30) },
+                    { text: '40m (condominio)', onPress: async () => await crearYCargar(40) },
+                    { text: 'Cancelar', style: 'cancel' }
+                  ]
+                );
+              }}
+            >
+              <Text style={styles.centrarBtnText}>+ Crear zona segura</Text>
+            </TouchableOpacity>
+          ) : (
+            geocercas.map((g) => (
+              <View key={g.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, marginTop: 4 }}>
+                <Text style={styles.infoVal}>📍 {g.nombre} — {g.radio_metros}m</Text>
+                <TouchableOpacity
+                  style={{ backgroundColor: '#FDEAEA', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}
+                  onPress={() => {
+                    Alert.alert('Eliminar zona', '¿Eliminar esta zona segura?', [
+                      { text: 'Cancelar', style: 'cancel' },
+                      {
+                        text: 'Eliminar', style: 'destructive', onPress: async () => {
+                          await eliminarGeocerca(g.id);
+                          const data = await getGeocercas(paciente.id);
+                          if (data.geocercas) setGeocercas(data.geocercas);
+                        }
+                      }
+                    ]);
+                  }}
+                >
+                  <Text style={{ color: '#D94F4F', fontSize: 12, fontWeight: '700' }}>✕ Eliminar</Text>
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
+          <View style={{ height: 20 }} />
+        </ScrollView>
+      )} 
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.cream },
   header: {
     backgroundColor: COLORS.cacao, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
+    flex: 'row', alignItems: 'center', gap: 12,
   },
   greeting: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: 2 },
   userName: { fontSize: 20, fontWeight: '800', color: COLORS.white },
@@ -248,7 +274,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white, padding: 16,
     borderTopWidth: 1, borderTopColor: COLORS.border,
   },
-  
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   infoLabel: { fontSize: 11, color: COLORS.textLight, fontWeight: '600' },
   infoVal: { fontSize: 12, color: COLORS.textDark, fontWeight: '700' },
@@ -257,5 +282,4 @@ const styles = StyleSheet.create({
     alignItems: 'center', marginTop: 12,
   },
   centrarBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.white },
-  
 });
