@@ -128,27 +128,41 @@ export default function MapaScreen() {
           ref={mapRef}
           style={styles.mapa}
           provider={PROVIDER_GOOGLE}
-          initialRegion={{
-            latitude: Number(ubicacion.lat),
-            longitude: Number(ubicacion.lng),
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
+          // Usamos region en lugar de initialRegion para que responda a los cambios de estado dinámicos
+          region={{
+            latitude: Number(ubicacion.lat) || 25.6866,
+            longitude: Number(ubicacion.lng) || -100.3161,
+            latitudeDelta: 0.0122,
+            longitudeDelta: 0.0121,
           }}
         >
+          {/* Marcador del Paciente */}
           <Marker
-            coordinate={{ latitude: Number(ubicacion.lat), longitude: Number(ubicacion.lng) }}
-            title={paciente?.nombre_completo}
+            coordinate={{ 
+              latitude: Number(ubicacion.lat), 
+              longitude: Number(ubicacion.lng) 
+            }}
+            title={paciente?.nombre_completo ?? "Paciente"}
           />
-          {geocercas.map((g) => (
-            <Circle
-              key={g.id}
-              center={{ latitude: Number(g.lat), longitude: Number(g.lng) }}
-              radius={Number(g.radio_metros)}
-              strokeColor="rgba(191,154,64,0.8)"
-              fillColor="rgba(191,154,64,0.1)"
-              strokeWidth={2}
-            />
-          ))}
+
+          {/* Renderizado Seguro de Geocercas */}
+          {Array.isArray(geocercas) && geocercas.map((g) => {
+            // Validamos que la geocerca individual tenga coordenadas válidas antes de pintar el círculo
+            if (!g || g.lat === undefined || g.lng === undefined) return null;
+            return (
+              <Circle
+                key={g.id ? String(g.id) : Math.random().toString()}
+                center={{ 
+                  latitude: Number(g.lat), 
+                  longitude: Number(g.lng) 
+                }}
+                radius={Number(g.radio_metros) || 30}
+                strokeColor="rgba(191,154,64,0.8)"
+                fillColor="rgba(191,154,64,0.1)"
+                strokeWidth={2}
+              />
+            );
+          })}
         </MapView>
       ) : (
         <View style={styles.sinUbicacion}>
