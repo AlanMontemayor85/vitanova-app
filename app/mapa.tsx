@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Circle, Marker } from 'react-native-maps';
 import { crearGeocerca, eliminarGeocerca, getGeocercas, getPacientes, getUbicacion, loadStoredToken } from '../services/api';
 
 const COLORS = {
@@ -127,14 +127,16 @@ export default function MapaScreen() {
         <MapView
           ref={mapRef}
           style={styles.mapa}
-          provider={PROVIDER_GOOGLE}
-          // Usamos region en lugar de initialRegion para que responda a los cambios de estado dinámicos
-          region={{
-            latitude: Number(ubicacion.lat) || 25.6866,
-            longitude: Number(ubicacion.lng) || -100.3161,
+          // provider={PROVIDER_GOOGLE}  <-- 1. COMENTA O BORRA ESTA LÍNEA TEMPORALMENTE
+          
+          // 2. Cambiamos 'region' por 'initialRegion' acoplado a un cortocircuito seguro
+          initialRegion={{
+            latitude: Number(ubicacion?.lat) || 25.6866,
+            longitude: Number(ubicacion?.lng) || -100.3161,
             latitudeDelta: 0.0122,
             longitudeDelta: 0.0121,
           }}
+        
         >
           {/* Marcador del Paciente */}
           <Marker
