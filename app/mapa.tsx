@@ -43,7 +43,7 @@ export default function MapaScreen() {
           if (geocercaData.geocercas) setGeocercas(geocercaData.geocercas);
         }
       } catch (e) {
-        console.error("Error en la carga inicial del mapa:", e);
+        console.error("❌ Error en la carga inicial del mapa:", e);
       } finally {
         setLoading(false);
       }
@@ -54,23 +54,21 @@ export default function MapaScreen() {
 
   // 2. EFECTO SECUNDARIO: Monitorea y actualiza la ubicación en tiempo real cada 30 segundos
   useEffect(() => {
-    // Si no hay paciente asignado todavía, no activamos el reloj
     if (!paciente?.id) return;
 
     const interval = setInterval(async () => {
       try {
         const ubData = await getUbicacion(paciente.id);
-        // Validamos que la API realmente devuelva datos de ubicación vigentes
         if (ubData.ubicacion) {
           setUbicacion(ubData.ubicacion);
         }
       } catch (e) {
-        console.error("Error al actualizar ubicación en segundo plano:", e);
+        console.error("❌ Error al actualizar ubicación en segundo plano:", e);
       }
     }, 30000); // 30 segundos
 
     return () => clearInterval(interval);
-  }, [paciente?.id]); // Reacciona de inmediato en cuanto 'paciente' deje de ser null
+  }, [paciente?.id]);
 
   if (loading) {
     return (
@@ -87,18 +85,18 @@ export default function MapaScreen() {
       await crearGeocerca({
         paciente_id: paciente.id,
         nombre: 'Casa',
-        lat: ubicacion.lat,
-        lng: ubicacion.lng,
+        lat: Number(ubicacion.lat),
+        lng: Number(ubicacion.lng),
         radio_metros: radio,
       });
       const data = await getGeocercas(paciente.id);
       if (data.geocercas) setGeocercas(data.geocercas);
     } catch (e) {
-      console.error("Error al crear geocerca:", e);
+      console.error("❌ Error al crear geocerca:", e);
     }
   };
 
-  // Validación de seguridad para confirmar si el objeto ubicación trae coordenadas válidas para pintar el mapa
+  // Validación de seguridad de coordenadas para renderizado de la UI
   const tieneCoordenadasValidas = ubicacion && ubicacion.lat !== undefined && ubicacion.lng !== undefined;
 
   return (
@@ -122,55 +120,54 @@ export default function MapaScreen() {
         )}
       </View>
 
-      {/* MAPA */}
+      {/* CUADRANTE DEL MAPA CON ESTRUCTURA RIGIDA */}
       {tieneCoordenadasValidas ? (
-        <MapView
-          ref={mapRef}
-          style={styles.mapa}
-          // provider={PROVIDER_GOOGLE}  <-- 1. COMENTA O BORRA ESTA LÍNEA TEMPORALMENTE
-          
-          // 2. Cambiamos 'region' por 'initialRegion' acoplado a un cortocircuito seguro
-          initialRegion={{
-            latitude: Number(ubicacion?.lat) || 25.6866,
-            longitude: Number(ubicacion?.lng) || -100.3161,
-            latitudeDelta: 0.0122,
-            longitudeDelta: 0.0121,
-          }}
-        
-        >
-          {/* Marcador del Paciente */}
-          <Marker
-            coordinate={{ 
-              latitude: Number(ubicacion.lat), 
-              longitude: Number(ubicacion.lng) 
+        <View style={styles.mapContainer}>
+          <MapView
+            ref={mapRef}
+            style={styles.mapa}
+            // provider={PROVIDER_GOOGLE} // ◀️ Descoméntalo solo cuando compiles la build nativa con la API Key activa
+            initialRegion={{
+              latitude: Number(ubicacion.lat) || 25.6866,
+              longitude: Number(ubicacion.lng) || -100.3161,
+              latitudeDelta: 0.0122,
+              longitudeDelta: 0.0121,
             }}
-            title={paciente?.nombre_completo ?? "Paciente"}
-          />
+          >
+            {/* Marcador del Paciente */}
+            <Marker
+              coordinate={{ 
+                latitude: Number(ubicacion.lat), 
+                longitude: Number(ubicacion.lng) 
+              }}
+              title={paciente?.nombre_completo ?? "Paciente"}
+              description={`Batería: ${ubicacion.bateria_pct ?? 0}%`}
+            />
 
-          {/* Renderizado Seguro de Geocercas */}
-          {Array.isArray(geocercas) && geocercas.map((g) => {
-            // Validamos que la geocerca individual tenga coordenadas válidas antes de pintar el círculo
-            if (!g || g.lat === undefined || g.lng === undefined) return null;
-            return (
-              <Circle
-                key={g.id ? String(g.id) : Math.random().toString()}
-                center={{ 
-                  latitude: Number(g.lat), 
-                  longitude: Number(g.lng) 
-                }}
-                radius={Number(g.radio_metros) || 30}
-                strokeColor="rgba(191,154,64,0.8)"
-                fillColor="rgba(191,154,64,0.1)"
-                strokeWidth={2}
-              />
-            );
-          })}
-        </MapView>
+            {/* Mapeo Seguro de Geocercas Activas */}
+            {Array.isArray(geocercas) && geocercas.map((g) => {
+              if (!g || g.lat === undefined || g.lng === undefined || !g.activa) return null;
+              return (
+                <Circle
+                  key={g.id ? String(g.id) : Math.random().toString()}
+                  center={{ 
+                    latitude: Number(g.lat), 
+                    longitude: Number(g.lng) 
+                  }}
+                  radius={Number(g.radio_metros) || 30}
+                  strokeColor="rgba(191,154,64,0.8)"
+                  fillColor="rgba(191,154,64,0.1)"
+                  strokeWidth={2}
+                />
+              );
+            })}
+          </MapView>
+        </View>
       ) : (
         <View style={styles.sinUbicacion}>
           <Text style={styles.sinUbicacionIcon}>📍</Text>
           <Text style={styles.sinUbicacionTitle}>Sin ubicación disponible</Text>
-          <Text style={styles.sinUbicacionText}>El dispositivo GPS no está enviando señal válida en este momento.</Text>
+          <Text style={styles.sinUbicacionText}>El dispositivo GPS no está enviando señal válida en este momento o las coordenadas son nulas.</Text>
         </View>
       )}
 
@@ -179,7 +176,7 @@ export default function MapaScreen() {
         <ScrollView style={styles.infoCard} showsVerticalScrollIndicator={false}>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Dispositivo</Text>
-            <Text style={styles.infoVal}>{ubicacion.modelo ?? ubicacion.device_id ?? 'Desconocido'}</Text>
+            <Text style={styles.infoVal}>{ubicacion.modelo ?? ubicacion.device_id ?? 'ReachFar GPS'}</Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Última actualización</Text>
@@ -206,14 +203,14 @@ export default function MapaScreen() {
             onPress={() => mapRef.current?.animateToRegion({
               latitude: Number(ubicacion.lat),
               longitude: Number(ubicacion.lng),
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
+              latitudeDelta: 0.0122,
+              longitudeDelta: 0.0121,
             })}
           >
             <Text style={styles.centrarBtnText}>📍 Centrar en el mapa</Text>
           </TouchableOpacity>
 
-          <Text style={[styles.infoLabel, { marginTop: 12, marginBottom: 8 }]}>Zona segura</Text>
+          <Text style={[styles.infoLabel, { marginTop: 16, marginBottom: 8 }]}>Zona segura</Text>
           {geocercas.length === 0 ? (
             <TouchableOpacity
               style={styles.centrarBtn}
@@ -234,8 +231,8 @@ export default function MapaScreen() {
             </TouchableOpacity>
           ) : (
             geocercas.map((g) => (
-              <View key={g.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, marginTop: 4 }}>
-                <Text style={styles.infoVal}>📍 {g.nombre} — {g.radio_metros}m</Text>
+              <View key={g.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, marginTop: 4 }}>
+                <Text style={styles.infoVal}>📍 {g.nombre} — {g.radio_metros}m {g.activa ? '(Activa)' : '(Apagada)'}</Text>
                 <TouchableOpacity
                   style={{ backgroundColor: '#FDEAEA', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}
                   onPress={() => {
@@ -256,7 +253,7 @@ export default function MapaScreen() {
               </View>
             ))
           )}
-          <View style={{ height: 20 }} />
+          <View style={{ height: 24 }} />
         </ScrollView>
       )} 
     </View>
@@ -281,14 +278,27 @@ const styles = StyleSheet.create({
   },
   activoDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.green },
   activoText: { fontSize: 9, fontWeight: '700', color: COLORS.green },
-  mapa: { flex: 1 },
+  
+  // SECCIÓN CRÍTICA CORREGIDA PARA FLEXBOX NATIVO
+  mapContainer: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: '#E0D8CC', 
+  },
+  mapa: { 
+    ...StyleSheet.absoluteFillObject 
+  },
+  
   sinUbicacion: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
   sinUbicacionIcon: { fontSize: 48, marginBottom: 16 },
   sinUbicacionTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textDark, marginBottom: 8 },
   sinUbicacionText: { fontSize: 13, color: COLORS.textLight, textAlign: 'center' },
   infoCard: {
-    backgroundColor: COLORS.white, padding: 16,
-    borderTopWidth: 1, borderTopColor: COLORS.border,
+    backgroundColor: COLORS.white, 
+    padding: 16,
+    maxHeight: 280, // Limita el tamaño de la tarjeta para dejarle suficiente espacio al mapa
+    borderTopWidth: 1, 
+    borderTopColor: COLORS.border,
   },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   infoLabel: { fontSize: 11, color: COLORS.textLight, fontWeight: '600' },
