@@ -85,8 +85,9 @@ export default function MapaScreen() {
       await crearGeocerca({
         paciente_id: paciente.id,
         nombre: 'Casa',
-        lat: Number(ubicacion.lat),
-        lng: Number(ubicacion.lng),
+        // Aseguramos parseo limpio antes de enviar al servicio de la API
+        lat: Math.abs(parseFloat(ubicacion.lat)),
+        lng: -Math.abs(parseFloat(ubicacion.lng)), 
         radio_metros: radio,
       });
       const data = await getGeocercas(paciente.id);
@@ -205,8 +206,12 @@ export default function MapaScreen() {
           <TouchableOpacity
             style={styles.centrarBtn}
             onPress={() => mapRef.current?.animateToRegion({
-              latitude: Number(ubicacion.lat),
-              longitude: Number(ubicacion.lng),
+              // Aseguramos Latitud Positiva
+              latitude: Math.abs(parseFloat(ubicacion.lat)),
+              
+              // 🚨 EL ESCUDO: Forzamos la Longitud Negativa aquí también
+              longitude: -Math.abs(parseFloat(ubicacion.lng)),
+              
               latitudeDelta: 0.0122,
               longitudeDelta: 0.0121,
             })}
