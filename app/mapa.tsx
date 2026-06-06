@@ -120,16 +120,20 @@ export default function MapaScreen() {
         )}
       </View>
 
-      {/* CUADRANTE DEL MAPA CON ESTRUCTURA RIGIDA */}
+      {/* CUADRANTE DEL MAPA CON PARSEO ULTRA SEGURO */}
       {tieneCoordenadasValidas ? (
         <View style={styles.mapContainer}>
           <MapView
             ref={mapRef}
             style={styles.mapa}
-            provider={PROVIDER_GOOGLE} // ◀️ Descoméntalo solo cuando compiles la build nativa con la API Key activa
+            provider={PROVIDER_GOOGLE}
             region={{
-              latitude: Number(ubicacion.lat),
-              longitude: Number(ubicacion.lng),
+              // Forzamos el parseo a flotante puro
+              latitude: Math.abs(parseFloat(ubicacion.lat)), 
+              
+              // 🚨 EL BLINDAJE: Forzamos el signo negativo directamente en el teléfono
+              longitude: -Math.abs(parseFloat(ubicacion.lng)), 
+              
               latitudeDelta: 0.0122,
               longitudeDelta: 0.0121,
             }}
@@ -137,22 +141,22 @@ export default function MapaScreen() {
             {/* Marcador del Paciente */}
             <Marker
               coordinate={{ 
-                latitude: Number(ubicacion.lat), 
-                longitude: Number(ubicacion.lng) 
+                latitude: Math.abs(parseFloat(ubicacion.lat)), 
+                longitude: -Math.abs(parseFloat(ubicacion.lng)) // 🚨 Forzado aquí también
               }}
               title={paciente?.nombre_completo ?? "Paciente"}
               description={`Batería: ${ubicacion.bateria_pct ?? 0}%`}
             />
 
-            {/* Mapeo Seguro de Geocercas Activas */}
+            {/* Mapeo de Geocercas */}
             {Array.isArray(geocercas) && geocercas.map((g) => {
               if (!g || g.lat === undefined || g.lng === undefined || !g.activa) return null;
               return (
                 <Circle
                   key={g.id ? String(g.id) : Math.random().toString()}
                   center={{ 
-                    latitude: Number(g.lat), 
-                    longitude: Number(g.lng) 
+                    latitude: Math.abs(parseFloat(g.lat)), 
+                    longitude: -Math.abs(parseFloat(g.lng)) // 🚨 Forzado en la geocerca
                   }}
                   radius={Number(g.radio_metros) || 30}
                   strokeColor="rgba(191,154,64,0.8)"
