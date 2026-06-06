@@ -2,9 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { clearToken, getAlertaPeso, getNotasTurno, getPacientes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
+import { clearToken, forzarMedicionSignos, getAlertaPeso, getNotasTurno, getPacientes, getSignosRecientes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 
+  
 const COLORS = {
   gold: '#BF9A40',
   goldLight: '#D4B060',
@@ -40,6 +41,47 @@ export default function HomeScreen() {
   const [solicitudOpen, setSolicitudOpen] = useState(false);
   const [solicitudItems, setSolicitudItems] = useState<string[]>([]);
   const [solicitudNota, setSolicitudNota] = useState('');
+  const [signosDispositivo, setSignosDispositivo] = useState<any>(null);
+  const [midiendo, setMidiendo] = useState<boolean>(false);
+  const pacienteId = paciente?.id;
+
+// 📡 1. Función para jalar la telemetría más reciente del reloj
+const cargarSignosDispositivo = async () => {
+  if (!pacienteId) return;
+  const res = await getSignosRecientes(pacienteId);
+  if (res && res.success) {
+    setSignosDispositivo(res);
+  }
+};
+
+// ⚡ 2. Función para disparar la ráfaga 'hrtstart' por Redis
+const ejecutarMedicionRemota = async () => {
+  if (!pacienteId || midiendo) return;
+  setMidiendo(true);
+  try {
+    await forzarMedicionSignos(pacienteId);
+    alert("📡 Solicitud enviada. El reloj comenzará la lectura en unos segundos...");
+    
+    // Polling táctico: Esperamos 15 segundos a que el reloj mida y mande los datos a Supabase, luego refrescamos
+    setTimeout(async () => {
+      await cargarSignosDispositivo();
+      setMidiendo(false);
+    }, 15000);
+  } catch (error) {
+    console.error(error);
+    setMidiendo(false);
+  }
+};
+
+// 🔄 3. Polling automático o carga inicial
+useEffect(() => {
+  cargarSignosDispositivo();
+  // Opcional: Refrescar la telemetría cada 30 segundos de forma pasiva
+  const interval = setInterval(cargarSignosDispositivo, 30000);
+  return () => clearInterval(interval);
+}, [pacienteId]);
+
+
   useEffect(() => {
   const init = async () => {
     try {
@@ -194,36 +236,64 @@ useEffect(() => {
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
 
-        {/* VITALS */}
-        <View style={styles.vitalsRow}>
-          <View style={styles.vitalCard}>
-            <Text style={styles.vitalVal}>{ultimoCierre?.spo2 ?? '—'}</Text>
-            <Text style={styles.vitalUnit}>%</Text>
-            <Text style={styles.vitalLabel}>SpO₂</Text>
-          </View>
-          <View style={styles.vitalCard}>
-            <Text style={styles.vitalVal}>
-              {ultimoCierre ? `${ultimoCierre.presion_sistolica}` : '—'}
-              <Text style={styles.vitalValSmall}>
-                {ultimoCierre ? `/${ultimoCierre.presion_diastolica}` : ''}
-              </Text>
-            </Text>
-            <Text style={styles.vitalLabel}>Presión</Text>
-          </View>
-          <View style={styles.vitalCard}>
-            <Text style={[styles.vitalVal, { color: COLORS.red }]}>
-              {ultimoCierre?.frecuencia_cardiaca ?? '—'}
-            </Text>
-            <Text style={styles.vitalUnit}>bpm</Text>
-            <Text style={styles.vitalLabel}>F. Card.</Text>
-          </View>
-          <View style={styles.vitalCard}>
-            <Text style={[styles.vitalVal, { color: ultimoCierre?.estado_paciente === 'bien' ? COLORS.green : ultimoCierre?.estado_paciente === 'preocupante' ? COLORS.red : COLORS.amber }]}>
-              {ultimoCierre?.estado_paciente === 'bien' ? '😊' : ultimoCierre?.estado_paciente === 'preocupante' ? '😟' : ultimoCierre ? '😐' : '—'}
-            </Text>
-            <Text style={styles.vitalLabel}>Estado</Text>
-          </View>
-        </View>
+        {/* VITALS CON TELEMETRÍA EN VIVO */}
+<View style={styles.vitalsContainer}>
+  <View style={styles.vitalsHeaderRow}>
+    <Text style={styles.sectionTitle}>Signos Vitales (Dispositivo)</Text>
+    <TouchableOpacity 
+      style={[styles.btnMedir, midiendo && styles.btnMedirDesactivado]} 
+      onPress={ejecutarMedicionRemota}
+      disabled={midiendo}
+    >
+      <Text style={styles.btnMedirText}>
+        {midiendo ? "Midiendo... ⏳" : "🔄 Medir Ahora"}
+      </Text>
+    </TouchableOpacity>
+  </View>
+
+  <View style={styles.vitalsRow}>
+    {/* Tarjeta SpO2 */}
+    <View style={styles.vitalCard}>
+      <Text style={styles.vitalVal}>
+        {signosDispositivo?.spo2 !== "—" ? signosDispositivo?.spo2 : (ultimoCierre?.spo2 ?? '—')}
+      </Text>
+      <Text style={styles.vitalUnit}>%</Text>
+      <Text style={styles.vitalLabel}>SpO₂</Text>
+    </View>
+
+    {/* Tarjeta Presión Arterial */}
+    <View style={styles.vitalCard}>
+      <Text style={styles.vitalVal}>
+        {signosDispositivo?.presion !== "—" 
+          ? signosDispositivo?.presion.split('/')[0] 
+          : (ultimoCierre ? `${ultimoCierre.presion_sistolica}` : '—')}
+        <Text style={styles.vitalValSmall}>
+          {signosDispositivo?.presion !== "—" 
+            ? `/${signosDispositivo?.presion.split('/')[1]}` 
+            : (ultimoCierre ? `/${ultimoCierre.presion_diastolica}` : '')}
+        </Text>
+      </Text>
+      <Text style={styles.vitalLabel}>Presión</Text>
+    </View>
+
+    {/* Tarjeta Frecuencia Cardíaca */}
+    <View style={styles.vitalCard}>
+      <Text style={[styles.vitalVal, { color: COLORS.red }]}>
+        {signosDispositivo?.fc !== "—" ? signosDispositivo?.fc : (ultimoCierre?.frecuencia_cardiaca ?? '—')}
+      </Text>
+      <Text style={styles.vitalUnit}>bpm</Text>
+      <Text style={styles.vitalLabel}>F. Card.</Text>
+    </View>
+
+    {/* Tarjeta de Estado Clínico (Mantiene el control de ánimo/cierre del turno) */}
+    <View style={styles.vitalCard}>
+      <Text style={[styles.vitalVal, { color: ultimoCierre?.estado_paciente === 'bien' ? COLORS.green : ultimoCierre?.estado_paciente === 'preocupante' ? COLORS.red : COLORS.amber }]}>
+        {ultimoCierre?.estado_paciente === 'bien' ? '😊' : ultimoCierre?.estado_paciente === 'preocupante' ? '😟' : ultimoCierre ? '😐' : '—'}
+      </Text>
+      <Text style={styles.vitalLabel}>Estado</Text>
+    </View>
+  </View>
+</View>
 
         {/* ACTIVIDAD RECIENTE */}
         <View style={styles.sectionHeader}>
@@ -713,4 +783,28 @@ const styles = StyleSheet.create({
   navLabel: {
     fontSize: 9, fontWeight: '600', color: COLORS.textLight,
   },
+  vitalsContainer: {
+  marginHorizontal: 16,
+  marginVertical: 12,
+},
+vitalsHeaderRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: 8,
+},
+btnMedir: {
+  backgroundColor: '#BF9A40', // Oro Vitanova
+  paddingVertical: 6,
+  paddingHorizontal: 12,
+  borderRadius: 20,
+},
+btnMedirDesactivado: {
+  backgroundColor: '#A49E99',
+},
+btnMedirText: {
+  color: '#FFFFFF',
+  fontSize: 12,
+  fontWeight: '700',
+},
 });
