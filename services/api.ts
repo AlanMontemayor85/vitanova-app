@@ -436,6 +436,31 @@ export const getTareasDia = async (pacienteId: string, fecha?: string) => {
   );
   return res.json();
 };
+
+export const getSignosRecientes = async (patientId: string) => {
+  try {
+    const res = await fetch(`${BASE_URL}/pacientes/${patientId}/signos-recientes`, {
+      headers: headers(),
+    });
+    return await res.json();
+  } catch (error) {
+    console.error("❌ Error en servicio getSignosRecientes:", error);
+    return { success: false, spo2: "—", presion: "—", fc: "—" };
+  }
+};
+
+export const forzarMedicionSignos = async (patientId: string) => {
+  try {
+    const res = await fetch(`${BASE_URL}/pacientes/${patientId}/forzar-medicion`, {
+      method: 'POST',
+      headers: headers(),
+    });
+    return await res.json();
+  } catch (error) {
+    console.error("❌ Error en servicio forzarMedicionSignos:", error);
+    return { status: "error", error: String(error) }; // ◀️ Cambiado error.toString() por String(error)
+  }
+};
 export const crearLead = async (lead: object) => {
   const res = await fetch(`${BASE_URL}/leads`, {
     method: 'POST',
