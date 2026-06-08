@@ -7,6 +7,7 @@ import {
 import {
   agregarTareaManual, clearToken, completarActividad, completarMedicamento,
   detectarCambiosTurno, getPacientes,
+  getSignosRecientes,
   getTareasDia,
   getTareasHoy, getToken,
   getTurnoActivo, getUserNombre, loadStoredToken,
@@ -132,7 +133,22 @@ export default function CuidadorScreen() {
   const [peso, setPeso] = useState(70.0);
   const [iniciando, setIniciando] = useState(false);
   
-  
+  const cargarSignosParaCierre = async () => {
+  try {
+    const res = await getSignosRecientes(pacienteActivo.id);
+    if (res?.success) {
+      if (res.spo2 !== '—') setSpo2(Number(res.spo2));
+      if (res.fc !== '—') setFc(Number(res.fc));
+      if (res.presion !== '—') {
+        const [sis, dia] = res.presion.split('/');
+        setSistolica(Number(sis));
+        setDiastolica(Number(dia));
+      }
+    }
+  } catch (e) {
+    console.error('Error cargando signos para cierre:', e);
+  }
+};
   const registrarIncidente = async (descripcion: string, tipo: string = 'otro') => {
     const token = getToken();
     await fetch(`${BASE_URL}/alertas`, {
@@ -775,6 +791,7 @@ const cargarTareasDia = async (pacienteId: string) => {
               setEscalasLista(verificacion.escalas ?? []);
               setEscalaMotivo(verificacion.motivo);
               setEscalasMensaje(verificacion.mensaje);
+              await cargarSignosParaCierre(); // ← agrega esto
               setVista('cierre');
             }}
           >
