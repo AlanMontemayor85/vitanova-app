@@ -105,6 +105,8 @@ export default function CuidadorScreen() {
   const [incidenteFormOpen, setIncidenteFormOpen] = useState(false);
   const [tareasDia, setTareasDia] = useState<any[]>([]);
 
+  const [signosDispositivo, setSignosDispositivo] = useState<any>(null);
+  const [cargandoSignos, setCargandoSignos] = useState<boolean>(false);
   const [cambiosModal, setCambiosModal] = useState(false);
   const [cambiosPendientes, setCambiosPendientes] = useState<any[]>([]);
 
@@ -149,6 +151,39 @@ export default function CuidadorScreen() {
     console.error('Error cargando signos para cierre:', e);
   }
 };
+const sincronizarSignosReloj = async (pacienteId: string) => {
+  if (!pacienteId) return;
+  setCargandoSignos(true);
+  try {
+    const res = await getSignosRecientes(pacienteId);
+    if (res && res.success) {
+      setSignosDispositivo(res);
+      // 🔥 PARCHE DE PRECARGA: Sincronizamos el estado de los controles para el cierre de turno automáticamente
+      if (res.spo2 !== "—") setSpo2(Number(res.spo2));
+      if (res.fc !== "—") setFc(Number(res.fc));
+      if (res.presion !== "—") {
+        const [sis, dia] = res.presion.split('/');
+        setSistolica(Number(sis));
+        setDiastolica(Number(dia));
+      }
+    }
+  } catch (error) {
+    console.error("❌ Error sincronizando signos en cuidador.tsx:", error);
+  } finally {
+    setCargandoSignos(false);
+  }
+};
+
+// 🔄 Efecto para activar el polling de telemetría pasiva en la VISTA TURNO
+useEffect(() => {
+  if (vista === 'turno' && pacienteActivo?.id) {
+    sincronizarSignosReloj(pacienteActivo.id);
+    const interval = setInterval(() => {
+      sincronizarSignosReloj(pacienteActivo.id);
+    }, 30000); // Sincroniza cada 30 segundos de forma silenciosa
+    return () => clearInterval(interval);
+  }
+}, [vista, pacienteActivo?.id]);
   const registrarIncidente = async (descripcion: string, tipo: string = 'otro') => {
     const token = getToken();
     await fetch(`${BASE_URL}/alertas`, {
@@ -670,7 +705,49 @@ const cargarTareasDia = async (pacienteId: string) => {
               </View>
             </TouchableOpacity>
           ))}
-
+          {/* 📡 TELEMETRÍA EN VIVO DEL RELOJ VITANOVA */}
+          <Text style={styles.sectionTitle}>Telemetría en tiempo real (Reloj)</Text>
+          <View style={[styles.pacienteCard, { backgroundColor: COLORS.white, padding: 16, marginBottom: 16 }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textLight }}>ÚLTIMOS SENSADOS DEL HARDWARE</Text>
+              <TouchableOpacity 
+                onPress={() => sincronizarSignosReloj(pacienteActivo.id)}
+                disabled={cargandoSignos}
+                style={[
+                  styles.iniciarBtn, 
+                  { paddingHorizontal: 8, paddingVertical: 4 },
+                  cargandoSignos && { backgroundColor: COLORS.border, borderColor: COLORS.textLight } // ◀️ Opacidad visual en carga
+                ]}
+              >
+                <Text style={[styles.iniciarBtnText, cargandoSignos && { color: COLORS.textLight }]}>
+                  {cargandoSignos ? "Sincronizando... ⏳" : "🔄 Actualizar"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }}>
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: COLORS.cacao }}>
+                  {signosDispositivo?.spo2 && signosDispositivo.spo2 !== "—" ? `${signosDispositivo.spo2}%` : "—"}
+                </Text>
+                <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>SpO₂</Text>
+              </View>
+              <View style={{ width: 1, height: 24, backgroundColor: COLORS.border }} />
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: COLORS.cacao }}>
+                  {signosDispositivo?.presion && signosDispositivo.presion !== "—" ? signosDispositivo.presion : "—"}
+                </Text>
+                <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>Presión</Text>
+              </View>
+              <View style={{ width: 1, height: 24, backgroundColor: COLORS.border }} />
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: COLORS.red }}>
+                  {signosDispositivo?.fc && signosDispositivo.fc !== "—" ? `${signosDispositivo.fc} bpm` : "—"}
+                </Text>
+                <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>Pulso</Text>
+              </View>
+            </View>
+          </View>
           {/* TAREAS COMPLETADAS */}
           {tareasCompletadas.length > 0 && (
             <>
