@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getToken, iniciarTurno } from '../services/api';
+import { getSignosRecientes, getToken, iniciarTurno } from '../services/api';
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
 const COLORS = {
@@ -36,7 +36,27 @@ export default function RegistroSaludScreen() {
   const tieneHipertension = tieneCondicion(['hipertension', 'hta', 'presion']);
   const tieneCardiaco = tieneCondicion(['cardiaco', 'cardiaca', 'insuficiencia', 'arritmia']);
   const tieneDemencia = tieneCondicion(['alzheimer', 'demencia', 'deterioro cognitivo']);
-
+  // 🚀 Sincronización de hardware al arrancar el formulario
+  useEffect(() => {
+    const precargarSignosReloj = async () => {
+      if (!paciente?.id || momento !== 'inicio_turno') return;
+      try {
+        const res = await getSignosRecientes(paciente.id);
+        if (res && res.success) {
+          if (res.spo2 !== '—') setSpo2(Number(res.spo2));
+          if (res.fc !== '—') setFc(Number(res.fc));
+          if (res.presion !== '—') {
+            const [sis, dia] = res.presion.split('/');
+            setSistolica(Number(sis));
+            setDiastolica(Number(dia));
+          }
+        }
+      } catch (e) {
+        console.error('❌ Error precargando telemetría en registro-salud:', e);
+      }
+    };
+    precargarSignosReloj();
+  }, [paciente?.id, momento]);
   // Generales
   const [spo2, setSpo2] = useState(98);
   const [sistolica, setSistolica] = useState(120);
@@ -100,21 +120,16 @@ export default function RegistroSaludScreen() {
           }),
         }),
       });
+      
       const data = await res.json();
+      
       if (data.alertas?.length > 0) {
-      setAlertas(data.alertas);
-    } else {
-      await iniciarTurno(paciente.id);
-      router.replace({
-        pathname: '/cuidador' as any,
-        params: { 
-          vistaInicial: 'turno', 
-          paciente: typeof params.paciente === 'string' 
-            ? params.paciente  // ya es string JSON, no re-serializar
-            : JSON.stringify(paciente) 
-        }
-      });
-    }
+        // Guardamos las alertas para que se muestren en la pantalla roja de advertencia
+        setAlertas(data.alertas);
+      } else {
+        // Si todo está limpio, iniciamos turno y avanzamos directo
+        await avanzarAlTurno();
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -122,6 +137,26 @@ export default function RegistroSaludScreen() {
     }
   };
 
+  // 🚀 Nueva función auxiliar para arrancar el turno pase lo que pase
+  const avanzarAlTurno = async () => {
+    try {
+      if (momento === 'inicio_turno') {
+        await iniciarTurno(paciente.id);
+      }
+      router.replace({
+        pathname: '/cuidador' as any,
+        params: { 
+          vistaInicial: 'turno', 
+          paciente: typeof params.paciente === 'string' 
+            ? params.paciente  
+            : JSON.stringify(paciente) 
+        }
+      });
+    } catch (err) {
+      console.error("Error al avanzar al panel del turno:", err);
+    }
+  };
+  
   const momentoLabel: Record<string, string> = {
     inicio_turno: 'Inicio de turno',
     cierre_turno: 'Cierre de turno',
@@ -136,19 +171,27 @@ export default function RegistroSaludScreen() {
         <StatusBar barStyle="light-content" backgroundColor="#D94F4F" />
         <View style={[styles.header, { backgroundColor: '#D94F4F' }]}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>⚠️ Alertas detectadas</Text>
+            <Text style={styles.greeting}>⚠️ Alertas críticas del paciente</Text>
             <Text style={styles.userName}>{paciente?.nombre_completo}</Text>
           </View>
         </View>
         <ScrollView style={styles.body}>
+          <Text style={[styles.sectionTitle, { color: COLORS.textDark }]}>ATENCIÓN CLÍNICA REQUERIDA</Text>
+          <Text style={{ fontSize: 13, color: COLORS.textLight, marginBottom: 16 }}>
+            El sistema detectó los siguientes valores fuera de rango. El familiar principal ya fue notificado automáticamente por correo y notificación push:
+          </Text>
+          
           {alertas.map((a, i) => (
             <View key={i} style={styles.alertaCard}>
               <Text style={styles.alertaText}>{a}</Text>
             </View>
           ))}
-          <TouchableOpacity style={styles.confirmarBtn} onPress={() => router.back()}>
-            <Text style={styles.confirmarBtnText}>Entendido — continuar</Text>
+          
+          {/* 🔥 PARCHE DE CONTINUIDAD: El botón ahora sí inicia el turno a pesar del reporte crítico */}
+          <TouchableOpacity style={[styles.confirmarBtn, { backgroundColor: COLORS.cacao }]} onPress={avanzarAlTurno}>
+            <Text style={styles.confirmarBtnText}>Entendido — Abrir agenda de turno →</Text>
           </TouchableOpacity>
+          <View style={{ height: 40 }} />
         </ScrollView>
       </View>
     );
