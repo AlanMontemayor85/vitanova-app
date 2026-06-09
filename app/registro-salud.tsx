@@ -251,21 +251,35 @@ export default function RegistroSaludScreen() {
             </View>
           </View>
 
-          {/* Fila 2: Presión Arterial S/D */}
+          {/* Fila 2: Presión Arterial S/D — ¡PARCHADO PARA EVITAR DESBORDAMIENTO! */}
           <View style={[styles.monitorItem, { marginTop: 14, width: '100%' }]}>
             <Text style={styles.monitorLabel}>Presión Arterial (Sistólica / Diastólica)</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 6 }}>
-              <View style={styles.controlesRow}>
-                <TouchableOpacity style={styles.btnControl} onPress={() => setSistolica(v => Math.max(80, v - 1))}><Text style={styles.btnControlText}>−</Text></TouchableOpacity>
-                <Text style={styles.monitorVal}>{sistolica}</Text>
-                <TouchableOpacity style={styles.btnControl} onPress={() => setSistolica(v => Math.min(200, v + 1))}><Text style={styles.btnControlText}>+</Text></TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 6 }}>
+              
+              {/* Bloque Sistólica */}
+              <View style={[styles.controlesRow, { flex: 1, justifyContent: 'space-between' }]}>
+                <TouchableOpacity style={styles.btnControl} onPress={() => setSistolica(v => Math.max(80, v - 1))}>
+                  <Text style={styles.btnControlText}>−</Text>
+                </TouchableOpacity>
+                <Text style={[styles.monitorVal, { flex: 0, minWidth: 40 }]}>{sistolica}</Text>
+                <TouchableOpacity style={styles.btnControl} onPress={() => setSistolica(v => Math.min(200, v + 1))}>
+                  <Text style={styles.btnControlText}>+</Text>
+                </TouchableOpacity>
               </View>
-              <Text style={{ fontSize: 24, color: COLORS.textLight, fontWeight: '300' }}>/</Text>
-              <View style={styles.controlesRow}>
-                <TouchableOpacity style={styles.btnControl} onPress={() => setDiastolica(v => Math.max(40, v - 1))}><Text style={styles.btnControlText}>−</Text></TouchableOpacity>
-                <Text style={styles.monitorVal}>{diastolica}</Text>
-                <TouchableOpacity style={styles.btnControl} onPress={() => setDiastolica(v => Math.min(130, v + 1))}><Text style={styles.btnControlText}>+</Text></TouchableOpacity>
+
+              <Text style={{ fontSize: 20, color: 'rgba(255,255,255,0.3)', fontWeight: '300' }}>/</Text>
+
+              {/* Bloque Diastólica */}
+              <View style={[styles.controlesRow, { flex: 1, justifyContent: 'space-between' }]}>
+                <TouchableOpacity style={styles.btnControl} onPress={() => setDiastolica(v => Math.max(40, v - 1))}>
+                  <Text style={styles.btnControlText}>−</Text>
+                </TouchableOpacity>
+                <Text style={[styles.monitorVal, { flex: 0, minWidth: 40 }]}>{diastolica}</Text>
+                <TouchableOpacity style={styles.btnControl} onPress={() => setDiastolica(v => Math.min(130, v + 1))}>
+                  <Text style={styles.btnControlText}>+</Text>
+                </TouchableOpacity>
               </View>
+
             </View>
           </View>
 
@@ -368,16 +382,16 @@ export default function RegistroSaludScreen() {
           </View>
         </View>
 
-        {/* 🛏️ INCIDENTE DE CAÍDA ACTIVO */}
+        {/* 🛏️ INCIDENTE DE CAÍDA ACTIVO  */}
         <Text style={styles.sectionTitle}>Seguridad del Entorno</Text>
-        <View style={styles.boolCard}>
+        <View style={[styles.boolCard, { flexDirection: 'column', alignItems: 'stretch', gap: 12 }]}>
           <Text style={styles.signoLabel}>¿El paciente sufrió alguna caída o impacto?</Text>
-          <View style={styles.boolBtns}>
-            <TouchableOpacity style={[styles.boolBtn, testigoCaida === true && { backgroundColor: COLORS.redPale, borderColor: COLORS.red }]} onPress={() => setTestigoCaida(true)}>
-              <Text style={[styles.boolBtnText, testigoCaida === true && { color: COLORS.red }]}>⚠️ Sí, reportar</Text>
+          <View style={[styles.boolBtns, { justifyContent: 'space-between' }]}>
+            <TouchableOpacity style={[styles.boolBtn, { flex: 1, marginRight: 4 }, testigoCaida === true && { backgroundColor: COLORS.redPale, borderColor: COLORS.red }]} onPress={() => setTestigoCaida(true)}>
+              <Text style={[styles.boolBtnText, { textAlign: 'center' }, testigoCaida === true && { color: COLORS.red }]}>⚠️ Sí, reportar</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.boolBtn, testigoCaida === false && styles.boolBtnSi]} onPress={() => setTestigoCaida(false)}>
-              <Text style={[styles.boolBtnText, testigoCaida === false && { color: COLORS.green }]}>✓ No, a salvo</Text>
+            <TouchableOpacity style={[styles.boolBtn, { flex: 1, marginLeft: 4 }, testigoCaida === false && styles.boolBtnSi]} onPress={() => setTestigoCaida(false)}>
+              <Text style={[styles.boolBtnText, { textAlign: 'center' }, testigoCaida === false && { color: COLORS.green }]}>✓ No, a salvo</Text>
             </TouchableOpacity>
           </View>
         </View>
