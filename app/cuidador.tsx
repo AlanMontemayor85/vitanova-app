@@ -145,20 +145,27 @@ export default function CuidadorScreen() {
   const [iniciando, setIniciando] = useState(false);
 
   // 📡 Polling de Telemetría Pasiva desde la Nube
+  // 📡 Sincronización pasiva y forzada con el endpoint real de tu FastAPI
   const sincronizarSignosReloj = async (pacienteId: string, forzarComando: boolean = false) => {
     if (!pacienteId) return;
     setCargandoSignos(true);
     try {
       if (forzarComando) {
-        // 🔥 Inyectamos orden hrtstart para obligar al sensor del reloj a prenderse de inmediato
-        await fetch(`${BASE_URL}/dispositivos/forzar-medicion`, {
+        const token = getToken(); // 🔐 Extraemos el token para el Depends(get_current_user)
+        
+        // 🔥 Corregimos la URL para que apunte exactamente a tu ruta con parámetro de ruta
+        await fetch(`${BASE_URL}/pacientes/${pacienteId}/forzar-medicion`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-          body: JSON.stringify({ paciente_id: pacienteId })
+          headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${token}` 
+          }
         });
-        // Pequeño delay de cortesía para dar tiempo a que el hardware capture e上帝 la ráfaga por TCP
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // Pequeño delay de cortesía para dar tiempo a que el hardware capture y envíe la ráfaga por TCP
+        await new Promise(resolve => setTimeout(resolve, 5000));
       }
+      
       const res = await getSignosRecientes(pacienteId);
       if (res && res.success) {
         setSignosDispositivo(res);
