@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
   controlesRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 8, padding: 2 },
   btnControl: { width: 28, height: 28, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
   btnControlText: { fontSize: 16, fontWeight: '700', color: COLORS.white },
-  monitorVal: { fontSize: 18, fontWeight: '800', color: COLORS.white, textAlign: 'center', flex: 1, color: '#3DAA6A' },
+  monitorVal: { fontSize: 18, fontWeight: '800', textAlign: 'center', flex: 1, color: '#3DAA6A' },
 
   moduloCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: COLORS.border, marginBottom: 10 },
   signoCard: { backgroundColor: COLORS.white, borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: COLORS.border, marginBottom: 8 },
