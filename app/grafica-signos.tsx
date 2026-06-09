@@ -15,9 +15,9 @@ const COLORS = {
 };
 
 function MiniChart({
-  datos, color, min, max, unidad, alerta
+  datos, color, min, max, unidad, alerta, fechas
 }: {
-  datos: number[], color: string, min: number, max: number, unidad: string, alerta?: number
+  datos: number[], color: string, min: number, max: number, unidad: string, alerta?: number, fechas?: string[]
 }) {
   if (datos.length < 2) return (
     <View style={{ height: CHART_HEIGHT, justifyContent: 'center', alignItems: 'center' }}>
@@ -37,6 +37,11 @@ function MiniChart({
   const tendencia = ultimo > anterior ? '↑' : ultimo < anterior ? '↓' : '→';
   const enAlerta = alerta ? ultimo < alerta : false;
 
+  // Formatear la fecha del primer registro real de la ráfaga
+  const fechaInicialStr = fechas && fechas[0] 
+    ? new Date(fechas[0]).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+    : 'Inicio';
+
   return (
     <View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -46,7 +51,7 @@ function MiniChart({
         <Text style={{ fontSize: 18, color: enAlerta ? COLORS.red : COLORS.textLight }}>{tendencia}</Text>
       </View>
       <View style={{ height: CHART_HEIGHT, position: 'relative' }}>
-        {/* Línea de alerta */}
+        {/* Línea de alerta de rango clínico */}
         {alerta && (
           <View style={{
             position: 'absolute',
@@ -57,7 +62,7 @@ function MiniChart({
             opacity: 0.4,
           }} />
         )}
-        {/* Puntos y líneas */}
+        {/* Renderizado adaptativo de vectores */}
         {puntos.map((p, i) => (
           <View key={i}>
             {i > 0 && (() => {
@@ -94,10 +99,8 @@ function MiniChart({
         ))}
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
-        <Text style={{ fontSize: 9, color: COLORS.textLight }}>
-          {new Date(Date.now() - (datos.length - 1) * 24 * 60 * 60 * 1000).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
-        </Text>
-        <Text style={{ fontSize: 9, color: COLORS.textLight }}>Hoy</Text>
+        <Text style={{ fontSize: 9, color: COLORS.textLight }}>{fechaInicialStr}</Text>
+        <Text style={{ fontSize: 9, color: COLORS.textLight }}>Último hoy</Text>
       </View>
     </View>
   );
@@ -118,19 +121,22 @@ export default function GraficaSignosScreen() {
         const data = await getSignosVitalesHistorico(pacienteId, 14);
         if (data.registros) setRegistros(data.registros);
       } catch (e) {
-        console.error(e);
+        console.error("Error cargando histórico clínico:", e);
       } finally {
         setLoading(false);
       }
     };
     cargar();
-  }, []);
+  }, [pacienteId]);
 
-  const spo2Data = registros.map(r => r.spo2).filter(Boolean);
-  const sistolicaData = registros.map(r => r.presion_sistolica).filter(Boolean);
-  const diastolicaData = registros.map(r => r.presion_diastolica).filter(Boolean);
-  const fcData = registros.map(r => r.frecuencia_cardiaca).filter(Boolean);
-  const pesoData = registros.map(r => r.peso_kg).filter(Boolean);
+  // Construcción de arreglos limpios extrayendo nulos
+  const registrosFiltrados = [...registros].reverse(); // De más viejo a más nuevo para la gráfica lineal
+  const fechasData = registrosFiltrados.map(r => r.created_at);
+  const spo2Data = registrosFiltrados.map(r => r.spo2).filter(Boolean);
+  const sistolicaData = registrosFiltrados.map(r => r.presion_sistolica).filter(Boolean);
+  const diastolicaData = registrosFiltrados.map(r => r.presion_diastolica).filter(Boolean);
+  const fcData = registrosFiltrados.map(r => r.frecuencia_cardiaca).filter(Boolean);
+  const pesoData = registrosFiltrados.map(r => r.peso_kg).filter(Boolean);
 
   if (loading) {
     return (
@@ -165,12 +171,12 @@ export default function GraficaSignosScreen() {
               Sin registros aún
             </Text>
             <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
-              Los signos vitales aparecerán aquí después de cerrar turnos
+              Los signos vitales aparecerán aquí después de cerrar turnos o capturar telemetría.
             </Text>
           </View>
         ) : (
           <>
-            {/* SPO2 */}
+            {/* GRÁFICA SPO2 */}
             {spo2Data.length > 0 && (
               <View style={styles.chartCard}>
                 <View style={styles.chartHeader}>
@@ -181,6 +187,7 @@ export default function GraficaSignosScreen() {
                 </View>
                 <MiniChart
                   datos={spo2Data}
+                  fechas={fechasData}
                   color={COLORS.gold}
                   min={85} max={100}
                   unidad="%"
@@ -189,48 +196,51 @@ export default function GraficaSignosScreen() {
                 {spo2Data[spo2Data.length - 1] < 92 && (
                   <View style={[styles.alertaBanner, { backgroundColor: COLORS.redPale }]}>
                     <Text style={{ fontSize: 12, color: COLORS.red, fontWeight: '700' }}>
-                      ⚠️ SpO₂ bajo — consulta con el médico
+                      ⚠️ SpO₂ bajo — requiere atención del cuidador
                     </Text>
                   </View>
                 )}
               </View>
             )}
 
-            {/* PRESIÓN */}
-                {sistolicaData.length > 0 && (
-                <View style={styles.chartCard}>
-                    <View style={styles.chartHeader}>
-                    <Text style={styles.chartTitle}>Presión arterial</Text>
-                    <View style={[styles.chartBadge, { backgroundColor: COLORS.greenPale }]}>
-                        <Text style={[styles.chartBadgeText, { color: COLORS.green }]}>Normal: 120/80</Text>
-                    </View>
-                    </View>
-                    <View style={{ gap: 16 }}>
-                    <View>
-                        <Text style={styles.chartSubtitle}>Sistólica</Text>
-                        <MiniChart
-                        datos={sistolicaData}
-                        color={COLORS.red}
-                        min={Math.min(...sistolicaData) - 10} 
-                        max={Math.max(...sistolicaData) + 10}
-                        unidad=" mmHg"
-                        alerta={180}
-                        />
-                    </View>
-                    <View>
-                        <Text style={styles.chartSubtitle}>Diastólica</Text>
-                        <MiniChart
-                        datos={diastolicaData}
-                        color={COLORS.amber}
-                        min={Math.min(...diastolicaData) - 10}
-                        max={Math.max(...diastolicaData) + 10}
-                        unidad=" mmHg"
-                        />
-                    </View>
-                    </View>
+            {/* GRÁFICA PRESIÓN ARTERIAL */}
+            {sistolicaData.length > 0 && (
+              <View style={styles.chartCard}>
+                <View style={styles.chartHeader}>
+                  <Text style={styles.chartTitle}>Presión arterial</Text>
+                  <View style={[styles.chartBadge, { backgroundColor: COLORS.greenPale }]}>
+                    <Text style={[styles.chartBadgeText, { color: COLORS.green }]}>Normal: 120/80</Text>
+                  </View>
                 </View>
-                )}
-            {/* FC */}
+                <View style={{ gap: 16 }}>
+                  <View>
+                    <Text style={styles.chartSubtitle}>Sistólica</Text>
+                    <MiniChart
+                      datos={sistolicaData}
+                      fechas={fechasData}
+                      color={COLORS.red}
+                      min={Math.min(...sistolicaData) - 10} 
+                      max={Math.max(...sistolicaData) + 10}
+                      unidad=" mmHg"
+                      alerta={180}
+                    />
+                  </View>
+                  <View>
+                    <Text style={styles.chartSubtitle}>Diastólica</Text>
+                    <MiniChart
+                      datos={diastolicaData}
+                      fechas={fechasData}
+                      color={COLORS.amber}
+                      min={Math.min(...diastolicaData) - 10}
+                      max={Math.max(...diastolicaData) + 10}
+                      unidad=" mmHg"
+                    />
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* GRÁFICA FRECUENCIA CARDÍACA */}
             {fcData.length > 0 && (
               <View style={styles.chartCard}>
                 <View style={styles.chartHeader}>
@@ -241,6 +251,7 @@ export default function GraficaSignosScreen() {
                 </View>
                 <MiniChart
                   datos={fcData}
+                  fechas={fechasData}
                   color={COLORS.red}
                   min={40} max={150}
                   unidad=" bpm"
@@ -248,47 +259,52 @@ export default function GraficaSignosScreen() {
               </View>
             )}
 
-            {/* PESO */}
+            {/* GRÁFICA PESO (PARCHADO CON SUS PROPIOS DATOS MIN/MAX) */}
             {pesoData.length > 0 && (
               <View style={styles.chartCard}>
                 <View style={styles.chartHeader}>
-                  <Text style={styles.chartTitle}>Peso</Text>
+                  <Text style={styles.chartTitle}>Peso histórico</Text>
                 </View>
                 <MiniChart
                   datos={pesoData}
+                  fechas={fechasData}
                   color={COLORS.cacao}
-                  min={Math.min(...fcData) - 10}
-                  max={Math.max(...fcData) + 10}
+                  min={Math.min(...pesoData) - 5}
+                  max={Math.max(...pesoData) + 5}
                   unidad=" kg"
                 />
               </View>
             )}
 
-            {/* TABLA HISTORICO */}
+            {/* TABLA HISTÓRICA DE REGISTROS (CABECERAS ALINEADAS ARRIBA) */}
             <View style={styles.chartCard}>
-              <Text style={styles.chartTitle}>Historial de registros</Text>
-              <View style={{ marginTop: 12 }}>
-                {[...registros].reverse().slice(0, 7).map((r, i) => (
+              <Text style={[styles.chartTitle, { marginBottom: 8 }]}>Historial de registros</Text>
+              
+              <View style={styles.historialHeaders}>
+                <Text style={[styles.historialHeaderText, { flex: 1, textAlign: 'left' }]}>Fecha/Hora</Text>
+                <Text style={styles.historialHeaderText}>SpO₂</Text>
+                <Text style={styles.historialHeaderText}>Presión</Text>
+                <Text style={styles.historialHeaderText}>FC</Text>
+              </View>
+
+              <View style={{ marginTop: 4 }}>
+                {registros.slice(0, 7).map((r, i) => (
                   <View key={i} style={styles.historialRow}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.historialFecha}>
                         {new Date(r.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                       </Text>
                       <Text style={styles.historialCuidador}>
-                        {r.usuarios?.nombre_completo ?? 'Cuidador'}
+                        {r.usuarios?.nombre_completo ?? 'Personal Vitanova'}
                       </Text>
                     </View>
                     <Text style={styles.historialVal}>{r.spo2 ?? '—'}%</Text>
-                    <Text style={styles.historialVal}>{r.presion_sistolica ?? '—'}/{r.presion_diastolica ?? '—'}</Text>
+                    <Text style={styles.historialVal}>
+                      {r.presion_sistolica && r.presion_diastolica ? `${r.presion_sistolica}/${r.presion_diastolica}` : '—'}
+                    </Text>
                     <Text style={styles.historialVal}>{r.frecuencia_cardiaca ?? '—'}</Text>
                   </View>
                 ))}
-              </View>
-              <View style={styles.historialHeaders}>
-                <View style={{ flex: 1 }} />
-                <Text style={styles.historialHeaderText}>SpO₂</Text>
-                <Text style={styles.historialHeaderText}>Presión</Text>
-                <Text style={styles.historialHeaderText}>FC</Text>
               </View>
             </View>
           </>
@@ -324,7 +340,7 @@ const styles = StyleSheet.create({
   historialRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   historialFecha: { fontSize: 11, fontWeight: '600', color: COLORS.textDark },
   historialCuidador: { fontSize: 9, color: COLORS.textLight, marginTop: 2 },
-  historialVal: { fontSize: 11, fontWeight: '700', color: COLORS.gold, minWidth: 50, textAlign: 'right' },
-  historialHeaders: { flexDirection: 'row', marginTop: 4 },
-  historialHeaderText: { fontSize: 9, color: COLORS.textLight, minWidth: 50, textAlign: 'right', fontWeight: '700' },
+  historialVal: { fontSize: 11, fontWeight: '700', color: COLORS.gold, minWidth: 55, textAlign: 'right' },
+  historialHeaders: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: COLORS.border, paddingBottom: 6, marginTop: 8 },
+  historialHeaderText: { fontSize: 9, color: COLORS.textLight, minWidth: 55, textAlign: 'right', fontWeight: '700', textTransform: 'uppercase' },
 });
