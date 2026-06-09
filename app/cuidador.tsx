@@ -1,8 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Linking, Modal, ScrollView,
-  StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View
+  ActivityIndicator, Alert, Linking,
+  ScrollView,
+  StatusBar, StyleSheet, Text,
+  TouchableOpacity, View
 } from 'react-native';
 import {
   agregarTareaManual, clearToken, completarActividad, completarMedicamento,
@@ -580,47 +582,67 @@ export default function CuidadorScreen() {
     );
   }
 
-  // ── VISTA CIERRE (FORMULARIO OPTIMIZADO SIN RE-CAPTURA) ──
+  // ── VISTA CIERRE (FORMULARIO COMPLETAMENTE SANITIZADO) ──
   if (vista === 'cierre' && pacienteActivo) {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => setVista('turno')} style={styles.backBtn}><Text style={styles.backIcon}>←</Text></TouchableOpacity>
-          <View style={{ flex: 1 }}><Text style={styles.greeting}>Cierre de operaciones</Text><Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text></View>
+          <TouchableOpacity onPress={() => setVista('turno')} style={styles.backBtn}>
+            <Text style={styles.backIcon}>←</Text>
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.greeting}>Cierre de operaciones</Text>
+            <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
+          </View>
         </View>
 
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
           <Text style={styles.sectionTitle}>Condición de Entrega del Paciente</Text>
           <View style={styles.estadoRow}>
-            {[{ val: 'bien', icon: '😊', label: 'Estable' }, { val: 'regular', icon: '😐', label: 'Regular' }, { val: 'preocupante', icon: '😟', label: 'Delicado' }].map((e) => (
-              <TouchableOpacity key={e.val} style={[styles.estadoCard, estadoPaciente === e.val && styles.estadoCardActive]} onPress={() => setEstadoPaciente(e.val)}>
+            {[
+              { val: 'bien', icon: '😊', label: 'Estable' },
+              { val: 'regular', icon: '😐', label: 'Regular' },
+              { val: 'preocupante', icon: '😟', label: 'Delicado' }
+            ].map((e) => (
+              <TouchableOpacity 
+                key={e.val} 
+                style={[styles.estadoCard, estadoPaciente === e.val && styles.estadoCardActive]} 
+                onPress={() => setEstadoPaciente(e.val)}
+              >
                 <Text style={{ fontSize: 26 }}>{e.icon}</Text>
                 <Text style={[styles.estadoLabel, estadoPaciente === e.val && { color: COLORS.gold }]}>{e.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          {/* Peso */}
+          {/* Monitoreo de Peso */}
           <View style={styles.signoCard}>
             <Text style={styles.signoLabel}>Monitoreo de Peso de Cierre</Text>
             <View style={styles.signoControles}>
-              <TouchableOpacity style={styles.signoBtn} onPress={() => setPeso(v => Math.max(30, parseFloat((v - 0.5).toFixed(1))))}><Text style={styles.signoBtnText}>−</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.signoBtn} onPress={() => setPeso(v => Math.max(30, parseFloat((v - 0.5).toFixed(1))))}>
+                <Text style={styles.signoBtnText}>−</Text>
+              </TouchableOpacity>
               <Text style={styles.signoVal}>{peso} kg</Text>
-              <TouchableOpacity style={styles.signoBtn} onPress={() => setPeso(v => Math.min(200, parseFloat((v + 0.5).toFixed(1))))}><Text style={styles.signoBtnText}>+</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.signoBtn} onPress={() => setPeso(v => Math.min(200, parseFloat((v + 0.5).toFixed(1))))}>
+                <Text style={styles.signoBtnText}>+</Text>
+              </TouchableOpacity>
             </View>
           </View>
 
-          {/* Escalas de Enfermería */}
+          {/* Módulo de Escalas Clínicas Requeridas */}
           {escalaRequerida && (
-            <>
+            <View style={{ gap: 10, marginBottom: 10 }}>
               {escalasLista.includes('barthel') && (
                 <View style={styles.evaluacionCard}>
                   <TouchableOpacity style={styles.evaluacionHeader} onPress={() => setBarthelOpen(!barthelOpen)}>
                     <View style={styles.evaluacionIconWrap}><Text style={{ fontSize: 16 }}>📋</Text></View>
-                    <View style={{ flex: 1 }}><Text style={styles.evaluacionTitle}>Índice Funcional de Barthel</Text></Text></View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.evaluacionTitle}>Índice Funcional de Barthel</Text>
+                    </View>
                     <Text style={styles.evaluacionScore}>{barthelTotal}/100</Text>
                   </TouchableOpacity>
+                  
                   {barthelOpen && (
                     <View style={styles.evaluacionContent}>
                       {BARTHEL_ITEMS.map((item, i) => (
@@ -628,8 +650,19 @@ export default function CuidadorScreen() {
                           <Text style={styles.barthelItemLabel}>{item.label}</Text>
                           <View style={styles.barthelOpciones}>
                             {item.opciones.map((op) => (
-                              <TouchableOpacity key={op.val} style={[styles.barthelOpcion, barthelScores[i] === op.val && styles.barthelOpcionActive]} onPress={() => { setBarthelTocado(true); const n = [...barthelScores]; n[i] = op.val; setBarthelScores(n); }}>
-                                <Text style={[styles.barthelOpcionText, barthelScores[i] === op.val && styles.barthelOpcionTextActive]}>{op.val} - {op.txt}</Text>
+                              <TouchableOpacity 
+                                key={op.val} 
+                                style={[styles.barthelOpcion, barthelScores[i] === op.val && styles.barthelOpcionActive]} 
+                                onPress={() => { 
+                                  setBarthelTocado(true); 
+                                  const n = [...barthelScores]; 
+                                  n[i] = op.val; 
+                                  setBarthelScores(n); 
+                                }}
+                              >
+                                <Text style={[styles.barthelOpcionText, barthelScores[i] === op.val && styles.barthelOpcionTextActive]}>
+                                  {op.val} - {op.txt}
+                                </Text>
                               </TouchableOpacity>
                             ))}
                           </View>
@@ -639,15 +672,19 @@ export default function CuidadorScreen() {
                   )}
                 </View>
               )}
-            </>
+            </View>
           )}
 
-          <TouchableOpacity style={[styles.confirmarBtn, { backgroundColor: '#25D366', marginBottom: 8 }]} onPress={compartirWhatsApp}>
+          {/* Botones de Acción de Cierre */}
+          <TouchableOpacity style={[styles.confirmarBtn, { backgroundColor: '#25D366', marginTop: 14, marginBottom: 8 }]} onPress={compartirWhatsApp}>
             <Text style={styles.confirmarBtnText}>📲 Enviar Resumen Familiar por WhatsApp</Text>
           </TouchableOpacity>
+          
           <TouchableOpacity style={styles.confirmarBtn} onPress={ejecutarCierre}>
             <Text style={styles.confirmarBtnText}>Confirmar y Concluir Turno</Text>
           </TouchableOpacity>
+          
+          <View style={{ height: 40 }} />
         </ScrollView>
       </View>
     );
