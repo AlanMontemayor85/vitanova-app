@@ -575,6 +575,68 @@ export default function CuidadorScreen() {
           }}><Text style={styles.cerrarBtnText}>Proceder a Cierre de Turno →</Text></TouchableOpacity>
           <View style={{ height: 60 }} />
         </ScrollView>
+
+        {/* 📋 MODAL DE TAREAS INCIDENTALES (MONTADO ADENTRO DE LA VISTA) */}
+        <Modal visible={tareaOpen} animationType="slide" transparent={true}>
+          <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: 20 }}>
+            <View style={{ backgroundColor: COLORS.white, padding: 20, borderRadius: 12, gap: 14 }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.cacao }}>+ Agregar Tarea Incidental</Text>
+              <TextInput 
+                placeholder="Ej. Apoyo en traslado a sala o cambio de sábanas" 
+                value={tareaDesc}
+                onChangeText={setTareaDesc}
+                placeholderTextColor={COLORS.textLight}
+                style={{ borderBottomWidth: 1, borderColor: COLORS.border, paddingVertical: 6, color: COLORS.cacao }}
+              />
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
+                <TouchableOpacity onPress={() => setTareaOpen(false)} style={{ padding: 10 }}>
+                  <Text style={{ color: COLORS.textLight, fontWeight: '700' }}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  onPress={guardarTareaManual} 
+                  disabled={guardandoTarea}
+                  style={{ backgroundColor: COLORS.cacao, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 6 }}
+                >
+                  <Text style={{ color: COLORS.white, fontWeight: '700' }}>{guardandoTarea ? "Guardando..." : "Confirmar Actividad"}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* 🚨 MODAL DE INCIDENTES URGENTES (MONTADO ADENTRO DE LA VISTA) */}
+        <Modal visible={incidenteOpen} animationType="slide" transparent={true}>
+          <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: 20 }}>
+            <View style={{ backgroundColor: COLORS.white, padding: 20, borderRadius: 12, gap: 14 }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.red }}>🚨 Reportar Incidente en Turno</Text>
+              <TextInput 
+                placeholder="Describe brevemente qué sucedió (ej. Resbalón menor, desorientación, etc.)" 
+                value={notaTexto}
+                onChangeText={setNotaTexto}
+                placeholderTextColor={COLORS.textLight}
+                multiline
+                style={{ borderBottomWidth: 1, borderColor: COLORS.border, paddingVertical: 6, minHeight: 60, color: COLORS.cacao }}
+              />
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
+                <TouchableOpacity onPress={() => setIncidenteOpen(false)} style={{ padding: 10 }}>
+                  <Text style={{ color: COLORS.textLight, fontWeight: '700' }}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  onPress={() => {
+                    if(!notaTexto.trim()) return;
+                    registrarIncidente(notaTexto.trim(), "caida");
+                    setNotaTexto('');
+                    setIncidenteOpen(false);
+                  }} 
+                  style={{ backgroundColor: COLORS.red, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 6 }}
+                >
+                  <Text style={{ color: COLORS.white, fontWeight: '700' }}>Enviar Alerta</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
       </View>
     );
   }
