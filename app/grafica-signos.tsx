@@ -12,6 +12,7 @@ const COLORS = {
   white: '#FFFFFF', textDark: '#2C2820', textLight: '#8A8078',
   border: '#E0D8CC', green: '#3DAA6A', greenPale: '#EAF5E8',
   red: '#D94F4F', redPale: '#FDEAEA', amber: '#D4860A',
+  amberPale: '#FFF4E0'
 };
 
 function MiniChart({
@@ -35,9 +36,8 @@ function MiniChart({
   const ultimo = datos[datos.length - 1];
   const anterior = datos[datos.length - 2];
   const tendencia = ultimo > anterior ? '↑' : ultimo < anterior ? '↓' : '→';
-  const enAlerta = alerta ? ultimo < alerta : false;
+  const enAlerta = alerta ? (unidad === "%" ? ultimo < alerta : ultimo > alerta) : false;
 
-  // Formatear la fecha del primer registro real de la ráfaga
   const fechaInicialStr = fechas && fechas[0] 
     ? new Date(fechas[0]).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
     : 'Inicio';
@@ -51,7 +51,6 @@ function MiniChart({
         <Text style={{ fontSize: 18, color: enAlerta ? COLORS.red : COLORS.textLight }}>{tendencia}</Text>
       </View>
       <View style={{ height: CHART_HEIGHT, position: 'relative' }}>
-        {/* Línea de alerta de rango clínico */}
         {alerta && (
           <View style={{
             position: 'absolute',
@@ -62,7 +61,6 @@ function MiniChart({
             opacity: 0.4,
           }} />
         )}
-        {/* Renderizado adaptativo de vectores */}
         {puntos.map((p, i) => (
           <View key={i}>
             {i > 0 && (() => {
@@ -100,7 +98,7 @@ function MiniChart({
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
         <Text style={{ fontSize: 9, color: COLORS.textLight }}>{fechaInicialStr}</Text>
-        <Text style={{ fontSize: 9, color: COLORS.textLight }}>Último hoy</Text>
+        <Text style={{ fontSize: 9, color: COLORS.textLight }}>Último registro</Text>
       </View>
     </View>
   );
@@ -129,14 +127,14 @@ export default function GraficaSignosScreen() {
     cargar();
   }, [pacienteId]);
 
-  // Construcción de arreglos limpios extrayendo nulos
-  const registrosFiltrados = [...registros].reverse(); // De más viejo a más nuevo para la gráfica lineal
+  const registrosFiltrados = [...registros].reverse();
   const fechasData = registrosFiltrados.map(r => r.created_at);
-  const spo2Data = registrosFiltrados.map(r => r.spo2).filter(Boolean);
-  const sistolicaData = registrosFiltrados.map(r => r.presion_sistolica).filter(Boolean);
-  const diastolicaData = registrosFiltrados.map(r => r.presion_diastolica).filter(Boolean);
-  const fcData = registrosFiltrados.map(r => r.frecuencia_cardiaca).filter(Boolean);
-  const pesoData = registrosFiltrados.map(r => r.peso_kg).filter(Boolean);
+  const spo2Data = registrosFiltrados.map(r => r.spo2).filter(v => v !== null && v !== undefined);
+  const sstolicaData = registrosFiltrados.map(r => r.presion_sistolica).filter(v => v !== null && v !== undefined);
+  const dstolicaData = registrosFiltrados.map(r => r.presion_diastolica).filter(v => v !== null && v !== undefined);
+  const fcData = registrosFiltrados.map(r => r.frecuencia_cardiaca).filter(v => v !== null && v !== undefined);
+  const pesoData = registrosFiltrados.map(r => r.peso_kg).filter(v => v !== null && v !== undefined);
+  const temperaturaData = registrosFiltrados.map(r => r.temperatura_corporal || r.temperatura).filter(v => v !== null && v !== undefined);
 
   if (loading) {
     return (
@@ -154,7 +152,7 @@ export default function GraficaSignosScreen() {
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.greeting}>Signos vitales</Text>
+          <Text style={styles.greeting}>Historial Clínico</Text>
           <Text style={styles.userName}>{pacienteNombre}</Text>
         </View>
         <View style={styles.periodoPill}>
@@ -167,12 +165,8 @@ export default function GraficaSignosScreen() {
         {registros.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={{ fontSize: 40, marginBottom: 12 }}>📊</Text>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: COLORS.textDark, marginBottom: 6 }}>
-              Sin registros aún
-            </Text>
-            <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
-              Los signos vitales aparecerán aquí después de cerrar turnos o capturar telemetría.
-            </Text>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: COLORS.textDark, marginBottom: 6 }}>Sin registros aún</Text>
+            <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>Los signos vitales aparecerán aquí después de cerrar turnos o capturar telemetría.</Text>
           </View>
         ) : (
           <>
@@ -180,9 +174,9 @@ export default function GraficaSignosScreen() {
             {spo2Data.length > 0 && (
               <View style={styles.chartCard}>
                 <View style={styles.chartHeader}>
-                  <Text style={styles.chartTitle}>SpO₂</Text>
+                  <Text style={styles.chartTitle}>Saturación de Oxígeno (SpO₂)</Text>
                   <View style={[styles.chartBadge, { backgroundColor: COLORS.goldPale }]}>
-                    <Text style={[styles.chartBadgeText, { color: COLORS.gold }]}>Normal: 95-100%</Text>
+                    <Text style={[styles.chartBadgeText, { color: COLORS.gold }]}>Línea de Alerta: 92%</Text>
                   </View>
                 </View>
                 <MiniChart
@@ -195,8 +189,8 @@ export default function GraficaSignosScreen() {
                 />
                 {spo2Data[spo2Data.length - 1] < 92 && (
                   <View style={[styles.alertaBanner, { backgroundColor: COLORS.redPale }]}>
-                    <Text style={{ fontSize: 12, color: COLORS.red, fontWeight: '700' }}>
-                      ⚠️ SpO₂ bajo — requiere atención del cuidador
+                    <Text style={{ fontSize: 11, color: COLORS.red, fontWeight: '700' }}>
+                      ⚠️ SpO₂ bajo detectado en el último informe.
                     </Text>
                   </View>
                 )}
@@ -204,36 +198,37 @@ export default function GraficaSignosScreen() {
             )}
 
             {/* GRÁFICA PRESIÓN ARTERIAL */}
-            {sistolicaData.length > 0 && (
+            {sstolicaData.length > 0 && (
               <View style={styles.chartCard}>
                 <View style={styles.chartHeader}>
-                  <Text style={styles.chartTitle}>Presión arterial</Text>
+                  <Text style={styles.chartTitle}>Presión Arterial</Text>
                   <View style={[styles.chartBadge, { backgroundColor: COLORS.greenPale }]}>
-                    <Text style={[styles.chartBadgeText, { color: COLORS.green }]}>Normal: 120/80</Text>
+                    <Text style={[styles.chartBadgeText, { color: COLORS.green }]}>Tendencia Hemodinámica</Text>
                   </View>
                 </View>
                 <View style={{ gap: 16 }}>
                   <View>
                     <Text style={styles.chartSubtitle}>Sistólica</Text>
                     <MiniChart
-                      datos={sistolicaData}
+                      datos={sstolicaData}
                       fechas={fechasData}
                       color={COLORS.red}
-                      min={Math.min(...sistolicaData) - 10} 
-                      max={Math.max(...sistolicaData) + 10}
+                      min={Math.min(...sstolicaData) - 10} 
+                      max={Math.max(...sstolicaData) + 10}
                       unidad=" mmHg"
-                      alerta={180}
+                      alerta={140}
                     />
                   </View>
                   <View>
                     <Text style={styles.chartSubtitle}>Diastólica</Text>
                     <MiniChart
-                      datos={diastolicaData}
+                      datos={dstolicaData}
                       fechas={fechasData}
                       color={COLORS.amber}
-                      min={Math.min(...diastolicaData) - 10}
-                      max={Math.max(...diastolicaData) + 10}
+                      min={Math.min(...dstolicaData) - 10}
+                      max={Math.max(...dstolicaData) + 10}
                       unidad=" mmHg"
+                      alerta={90}
                     />
                   </View>
                 </View>
@@ -244,65 +239,90 @@ export default function GraficaSignosScreen() {
             {fcData.length > 0 && (
               <View style={styles.chartCard}>
                 <View style={styles.chartHeader}>
-                  <Text style={styles.chartTitle}>Frecuencia cardíaca</Text>
+                  <Text style={styles.chartTitle}>Frecuencia Cardíaca (Pulso)</Text>
                   <View style={[styles.chartBadge, { backgroundColor: COLORS.redPale }]}>
-                    <Text style={[styles.chartBadgeText, { color: COLORS.red }]}>Normal: 60-100 bpm</Text>
+                    <Text style={[styles.chartBadgeText, { color: COLORS.red }]}>Umbral de Alerta: 100 bpm</Text>
                   </View>
                 </View>
                 <MiniChart
                   datos={fcData}
                   fechas={fechasData}
                   color={COLORS.red}
-                  min={40} max={150}
+                  min={40} max={140}
                   unidad=" bpm"
+                  alerta={100}
                 />
               </View>
             )}
 
-            {/* GRÁFICA PESO (PARCHADO CON SUS PROPIOS DATOS MIN/MAX) */}
+            {/* GRÁFICA TEMPERATURA CORPORAL */}
+            {temperaturaData.length > 0 && (
+              <View style={styles.chartCard}>
+                <View style={styles.chartHeader}>
+                  <Text style={styles.chartTitle}>Temperatura Corporal Histórica</Text>
+                  <View style={[styles.chartBadge, { backgroundColor: COLORS.amberPale }]}>
+                    <Text style={[styles.chartBadgeText, { color: COLORS.amber }]}>Umbral Febril: 37.8°</Text>
+                  </View>
+                </View>
+                <MiniChart
+                  datos={temperaturaData}
+                  fechas={fechasData}
+                  color={COLORS.amber}
+                  min={35} max={40}
+                  unidad="°C"
+                  alerta={37.8}
+                />
+              </View>
+            )}
+
+            {/* GRÁFICA PESO */}
             {pesoData.length > 0 && (
               <View style={styles.chartCard}>
                 <View style={styles.chartHeader}>
-                  <Text style={styles.chartTitle}>Peso histórico</Text>
+                  <Text style={styles.chartTitle}>Evolución de Peso</Text>
                 </View>
                 <MiniChart
                   datos={pesoData}
                   fechas={fechasData}
                   color={COLORS.cacao}
-                  min={Math.min(...pesoData) - 5}
-                  max={Math.max(...pesoData) + 5}
+                  min={Math.min(...pesoData) - 4}
+                  max={Math.max(...pesoData) + 4}
                   unidad=" kg"
                 />
               </View>
             )}
 
-            {/* TABLA HISTÓRICA DE REGISTROS (CABECERAS ALINEADAS ARRIBA) */}
+            {/* TABLA HISTÓRICA COMPLETA DE REGISTROS */}
             <View style={styles.chartCard}>
-              <Text style={[styles.chartTitle, { marginBottom: 8 }]}>Historial de registros</Text>
+              <Text style={[styles.chartTitle, { marginBottom: 12 }]}>Bitácora de Monitoreo General</Text>
               
               <View style={styles.historialHeaders}>
-                <Text style={[styles.historialHeaderText, { flex: 1, textAlign: 'left' }]}>Fecha/Hora</Text>
+                <Text style={[styles.historialHeaderText, { flex: 1.5, textAlign: 'left' }]}>Fecha/Hora</Text>
                 <Text style={styles.historialHeaderText}>SpO₂</Text>
-                <Text style={styles.historialHeaderText}>Presión</Text>
+                <Text style={styles.historialHeaderText}>P.A.</Text>
                 <Text style={styles.historialHeaderText}>FC</Text>
+                <Text style={styles.historialHeaderText}>Temp</Text>
+                <Text style={styles.historialHeaderText}>Peso</Text>
               </View>
 
               <View style={{ marginTop: 4 }}>
-                {registros.slice(0, 7).map((r, i) => (
+                {registros.slice(0, 10).map((r, i) => (
                   <View key={i} style={styles.historialRow}>
-                    <View style={{ flex: 1 }}>
+                    <View style={{ flex: 1.5 }}>
                       <Text style={styles.historialFecha}>
                         {new Date(r.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                       </Text>
                       <Text style={styles.historialCuidador}>
-                        {r.usuarios?.nombre_completo ?? 'Personal Vitanova'}
+                        {r.usuarios?.nombre_completo?.split(' ')[0] ?? 'Personal'}
                       </Text>
                     </View>
-                    <Text style={styles.historialVal}>{r.spo2 ?? '—'}%</Text>
+                    <Text style={styles.historialVal}>{r.spo2 ? `${r.spo2}%` : '—'}</Text>
                     <Text style={styles.historialVal}>
                       {r.presion_sistolica && r.presion_diastolica ? `${r.presion_sistolica}/${r.presion_diastolica}` : '—'}
                     </Text>
                     <Text style={styles.historialVal}>{r.frecuencia_cardiaca ?? '—'}</Text>
+                    <Text style={styles.historialVal}>{r.temperatura_corporal || r.temperatura ? `${Number(r.temperatura_corporal || r.temperatura).toFixed(1)}°` : '—'}</Text>
+                    <Text style={styles.historialVal}>{r.peso_kg ? `${r.peso_kg}k` : '—'}</Text>
                   </View>
                 ))}
               </View>
@@ -332,15 +352,15 @@ const styles = StyleSheet.create({
   emptyCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
   chartCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
   chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  chartTitle: { fontSize: 13, fontWeight: '800', color: COLORS.textDark },
-  chartSubtitle: { fontSize: 10, fontWeight: '700', color: COLORS.textLight, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 },
+  chartTitle: { fontSize: 12, fontWeight: '800', color: COLORS.textDark },
+  chartSubtitle: { fontSize: 10, fontWeight: '700', color: COLORS.textLight, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 },
   chartBadge: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   chartBadgeText: { fontSize: 9, fontWeight: '700' },
   alertaBanner: { borderRadius: 8, padding: 10, marginTop: 10 },
   historialRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  historialFecha: { fontSize: 11, fontWeight: '600', color: COLORS.textDark },
-  historialCuidador: { fontSize: 9, color: COLORS.textLight, marginTop: 2 },
-  historialVal: { fontSize: 11, fontWeight: '700', color: COLORS.gold, minWidth: 55, textAlign: 'right' },
-  historialHeaders: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: COLORS.border, paddingBottom: 6, marginTop: 8 },
-  historialHeaderText: { fontSize: 9, color: COLORS.textLight, minWidth: 55, textAlign: 'right', fontWeight: '700', textTransform: 'uppercase' },
+  historialFecha: { fontSize: 10, fontWeight: '600', color: COLORS.textDark },
+  historialCuidador: { fontSize: 9, color: COLORS.textLight, marginTop: 1 },
+  historialVal: { fontSize: 10, fontWeight: '700', color: COLORS.gold, width: 45, textAlign: 'right' },
+  historialHeaders: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: COLORS.border, paddingBottom: 6, marginTop: 4 },
+  historialHeaderText: { fontSize: 9, color: COLORS.textLight, width: 45, textAlign: 'right', fontWeight: '700', textTransform: 'uppercase' },
 });

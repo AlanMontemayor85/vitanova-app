@@ -549,7 +549,7 @@ export default function CuidadorScreen() {
               onPress={() => {
                 router.push({
                   pathname: '/red-cuidadores' as any,
-                  params: { pacienteId: pacienteActivo.id, pacienteNombre: pacienteActivo.nombre_completo }
+                  params: { pacienteId: pacienteActivo.id, pacienteNombre: pacienteActivo.nombre_completo, isCuidador: 'true' }
                 });
               }}
             >

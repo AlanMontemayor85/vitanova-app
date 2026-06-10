@@ -1,8 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    Alert, ScrollView, StatusBar, StyleSheet, Text,
-    TextInput, TouchableOpacity, View
+  Alert, ScrollView, StatusBar, StyleSheet, Text,
+  TextInput, TouchableOpacity, View
 } from 'react-native';
 import { actualizarHorarioCuidador, crearInvitacion, getEquipoPaciente, removerDelEquipo } from '../services/api';
 
@@ -52,6 +52,10 @@ export default function RedCuidadoresScreen() {
 
   const [equipo, setEquipo] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // 🟢 FILTRO TÁCTICO DE ROLES: Detectamos si el usuario actual entró en modo Cuidador
+  // Puedes pasar esto por params desde la pantalla anterior, o leerlo de tu token guardado
+  const esCuidador = params.usuarioRol === 'cuidador_contratado' || params.isCuidador === 'true';
 
   // Editar horario
   const [editando, setEditando] = useState<any>(null);
@@ -179,7 +183,8 @@ export default function RedCuidadoresScreen() {
           </View>
         </View>
 
-        {m.rol === 'cuidador_contratado' && (
+        {/* 🟢 SEGURIDAD: Solo mostramos la edición de horario si NO es un perfil cuidador */}
+        {m.rol === 'cuidador_contratado' && !esCuidador && (
           <TouchableOpacity
             style={styles.editarBtn}
             onPress={() => {
@@ -193,7 +198,8 @@ export default function RedCuidadoresScreen() {
           </TouchableOpacity>
         )}
 
-        {m.rol !== 'familiar_principal' && (
+        {/* 🟢 SEGURIDAD: Solo permitimos remover miembros si NO es un perfil cuidador */}
+        {m.rol !== 'familiar_principal' && !esCuidador && (
           <TouchableOpacity
             style={styles.removerBtn}
             onPress={() => {
@@ -220,6 +226,7 @@ export default function RedCuidadoresScreen() {
       </View>
     );
   };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
@@ -236,9 +243,13 @@ export default function RedCuidadoresScreen() {
         <View style={styles.totalPill}>
           <Text style={styles.totalText}>{equipo.length} miembros</Text>
         </View>
-        <TouchableOpacity style={styles.invitarBtn} onPress={() => setInvitandoOpen(true)}>
-          <Text style={styles.invitarBtnText}>+ Invitar</Text>
-        </TouchableOpacity>
+        
+        {/* 🟢 SEGURIDAD: Escondemos el botón de invitar por completo si es un cuidador el que está mirando */}
+        {!esCuidador && (
+          <TouchableOpacity style={styles.invitarBtn} onPress={() => setInvitandoOpen(true)}>
+            <Text style={styles.invitarBtnText}>+ Invitar</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* LISTA */}
@@ -250,7 +261,7 @@ export default function RedCuidadoresScreen() {
               Sin equipo registrado
             </Text>
             <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
-              Toca "+ Invitar" para agregar miembros al equipo
+              {!esCuidador ? 'Toca "+ Invitar" para agregar miembros al equipo' : 'No hay miembros asignados a este paciente todavía.'}
             </Text>
           </View>
         ) : (
@@ -467,7 +478,7 @@ const styles = StyleSheet.create({
   rolBtnText: { fontSize: 10, fontWeight: '600', color: COLORS.textLight },
   rolBtnTextActive: { color: COLORS.gold, fontWeight: '800' },
   removerBtn: { marginTop: 12, paddingVertical: 8, alignItems: 'center', borderRadius: 8, backgroundColor: COLORS.redPale, borderWidth: 1, borderColor: COLORS.red },
- removerBtnText: { fontSize: 11, fontWeight: '700', color: COLORS.red },
+  removerBtnText: { fontSize: 11, fontWeight: '700', color: COLORS.red },
   modalBtn: { borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
   modalBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.white },
 });

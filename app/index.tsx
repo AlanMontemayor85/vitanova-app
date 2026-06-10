@@ -236,65 +236,88 @@ useEffect(() => {
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
 
-        {/* VITALS CON TELEMETRÍA EN VIVO */}
-<View style={styles.vitalsContainer}>
-  <View style={styles.vitalsHeaderRow}>
-    <Text style={styles.sectionTitle}>Signos Vitales (Dispositivo)</Text>
-    <TouchableOpacity 
-      style={[styles.btnMedir, midiendo && styles.btnMedirDesactivado]} 
-      onPress={ejecutarMedicionRemota}
-      disabled={midiendo}
-    >
-      <Text style={styles.btnMedirText}>
-        {midiendo ? "Midiendo... ⏳" : "🔄 Medir Ahora"}
-      </Text>
-    </TouchableOpacity>
-  </View>
+       
+{/* VITALS CON TELEMETRÍA EN VIVO (MÓDULO SIMÉTRICO PARA EL FAMILIAR) */}
+        <View style={styles.vitalsContainer}>
+          <View style={styles.vitalsHeaderRow}>
+            <Text style={styles.sectionTitle}>Estatus y Parámetros</Text>
+            <TouchableOpacity 
+              style={[styles.btnMedir, midiendo && styles.btnMedirDesactivado]} 
+              onPress={ejecutarMedicionRemota}
+              disabled={midiendo}
+            >
+              <Text style={styles.btnMedirText}>
+                {midiendo ? "Leyendo... ⏳" : "🔄 Sensa Reloj"}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-  <View style={styles.vitalsRow}>
-    {/* Tarjeta SpO2 */}
-    <View style={styles.vitalCard}>
-      <Text style={styles.vitalVal}>
-        {signosDispositivo?.spo2 !== "—" ? signosDispositivo?.spo2 : (ultimoCierre?.spo2 ?? '—')}
-      </Text>
-      <Text style={styles.vitalUnit}>%</Text>
-      <Text style={styles.vitalLabel}>SpO₂</Text>
-    </View>
+          {/* FILA 1: ESTADO GENERAL DE BIENESTAR, TEMPERATURA Y PESO */}
+          <View style={[styles.vitalsRow, { marginBottom: 8 }]}>
+            {/* Tarjeta de Estado Clínico Emocional */}
+            <View style={styles.vitalCard}>
+              <Text style={[styles.vitalVal, { fontSize: 22, lineHeight: 26, color: ultimoCierre?.estado_paciente === 'bien' ? COLORS.green : ultimoCierre?.estado_paciente === 'preocupante' ? COLORS.red : COLORS.amber }]}>
+                {ultimoCierre?.estado_paciente === 'bien' ? '😊' : ultimoCierre?.estado_paciente === 'preocupante' ? '😟' : ultimoCierre ? '😐' : '—'}
+              </Text>
+              <Text style={styles.vitalLabel}>Condición</Text>
+            </View>
 
-    {/* Tarjeta Presión Arterial */}
-    <View style={styles.vitalCard}>
-      <Text style={styles.vitalVal}>
-        {signosDispositivo?.presion !== "—" 
-          ? signosDispositivo?.presion.split('/')[0] 
-          : (ultimoCierre ? `${ultimoCierre.presion_sistolica}` : '—')}
-        <Text style={styles.vitalValSmall}>
-          {signosDispositivo?.presion !== "—" 
-            ? `/${signosDispositivo?.presion.split('/')[1]}` 
-            : (ultimoCierre ? `/${ultimoCierre.presion_diastolica}` : '')}
-        </Text>
-      </Text>
-      <Text style={styles.vitalLabel}>Presión</Text>
-    </View>
+            {/* Tarjeta Temperatura Corporal (Inyectada desde el Reloj o Cierre) */}
+            <View style={styles.vitalCard}>
+              <Text style={[styles.vitalVal, { color: COLORS.green }]}>
+                {signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
+                  ? `${signosDispositivo.temperatura}°` 
+                  : (ultimoCierre?.temperatura_corporal ? `${ultimoCierre.temperatura_corporal}°` : '—')}
+              </Text>
+              <Text style={styles.vitalLabel}>Temp. Corp.</Text>
+            </View>
 
-    {/* Tarjeta Frecuencia Cardíaca */}
-    <View style={styles.vitalCard}>
-      <Text style={[styles.vitalVal, { color: COLORS.red }]}>
-        {signosDispositivo?.fc !== "—" ? signosDispositivo?.fc : (ultimoCierre?.frecuencia_cardiaca ?? '—')}
-      </Text>
-      <Text style={styles.vitalUnit}>bpm</Text>
-      <Text style={styles.vitalLabel}>F. Card.</Text>
-    </View>
+            {/* Tarjeta de Peso de Control Métrico */}
+            <View style={styles.vitalCard}>
+              <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
+                {ultimoCierre?.peso_kg ? `${ultimoCierre.peso_kg}` : '—'}
+              </Text>
+              <Text style={styles.vitalUnit}>kg</Text>
+              <Text style={styles.vitalLabel}> Peso</Text>
+            </View>
+          </View>
 
-    {/* Tarjeta de Estado Clínico (Mantiene el control de ánimo/cierre del turno) */}
-    <View style={styles.vitalCard}>
-      <Text style={[styles.vitalVal, { color: ultimoCierre?.estado_paciente === 'bien' ? COLORS.green : ultimoCierre?.estado_paciente === 'preocupante' ? COLORS.red : COLORS.amber }]}>
-        {ultimoCierre?.estado_paciente === 'bien' ? '😊' : ultimoCierre?.estado_paciente === 'preocupante' ? '😟' : ultimoCierre ? '😐' : '—'}
-      </Text>
-      <Text style={styles.vitalLabel}>Estado</Text>
-    </View>
-  </View>
-</View>
+          {/* FILA 2: TELEMETRÍA PURA DEL HARDWARE RECHFAR RF-V48 */}
+          <View style={styles.vitalsRow}>
+            {/* Tarjeta SpO2 */}
+            <View style={styles.vitalCard}>
+              <Text style={styles.vitalVal}>
+                {signosDispositivo?.spo2 !== "—" ? signosDispositivo?.spo2 : (ultimoCierre?.spo2 ?? '—')}
+              </Text>
+              <Text style={styles.vitalUnit}>%</Text>
+              <Text style={styles.vitalLabel}>SpO₂</Text>
+            </View>
 
+            {/* Tarjeta Presión Arterial */}
+            <View style={styles.vitalCard}>
+              <Text style={styles.vitalVal}>
+                {signosDispositivo?.presion !== "—" 
+                  ? signosDispositivo?.presion.split('/')[0] 
+                  : (ultimoCierre ? `${ultimoCierre.presion_sistolica}` : '—')}
+                <Text style={styles.vitalValSmall}>
+                  {signosDispositivo?.presion !== "—" 
+                    ? `/${signosDispositivo?.presion.split('/')[1]}` 
+                    : (ultimoCierre ? `/${ultimoCierre.presion_diastolica}` : '')}
+                </Text>
+              </Text>
+              <Text style={styles.vitalLabel}>Presión</Text>
+            </View>
+
+            {/* Tarjeta Frecuencia Cardíaca */}
+            <View style={styles.vitalCard}>
+              <Text style={[styles.vitalVal, { color: COLORS.red }]}>
+                {signosDispositivo?.fc !== "—" ? signosDispositivo?.fc : (ultimoCierre?.frecuencia_cardiaca ?? '—')}
+              </Text>
+              <Text style={styles.vitalUnit}>bpm</Text>
+              <Text style={styles.vitalLabel}>F. Card.</Text>
+            </View>
+          </View>
+        </View>
         {/* ACTIVIDAD RECIENTE */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Último turno</Text>
