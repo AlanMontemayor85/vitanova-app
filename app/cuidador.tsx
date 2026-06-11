@@ -353,23 +353,25 @@ export default function CuidadorScreen() {
     if (!notaTexto.trim()) return;
     setGuardandoNota(true);
     try {
+      // 🚀 Volvemos al JSON exacto que tu FastAPI procesaba con 200 OK
       const response = await fetch(`${BASE_URL}/notas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
         body: JSON.stringify({ 
           paciente_id: pacienteActivo.id, 
           turno_id: turnoActivoRef.current?.id || null, 
-          observaciones: notaTexto.trim() // 🟢 CAMBIO CRÍTICO: Mandamos 'observaciones'
+          texto: notaTexto.trim() // 🟢 Dejamos 'texto' porque FastAPI lo exige para no lanzar 422
         })
       });
 
-      if (!response.ok) throw new Error('Error en el servidor al guardar nota');
+      // Si el servidor responde con 422 o cualquier error, saltará al catch
+      if (!response.ok) throw new Error(`Error en el servidor: ${response.status}`);
 
       setNotaTexto(''); 
       setNotaOpen(false);
       alert("✅ Nota guardada con éxito.");
       
-      // Refrescamos localmente con tu función nativa original
+      // 🔄 Refresco nativo estable
       const notasData = await getNotasTurno(pacienteActivo.id);
       if (notasData && notasData.notas) {
         setNotas(notasData.notas.slice(0, 3));
@@ -377,7 +379,7 @@ export default function CuidadorScreen() {
 
     } catch (e) { 
       console.error("❌ Error en guardarNota:", e); 
-      alert("⚠️ No se pudo guardar la nota. Verifica la conexión.");
+      alert("⚠️ El servidor rechazó la nota (Error de validación de datos).");
     } finally { 
       setGuardandoNota(false); 
     }
