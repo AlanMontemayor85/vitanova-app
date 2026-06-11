@@ -74,11 +74,17 @@ export const getUltimoCierre = async (pacienteId: string) => {
 };
 
 export const getNotasTurno = async (pacienteId: string) => {
-  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/notas-turno`, {
-    headers: headers(),
-  });
-  return res.json();
-};
+  try {
+    const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/notas-turno`, {
+      headers: headers(),
+    });
+    if (!res.ok) return { notas: [] };
+    const data = await res.json();
+    return Array.isArray(data?.notas) ? data : { notas: [] };
+  } catch {
+    return { notas: [] };
+  }
+}
 
 export const getHistorialCierres = async (pacienteId: string) => {
   const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/historial-cierres`, {
