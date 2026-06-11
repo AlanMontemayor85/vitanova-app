@@ -264,7 +264,7 @@ export default function CuidadorScreen() {
     
     // 🟢 Regresamos a tu línea original y estable que nunca falla
     if (notasData && notasData.notas) {
-      setNotas(notasData.notas.slice(0, 3)); // Muestra las 3 notas del display sin inventos
+      setNotas(notasData.notas.slice(0, 5)); // Muestra las 3 notas del display sin inventos
     } else {
       setNotas([]);
     }
@@ -390,14 +390,14 @@ export default function CuidadorScreen() {
       setNotas((prevNotas) => {
         const notasPrevias = Array.isArray(prevNotas) ? prevNotas : [];
         // Ponemos la nueva nota al principio y limitamos a 3 en pantalla
-        return [nuevaNotaSimulada, ...notasPrevias].slice(0, 3);
+        return [nuevaNotaSimulada, ...notasPrevias].slice(0, 5);
       });
 
       // Dejamos el fetch de fondo por si el backend se sincroniza después
       try {
         const notasData = await getNotasTurno(pacienteActivo.id);
         if (notasData && Array.isArray(notasData.notas) && notasData.notas.length > 0) {
-          setNotas(notasData.notas.slice(0, 3));
+          setNotas(notasData.notas.slice(0, 5));
         }
       } catch (fetchErr) {
         console.log("Refresco de fondo ignorado:", fetchErr);
