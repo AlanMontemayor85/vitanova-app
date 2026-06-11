@@ -451,55 +451,6 @@ export default function CuidadorScreen() {
     );
   }
 
-      // 4. 🚀 Mandamos el cierre definitivo a Supabase con la bitácora armada
-      const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-        body: JSON.stringify({
-          turno_id: turnoActivoRef.current?.id || params.turnoId,
-          paciente_id: pacienteActivo.id, 
-          estado_paciente: estadoPaciente, 
-          peso_kg: peso,
-          // 🟢 CORRECCIÓN: Si tu backend ya infiere los últimos signos medidos por el reloj
-          // o por la bitácora automáticamente, podemos mandar estos campos en null o 
-          // pasarle las variables de tus estados locales si es que los tienes en esta pantalla (ej. localSpo2).
-          spo2: null, 
-          frecuencia_cardiaca: null,
-          presion_sistolica: null,
-          presion_diastolica: null,
-          // 📜 Las notas consolidadas que acabamos de armar
-          notas: notasConsolidadas, 
-          barthel_scores: barthelTocado ? barthelScores : null, 
-          barthel_total: barthelTocado ? barthelTotal : null, 
-          barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
-          morse_scores: morseTocado ? morseScores : null, 
-          morse_total: morseTocado ? morseTotal : null, 
-          morse_label: morseTocado ? getMorseLabel(morseTotal) : null,
-        }),
-      });
-
-      const data = await res.json();
-      if (data.status === 'ok') {
-        const pData = await getPacientes();
-        if (pData.patients) setPacientes(pData.patients);
-        resetEstados(); 
-        setVista('lista');
-        Alert.alert('✅ Turno Cerrado', 'La bitácora del día se ha consolidado e indexado con éxito.');
-      }
-    } catch (e) { 
-      console.error("Error al consolidar el cierre de turno:", e); 
-    }
-  };
-
-
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
-        <ActivityIndicator size="large" color={COLORS.gold} />
-      </View>
-    );
-  }
-
   // ── 1. VISTA LISTA DE PACIENTES ──
   if (vista === 'lista') {
     return (
