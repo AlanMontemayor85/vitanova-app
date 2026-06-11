@@ -436,7 +436,7 @@ useEffect(() => {
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Notas del cuidador</Text>
             </View>
-            {notas.map((n, i) => (
+            {notas.slice(0, 5).map((n, i) => (
               <View key={i} style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0' }]}>
                 <Text style={styles.alertIcon}>📝</Text>
                 <View style={styles.alertContent}>
