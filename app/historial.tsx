@@ -25,11 +25,8 @@ function formatFecha(iso: string) {
 function formatHora(iso: string) {
   if (!iso) return '—';
   return new Date(iso).toLocaleString('es-MX', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    day: 'numeric', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
   });
 }
 
@@ -86,23 +83,21 @@ export default function HistorialScreen() {
           </View>
         ) : (
           cierres.map((c) => {
-            const tareasSinNotas = c.tareas?.filter((t: any) => t.tipo !== 'otro') ?? [];
-            const completadas = tareasSinNotas.filter((t: any) => t.completada).length;
-
-            const notasTareas = c.tareas?.filter((t: any) => t.tipo === 'otro') ?? [];
+            // 🟢 SEPARACIÓN CLÍNICA DE ACTIVIDADES EN EL FRONTEND
+            // 1. Tareas normales programadas (Tienen hora_programada o no son tipo 'otro')
+            const tareasNormales = c.tareas?.filter((t: any) => t.tipo !== 'otro' && t.hora_programada) ?? [];
+            // 2. Incidentales reportadas (Tareas de tipo 'otro' ejecutadas sobre la marcha, o creadas como incidentales)
+            const tareasIncidentales = c.tareas?.filter((t: any) => t.tipo === 'otro' || !t.hora_programada) ?? [];
+            
+            const completadasNormales = tareasNormales.filter((t: any) => t.completada).length;
             const tieneNotaNativa = c.notas && c.notas.trim() !== '' && !c.notas.includes('Sin notas incidentales');
 
-            // Mapeos con fallbacks seguros
             const displaySPO2 = c.spo2 !== null && c.spo2 !== undefined ? `${c.spo2}%` : '—';
-            
             let displayPresion = '—';
             if (c.presion_sistolica !== null && c.presion_diastolica !== null) {
               displayPresion = `${c.presion_sistolica}/${c.presion_diastolica}`;
             }
-
             const displayFC = c.frecuencia_cardiaca !== null && c.frecuencia_cardiaca !== undefined ? `${c.frecuencia_cardiaca}` : '—';
-            
-            // 🟢 LEER NUEVA COLUMNA REAL DE SUPABASE
             const displayTemp = c.temperatura !== null && c.temperatura !== undefined ? `${c.temperatura}°C` : '—';
             const displayPeso = c.peso_kg !== null && c.peso_kg !== undefined ? `${c.peso_kg} kg` : '—';
             const displayEstado = c.estado_paciente ? String(c.estado_paciente).toUpperCase() : 'REGULAR';
@@ -132,7 +127,7 @@ export default function HistorialScreen() {
                   </View>
                 </View>
 
-                {/* 🩺 TABLA COMPLETA DE 5 SIGNOS EN ALTA DEFINICIÓN CLÍNICA */}
+                {/* SIGNOS VITALES */}
                 <View style={styles.signosRow}>
                   <View style={styles.signoItem}>
                     <Text style={styles.signoVal}>{displaySPO2}</Text>
@@ -156,17 +151,17 @@ export default function HistorialScreen() {
                   </View>
                 </View>
 
-                {/* ACTIVIDADES */}
-                {tareasSinNotas.length > 0 && (
+                {/* 📋 SECCIÓN 1: ACTIVIDADES PLANIFICADAS */}
+                {tareasNormales.length > 0 && (
                   <View style={styles.tareasSection}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                      <Text style={styles.tareasSectionTitle}>Actividades Ejecutadas</Text>
+                      <Text style={styles.tareasSectionTitle}>Actividades Planificadas</Text>
                       <Text style={{ fontSize: 10, color: COLORS.textLight }}>
-                        {completadas}/{tareasSinNotas.length} completadas
+                        {completadasNormales}/{tareasNormales.length} completadas
                       </Text>
                     </View>
-                    {tareasSinNotas.map((t: any, j: number) => (
-                      <View key={`tarea-${j}`} style={styles.tareaItem}>
+                    {tareasNormales.map((t: any, j: number) => (
+                      <View key={`normal-${j}`} style={styles.tareaItem}>
                         <Text style={styles.tareaItemIcon}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
                         <Text style={[
                           styles.tareaItemText,
@@ -183,28 +178,34 @@ export default function HistorialScreen() {
                   </View>
                 )}
 
-                {/* NOTAS DE EVOLUCIÓN */}
-                {(notasTareas.length > 0 || tieneNotaNativa) && (
-                  <View style={styles.notasSection}>
-                    <Text style={styles.tareasSectionTitle}>Notas de Evolución</Text>
-                    {tieneNotaNativa && (
-                      <View style={styles.notaItem}>
-                        <Text style={{ flex: 1, fontSize: 12, color: COLORS.textDark, fontWeight: '500' }}>
-                          {String(c.notes || c.notas).replace('📝 ', '')}
-                        </Text>
-                        <Text style={styles.tareaItemHora}>Consolidado</Text>
-                      </View>
-                    )}
-                    {notasTareas.map((t: any, j: number) => (
-                      <View key={`task-nota-${j}`} style={styles.notaItem}>
-                        <Text style={{ flex: 1, fontSize: 12, color: COLORS.textDark }}>
+                {/* ⚡ SECCIÓN 2: TAREAS / EVENTOS INCIDENTALES */}
+                {tareasIncidentales.length > 0 && (
+                  <View style={[styles.tareasSection, { borderTopColor: 'rgba(0,0,0,0.05)', marginTop: 10 }]}>
+                    <Text style={[styles.tareasSectionTitle, { color: COLORS.amber }]}>Eventos Incidentales Ejecutados</Text>
+                    {tareasIncidentales.map((t: any, j: number) => (
+                      <View key={`incidental-${j}`} style={styles.tareaItem}>
+                        <Text style={styles.tareaItemIcon}>⚡</Text>
+                        <Text style={styles.tareaItemText}>
                           {t.descripcion?.replace('📝 ', '')}
                         </Text>
                         <Text style={styles.tareaItemHora}>
                           {t.hora_completada ? formatHora(t.hora_completada) : '—'}
                         </Text>
+                        <Text style={{ fontSize: 12 }}>✅</Text>
                       </View>
                     ))}
+                  </View>
+                )}
+
+                {/* 📝 SECCIÓN 3: NOTAS DE EVOLUCIÓN (BITÁCORA CONSOLIDADA) */}
+                {tieneNotaNativa && (
+                  <View style={styles.notasSection}>
+                    <Text style={styles.tareasSectionTitle}>Resumen y Notas del Cuidador</Text>
+                    <View style={styles.notaItem}>
+                      <Text style={{ flex: 1, fontSize: 12, color: COLORS.textDark, lineHeight: 16 }}>
+                        {String(c.notas).replace('📝 ', '')}
+                      </Text>
+                    </View>
                   </View>
                 )}
 
@@ -259,18 +260,18 @@ const styles = StyleSheet.create({
   cierreFecha: { fontSize: 10, color: COLORS.textLight, marginTop: 2 },
   estadoPill: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   estadoPillText: { fontSize: 10, fontWeight: '700' },
-  signosRow: { flexDirection: 'row', gap: 4, marginBottom: 10 }, // Gap ajustado para contener las 5 columnas perfectamente
+  signosRow: { flexDirection: 'row', gap: 4, marginBottom: 10 },
   signoItem: { flex: 1, backgroundColor: COLORS.cream, borderRadius: 6, paddingVertical: 8, paddingHorizontal: 2, alignItems: 'center', justifyContent: 'center' },
-  signoVal: { fontSize: 11, fontWeight: '800', color: COLORS.gold, textAlign: 'center' }, // Fuente compactada para prevenir cortes de texto
+  signoVal: { fontSize: 11, fontWeight: '800', color: COLORS.gold, textAlign: 'center' },
   signoLabel: { fontSize: 9, color: COLORS.textLight, marginTop: 2 },
   tareasSection: { borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 10, marginTop: 8 },
-  notasSection: { borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 10, marginTop: 4 },
+  notasSection: { borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 10, marginTop: 10 },
   tareasSectionTitle: { fontSize: 9, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase', color: COLORS.textLight, marginBottom: 8 },
   tareaItem: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   tareaItemIcon: { fontSize: 14 },
   tareaItemText: { flex: 1, fontSize: 12, fontWeight: '600', color: COLORS.textDark },
   tareaItemHora: { fontSize: 10, color: COLORS.textLight },
-  notaItem: { backgroundColor: COLORS.amberPale, borderRadius: 8, padding: 8, marginBottom: 6, flexDirection: 'row', gap: 8, alignItems: 'center' },
+  notaItem: { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0', borderWidth: 1, borderRadius: 8, padding: 10, marginTop: 4 },
   escalaRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   escalaLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textDark, minWidth: 80 },
   escalaVal: { fontSize: 11, color: COLORS.textLight, flex: 1 },

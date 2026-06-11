@@ -1,57 +1,163 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getHistorialCierres } from '../services/api';
+import { ActivityIndicator, Dimensions, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { getSignosVitalesHistorico } from '../services/api';
+
+const { width } = Dimensions.get('window');
+const CHART_WIDTH = width - 48;
+const CHART_HEIGHT = 120;
 
 const COLORS = {
   gold: '#BF9A40', goldPale: '#F5EDD8', cacao: '#4A4540', cream: '#FAFAF7',
   white: '#FFFFFF', textDark: '#2C2820', textLight: '#8A8078',
   border: '#E0D8CC', green: '#3DAA6A', greenPale: '#EAF5E8',
-  amber: '#D4860A', amberPale: '#FFF4E0', red: '#D94F4F', redPale: '#FDEAEA',
+  red: '#D94F4F', redPale: '#FDEAEA', amber: '#D4860A',
+  amberPale: '#FFF4E0'
 };
 
-const ICONOS_TIPO: Record<string, string> = {
-  medicamento: '💊', alimentacion: '🍽️', ejercicio: '🚶', higiene: '🛁', cita: '📅', otro: '📝',
-};
-
-function formatFecha(iso: string) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString('es-MX', {
-    day: 'numeric', month: 'long', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
+// 🟢 Helper ultra robusto para leer la temperatura de cualquier origen de datos (Cierres o Registros de Salud)
+function leerTemperatura(r: any): number | null {
+  // Evaluamos todas las llaves posibles que el backend de FastAPI o Supabase puedan escupir
+  const raw = r?.temperatura ?? r?.temperatura_corporal ?? r?.temp;
+  if (raw === null || raw === undefined || raw === '—') return null;
+  
+  const num = TensorParseFloat(raw);
+  return num !== null && num >= 30 && num <= 45 ? num : null;
 }
 
-function formatHora(iso: string) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString('es-MX', {
-    day: 'numeric', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
+// Auxiliar para limpiar y parsear strings con caracteres médicos (°C, °)
+function TensorParseFloat(val: any): number | null {
+  if (typeof val === 'number') return Number.isFinite(val) ? val : null;
+  const num = parseFloat(String(val).replace('°C', '').replace('°', '').trim());
+  return Number.isFinite(num) ? num : null;
 }
 
-export default function HistorialScreen() {
+function MiniChart({
+  datos, color, min, max, unidad, alerta, fechas
+}: {
+  datos: number[], color: string, min: number, max: number, unidad: string, alerta?: number, fechas?: string[]
+}) {
+  if (!datos || datos.length < 2) return (
+    <View style={{ height: CHART_HEIGHT, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9F9F9', borderRadius: 8 }}>
+      <Text style={{ color: COLORS.textLight, fontSize: 11, fontWeight: '600' }}>Esperando datos suficientes para graficar...</Text>
+    </View>
+  );
+
+  const rango = max - min || 1;
+  const puntos = datos.map((v, i) => ({
+    x: (i / (datos.length - 1)) * CHART_WIDTH,
+    y: CHART_HEIGHT - ((v - min) / rango) * CHART_HEIGHT,
+    v,
+  }));
+
+  const ultimo = datos[datos.length - 1];
+  const anterior = datos[datos.length - 2];
+  const tendencia = ultimo > anterior ? '↑' : ultimo < anterior ? '↓' : '→';
+  const enAlerta = alerta ? (unidad === "%" ? ultimo < alerta : ultimo > alerta) : false;
+
+  const fechaInicialStr = fechas && fechas[0]
+    ? new Date(fechas[0]).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+    : 'Inicio';
+
+  return (
+    <View>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+        <Text style={{ fontSize: 28, fontWeight: '800', color: enAlerta ? COLORS.red : color }}>
+          {ultimo}{unidad}
+        </Text>
+        <Text style={{ fontSize: 18, color: enAlerta ? COLORS.red : COLORS.textLight }}>{tendencia}</Text>
+      </View>
+      <View style={{ height: CHART_HEIGHT, position: 'relative' }}>
+        {alerta && (
+          <View style={{
+            position: 'absolute',
+            left: 0, right: 0,
+            top: CHART_HEIGHT - ((alerta - min) / rango) * CHART_HEIGHT,
+            height: 1,
+            backgroundColor: COLORS.red,
+            opacity: 0.4,
+            zIndex: 1
+          }} />
+        )}
+        {puntos.map((p, i) => (
+          <View key={i}>
+            {i > 0 && (() => {
+              const prev = puntos[i - 1];
+              const dx = p.x - prev.x;
+              const dy = p.y - prev.y;
+              const len = Math.sqrt(dx * dx + dy * dy);
+              const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+              return (
+                <View style={{
+                  position: 'absolute',
+                  left: prev.x,
+                  top: prev.y,
+                  width: len,
+                  height: 2,
+                  backgroundColor: color,
+                  opacity: 0.7,
+                  transform: [{ rotate: `${angle}deg` }],
+                  transformOrigin: '0 0',
+                }} />
+              );
+            })()}
+            <View style={{
+              position: 'absolute',
+              left: p.x - 4,
+              top: p.y - 4,
+              width: 8, height: 8,
+              borderRadius: 4,
+              backgroundColor: i === puntos.length - 1 ? color : COLORS.white,
+              borderWidth: 2,
+              borderColor: color,
+              zIndex: 2
+            }} />
+          </View>
+        ))}
+      </View>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+        <Text style={{ fontSize: 9, color: COLORS.textLight }}>{fechaInicialStr}</Text>
+        <Text style={{ fontSize: 9, color: COLORS.textLight }}>Último registro</Text>
+      </View>
+    </View>
+  );
+}
+
+export default function GraficaSignosScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const pacienteId = params.pacienteId as string;
   const pacienteNombre = params.pacienteNombre as string;
 
-  const [cierres, setCierres] = useState<any[]>([]);
+  const [registros, setRegistros] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const cargar = async () => {
       try {
-        const data = await getHistorialCierres(pacienteId);
-        if (data.cierres) setCierres(data.cierres);
+        const data = await getSignosVitalesHistorico(pacienteId, 14);
+        if (data.registros) setRegistros(data.registros);
       } catch (e) {
-        console.error("Error cargando historial:", e);
+        console.error("Error cargando histórico clínico:", e);
       } finally {
         setLoading(false);
       }
     };
     cargar();
   }, [pacienteId]);
+
+  const registrosFiltrados = [...registros].reverse();
+  const fechasData = registrosFiltrados.map(r => r.created_at);
+  const spo2Data = registrosFiltrados.map(r => r.spo2).filter(v => v !== null && v !== undefined);
+  const sstolicaData = registrosFiltrados.map(r => r.presion_sistolica).filter(v => v !== null && v !== undefined);
+  const dstolicaData = registrosFiltrados.map(r => r.presion_diastolica).filter(v => v !== null && v !== undefined);
+  const fcData = registrosFiltrados.map(r => r.frecuencia_cardiaca).filter(v => v !== null && v !== undefined);
+  const pesoData = registrosFiltrados.map(r => r.peso_kg).filter(v => v !== null && v !== undefined);
+  
+  // 🟢 Extracción elástica libre de nulos
+  const temperaturaData = registrosFiltrados
+    .map(leerTemperatura)
+    .filter((v): v is number => v !== null);
 
   if (loading) {
     return (
@@ -69,173 +175,185 @@ export default function HistorialScreen() {
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.greeting}>Historial de turnos</Text>
+          <Text style={styles.greeting}>Historial Clínico</Text>
           <Text style={styles.userName}>{pacienteNombre}</Text>
+        </View>
+        <View style={styles.periodoPill}>
+          <Text style={styles.periodoText}>Últimos 14 registros</Text>
         </View>
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-        {cierres.length === 0 ? (
+
+        {registros.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={{ fontSize: 40, marginBottom: 12 }}>📋</Text>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: COLORS.textDark, marginBottom: 6 }}>Sin historial aún</Text>
-            <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>Los cierres de turno aparecerán aquí</Text>
+            <Text style={{ fontSize: 40, marginBottom: 12 }}>📊</Text>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: COLORS.textDark, marginBottom: 6 }}>Sin registros aún</Text>
+            <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>Los signos vitales aparecerán aquí después de cerrar turnos o capturar telemetría.</Text>
           </View>
         ) : (
-          cierres.map((c) => {
-            // 🟢 SEPARACIÓN CLÍNICA DE ACTIVIDADES EN EL FRONTEND
-            // 1. Tareas normales programadas (Tienen hora_programada o no son tipo 'otro')
-            const tareasNormales = c.tareas?.filter((t: any) => t.tipo !== 'otro' && t.hora_programada) ?? [];
-            // 2. Incidentales reportadas (Tareas de tipo 'otro' ejecutadas sobre la marcha, o creadas como incidentales)
-            const tareasIncidentales = c.tareas?.filter((t: any) => t.tipo === 'otro' || !t.hora_programada) ?? [];
-            
-            const completadasNormales = tareasNormales.filter((t: any) => t.completada).length;
-            const tieneNotaNativa = c.notas && c.notas.trim() !== '' && !c.notas.includes('Sin notas incidentales');
-
-            const displaySPO2 = c.spo2 !== null && c.spo2 !== undefined ? `${c.spo2}%` : '—';
-            let displayPresion = '—';
-            if (c.presion_sistolica !== null && c.presion_diastolica !== null) {
-              displayPresion = `${c.presion_sistolica}/${c.presion_diastolica}`;
-            }
-            const displayFC = c.frecuencia_cardiaca !== null && c.frecuencia_cardiaca !== undefined ? `${c.frecuencia_cardiaca}` : '—';
-            const displayTemp = c.temperatura !== null && c.temperatura !== undefined ? `${c.temperatura}°C` : '—';
-            const displayPeso = c.peso_kg !== null && c.peso_kg !== undefined ? `${c.peso_kg} kg` : '—';
-            const displayEstado = c.estado_paciente ? String(c.estado_paciente).toUpperCase() : 'REGULAR';
-
-            return (
-              <View key={c.id} style={styles.cierreCard}>
-
-                {/* HEADER */}
-                <View style={styles.cierreHeader}>
-                  <Text style={{ fontSize: 28 }}>
-                    {c.estado_paciente === 'bien' ? '😊' : c.estado_paciente === 'preocupante' ? '😟' : '😐'}
-                  </Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.cierreNombreCuidador}>
-                      {c.usuarios?.nombre_completo ?? 'Personal Vitanova'}
+          <>
+            {/* GRÁFICA SPO2 */}
+            {spo2Data.length > 0 && (
+              <View style={styles.chartCard}>
+                <View style={styles.chartHeader}>
+                  <Text style={styles.chartTitle}>Saturación de Oxígeno (SpO₂)</Text>
+                  <View style={[styles.chartBadge, { backgroundColor: COLORS.goldPale }]}>
+                    <Text style={[styles.chartBadgeText, { color: COLORS.gold }]}>Línea de Alerta: 92%</Text>
+                  </View>
+                </View>
+                <MiniChart
+                  datos={spo2Data}
+                  fechas={fechasData}
+                  color={COLORS.gold}
+                  min={85} max={100}
+                  unidad="%"
+                  alerta={92}
+                />
+                {spo2Data[spo2Data.length - 1] < 92 && (
+                  <View style={[styles.alertaBanner, { backgroundColor: COLORS.redPale }]}>
+                    <Text style={{ fontSize: 11, color: COLORS.red, fontWeight: '700' }}>
+                      ⚠️ SpO₂ bajo detectado en el último informe.
                     </Text>
-                    <Text style={styles.cierreFecha}>{formatFecha(c.created_at)}</Text>
-                  </View>
-                  <View style={[styles.estadoPill, {
-                    backgroundColor: c.estado_paciente === 'bien' ? COLORS.greenPale :
-                      c.estado_paciente === 'preocupante' ? COLORS.redPale : COLORS.amberPale
-                  }]}>
-                    <Text style={[styles.estadoPillText, {
-                      color: c.estado_paciente === 'bien' ? COLORS.green :
-                        c.estado_paciente === 'preocupante' ? COLORS.red : COLORS.amber
-                    }]}>{displayEstado}</Text>
-                  </View>
-                </View>
-
-                {/* SIGNOS VITALES */}
-                <View style={styles.signosRow}>
-                  <View style={styles.signoItem}>
-                    <Text style={styles.signoVal}>{displaySPO2}</Text>
-                    <Text style={styles.signoLabel}>SpO₂</Text>
-                  </View>
-                  <View style={styles.signoItem}>
-                    <Text style={styles.signoVal}>{displayPresion}</Text>
-                    <Text style={styles.signoLabel}>Presión</Text>
-                  </View>
-                  <View style={styles.signoItem}>
-                    <Text style={styles.signoVal}>{displayFC}</Text>
-                    <Text style={styles.signoLabel}>FC bpm</Text>
-                  </View>
-                  <View style={styles.signoItem}>
-                    <Text style={[styles.signoVal, { color: COLORS.cacao }]}>{displayTemp}</Text>
-                    <Text style={styles.signoLabel}>Temp</Text>
-                  </View>
-                  <View style={styles.signoItem}>
-                    <Text style={[styles.signoVal, { color: COLORS.textDark }]}>{displayPeso}</Text>
-                    <Text style={styles.signoLabel}>Peso</Text>
-                  </View>
-                </View>
-
-                {/* 📋 SECCIÓN 1: ACTIVIDADES PLANIFICADAS */}
-                {tareasNormales.length > 0 && (
-                  <View style={styles.tareasSection}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                      <Text style={styles.tareasSectionTitle}>Actividades Planificadas</Text>
-                      <Text style={{ fontSize: 10, color: COLORS.textLight }}>
-                        {completadasNormales}/{tareasNormales.length} completadas
-                      </Text>
-                    </View>
-                    {tareasNormales.map((t: any, j: number) => (
-                      <View key={`normal-${j}`} style={styles.tareaItem}>
-                        <Text style={styles.tareaItemIcon}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
-                        <Text style={[
-                          styles.tareaItemText,
-                          t.completada && { textDecorationLine: 'line-through', color: COLORS.textLight }
-                        ]}>
-                          {t.descripcion}
-                        </Text>
-                        <Text style={styles.tareaItemHora}>
-                          {t.hora_completada ? formatHora(t.hora_completada) : '—'}
-                        </Text>
-                        <Text style={{ fontSize: 12 }}>{t.completada ? '✅' : '⬜'}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* ⚡ SECCIÓN 2: TAREAS / EVENTOS INCIDENTALES */}
-                {tareasIncidentales.length > 0 && (
-                  <View style={[styles.tareasSection, { borderTopColor: 'rgba(0,0,0,0.05)', marginTop: 10 }]}>
-                    <Text style={[styles.tareasSectionTitle, { color: COLORS.amber }]}>Eventos Incidentales Ejecutados</Text>
-                    {tareasIncidentales.map((t: any, j: number) => (
-                      <View key={`incidental-${j}`} style={styles.tareaItem}>
-                        <Text style={styles.tareaItemIcon}>⚡</Text>
-                        <Text style={styles.tareaItemText}>
-                          {t.descripcion?.replace('📝 ', '')}
-                        </Text>
-                        <Text style={styles.tareaItemHora}>
-                          {t.hora_completada ? formatHora(t.hora_completada) : '—'}
-                        </Text>
-                        <Text style={{ fontSize: 12 }}>✅</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* 📝 SECCIÓN 3: NOTAS DE EVOLUCIÓN (BITÁCORA CONSOLIDADA) */}
-                {tieneNotaNativa && (
-                  <View style={styles.notasSection}>
-                    <Text style={styles.tareasSectionTitle}>Resumen y Notas del Cuidador</Text>
-                    <View style={styles.notaItem}>
-                      <Text style={{ flex: 1, fontSize: 12, color: COLORS.textDark, lineHeight: 16 }}>
-                        {String(c.notas).replace('📝 ', '')}
-                      </Text>
-                    </View>
-                  </View>
-                )}
-
-                {/* ESCALAS CLÍNICAS */}
-                {(c.barthel_total !== null || c.morse_total !== null || c.mna_total !== null) && (
-                  <View style={{ borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 10, marginTop: 8, gap: 6 }}>
-                    {c.barthel_total !== null && (
-                      <View style={styles.escalaRow}>
-                        <Text style={styles.escalaLabel}>📋 Barthel</Text>
-                        <Text style={styles.escalaVal}>{c.barthel_total}/100 — {c.barthel_label}</Text>
-                      </View>
-                    )}
-                    {c.morse_total !== null && (
-                      <View style={styles.escalaRow}>
-                        <Text style={styles.escalaLabel}>⚠️ Morse</Text>
-                        <Text style={styles.escalaVal}>{c.morse_total} pts — {c.morse_label}</Text>
-                      </View>
-                    )}
-                    {c.mna_total !== null && (
-                      <View style={styles.escalaRow}>
-                        <Text style={styles.escalaLabel}>🍽️ MNA</Text>
-                        <Text style={styles.escalaVal}>{c.mna_total} pts — {c.mna_label}</Text>
-                      </View>
-                    )}
                   </View>
                 )}
               </View>
-            );
-          })
+            )}
+
+            {/* GRÁFICA PRESIÓN ARTERIAL */}
+            {sstolicaData.length > 0 && (
+              <View style={styles.chartCard}>
+                <View style={styles.chartHeader}>
+                  <Text style={styles.chartTitle}>Presión Arterial</Text>
+                  <View style={[styles.chartBadge, { backgroundColor: COLORS.greenPale }]}>
+                    <Text style={[styles.chartBadgeText, { color: COLORS.green }]}>Tendencia Hemodinámica</Text>
+                  </View>
+                </View>
+                <View style={{ gap: 16 }}>
+                  <View>
+                    <Text style={styles.chartSubtitle}>Sistólica</Text>
+                    <MiniChart
+                      datos={sstolicaData}
+                      fechas={fechasData}
+                      color={COLORS.red}
+                      min={Math.min(...sstolicaData) - 10}
+                      max={Math.max(...sstolicaData) + 10}
+                      unidad=" mmHg"
+                      alerta={140}
+                    />
+                  </View>
+                  <View>
+                    <Text style={styles.chartSubtitle}>Diastólica</Text>
+                    <MiniChart
+                      datos={dstolicaData}
+                      fechas={fechasData}
+                      color={COLORS.amber}
+                      min={Math.min(...dstolicaData) - 10}
+                      max={Math.max(...dstolicaData) + 10}
+                      unidad=" mmHg"
+                      alerta={90}
+                    />
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* GRÁFICA FRECUENCIA CARDÍACA */}
+            {fcData.length > 0 && (
+              <View style={styles.chartCard}>
+                <View style={styles.chartHeader}>
+                  <Text style={styles.chartTitle}>Frecuencia Cardíaca (Pulso)</Text>
+                  <View style={[styles.chartBadge, { backgroundColor: COLORS.redPale }]}>
+                    <Text style={[styles.chartBadgeText, { color: COLORS.red }]}>Umbral de Alerta: 100 bpm</Text>
+                  </View>
+                </View>
+                <MiniChart
+                  datos={fcData}
+                  fechas={fechasData}
+                  color={COLORS.red}
+                  min={40} max={140}
+                  unidad=" bpm"
+                  alerta={100}
+                />
+              </View>
+            )}
+
+            {/* 🟢 GRÁFICA TEMPERATURA CORPORAL (BLINDADA CONTRA OCULTAMIENTO) */}
+            <View style={styles.chartCard}>
+              <View style={styles.chartHeader}>
+                <Text style={styles.chartTitle}>Temperatura Corporal Histórica</Text>
+                <View style={[styles.chartBadge, { backgroundColor: COLORS.amberPale }]}>
+                  <Text style={[styles.chartBadgeText, { color: COLORS.amber }]}>Umbral Febril: 37.8°</Text>
+                </View>
+              </View>
+              <MiniChart
+                datos={temperaturaData}
+                fechas={fechasData}
+                color={COLORS.amber}
+                min={34} max={41}
+                unidad="°C"
+                alerta={37.8}
+              />
+            </View>
+
+            {/* GRÁFICA PESO */}
+            {pesoData.length > 0 && (
+              <View style={styles.chartCard}>
+                <View style={styles.chartHeader}>
+                  <Text style={styles.chartTitle}>Evolución de Peso</Text>
+                </View>
+                <MiniChart
+                  datos={pesoData}
+                  fechas={fechasData}
+                  color={COLORS.cacao}
+                  min={Math.min(...pesoData) - 4}
+                  max={Math.max(...pesoData) + 4}
+                  unidad=" kg"
+                />
+              </View>
+            )}
+
+            {/* TABLA HISTÓRICA COMPLETA DE REGISTROS */}
+            <View style={styles.chartCard}>
+              <Text style={[styles.chartTitle, { marginBottom: 12 }]}>Bitácora de Monitoreo General</Text>
+
+              <View style={styles.historialHeaders}>
+                <Text style={[styles.historialHeaderText, { flex: 1.5, textAlign: 'left' }]}>Fecha/Hora</Text>
+                <Text style={styles.historialHeaderText}>SpO₂</Text>
+                <Text style={styles.historialHeaderText}>P.A.</Text>
+                <Text style={styles.historialHeaderText}>FC</Text>
+                <Text style={styles.historialHeaderText}>Temp</Text>
+                <Text style={styles.historialHeaderText}>Peso</Text>
+              </View>
+
+              <View style={{ marginTop: 4 }}>
+                {registros.slice(0, 10).map((r, i) => {
+                  const temp = leerTemperatura(r);
+                  return (
+                    <View key={i} style={styles.historialRow}>
+                      <View style={{ flex: 1.5 }}>
+                        <Text style={styles.historialFecha}>
+                          {new Date(r.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                        <Text style={styles.historialCuidador}>
+                          {r.usuarios?.nombre_completo?.split(' ')[0] ?? 'Personal'}
+                        </Text>
+                      </View>
+                      <Text style={styles.historialVal}>{r.spo2 ? `${r.spo2}%` : '—'}</Text>
+                      <Text style={styles.historialVal}>
+                        {r.presion_sistolica && r.presion_diastolica ? `${r.presion_sistolica}/${r.presion_diastolica}` : '—'}
+                      </Text>
+                      <Text style={styles.historialVal}>{r.frecuencia_cardiaca ?? '—'}</Text>
+                      <Text style={styles.historialVal}>{temp !== null ? `${temp.toFixed(1)}°` : '—'}</Text>
+                      <Text style={styles.historialVal}>{r.peso_kg ? `${r.peso_kg}k` : '—'}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          </>
         )}
+
         <View style={{ height: 60 }} />
       </ScrollView>
     </View>
@@ -252,27 +370,21 @@ const styles = StyleSheet.create({
   userName: { fontSize: 20, fontWeight: '800', color: COLORS.white },
   backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   backIcon: { fontSize: 18, color: COLORS.white },
+  periodoPill: { backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
+  periodoText: { fontSize: 9, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
   body: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
   emptyCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  cierreCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
-  cierreHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
-  cierreNombreCuidador: { fontSize: 13, fontWeight: '700', color: COLORS.textDark },
-  cierreFecha: { fontSize: 10, color: COLORS.textLight, marginTop: 2 },
-  estadoPill: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  estadoPillText: { fontSize: 10, fontWeight: '700' },
-  signosRow: { flexDirection: 'row', gap: 4, marginBottom: 10 },
-  signoItem: { flex: 1, backgroundColor: COLORS.cream, borderRadius: 6, paddingVertical: 8, paddingHorizontal: 2, alignItems: 'center', justifyContent: 'center' },
-  signoVal: { fontSize: 11, fontWeight: '800', color: COLORS.gold, textAlign: 'center' },
-  signoLabel: { fontSize: 9, color: COLORS.textLight, marginTop: 2 },
-  tareasSection: { borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 10, marginTop: 8 },
-  notasSection: { borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 10, marginTop: 10 },
-  tareasSectionTitle: { fontSize: 9, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase', color: COLORS.textLight, marginBottom: 8 },
-  tareaItem: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  tareaItemIcon: { fontSize: 14 },
-  tareaItemText: { flex: 1, fontSize: 12, fontWeight: '600', color: COLORS.textDark },
-  tareaItemHora: { fontSize: 10, color: COLORS.textLight },
-  notaItem: { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0', borderWidth: 1, borderRadius: 8, padding: 10, marginTop: 4 },
-  escalaRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  escalaLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textDark, minWidth: 80 },
-  escalaVal: { fontSize: 11, color: COLORS.textLight, flex: 1 },
+  chartCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
+  chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  chartTitle: { fontSize: 12, fontWeight: '800', color: COLORS.textDark },
+  chartSubtitle: { fontSize: 10, fontWeight: '700', color: COLORS.textLight, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 },
+  chartBadge: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+  chartBadgeText: { fontSize: 9, fontWeight: '700' },
+  alertaBanner: { borderRadius: 8, padding: 10, marginTop: 10 },
+  historialRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  historialFecha: { fontSize: 10, fontWeight: '600', color: COLORS.textDark },
+  historialCuidador: { fontSize: 9, color: COLORS.textLight, marginTop: 1 },
+  historialVal: { fontSize: 10, fontWeight: '700', color: COLORS.gold, width: 45, textAlign: 'right' },
+  historialHeaders: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: COLORS.border, paddingBottom: 6, marginTop: 4 },
+  historialHeaderText: { fontSize: 9, color: COLORS.textLight, width: 45, textAlign: 'right', fontWeight: '700', textTransform: 'uppercase' },
 });
