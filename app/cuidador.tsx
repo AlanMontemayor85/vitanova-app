@@ -356,6 +356,7 @@ export default function CuidadorScreen() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
         body: JSON.stringify({ 
           paciente_id: pacienteActivo.id, 
+          // 🟢 Mantenemos tu mapeo original exacto
           turno_id: turnoActivoRef.current?.id || null, 
           texto: notaTexto.trim() 
         })
@@ -367,9 +368,19 @@ export default function CuidadorScreen() {
       setNotaOpen(false);
       alert("✅ Nota guardada con éxito.");
       
-      // Refrescamos localmente para jalar la nueva nota al feed amarillo
-      const notasData = await getNotasTurno(pacienteActivo.id);
-      if (notasData.notas) setNotas(notasData.notas.slice(0, 3));
+      // 🟢 REPARACIÓN DEL DISPLAY: Refresco cronológico inverso usando el canal general
+      const notasRes = await fetch(`${BASE_URL}/notas?paciente_id=${pacienteActivo.id}`, {
+        headers: { Authorization: `Bearer ${getToken()}` }
+      });
+      const datasetNotas = await notasRes.json();
+      
+      const listaNotas = datasetNotas?.notas || datasetNotas?.registros || [];
+      
+      if (Array.isArray(listaNotas)) {
+        // Clonamos el arreglo de Supabase, lo invertimos (más nuevas primero) y dejamos las 3 en pantalla
+        const notasNuevasPrimero = [...listaNotas].reverse();
+        setNotas(notasNuevasPrimero.slice(0, 3));
+      }
 
     } catch (e) { 
       console.error("❌ Error en guardarNota:", e); 
