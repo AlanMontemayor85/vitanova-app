@@ -423,32 +423,33 @@ export default function CuidadorScreen() {
 
   const ejecutarCierre = async () => {
     try {
-      // 1. 🔍 Vamos por todas las notas incidentales del paciente
-      const notasRes = await fetch(`${BASE_URL}/notas?paciente_id=${pacienteActivo.id}`, {
-        headers: { Authorization: `Bearer ${getToken()}` }
+      const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({
+          paciente_id: pacienteActivo.id, estado_paciente: estadoPaciente, peso_kg: peso,
+          barthel_scores: barthelTocado ? barthelScores : null, barthel_total: barthelTocado ? barthelTotal : null, barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
+          morse_scores: morseTocado ? morseScores : null, morse_total: morseTocado ? morseTotal : null, morse_label: morseTocado ? getMorseLabel(morseTotal) : null,
+          mna_scores: mnaTocado ? mnaScores : null, mna_total: mnaTocado ? mnaTotal : null, mna_label: mnaTocado ? getMNALabel(mnaTotal) : null,
+        }),
       });
-      const datasetNotas = await notasRes.json();
-      
-      let notasConsolidadas = "Sin notas incidentales en el turno.";
-
-      if (datasetNotas && Array.isArray(datasetNotas.notas)) {
-        // 2. ⏳ Filtramos usando tu referencia exacta en memoria
-        const idTurnoActual = turnoActivoRef.current?.id;
-        const notasDelTurno = datasetNotas.notas.filter(
-          (n: any) => n.turno_id === idTurnoActual
-        ); // 👈 ¡Dejado impecable aquí!
-
-        if (notasDelTurno.length > 0) {
-          // 3. 🧵 Las ordenamos cronológicamente y las unimos con su hora de registro
-          notasConsolidadas = notasDelTurno
-            .reverse() // De la primera a la última del día
-            .map((n: any) => {
-              const hora = new Date(n.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
-              return `[${hora}] ${n.texto}`;
-            })
-            .join('\n');
-        }
+      const data = await res.json();
+      if (data.status === 'ok') {
+        const pData = await getPacientes();
+        if (pData.patients) setPacientes(pData.patients);
+        resetEstados(); setVista('lista');
+        Alert.alert('✅ Turno Cerrado', 'Reporte enviado al familiar principal.');
       }
+    } catch (e) { console.error(e); }
+  };
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
+        <ActivityIndicator size="large" color={COLORS.gold} />
+      </View>
+    );
+  }
 
       // 4. 🚀 Mandamos el cierre definitivo a Supabase con la bitácora armada
       const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
