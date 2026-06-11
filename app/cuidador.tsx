@@ -551,7 +551,7 @@ export default function CuidadorScreen() {
           frecuencia_cardiaca: signosDispositivo?.fc ? parseInt(signosDispositivo.fc, 10) : null,
           presion_sistolica: sistolica,
           presion_diastolica: diastolica,
-          temperatura: signosDispositivo?.temperatura ? parseFloat(signosDispositivo.temperatura) : null,
+          temperatura: signosDispositivo?.temperatura ? parseFloat(String(signosDispositivo.temperatura)) : null, // ⚡ Inyección limpia
 
           // Evaluaciones clínicas
           barthel_scores: barthelTocado ? barthelScores : null, 
