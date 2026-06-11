@@ -241,9 +241,9 @@ export default function CuidadorScreen() {
     }
   }, [params.vistaInicial, params.paciente]);
 
-  // 🟢 4. CARGA CONSOLIDADA AL ACTIVAR PACIENTE (CLONADO DEL INDEX)
+  // 🟢 4. CARGA CONSOLIDADA AL ACTIVAR PACIENTE (RESTAURADO E INDESTRUCTIBLE)
   const cargarTurno = async (pacienteId: string) => {
-    // Lanzamos todas las promesas en paralelo directo a Supabase
+    // Lanzamos todas las promesas en paralelo directo a Supabase usando tus funciones nativas
     const [turnoData, tareasData, notasData, cierreData, alertaPesoData] = await Promise.all([
       getTurnoActivo(pacienteId),
       getTareasDia(pacienteId),
@@ -262,14 +262,16 @@ export default function CuidadorScreen() {
     }
     if (tareasData.tareas) setTareas(tareasData.tareas);
     
-    // Inyectamos los históricos de la red en los estados locales
-    // 🟢 CORRECCIÓN: Validamos de forma flexible si viene como .notas o .registros
-    const notasLimpias = notasData?.notas || notasData?.registros || [];
-    setNotas(Array.isArray(notasLimpias) ? notasLimpias.slice(0, 3) : []);
+    // 🟢 Regresamos a tu línea original y estable que nunca falla
+    if (notasData && notasData.notas) {
+      setNotas(notasData.notas.slice(0, 3)); // Muestra las 3 notas del display sin inventos
+    } else {
+      setNotas([]);
+    }
+
     if (cierreData.cierre) setUltimoCierre(cierreData.cierre);
     if (alertaPesoData.alerta) setAlertaPeso(alertaPesoData);
   };
-
   const resetEstados = () => {
     setPacienteActivo(null);
     setTurnoActivo(null);
@@ -356,9 +358,8 @@ export default function CuidadorScreen() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
         body: JSON.stringify({ 
           paciente_id: pacienteActivo.id, 
-          // 🟢 Mantenemos tu mapeo original exacto
           turno_id: turnoActivoRef.current?.id || null, 
-          texto: notaTexto.trim() 
+          observaciones: notaTexto.trim() // 🟢 CAMBIO CRÍTICO: Mandamos 'observaciones'
         })
       });
 
@@ -368,18 +369,10 @@ export default function CuidadorScreen() {
       setNotaOpen(false);
       alert("✅ Nota guardada con éxito.");
       
-      // 🟢 REPARACIÓN DEL DISPLAY: Refresco cronológico inverso usando el canal general
-      const notasRes = await fetch(`${BASE_URL}/notas?paciente_id=${pacienteActivo.id}`, {
-        headers: { Authorization: `Bearer ${getToken()}` }
-      });
-      const datasetNotas = await notasRes.json();
-      
-      const listaNotas = datasetNotas?.notas || datasetNotas?.registros || [];
-      
-      if (Array.isArray(listaNotas)) {
-        // Clonamos el arreglo de Supabase, lo invertimos (más nuevas primero) y dejamos las 3 en pantalla
-        const notasNuevasPrimero = [...listaNotas].reverse();
-        setNotas(notasNuevasPrimero.slice(0, 3));
+      // Refrescamos localmente con tu función nativa original
+      const notasData = await getNotasTurno(pacienteActivo.id);
+      if (notasData && notasData.notas) {
+        setNotas(notasData.notas.slice(0, 3));
       }
 
     } catch (e) { 
@@ -389,7 +382,6 @@ export default function CuidadorScreen() {
       setGuardandoNota(false); 
     }
   };
-
   const guardarTareaManual = async () => {
     if (!tareaDesc.trim()) return;
     setGuardandoTarea(true);
@@ -674,11 +666,11 @@ export default function CuidadorScreen() {
             <>
               <Text style={styles.sectionTitle}>Notas del Cuidador (Últimos Relevos)</Text>
               {notas.map((n, i) => {
-                // 🟢 1. Extracción e inicialización segura del texto
-                const rawTexto = n?.texto || n?.descripcion || "Nota incidental";
+                // 🟢 1. Extracción real desde la columna 'observaciones' de tu Supabase
+                const rawTexto = n?.observaciones || n?.texto || n?.descripcion || "Nota incidental";
                 const contenidoNota = String(rawTexto).replace('📝 ', '');
                 
-                // 🟢 2. Formateo de fecha agrupado correctamente con paréntesis
+                // 🟢 2. Formateo de fecha (Mantiene la impresión de la hora exacta de la nota)
                 const fechaBase = n?.created_at || n?.hora_completada;
                 let horaNota = '—';
                 
@@ -693,7 +685,7 @@ export default function CuidadorScreen() {
                   }
                 }
 
-                // 🟢 3. Extracción segura del nombre del usuario/cuidador
+                // 🟢 3. Extracción segura del nombre del cuidador
                 const nombreCuidador = n?.usuarios?.nombre_completo || 
                                        n?.cuidador?.nombre_completo || 
                                        'Personal Vitanova';
