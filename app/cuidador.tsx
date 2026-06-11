@@ -521,7 +521,20 @@ export default function CuidadorScreen() {
         sistolica = parseInt(partes[0], 10) || null;
         diastolica = parseInt(partes[1], 10) || null;
       }
-
+      const rawTemp = signosDispositivo?.temperatura || signosDispositivo?.temp || null;
+      let temperaturaLimpia = null;
+      if (rawTemp !== null && rawTemp !== undefined) {
+        // Limpiamos strings por si trae el carácter '°' o '°C' desde el sensor
+        const tempString = String(rawTemp).replace('°C', '').replace('°', '').trim();
+        temperaturaLimpia = parseFloat(tempString) || null;
+      }
+      console.log("🚀 TELEMETRÍA A ENVIAR:", {
+        spo2: signosDispositivo?.spo2,
+        fc: signosDispositivo?.fc,
+        sistolica,
+        diastolica,
+        temperaturaEnviada: temperaturaLimpia
+      });
       // 4. 🚀 Mandamos el payload consolidado completo a tu backend en Railway
       const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
         method: 'POST',
