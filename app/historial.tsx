@@ -83,14 +83,9 @@ export default function HistorialScreen() {
           </View>
         ) : (
           cierres.map((c) => {
-            // 1. Planificadas: tienen hora programada, NO son incidentales ni notas
-            const tareasNormales = c.tareas?.filter((t: any) => !t.es_incidental && t.hora_programada && !t.descripcion?.startsWith('📝')) ?? [];
-
-            // 2. Incidentales: la bandera es_incidental manda, sin importar el tipo
+            const tareasNormales     = c.tareas?.filter((t: any) => !t.es_incidental && t.hora_programada && !t.descripcion?.startsWith('📝')) ?? [];
             const tareasIncidentales = c.tareas?.filter((t: any) => t.es_incidental && !t.descripcion?.startsWith('📝')) ?? [];
-
-            // 3. Notas: por el marcador 📝 (las consolidadas siguen llegando por c.notas)
-            const notasTareas = c.tareas?.filter((t: any) => t.descripcion?.startsWith('📝')) ?? [];
+            const notasTareas        = c.tareas?.filter((t: any) => t.descripcion?.startsWith('📝')) ?? [];
             
             const completadasNormales = tareasNormales.filter((t: any) => t.completada).length;
             const tieneNotaNativa = c.notas && c.notas.trim() !== '' && !c.notas.includes('Sin notas incidentales');
