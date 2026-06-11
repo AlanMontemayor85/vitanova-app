@@ -209,7 +209,7 @@ export default function CuidadorScreen() {
   }, []);
 
   // ── NAVEGACIÓN DESDE OTRAS PANTALLAS ──
-  // ── NAVEGACIÓN DESDE OTRAS PANTALLAS BLINDADA ──
+  
   useEffect(() => {
     if (params.vistaInicial === 'turno' && params.paciente) {
       try {
@@ -263,7 +263,9 @@ export default function CuidadorScreen() {
     if (tareasData.tareas) setTareas(tareasData.tareas);
     
     // Inyectamos los históricos de la red en los estados locales
-    if (notasData.notas) setNotas(notasData.notas.slice(0, 3)); // 3 notas más frescas
+    // 🟢 CORRECCIÓN: Validamos de forma flexible si viene como .notas o .registros
+    const notasLimpias = notasData?.notas || notasData?.registros || [];
+    setNotas(Array.isArray(notasLimpias) ? notasLimpias.slice(0, 3) : []);
     if (cierreData.cierre) setUltimoCierre(cierreData.cierre);
     if (alertaPesoData.alerta) setAlertaPeso(alertaPesoData);
   };
@@ -648,21 +650,33 @@ export default function CuidadorScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* 📝 SECCIÓN: NOTAS DEL CUIDADOR RECIENTES (CLONADO DEL INDEX AMARILLO) */}
+          {/* 📝 SECCIÓN: NOTAS DEL CUIDADOR RECIENTES REPARADA */}
           {notas.length > 0 && (
             <>
               <Text style={styles.sectionTitle}>Notas del Cuidador (Últimos Relevos)</Text>
-              {notas.map((n, i) => (
-                <View key={i} style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0', marginHorizontal: 0 }]}>
-                  <Text style={styles.alertIcon}>📝</Text>
-                  <View style={styles.alertContent}>
-                    <Text style={styles.alertTitle}>{n.descripcion?.replace('📝 ', '')}</Text>
-                    <Text style={styles.alertSub}>
-                      {n.usuarios?.nombre_completo ?? 'Cuidador'} · {n.hora_completada ? new Date(n.hora_completada).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '—'}
-                    </Text>
+              {notas.map((n, i) => {
+                // 🟢 Extraemos el texto de forma segura sin importar si viene como texto o descripcion
+                const contenidoNota = n.texto || n.descripcion || "Nota incidental";
+                
+                // Formateamos la hora de creación de manera segura
+                const horaNota = n.created_at || n.hora_completada
+                  ? new Date(n.created_at || n.hora_completada).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+                  : '—';
+
+                return (
+                  <View key={i} style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0', marginHorizontal: 0 }]}>
+                    <Text style={styles.alertIcon}>📝</Text>
+                    <View style={styles.alertContent}>
+                      <Text style={styles.alertTitle}>
+                        {contenidoNota.replace('📝 ', '')}
+                      </Text>
+                      <Text style={styles.alertSub}>
+                        {n.usuarios?.nombre_completo || n.cuidador?.nombre_completo || 'Personal Vitanova'} · {horaNota} hrs
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </>
           )}
 
