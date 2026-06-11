@@ -483,7 +483,7 @@ export default function CuidadorScreen() {
       setNotas(Array.isArray(notasActualizadas) ? notasActualizadas.slice(0, 3) : []);
       
       let notasConsolidadas = "Sin notas incidentales en el turno.";
-
+      
       // Validamos usando la misma elasticidad de propiedades (.notas o .registros)
       const arrayParaFiltrar = Array.isArray(datasetNotas?.notas) 
         ? datasetNotas.notas 
@@ -512,6 +512,16 @@ export default function CuidadorScreen() {
         }
       }
 
+      // 🟢 CONTROL CLÍNICO DE TELEMETRÍA AUTOMÁTICA DE HARDWARE
+      // Separamos el string de presión (ej. "120/80") de forma segura en sístole y diástole
+      let sistolica = null;
+      let diastolica = null;
+      if (signosDispositivo?.presion && String(signosDispositivo.presion).includes('/')) {
+        const partes = String(signosDispositivo.presion).split('/');
+        sistolica = parseInt(partes[0], 10) || null;
+        diastolica = parseInt(partes[1], 10) || null;
+      }
+
       // 4. 🚀 Mandamos el payload consolidado completo a tu backend en Railway
       const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
         method: 'POST',
@@ -521,7 +531,16 @@ export default function CuidadorScreen() {
           paciente_id: pacienteActivo.id, 
           estado_paciente: estadoPaciente, 
           peso_kg: peso,
-          notas: notasConsolidadas, // 🟢 La bitácora armada va aquí
+          notas: notasConsolidadas, 
+          
+          // 🟢 INYECCIÓN DE SIGNOS VITALES HACIA CIERRES_TURNO
+          spo2: signosDispositivo?.spo2 ? parseInt(signosDispositivo.spo2, 10) : null,
+          frecuencia_cardiaca: signosDispositivo?.fc ? parseInt(signosDispositivo.fc, 10) : null,
+          presion_sistolica: sistolica,
+          presion_diastolica: diastolica,
+          temperatura: signosDispositivo?.temperatura ? parseFloat(signosDispositivo.temperatura) : null,
+
+          // Evaluaciones clínicas
           barthel_scores: barthelTocado ? barthelScores : null, 
           barthel_total: barthelTocado ? barthelTotal : null, 
           barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
