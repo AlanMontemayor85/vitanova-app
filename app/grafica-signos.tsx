@@ -15,6 +15,14 @@ const COLORS = {
   amberPale: '#FFF4E0'
 };
 
+// 🟢 Helper único para leer la temperatura sin importar el nombre del campo que mande el backend
+function leerTemperatura(r: any): number | null {
+  const raw = r?.temperatura ?? r?.temperatura_corporal;
+  if (raw === null || raw === undefined || raw === '—') return null;
+  const num = Number(String(raw).replace('°C', '').replace('°', '').trim());
+  return Number.isFinite(num) ? num : null;
+}
+
 function MiniChart({
   datos, color, min, max, unidad, alerta, fechas
 }: {
@@ -38,7 +46,7 @@ function MiniChart({
   const tendencia = ultimo > anterior ? '↑' : ultimo < anterior ? '↓' : '→';
   const enAlerta = alerta ? (unidad === "%" ? ultimo < alerta : ultimo > alerta) : false;
 
-  const fechaInicialStr = fechas && fechas[0] 
+  const fechaInicialStr = fechas && fechas[0]
     ? new Date(fechas[0]).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
     : 'Inicio';
 
@@ -134,7 +142,10 @@ export default function GraficaSignosScreen() {
   const dstolicaData = registrosFiltrados.map(r => r.presion_diastolica).filter(v => v !== null && v !== undefined);
   const fcData = registrosFiltrados.map(r => r.frecuencia_cardiaca).filter(v => v !== null && v !== undefined);
   const pesoData = registrosFiltrados.map(r => r.peso_kg).filter(v => v !== null && v !== undefined);
-  const temperaturaData = registrosFiltrados.map(r => r.temperatura_corporal || r.temperatura).filter(v => v !== null && v !== undefined);
+  // 🟢 Temperatura: usamos el helper y descartamos los nulos de forma segura
+  const temperaturaData = registrosFiltrados
+    .map(leerTemperatura)
+    .filter((v): v is number => v !== null);
 
   if (loading) {
     return (
@@ -213,7 +224,7 @@ export default function GraficaSignosScreen() {
                       datos={sstolicaData}
                       fechas={fechasData}
                       color={COLORS.red}
-                      min={Math.min(...sstolicaData) - 10} 
+                      min={Math.min(...sstolicaData) - 10}
                       max={Math.max(...sstolicaData) + 10}
                       unidad=" mmHg"
                       alerta={140}
@@ -295,7 +306,7 @@ export default function GraficaSignosScreen() {
             {/* TABLA HISTÓRICA COMPLETA DE REGISTROS */}
             <View style={styles.chartCard}>
               <Text style={[styles.chartTitle, { marginBottom: 12 }]}>Bitácora de Monitoreo General</Text>
-              
+
               <View style={styles.historialHeaders}>
                 <Text style={[styles.historialHeaderText, { flex: 1.5, textAlign: 'left' }]}>Fecha/Hora</Text>
                 <Text style={styles.historialHeaderText}>SpO₂</Text>
@@ -306,25 +317,28 @@ export default function GraficaSignosScreen() {
               </View>
 
               <View style={{ marginTop: 4 }}>
-                {registros.slice(0, 10).map((r, i) => (
-                  <View key={i} style={styles.historialRow}>
-                    <View style={{ flex: 1.5 }}>
-                      <Text style={styles.historialFecha}>
-                        {new Date(r.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                {registros.slice(0, 10).map((r, i) => {
+                  const temp = leerTemperatura(r);
+                  return (
+                    <View key={i} style={styles.historialRow}>
+                      <View style={{ flex: 1.5 }}>
+                        <Text style={styles.historialFecha}>
+                          {new Date(r.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                        <Text style={styles.historialCuidador}>
+                          {r.usuarios?.nombre_completo?.split(' ')[0] ?? 'Personal'}
+                        </Text>
+                      </View>
+                      <Text style={styles.historialVal}>{r.spo2 ? `${r.spo2}%` : '—'}</Text>
+                      <Text style={styles.historialVal}>
+                        {r.presion_sistolica && r.presion_diastolica ? `${r.presion_sistolica}/${r.presion_diastolica}` : '—'}
                       </Text>
-                      <Text style={styles.historialCuidador}>
-                        {r.usuarios?.nombre_completo?.split(' ')[0] ?? 'Personal'}
-                      </Text>
+                      <Text style={styles.historialVal}>{r.frecuencia_cardiaca ?? '—'}</Text>
+                      <Text style={styles.historialVal}>{temp !== null ? `${temp.toFixed(1)}°` : '—'}</Text>
+                      <Text style={styles.historialVal}>{r.peso_kg ? `${r.peso_kg}k` : '—'}</Text>
                     </View>
-                    <Text style={styles.historialVal}>{r.spo2 ? `${r.spo2}%` : '—'}</Text>
-                    <Text style={styles.historialVal}>
-                      {r.presion_sistolica && r.presion_diastolica ? `${r.presion_sistolica}/${r.presion_diastolica}` : '—'}
-                    </Text>
-                    <Text style={styles.historialVal}>{r.frecuencia_cardiaca ?? '—'}</Text>
-                    <Text style={styles.historialVal}>{r.temperatura_corporal || r.temperatura ? `${Number(r.temperatura_corporal || r.temperatura).toFixed(1)}°` : '—'}</Text>
-                    <Text style={styles.historialVal}>{r.peso_kg ? `${r.peso_kg}k` : '—'}</Text>
-                  </View>
-                ))}
+                  );
+                })}
               </View>
             </View>
           </>
