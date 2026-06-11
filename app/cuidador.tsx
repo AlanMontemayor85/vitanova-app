@@ -546,13 +546,23 @@ export default function CuidadorScreen() {
                   </View>
                   {estadoTurno === 'activo' && <View style={styles.badgeActivo}><View style={styles.activoDot} /><Text style={styles.badgeActivoText}>En Turno</Text></View>}
                 </View>
-                {estadoTurno === 'no_iniciado' && (
-                  <TouchableOpacity style={[styles.iniciarBtn, { marginTop: 10 }]} onPress={() => manejarInicioTurno(p)} disabled={iniciando}>
-                    <Text style={styles.iniciarBtnText}>{iniciando ? 'Sincronizando...' : 'Proceder a Verificación →'}</Text>
+                {estadoTurno !== 'activo' && (
+                  <TouchableOpacity 
+                    style={[styles.iniciarBtn, { marginTop: 10 }]} 
+                    onPress={() => manejarInicioTurno(p)} 
+                    disabled={iniciando}
+                  >
+                    <Text style={styles.iniciarBtnText}>
+                      {iniciando ? 'Sincronizando...' : 'Proceder a Verificación →'}
+                    </Text>
                   </TouchableOpacity>
                 )}
+                
                 {estadoTurno === 'activo' && (
-                  <TouchableOpacity style={[styles.iniciarBtn, { backgroundColor: COLORS.greenPale, borderColor: COLORS.green, marginTop: 10 }]} onPress={() => { setPacienteActivo(p); cargarTurno(p.id); setVista('turno'); }}>
+                  <TouchableOpacity 
+                    style={[styles.iniciarBtn, { backgroundColor: COLORS.greenPale, borderColor: COLORS.green, marginTop: 10 }]} 
+                    onPress={() => { setPacienteActivo(p); cargarTurno(p.id); setVista('turno'); }}
+                  >
                     <Text style={[styles.iniciarBtnText, { color: COLORS.green }]}>Abrir Consola de Control →</Text>
                   </TouchableOpacity>
                 )}
