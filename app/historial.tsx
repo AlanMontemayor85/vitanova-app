@@ -15,6 +15,7 @@ const ICONOS_TIPO: Record<string, string> = {
 };
 
 function formatFecha(iso: string) {
+  if (!iso) return '—';
   return new Date(iso).toLocaleString('es-MX', {
     day: 'numeric', month: 'long', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
@@ -22,6 +23,7 @@ function formatFecha(iso: string) {
 }
 
 function formatHora(iso: string) {
+  if (!iso) return '—';
   return new Date(iso).toLocaleString('es-MX', {
     day: 'numeric',
     month: 'short',
@@ -46,13 +48,13 @@ export default function HistorialScreen() {
         const data = await getHistorialCierres(pacienteId);
         if (data.cierres) setCierres(data.cierres);
       } catch (e) {
-        console.error(e);
+        console.error("Error cargando historial:", e);
       } finally {
         setLoading(false);
       }
     };
     cargar();
-  }, []);
+  }, [pacienteId]);
 
   if (loading) {
     return (
@@ -90,6 +92,21 @@ export default function HistorialScreen() {
             const notasTareas = c.tareas?.filter((t: any) => t.tipo === 'otro') ?? [];
             const tieneNotaNativa = c.notas && c.notas.trim() !== '' && !c.notas.includes('Sin notas incidentales');
 
+            // Mapeos con fallbacks seguros
+            const displaySPO2 = c.spo2 !== null && c.spo2 !== undefined ? `${c.spo2}%` : '—';
+            
+            let displayPresion = '—';
+            if (c.presion_sistolica !== null && c.presion_diastolica !== null) {
+              displayPresion = `${c.presion_sistolica}/${c.presion_diastolica}`;
+            }
+
+            const displayFC = c.frecuencia_cardiaca !== null && c.frecuencia_cardiaca !== undefined ? `${c.frecuencia_cardiaca}` : '—';
+            
+            // 🟢 LEER NUEVA COLUMNA REAL DE SUPABASE
+            const displayTemp = c.temperatura !== null && c.temperatura !== undefined ? `${c.temperatura}°C` : '—';
+            const displayPeso = c.peso_kg !== null && c.peso_kg !== undefined ? `${c.peso_kg} kg` : '—';
+            const displayEstado = c.estado_paciente ? String(c.estado_paciente).toUpperCase() : 'REGULAR';
+
             return (
               <View key={c.id} style={styles.cierreCard}>
 
@@ -100,7 +117,7 @@ export default function HistorialScreen() {
                   </Text>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.cierreNombreCuidador}>
-                      {c.usuarios?.nombre_completo ?? 'Cuidador'}
+                      {c.usuarios?.nombre_completo ?? 'Personal Vitanova'}
                     </Text>
                     <Text style={styles.cierreFecha}>{formatFecha(c.created_at)}</Text>
                   </View>
@@ -111,50 +128,45 @@ export default function HistorialScreen() {
                     <Text style={[styles.estadoPillText, {
                       color: c.estado_paciente === 'bien' ? COLORS.green :
                         c.estado_paciente === 'preocupante' ? COLORS.red : COLORS.amber
-                    }]}>{c.estado_paciente}</Text>
+                    }]}>{displayEstado}</Text>
                   </View>
                 </View>
 
-                {/* 🩺 SIGNOS VITALES AMPLIADOS CON TEMPERATURA */}
+                {/* 🩺 TABLA COMPLETA DE 5 SIGNOS EN ALTA DEFINICIÓN CLÍNICA */}
                 <View style={styles.signosRow}>
                   <View style={styles.signoItem}>
-                    <Text style={styles.signoVal}>{c.spo2 ?? '—'}%</Text>
+                    <Text style={styles.signoVal}>{displaySPO2}</Text>
                     <Text style={styles.signoLabel}>SpO₂</Text>
                   </View>
                   <View style={styles.signoItem}>
-                    <Text style={styles.signoVal}>{c.presion_sistolica ?? '—'}/{c.presion_diastolica ?? '—'}</Text>
+                    <Text style={styles.signoVal}>{displayPresion}</Text>
                     <Text style={styles.signoLabel}>Presión</Text>
                   </View>
                   <View style={styles.signoItem}>
-                    <Text style={styles.signoVal}>{c.frecuencia_cardiaca ?? '—'}</Text>
+                    <Text style={styles.signoVal}>{displayFC}</Text>
                     <Text style={styles.signoLabel}>FC bpm</Text>
                   </View>
-                  {/* 🟢 NUEVA COLUMNA: Temperatura Corporal extraída del cierre */}
                   <View style={styles.signoItem}>
-                    <Text style={[styles.signoVal, { color: COLORS.cacao }]}>
-                      {c.temperatura ? `${c.temperatura}°` : '—'}
-                    </Text>
+                    <Text style={[styles.signoVal, { color: COLORS.cacao }]}>{displayTemp}</Text>
                     <Text style={styles.signoLabel}>Temp</Text>
                   </View>
-                  {c.peso_kg && (
-                    <View style={styles.signoItem}>
-                      <Text style={styles.signoVal}>{c.peso_kg}</Text>
-                      <Text style={styles.signoLabel}>kg</Text>
-                    </View>
-                  )}
+                  <View style={styles.signoItem}>
+                    <Text style={[styles.signoVal, { color: COLORS.textDark }]}>{displayPeso}</Text>
+                    <Text style={styles.signoLabel}>Peso</Text>
+                  </View>
                 </View>
 
                 {/* ACTIVIDADES */}
                 {tareasSinNotas.length > 0 && (
                   <View style={styles.tareasSection}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                      <Text style={styles.tareasSectionTitle}>Actividades</Text>
+                      <Text style={styles.tareasSectionTitle}>Actividades Ejecutadas</Text>
                       <Text style={{ fontSize: 10, color: COLORS.textLight }}>
                         {completadas}/{tareasSinNotas.length} completadas
                       </Text>
                     </View>
                     {tareasSinNotas.map((t: any, j: number) => (
-                      <View key={j} style={styles.tareaItem}>
+                      <View key={`tarea-${j}`} style={styles.tareaItem}>
                         <Text style={styles.tareaItemIcon}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
                         <Text style={[
                           styles.tareaItemText,
@@ -171,14 +183,14 @@ export default function HistorialScreen() {
                   </View>
                 )}
 
-                {/* SECCIÓN DE NOTAS */}
+                {/* NOTAS DE EVOLUCIÓN */}
                 {(notasTareas.length > 0 || tieneNotaNativa) && (
                   <View style={styles.notasSection}>
                     <Text style={styles.tareasSectionTitle}>Notas de Evolución</Text>
                     {tieneNotaNativa && (
                       <View style={styles.notaItem}>
                         <Text style={{ flex: 1, fontSize: 12, color: COLORS.textDark, fontWeight: '500' }}>
-                          {String(c.notas).replace('📝 ', '')}
+                          {String(c.notes || c.notas).replace('📝 ', '')}
                         </Text>
                         <Text style={styles.tareaItemHora}>Consolidado</Text>
                       </View>
@@ -196,7 +208,7 @@ export default function HistorialScreen() {
                   </View>
                 )}
 
-                {/* ESCALAS */}
+                {/* ESCALAS CLÍNICAS */}
                 {(c.barthel_total !== null || c.morse_total !== null || c.mna_total !== null) && (
                   <View style={{ borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 10, marginTop: 8, gap: 6 }}>
                     {c.barthel_total !== null && (
@@ -247,9 +259,9 @@ const styles = StyleSheet.create({
   cierreFecha: { fontSize: 10, color: COLORS.textLight, marginTop: 2 },
   estadoPill: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   estadoPillText: { fontSize: 10, fontWeight: '700' },
-  signosRow: { flexDirection: 'row', gap: 6, marginBottom: 10 }, // Reducido ligeramente el gap para soportar 4-5 bloques cómodamente
-  signoItem: { flex: 1, backgroundColor: COLORS.cream, borderRadius: 8, padding: 6, alignItems: 'center' },
-  signoVal: { fontSize: 13, fontWeight: '800', color: COLORS.gold }, // Ajustado a 13 para prevenir desbordes de texto en pantallas compactas
+  signosRow: { flexDirection: 'row', gap: 4, marginBottom: 10 }, // Gap ajustado para contener las 5 columnas perfectamente
+  signoItem: { flex: 1, backgroundColor: COLORS.cream, borderRadius: 6, paddingVertical: 8, paddingHorizontal: 2, alignItems: 'center', justifyContent: 'center' },
+  signoVal: { fontSize: 11, fontWeight: '800', color: COLORS.gold, textAlign: 'center' }, // Fuente compactada para prevenir cortes de texto
   signoLabel: { fontSize: 9, color: COLORS.textLight, marginTop: 2 },
   tareasSection: { borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 10, marginTop: 8 },
   notasSection: { borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 10, marginTop: 4 },
