@@ -83,11 +83,15 @@ export default function HistorialScreen() {
           </View>
         ) : (
           cierres.map((c) => {
-            // 🟢 SEPARACIÓN CLÍNICA DE ACTIVIDADES EN EL FRONTEND
-            // 1. Tareas normales programadas (Tienen hora_programada o no son tipo 'otro')
+            // 🟢 SEPARACIÓN QUIRÚRGICA TRIPLE DE ACTIVIDADES
+            // 1. Planificadas: Tienen hora programada y NO son notas de texto libre (tipo 'otro')
             const tareasNormales = c.tareas?.filter((t: any) => t.tipo !== 'otro' && t.hora_programada) ?? [];
-            // 2. Incidentales reportadas (Tareas de tipo 'otro' ejecutadas sobre la marcha, o creadas como incidentales)
-            const tareasIncidentales = c.tareas?.filter((t: any) => t.tipo === 'otro' || !t.hora_programada) ?? [];
+            
+            // 2. Incidentales Operativas: Acciones de control ejecutadas al momento sin programación previa (excluye tipo 'otro')
+            const tareasIncidentales = c.tareas?.filter((t: any) => t.tipo !== 'otro' && !t.hora_programada) ?? [];
+            
+            // 3. Notas de Evolución: Registros de bitácora y comentarios de texto libre (estrictamente tipo 'otro')
+            const notasTareas = c.tareas?.filter((t: any) => t.tipo === 'otro') ?? [];
             
             const completadasNormales = tareasNormales.filter((t: any) => t.completada).length;
             const tieneNotaNativa = c.notas && c.notas.trim() !== '' && !c.notas.includes('Sin notas incidentales');
@@ -178,15 +182,15 @@ export default function HistorialScreen() {
                   </View>
                 )}
 
-                {/* ⚡ SECCIÓN 2: TAREAS / EVENTOS INCIDENTALES */}
+                {/* ⚡ SECCIÓN 2: EVENTOS INCIDENTALES OPERATIVOS */}
                 {tareasIncidentales.length > 0 && (
                   <View style={[styles.tareasSection, { borderTopColor: 'rgba(0,0,0,0.05)', marginTop: 10 }]}>
                     <Text style={[styles.tareasSectionTitle, { color: COLORS.amber }]}>Eventos Incidentales Ejecutados</Text>
                     {tareasIncidentales.map((t: any, j: number) => (
                       <View key={`incidental-${j}`} style={styles.tareaItem}>
-                        <Text style={styles.tareaItemIcon}>⚡</Text>
+                        <Text style={styles.tareaItemIcon}>{ICONOS_TIPO[t.tipo] ?? '⚡'}</Text>
                         <Text style={styles.tareaItemText}>
-                          {t.descripcion?.replace('📝 ', '')}
+                          {t.descripcion}
                         </Text>
                         <Text style={styles.tareaItemHora}>
                           {t.hora_completada ? formatHora(t.hora_completada) : '—'}
@@ -197,15 +201,32 @@ export default function HistorialScreen() {
                   </View>
                 )}
 
-                {/* 📝 SECCIÓN 3: NOTAS DE EVOLUCIÓN (BITÁCORA CONSOLIDADA) */}
-                {tieneNotaNativa && (
+                {/* 📝 SECCIÓN 3: NOTAS DE EVOLUCIÓN (BITÁCORA Y COMENTARIOS) */}
+                {(notasTareas.length > 0 || tieneNotaNativa) && (
                   <View style={styles.notasSection}>
-                    <Text style={styles.tareasSectionTitle}>Resumen y Notas del Cuidador</Text>
-                    <View style={styles.notaItem}>
-                      <Text style={{ flex: 1, fontSize: 12, color: COLORS.textDark, lineHeight: 16 }}>
-                        {String(c.notas).replace('📝 ', '')}
-                      </Text>
-                    </View>
+                    <Text style={styles.tareasSectionTitle}>Notas de Evolución del Turno</Text>
+                    
+                    {/* Nota nativa consolidada del cierre */}
+                    {tieneNotaNativa && (
+                      <View style={styles.notaItem}>
+                        <Text style={{ flex: 1, fontSize: 12, color: COLORS.textDark, lineHeight: 16, fontWeight: '500' }}>
+                          {String(c.notas).replace('📝 ', '')}
+                        </Text>
+                        <Text style={styles.tareaItemHora}>Consolidado</Text>
+                      </View>
+                    )}
+
+                    {/* Notas libres tipo 'otro' ingresadas en la consola */}
+                    {notasTareas.map((t: any, j: number) => (
+                      <View key={`task-nota-${j}`} style={styles.notaItem}>
+                        <Text style={{ flex: 1, fontSize: 12, color: COLORS.textDark, lineHeight: 16 }}>
+                          {t.descripcion?.replace('📝 ', '')}
+                        </Text>
+                        <Text style={styles.tareaItemHora}>
+                          {t.hora_completada ? formatHora(t.hora_completada) : '—'}
+                        </Text>
+                      </View>
+                    ))}
                   </View>
                 )}
 
