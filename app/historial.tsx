@@ -83,15 +83,14 @@ export default function HistorialScreen() {
           </View>
         ) : (
           cierres.map((c) => {
-            // 🟢 SEPARACIÓN QUIRÚRGICA TRIPLE DE ACTIVIDADES
-            // 1. Planificadas: Tienen hora programada y NO son notas de texto libre (tipo 'otro')
-            const tareasNormales = c.tareas?.filter((t: any) => t.tipo !== 'otro' && t.hora_programada) ?? [];
-            
-            // 2. Incidentales Operativas: Acciones de control ejecutadas al momento sin programación previa (excluye tipo 'otro')
-            const tareasIncidentales = c.tareas?.filter((t: any) => t.tipo !== 'otro' && !t.hora_programada) ?? [];
-            
-            // 3. Notas de Evolución: Registros de bitácora y comentarios de texto libre (estrictamente tipo 'otro')
-            const notasTareas = c.tareas?.filter((t: any) => t.tipo === 'otro') ?? [];
+            // 1. Planificadas: tienen hora programada, NO son incidentales ni notas
+            const tareasNormales = c.tareas?.filter((t: any) => !t.es_incidental && t.hora_programada && !t.descripcion?.startsWith('📝')) ?? [];
+
+            // 2. Incidentales: la bandera es_incidental manda, sin importar el tipo
+            const tareasIncidentales = c.tareas?.filter((t: any) => t.es_incidental && !t.descripcion?.startsWith('📝')) ?? [];
+
+            // 3. Notas: por el marcador 📝 (las consolidadas siguen llegando por c.notas)
+            const notasTareas = c.tareas?.filter((t: any) => t.descripcion?.startsWith('📝')) ?? [];
             
             const completadasNormales = tareasNormales.filter((t: any) => t.completada).length;
             const tieneNotaNativa = c.notas && c.notas.trim() !== '' && !c.notas.includes('Sin notas incidentales');
