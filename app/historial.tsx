@@ -85,8 +85,10 @@ export default function HistorialScreen() {
         ) : (
           cierres.map((c) => {
             const tareasSinNotas = c.tareas?.filter((t: any) => t.tipo !== 'otro') ?? [];
-            const notas = c.tareas?.filter((t: any) => t.tipo === 'otro') ?? [];
             const completadas = tareasSinNotas.filter((t: any) => t.completada).length;
+
+            const notasTareas = c.tareas?.filter((t: any) => t.tipo === 'otro') ?? [];
+            const tieneNotaNativa = c.notas && c.notas.trim() !== '' && !c.notas.includes('Sin notas incidentales');
 
             return (
               <View key={c.id} style={styles.cierreCard}>
@@ -113,7 +115,7 @@ export default function HistorialScreen() {
                   </View>
                 </View>
 
-                {/* SIGNOS VITALES */}
+                {/* 🩺 SIGNOS VITALES AMPLIADOS CON TEMPERATURA */}
                 <View style={styles.signosRow}>
                   <View style={styles.signoItem}>
                     <Text style={styles.signoVal}>{c.spo2 ?? '—'}%</Text>
@@ -126,6 +128,13 @@ export default function HistorialScreen() {
                   <View style={styles.signoItem}>
                     <Text style={styles.signoVal}>{c.frecuencia_cardiaca ?? '—'}</Text>
                     <Text style={styles.signoLabel}>FC bpm</Text>
+                  </View>
+                  {/* 🟢 NUEVA COLUMNA: Temperatura Corporal extraída del cierre */}
+                  <View style={styles.signoItem}>
+                    <Text style={[styles.signoVal, { color: COLORS.cacao }]}>
+                      {c.temperatura ? `${c.temperatura}°` : '—'}
+                    </Text>
+                    <Text style={styles.signoLabel}>Temp</Text>
                   </View>
                   {c.peso_kg && (
                     <View style={styles.signoItem}>
@@ -146,7 +155,7 @@ export default function HistorialScreen() {
                     </View>
                     {tareasSinNotas.map((t: any, j: number) => (
                       <View key={j} style={styles.tareaItem}>
-                        <Text style={styles.tareaItemIcon}>{ICONOS_TIPO[t.tipo] ?? '📝'}</Text>
+                        <Text style={styles.tareaItemIcon}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
                         <Text style={[
                           styles.tareaItemText,
                           t.completada && { textDecorationLine: 'line-through', color: COLORS.textLight }
@@ -162,12 +171,20 @@ export default function HistorialScreen() {
                   </View>
                 )}
 
-                {/* NOTAS */}
-                {notas.length > 0 && (
+                {/* SECCIÓN DE NOTAS */}
+                {(notasTareas.length > 0 || tieneNotaNativa) && (
                   <View style={styles.notasSection}>
-                    <Text style={styles.tareasSectionTitle}>Notas</Text>
-                    {notas.map((t: any, j: number) => (
-                      <View key={j} style={styles.notaItem}>
+                    <Text style={styles.tareasSectionTitle}>Notas de Evolución</Text>
+                    {tieneNotaNativa && (
+                      <View style={styles.notaItem}>
+                        <Text style={{ flex: 1, fontSize: 12, color: COLORS.textDark, fontWeight: '500' }}>
+                          {String(c.notas).replace('📝 ', '')}
+                        </Text>
+                        <Text style={styles.tareaItemHora}>Consolidado</Text>
+                      </View>
+                    )}
+                    {notasTareas.map((t: any, j: number) => (
+                      <View key={`task-nota-${j}`} style={styles.notaItem}>
                         <Text style={{ flex: 1, fontSize: 12, color: COLORS.textDark }}>
                           {t.descripcion?.replace('📝 ', '')}
                         </Text>
@@ -230,9 +247,9 @@ const styles = StyleSheet.create({
   cierreFecha: { fontSize: 10, color: COLORS.textLight, marginTop: 2 },
   estadoPill: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   estadoPillText: { fontSize: 10, fontWeight: '700' },
-  signosRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  signoItem: { flex: 1, backgroundColor: COLORS.cream, borderRadius: 8, padding: 8, alignItems: 'center' },
-  signoVal: { fontSize: 14, fontWeight: '800', color: COLORS.gold },
+  signosRow: { flexDirection: 'row', gap: 6, marginBottom: 10 }, // Reducido ligeramente el gap para soportar 4-5 bloques cómodamente
+  signoItem: { flex: 1, backgroundColor: COLORS.cream, borderRadius: 8, padding: 6, alignItems: 'center' },
+  signoVal: { fontSize: 13, fontWeight: '800', color: COLORS.gold }, // Ajustado a 13 para prevenir desbordes de texto en pantallas compactas
   signoLabel: { fontSize: 9, color: COLORS.textLight, marginTop: 2 },
   tareasSection: { borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 10, marginTop: 8 },
   notasSection: { borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 10, marginTop: 4 },
