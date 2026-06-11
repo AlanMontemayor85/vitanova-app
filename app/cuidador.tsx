@@ -658,28 +658,44 @@ export default function CuidadorScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* 📝 SECCIÓN: NOTAS DEL CUIDADOR RECIENTES REPARADA */}
-          {notas.length > 0 && (
+          {/* 📝 SECCIÓN: NOTAS DEL CUIDADOR RECIENTES REPARADA Y BLINDADA */}
+          {notas && notas.length > 0 && (
             <>
               <Text style={styles.sectionTitle}>Notas del Cuidador (Últimos Relevos)</Text>
               {notas.map((n, i) => {
-                // 🟢 Extraemos el texto de forma segura sin importar si viene como texto o descripcion
-                const contenidoNota = n.texto || n.descripcion || "Nota incidental";
+                // 🟢 1. Extracción e inicialización segura del texto
+                const rawTexto = n?.texto || n?.descripcion || "Nota incidental";
+                const contenidoNota = String(rawTexto).replace('📝 ', '');
                 
-                // Formateamos la hora de creación de manera segura
-                const horaNota = n.created_at || n.hora_completada
-                  ? new Date(n.created_at || n.hora_completada).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
-                  : '—';
+                // 🟢 2. Formateo de fecha agrupado correctamente con paréntesis
+                const fechaBase = n?.created_at || n?.hora_completada;
+                let horaNota = '—';
+                
+                if (fechaBase) {
+                  try {
+                    horaNota = new Date(fechaBase).toLocaleTimeString('es-MX', { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    });
+                  } catch (err) {
+                    console.error("Error parseando fecha de nota:", err);
+                  }
+                }
+
+                // 🟢 3. Extracción segura del nombre del usuario/cuidador
+                const nombreCuidador = n?.usuarios?.nombre_completo || 
+                                       n?.cuidador?.nombre_completo || 
+                                       'Personal Vitanova';
 
                 return (
                   <View key={i} style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0', marginHorizontal: 0 }]}>
                     <Text style={styles.alertIcon}>📝</Text>
                     <View style={styles.alertContent}>
                       <Text style={styles.alertTitle}>
-                        {contenidoNota.replace('📝 ', '')}
+                        {contenidoNota}
                       </Text>
                       <Text style={styles.alertSub}>
-                        {n.usuarios?.nombre_completo || n.cuidador?.nombre_completo || 'Personal Vitanova'} · {horaNota} hrs
+                        {nombreCuidador} · {horaNota} hrs
                       </Text>
                     </View>
                   </View>
