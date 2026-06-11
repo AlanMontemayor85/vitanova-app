@@ -449,16 +449,16 @@ export default function CuidadorScreen() {
       
       let notasConsolidadas = "Sin notas incidentales en el turno.";
 
-      // Validamos que el array de notas exista en la respuesta de tu API
       if (datasetNotas && Array.isArray(datasetNotas.notas)) {
-        // 2. ⏳ Filtramos usando tu referencia exacta en memoria para este turno
-        const idTurnoActual = turnoActivoRef.current?.id;
+        // 2. ⏳ CORRECCIÓN: Filtro híbrido táctico (Por ID de turno actual o notas del paciente de hoy)
+        const idTurnoActual = turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId;
+        
         const notasDelTurno = datasetNotas.notas.filter(
-          (n: any) => n.turno_id === idTurnoActual
+          (n: any) => n.turno_id === idTurnoActual || n.turno_id === null
         );
 
         if (notasDelTurno.length > 0) {
-          // 3. 🧵 Las ordenamos cronológicamente (de la primera a la última) y las formateamos con su hora
+          // 3. 🧵 Orden cronológico y formateo
           notasConsolidadas = notasDelTurno
             .reverse() 
             .map((n: any) => {
@@ -472,16 +472,15 @@ export default function CuidadorScreen() {
         }
       }
 
-      // 4. 🚀 Mandamos el payload consolidado a tu backend en Railway
+      // 4. 🚀 CORRECCIÓN: Mandamos el payload amarrado explícitamente al ID de Rosa López
       const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
         body: JSON.stringify({
-          turno_id: turnoActivoRef.current?.id, // Enlazamos el ID para que el backend cierre la fila correcta
-          paciente_id: pacienteActivo.id, 
+          turno_id: turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId, // Enlazamos el ID recuperado por cualquier canal
+          paciente_id: pacienteActivo.id, // 👈 Asegura que impacte en la cuenta de Rosa López
           estado_paciente: estadoPaciente, 
           peso_kg: peso,
-          // 🟢 INTEGRACIÓN DE NOTAS: Mandamos la bitácora armada al campo del backend
           notas: notasConsolidadas, 
           barthel_scores: barthelTocado ? barthelScores : null, 
           barthel_total: barthelTocado ? barthelTotal : null, 
