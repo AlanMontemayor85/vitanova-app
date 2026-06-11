@@ -807,7 +807,12 @@ export default function CuidadorScreen() {
                 { text: '✓ Ejecutada', onPress: async () => {
                   if (t.med_id) await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora);
                   else if (t.actividad_id) await completarActividad(t.actividad_id, pacienteActivo.id);
-                  
+                  else if (t.es_incidental && t.id) {
+                    await fetch(`${BASE_URL}/tareas/${t.id}/completar`, {
+                      method: 'PATCH',
+                      headers: { Authorization: `Bearer ${getToken()}` }
+                    });
+                  }
                   setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: true } : item));
                   
                   const data = await getTareasDia(pacienteActivo.id); 
