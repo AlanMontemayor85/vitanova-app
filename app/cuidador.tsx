@@ -447,18 +447,27 @@ export default function CuidadorScreen() {
       });
       const datasetNotas = await notasRes.json();
       
+      // Jalamos el array elásticamente para actualizar el estado local por si acaso
+      const notasActualizadas = datasetNotas?.notas || datasetNotas?.registros || [];
+      setNotas(Array.isArray(notasActualizadas) ? notasActualizadas.slice(0, 3) : []);
+      
       let notasConsolidadas = "Sin notas incidentales en el turno.";
 
-      if (datasetNotas && Array.isArray(datasetNotas.notas)) {
-        // 2. ⏳ CORRECCIÓN: Filtro híbrido táctico (Por ID de turno actual o notas del paciente de hoy)
+      // Validamos usando la misma elasticidad de propiedades (.notas o .registros)
+      const arrayParaFiltrar = Array.isArray(datasetNotas?.notas) 
+        ? datasetNotas.notas 
+        : (Array.isArray(datasetNotas?.registros) ? datasetNotas.registros : null);
+
+      if (arrayParaFiltrar) {
+        // 2. ⏳ Filtro híbrido táctico (Por ID de turno actual o notas huérfanas de hoy)
         const idTurnoActual = turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId;
         
-        const notasDelTurno = datasetNotas.notas.filter(
+        const notasDelTurno = arrayParaFiltrar.filter(
           (n: any) => n.turno_id === idTurnoActual || n.turno_id === null
         );
 
         if (notasDelTurno.length > 0) {
-          // 3. 🧵 Orden cronológico y formateo
+          // 3. 🧵 Orden cronológico y formateo clínico
           notasConsolidadas = notasDelTurno
             .reverse() 
             .map((n: any) => {
@@ -472,16 +481,16 @@ export default function CuidadorScreen() {
         }
       }
 
-      // 4. 🚀 CORRECCIÓN: Mandamos el payload amarrado explícitamente al ID de Rosa López
+      // 4. 🚀 Mandamos el payload consolidado completo a tu backend en Railway
       const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
         body: JSON.stringify({
-          turno_id: turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId, // Enlazamos el ID recuperado por cualquier canal
-          paciente_id: pacienteActivo.id, // 👈 Asegura que impacte en la cuenta de Rosa López
+          turno_id: turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId, 
+          paciente_id: pacienteActivo.id, 
           estado_paciente: estadoPaciente, 
           peso_kg: peso,
-          notas: notasConsolidadas, 
+          notas: notasConsolidadas, // 🟢 La bitácora armada va aquí
           barthel_scores: barthelTocado ? barthelScores : null, 
           barthel_total: barthelTocado ? barthelTotal : null, 
           barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
@@ -506,7 +515,7 @@ export default function CuidadorScreen() {
       console.error("❌ Error en ejecutarCierre consolidado:", e); 
       Alert.alert('⚠️ Error', 'Ocurrió un problema al procesar el cierre del turno.');
     }
-  }; // 🟢 Llave de la función cerrada correctamente
+  }; // 🟢 Función completamente cerrada
 
   if (loading) {
     return (
