@@ -209,18 +209,34 @@ export default function CuidadorScreen() {
   }, []);
 
   // ── NAVEGACIÓN DESDE OTRAS PANTALLAS ──
+  // ── NAVEGACIÓN DESDE OTRAS PANTALLAS BLINDADA ──
   useEffect(() => {
     if (params.vistaInicial === 'turno' && params.paciente) {
       try {
         const p = JSON.parse(params.paciente as string);
-        setPacienteActivo(p);
-        cargarTurno(p.id);
-        setVista('turno');
+        
+        // 🛡️ Verificación Táctica: Antes de cambiar la vista, validamos si el turno sigue vivo en Supabase
+        getTurnoActivo(p.id).then((turnoData) => {
+          if (turnoData && turnoData.turno) {
+            // Si el turno existe real en la base de datos, entramos con seguridad
+            setPacienteActivo(p);
+            cargarTurno(p.id);
+            setVista('turno');
+          } else {
+            // 🟢 Si el turno ya fue finalizado en Supabase, reseteamos la vista a la lista limpia
+            resetEstados();
+            setVista('lista');
+            // Limpiamos los parámetros de navegación para que no se quede en bucle al recargar
+            router.setParams({ vistaInicial: undefined, paciente: undefined });
+          }
+        });
+
         getPacientes().then(data => {
           if (data.patients) setPacientes(data.patients);
         });
       } catch (e) {
-        console.error('Error parseando paciente:', e);
+        console.error('Error parseando paciente o validando turno:', e);
+        setVista('lista');
       }
     }
   }, [params.vistaInicial, params.paciente]);
@@ -423,25 +439,73 @@ export default function CuidadorScreen() {
 
   const ejecutarCierre = async () => {
     try {
+      // 1. 🔍 Vamos por todas las notas incidentales del paciente registradas en el día
+      const notasRes = await fetch(`${BASE_URL}/notas?paciente_id=${pacienteActivo.id}`, {
+        headers: { Authorization: `Bearer ${getToken()}` }
+      });
+      const datasetNotas = await notasRes.json();
+      
+      let notasConsolidadas = "Sin notas incidentales en el turno.";
+
+      // Validamos que el array de notas exista en la respuesta de tu API
+      if (datasetNotas && Array.isArray(datasetNotas.notas)) {
+        // 2. ⏳ Filtramos usando tu referencia exacta en memoria para este turno
+        const idTurnoActual = turnoActivoRef.current?.id;
+        const notasDelTurno = datasetNotas.notas.filter(
+          (n: any) => n.turno_id === idTurnoActual
+        );
+
+        if (notasDelTurno.length > 0) {
+          // 3. 🧵 Las ordenamos cronológicamente (de la primera a la última) y las formateamos con su hora
+          notasConsolidadas = notasDelTurno
+            .reverse() 
+            .map((n: any) => {
+              const textoNota = n.texto || n.descripcion || "Nota sin texto";
+              const hora = n.created_at 
+                ? new Date(n.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+                : "";
+              return hora ? `[${hora}] ${textoNota}` : `- ${textoNota}`;
+            })
+            .join('\n');
+        }
+      }
+
+      // 4. 🚀 Mandamos el payload consolidado a tu backend en Railway
       const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
         body: JSON.stringify({
-          paciente_id: pacienteActivo.id, estado_paciente: estadoPaciente, peso_kg: peso,
-          barthel_scores: barthelTocado ? barthelScores : null, barthel_total: barthelTocado ? barthelTotal : null, barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
-          morse_scores: morseTocado ? morseScores : null, morse_total: morseTocado ? morseTotal : null, morse_label: morseTocado ? getMorseLabel(morseTotal) : null,
-          mna_scores: mnaTocado ? mnaScores : null, mna_total: mnaTocado ? mnaTotal : null, mna_label: mnaTocado ? getMNALabel(mnaTotal) : null,
+          turno_id: turnoActivoRef.current?.id, // Enlazamos el ID para que el backend cierre la fila correcta
+          paciente_id: pacienteActivo.id, 
+          estado_paciente: estadoPaciente, 
+          peso_kg: peso,
+          // 🟢 INTEGRACIÓN DE NOTAS: Mandamos la bitácora armada al campo del backend
+          notas: notasConsolidadas, 
+          barthel_scores: barthelTocado ? barthelScores : null, 
+          barthel_total: barthelTocado ? barthelTotal : null, 
+          barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
+          morse_scores: morseTocado ? morseScores : null, 
+          morse_total: morseTocado ? morseTotal : null, 
+          morse_label: morseTocado ? getMorseLabel(morseTotal) : null,
+          mna_scores: mnaTocado ? mnaScores : null, 
+          mna_total: mnaTocado ? mnaTotal : null, 
+          mna_label: mnaTocado ? getMNALabel(mnaTotal) : null,
         }),
       });
+
       const data = await res.json();
       if (data.status === 'ok') {
         const pData = await getPacientes();
         if (pData.patients) setPacientes(pData.patients);
-        resetEstados(); setVista('lista');
-        Alert.alert('✅ Turno Cerrado', 'Reporte enviado al familiar principal.');
+        resetEstados(); 
+        setVista('lista');
+        Alert.alert('✅ Turno Cerrado', 'La bitácora del día se ha consolidado e indexado con éxito.');
       }
-    } catch (e) { console.error(e); }
-  };
+    } catch (e) { 
+      console.error("❌ Error en ejecutarCierre consolidado:", e); 
+      Alert.alert('⚠️ Error', 'Ocurrió un problema al procesar el cierre del turno.');
+    }
+  }; // 🟢 Llave de la función cerrada correctamente
 
   if (loading) {
     return (
