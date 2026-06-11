@@ -689,46 +689,40 @@ export default function CuidadorScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* 📝 SECCIÓN: NOTAS DEL CUIDADOR RECIENTES */}
-          {notas && notas.length > 0 && (
-            <>
-              <Text style={styles.sectionTitle}>Notas del Cuidador (Últimos Relevos)</Text>
+          {/* 📝 SECCIÓN: NOTAS DEL CUIDADOR RECIENTES (REPARADA Y SIN PARPADEOS) */}
+          <Text style={styles.sectionTitle}>Notas del Cuidador (Últimos Relevos)</Text>
+          
+          {notas && notas.length > 0 ? (
+            // Agrupamos en un contenedor estático para evitar brincos en el ScrollView
+            <View style={{ gap: 8, marginBottom: 4 }}>
               {notas.map((n, i) => {
-                // 🟢 Tu backend mapea el texto en la propiedad 'descripcion'
-                const contenidoNota = n?.descripcion || "Nota incidental";
+                // Tu backend inyecta el texto con el emoji en la propiedad 'descripcion'
+                const contenidoNota = n?.descripcion || n?.texto || "Nota de relevo registrada";
                 
-                // Leemos 'hora_completada' que es la que inyecta datetime.utcnow().isoformat()
-                const fechaBase = n?.hora_completada || n?.created_at;
-                let horaNota = '—';
-                
-                if (fechaBase) {
-                  try {
-                    horaNota = new Date(fechaBase).toLocaleTimeString('es-MX', { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    });
-                  } catch (err) {
-                    console.error("Error parseando fecha:", err);
-                  }
-                }
-
-                const nombreCuidador = n?.usuarios?.nombre_completo || 'Personal Vitanova';
-
                 return (
-                  <View key={i} style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0', marginHorizontal: 0 }]}>
+                  <View key={n?.id || i} style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0', marginHorizontal: 0, marginBottom: 0 }]}>
                     <Text style={styles.alertIcon}>📝</Text>
                     <View style={styles.alertContent}>
                       <Text style={styles.alertTitle}>
                         {String(contenidoNota).replace('📝 ', '')}
                       </Text>
                       <Text style={styles.alertSub}>
-                        {nombreCuidador} · {horaNota} hrs
+                        {n?.usuarios?.nombre_completo || 'Personal Vitanova'}
                       </Text>
                     </View>
                   </View>
                 );
               })}
-            </>
+            </View>
+          ) : (
+            /* 🟢 Fallback seguro: Si el componente parpadea, este recuadro mantiene el espacio reservado */
+            <View style={[styles.alertCard, { backgroundColor: '#F9F9F9', borderColor: COLORS.border, marginHorizontal: 0 }]}>
+              <Text style={styles.alertIcon}>🔍</Text>
+              <View style={styles.alertContent}>
+                <Text style={styles.alertTitle}>Sin notas en el bloque actual</Text>
+                <Text style={styles.alertSub}>Usa el botón de arriba para registrar incidencias de inmediato.</Text>
+              </View>
+            </View>
           )}
 
           {/* ⚖️ ALERTAS DE EXTRACCIÓN MÉDICA Y ESCALAS ANTERIORES */}
