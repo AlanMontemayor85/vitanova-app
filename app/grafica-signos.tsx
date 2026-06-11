@@ -15,11 +15,20 @@ const COLORS = {
   amberPale: '#FFF4E0'
 };
 
-// 🟢 Helper único para leer la temperatura sin importar el nombre del campo que mande el backend
+// 🟢 Helper ultra robusto para leer la temperatura de cualquier origen de datos (Cierres o Registros de Salud)
 function leerTemperatura(r: any): number | null {
-  const raw = r?.temperatura ?? r?.temperatura_corporal;
+  // Evaluamos todas las llaves posibles que el backend de FastAPI o Supabase puedan escupir
+  const raw = r?.temperatura ?? r?.temperatura_corporal ?? r?.temp;
   if (raw === null || raw === undefined || raw === '—') return null;
-  const num = Number(String(raw).replace('°C', '').replace('°', '').trim());
+  
+  const num = TensorParseFloat(raw);
+  return num !== null && num >= 30 && num <= 45 ? num : null;
+}
+
+// Auxiliar para limpiar y parsear strings con caracteres médicos (°C, °)
+function TensorParseFloat(val: any): number | null {
+  if (typeof val === 'number') return Number.isFinite(val) ? val : null;
+  const num = parseFloat(String(val).replace('°C', '').replace('°', '').trim());
   return Number.isFinite(num) ? num : null;
 }
 
@@ -28,9 +37,9 @@ function MiniChart({
 }: {
   datos: number[], color: string, min: number, max: number, unidad: string, alerta?: number, fechas?: string[]
 }) {
-  if (datos.length < 2) return (
-    <View style={{ height: CHART_HEIGHT, justifyContent: 'center', alignItems: 'center' }}>
-      <Text style={{ color: COLORS.textLight, fontSize: 12 }}>Sin datos suficientes</Text>
+  if (!datos || datos.length < 2) return (
+    <View style={{ height: CHART_HEIGHT, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9F9F9', borderRadius: 8 }}>
+      <Text style={{ color: COLORS.textLight, fontSize: 11, fontWeight: '600' }}>Esperando datos suficientes para graficar...</Text>
     </View>
   );
 
@@ -67,6 +76,7 @@ function MiniChart({
             height: 1,
             backgroundColor: COLORS.red,
             opacity: 0.4,
+            zIndex: 1
           }} />
         )}
         {puntos.map((p, i) => (
@@ -100,6 +110,7 @@ function MiniChart({
               backgroundColor: i === puntos.length - 1 ? color : COLORS.white,
               borderWidth: 2,
               borderColor: color,
+              zIndex: 2
             }} />
           </View>
         ))}
@@ -142,7 +153,8 @@ export default function GraficaSignosScreen() {
   const dstolicaData = registrosFiltrados.map(r => r.presion_diastolica).filter(v => v !== null && v !== undefined);
   const fcData = registrosFiltrados.map(r => r.frecuencia_cardiaca).filter(v => v !== null && v !== undefined);
   const pesoData = registrosFiltrados.map(r => r.peso_kg).filter(v => v !== null && v !== undefined);
-  // 🟢 Temperatura: usamos el helper y descartamos los nulos de forma segura
+  
+  // 🟢 Extracción elástica libre de nulos
   const temperaturaData = registrosFiltrados
     .map(leerTemperatura)
     .filter((v): v is number => v !== null);
@@ -266,25 +278,23 @@ export default function GraficaSignosScreen() {
               </View>
             )}
 
-            {/* GRÁFICA TEMPERATURA CORPORAL */}
-            {temperaturaData.length > 0 && (
-              <View style={styles.chartCard}>
-                <View style={styles.chartHeader}>
-                  <Text style={styles.chartTitle}>Temperatura Corporal Histórica</Text>
-                  <View style={[styles.chartBadge, { backgroundColor: COLORS.amberPale }]}>
-                    <Text style={[styles.chartBadgeText, { color: COLORS.amber }]}>Umbral Febril: 37.8°</Text>
-                  </View>
+            {/* 🟢 GRÁFICA TEMPERATURA CORPORAL (BLINDADA CONTRA OCULTAMIENTO) */}
+            <View style={styles.chartCard}>
+              <View style={styles.chartHeader}>
+                <Text style={styles.chartTitle}>Temperatura Corporal Histórica</Text>
+                <View style={[styles.chartBadge, { backgroundColor: COLORS.amberPale }]}>
+                  <Text style={[styles.chartBadgeText, { color: COLORS.amber }]}>Umbral Febril: 37.8°</Text>
                 </View>
-                <MiniChart
-                  datos={temperaturaData}
-                  fechas={fechasData}
-                  color={COLORS.amber}
-                  min={35} max={40}
-                  unidad="°C"
-                  alerta={37.8}
-                />
               </View>
-            )}
+              <MiniChart
+                datos={temperaturaData}
+                fechas={fechasData}
+                color={COLORS.amber}
+                min={34} max={41}
+                unidad="°C"
+                alerta={37.8}
+              />
+            </View>
 
             {/* GRÁFICA PESO */}
             {pesoData.length > 0 && (
