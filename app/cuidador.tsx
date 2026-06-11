@@ -353,14 +353,8 @@ export default function CuidadorScreen() {
     if (!notaTexto.trim()) return;
     setGuardandoNota(true);
 
-    // 🟢 PASO CRÍTICO: Recuperamos el ID del turno activo real de la referencia o el estado
-    const idTurnoActivo = turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId;
-
-    if (!idTurnoActivo) {
-      alert("⚠️ Error: No se detectó un turno activo para enlazar esta nota.");
-      setGuardandoNota(false);
-      return;
-    }
+    const idTurnoActivo = turnoActivoRef.current?.id || turnoActivo?.id || null;
+    const textoCapturado = notaTexto.trim();
 
     try {
       const response = await fetch(`${BASE_URL}/notas`, {
@@ -371,21 +365,42 @@ export default function CuidadorScreen() {
         },
         body: JSON.stringify({ 
           paciente_id: pacienteActivo.id, 
-          turno_id: idTurnoActivo, // 🟢 Mandamos el ID real para que el GET lo pueda encontrar
-          texto: notaTexto.trim()   // 🟢 Volvemos a 'texto' como pide el BaseModel de Pydantic
+          turno_id: idTurnoActivo, 
+          texto: textoCapturado
         })
       });
 
       if (!response.ok) throw new Error('Error en el servidor al guardar nota');
 
+      // 🟢 OPTIMIZACIÓN LOCAL: Construimos el objeto simulado idéntico al backend
+      const nuevaNotaSimulada = {
+        descripcion: `📝 ${textoCapturado}`,
+        hora_completada: new Date().toISOString(),
+        usuarios: {
+          nombre_completo: 'Personal Vitanova' // O el nombre del usuario si lo tienes en un estado
+        }
+      };
+
+      // Limpiamos el input y cerramos el modal de inmediato
       setNotaTexto(''); 
       setNotaOpen(false);
       alert("✅ Nota guardada con éxito.");
-      
-      // 🔄 Refrescamos usando tu función nativa estable
-      const notasData = await getNotasTurno(pacienteActivo.id);
-      if (notasData && notasData.notas) {
-        setNotas(notasData.notas.slice(0, 3));
+
+      // 🟢 Actualizamos el feed amarillo localmente sin esperar al GET tramposo
+      setNotas((prevNotas) => {
+        const notasPrevias = Array.isArray(prevNotas) ? prevNotas : [];
+        // Ponemos la nueva nota al principio y limitamos a 3 en pantalla
+        return [nuevaNotaSimulada, ...notasPrevias].slice(0, 3);
+      });
+
+      // Dejamos el fetch de fondo por si el backend se sincroniza después
+      try {
+        const notasData = await getNotasTurno(pacienteActivo.id);
+        if (notasData && Array.isArray(notasData.notas) && notasData.notas.length > 0) {
+          setNotas(notasData.notas.slice(0, 3));
+        }
+      } catch (fetchErr) {
+        console.log("Refresco de fondo ignorado:", fetchErr);
       }
 
     } catch (e) { 
