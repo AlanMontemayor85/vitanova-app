@@ -110,6 +110,7 @@ useEffect(() => {
         const cierreData = await getUltimoCierre(p.id);
         if (cierreData.cierre) setUltimoCierre(cierreData.cierre);
         const notasData = await getNotasTurno(p.id);
+        if (notasData.notas) setNotas(notasData.notas.slice(0, 5));
         if (notasData.notas) setNotas(notasData.notas);
         const turnoRes = await getTurnoActivoResumen(p.id);
         if (turnoRes.turno) setTurnoResumen(turnoRes.turno);
@@ -137,6 +138,7 @@ useEffect(() => {
   const cierreData = await getUltimoCierre(p.id);
   if (cierreData.cierre) setUltimoCierre(cierreData.cierre);
   const notasData = await getNotasTurno(p.id);
+  if (notasData.notas) setNotas(notasData.notas.slice(0, 5));
   if (notasData.notas) setNotas(notasData.notas);
   const turnoRes = await getTurnoActivoResumen(p.id);
   if (turnoRes.turno) setTurnoResumen(turnoRes.turno);
