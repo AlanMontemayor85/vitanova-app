@@ -352,26 +352,37 @@ export default function CuidadorScreen() {
   const guardarNota = async () => {
     if (!notaTexto.trim()) return;
     setGuardandoNota(true);
+
+    // 🟢 PASO CRÍTICO: Recuperamos el ID del turno activo real de la referencia o el estado
+    const idTurnoActivo = turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId;
+
+    if (!idTurnoActivo) {
+      alert("⚠️ Error: No se detectó un turno activo para enlazar esta nota.");
+      setGuardandoNota(false);
+      return;
+    }
+
     try {
-      // 🚀 Volvemos al JSON exacto que tu FastAPI procesaba con 200 OK
       const response = await fetch(`${BASE_URL}/notas`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        headers: { 
+          'Content-Type': 'application/json', 
+          Authorization: `Bearer ${getToken()}` 
+        },
         body: JSON.stringify({ 
           paciente_id: pacienteActivo.id, 
-          turno_id: turnoActivoRef.current?.id || null, 
-          texto: notaTexto.trim() // 🟢 Dejamos 'texto' porque FastAPI lo exige para no lanzar 422
+          turno_id: idTurnoActivo, // 🟢 Mandamos el ID real para que el GET lo pueda encontrar
+          texto: notaTexto.trim()   // 🟢 Volvemos a 'texto' como pide el BaseModel de Pydantic
         })
       });
 
-      // Si el servidor responde con 422 o cualquier error, saltará al catch
-      if (!response.ok) throw new Error(`Error en el servidor: ${response.status}`);
+      if (!response.ok) throw new Error('Error en el servidor al guardar nota');
 
       setNotaTexto(''); 
       setNotaOpen(false);
       alert("✅ Nota guardada con éxito.");
       
-      // 🔄 Refresco nativo estable
+      // 🔄 Refrescamos usando tu función nativa estable
       const notasData = await getNotasTurno(pacienteActivo.id);
       if (notasData && notasData.notas) {
         setNotas(notasData.notas.slice(0, 3));
@@ -379,7 +390,7 @@ export default function CuidadorScreen() {
 
     } catch (e) { 
       console.error("❌ Error en guardarNota:", e); 
-      alert("⚠️ El servidor rechazó la nota (Error de validación de datos).");
+      alert("⚠️ No se pudo guardar la nota. Verifica la conexión.");
     } finally { 
       setGuardandoNota(false); 
     }
@@ -663,17 +674,16 @@ export default function CuidadorScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* 📝 SECCIÓN: NOTAS DEL CUIDADOR RECIENTES REPARADA Y BLINDADA */}
+          {/* 📝 SECCIÓN: NOTAS DEL CUIDADOR RECIENTES */}
           {notas && notas.length > 0 && (
             <>
               <Text style={styles.sectionTitle}>Notas del Cuidador (Últimos Relevos)</Text>
               {notas.map((n, i) => {
-                // 🟢 1. Extracción real desde la columna 'observaciones' de tu Supabase
-                const rawTexto = n?.observaciones || n?.texto || n?.descripcion || "Nota incidental";
-                const contenidoNota = String(rawTexto).replace('📝 ', '');
+                // 🟢 Tu backend mapea el texto en la propiedad 'descripcion'
+                const contenidoNota = n?.descripcion || "Nota incidental";
                 
-                // 🟢 2. Formateo de fecha (Mantiene la impresión de la hora exacta de la nota)
-                const fechaBase = n?.created_at || n?.hora_completada;
+                // Leemos 'hora_completada' que es la que inyecta datetime.utcnow().isoformat()
+                const fechaBase = n?.hora_completada || n?.created_at;
                 let horaNota = '—';
                 
                 if (fechaBase) {
@@ -683,21 +693,18 @@ export default function CuidadorScreen() {
                       minute: '2-digit' 
                     });
                   } catch (err) {
-                    console.error("Error parseando fecha de nota:", err);
+                    console.error("Error parseando fecha:", err);
                   }
                 }
 
-                // 🟢 3. Extracción segura del nombre del cuidador
-                const nombreCuidador = n?.usuarios?.nombre_completo || 
-                                       n?.cuidador?.nombre_completo || 
-                                       'Personal Vitanova';
+                const nombreCuidador = n?.usuarios?.nombre_completo || 'Personal Vitanova';
 
                 return (
                   <View key={i} style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0', marginHorizontal: 0 }]}>
                     <Text style={styles.alertIcon}>📝</Text>
                     <View style={styles.alertContent}>
                       <Text style={styles.alertTitle}>
-                        {contenidoNota}
+                        {String(contenidoNota).replace('📝 ', '')}
                       </Text>
                       <Text style={styles.alertSub}>
                         {nombreCuidador} · {horaNota} hrs
