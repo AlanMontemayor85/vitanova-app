@@ -207,28 +207,26 @@ export default function HistorialScreen() {
                 {(notasTareas.length > 0 || tieneNotaNativa) && (
                   <View style={styles.notasSection}>
                     <Text style={styles.tareasSectionTitle}>Notas de Evolución del Turno</Text>
-                    
-                    {/* Nota nativa consolidada del cierre */}
-                    {tieneNotaNativa && (
+
+                    {notasTareas.length > 0 ? (
+                      notasTareas.map((t: any, j: number) => (
+                        <View key={`task-nota-${j}`} style={styles.notaItem}>
+                          <Text style={{ flex: 1, fontSize: 12, color: COLORS.textDark, lineHeight: 16 }}>
+                            {t.descripcion?.replace('📝 ', '')}
+                          </Text>
+                          <Text style={styles.tareaItemHora}>
+                            {t.hora_completada ? formatHora(t.hora_completada) : '—'}
+                          </Text>
+                        </View>
+                      ))
+                    ) : tieneNotaNativa ? (
                       <View style={styles.notaItem}>
                         <Text style={{ flex: 1, fontSize: 12, color: COLORS.textDark, lineHeight: 16, fontWeight: '500' }}>
                           {String(c.notas).replace('📝 ', '')}
                         </Text>
                         <Text style={styles.tareaItemHora}>Consolidado</Text>
                       </View>
-                    )}
-
-                    {/* Notas libres tipo 'otro' ingresadas en la consola */}
-                    {notasTareas.map((t: any, j: number) => (
-                      <View key={`task-nota-${j}`} style={styles.notaItem}>
-                        <Text style={{ flex: 1, fontSize: 12, color: COLORS.textDark, lineHeight: 16 }}>
-                          {t.descripcion?.replace('📝 ', '')}
-                        </Text>
-                        <Text style={styles.tareaItemHora}>
-                          {t.hora_completada ? formatHora(t.hora_completada) : '—'}
-                        </Text>
-                      </View>
-                    ))}
+                    ) : null}
                   </View>
                 )}
 
