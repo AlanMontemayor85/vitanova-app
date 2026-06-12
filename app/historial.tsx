@@ -186,7 +186,7 @@ export default function HistorialScreen() {
                 {/* ⚡ SECCIÓN 2: EVENTOS INCIDENTALES EJECUTADOS */}
                 {tareasIncidentales.length > 0 && (
                   <View style={[styles.tareasSection, { borderTopColor: 'rgba(0,0,0,0.05)', marginTop: 10 }]}>
-                    <Text style={[styles.tareasSectionTitle, { color: COLORS.amber }]}>Eventos Incidentales Ejecutados</Text>
+                    <Text style={[styles.tareasSectionTitle, { color: COLORS.amber }]}>Rutinas Ejecutadas</Text>
                     {tareasIncidentales.map((t: any, j: number) => (
                       <View key={`incidental-${j}`} style={styles.tareaItem}>
                         {/* Si ICONOS_TIPO tiene mapeado el tipo de incidental lo usa, si no, clava el rayito por defecto */}
