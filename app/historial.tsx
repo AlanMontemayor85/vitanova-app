@@ -83,12 +83,19 @@ export default function HistorialScreen() {
           </View>
         ) : (
           cierres.map((c) => {
-            const tareasNormales     = c.tareas?.filter((t: any) => !t.es_incidental && t.hora_programada && !t.descripcion?.startsWith('📝')) ?? [];
-            const tareasIncidentales = c.tareas?.filter((t: any) => t.es_incidental && !t.descripcion?.startsWith('📝')) ?? [];
+            // 🟢 TU BLOQUE CORREGIDO CLÍNICA Y MATEMÁTICAMENTE
+            // 1. Tareas Normales: Tienen hora_programada (no es null) y no empiezan con el emoji de nota
+            const tareasNormales     = c.tareas?.filter((t: any) => t.hora_programada !== null && !t.descripcion?.startsWith('📝')) ?? [];
+            
+            // 2. Tareas Incidentales: No tienen hora_programada (son null) O tienen la bandera en true, y no son notas
+            const tareasIncidentales = c.tareas?.filter((t: any) => (t.hora_programada === null || t.es_incidental) && !t.descripcion?.startsWith('📝')) ?? [];
+            
+            // 3. Notas de Evolución: Se quedan igual, filtrando por el prefijo del emoji
             const notasTareas        = c.tareas?.filter((t: any) => t.descripcion?.startsWith('📝')) ?? [];
             
+            // ── Tus constantes de control y renderizado se quedan exactamente idénticas ──
             const completadasNormales = tareasNormales.filter((t: any) => t.completada).length;
-            const tieneNotaNativa = c.notas && c.notas.trim() !== '' && !c.notas.includes('Sin notas incidentales');
+            const tieneNotaNativa = c.notes && c.notas.trim() !== '' && !c.notas.includes('Sin notas incidentales');
 
             const displaySPO2 = c.spo2 !== null && c.spo2 !== undefined ? `${c.spo2}%` : '—';
             let displayPresion = '—';
@@ -176,15 +183,16 @@ export default function HistorialScreen() {
                   </View>
                 )}
 
-                {/* ⚡ SECCIÓN 2: EVENTOS INCIDENTALES OPERATIVOS */}
+                {/* ⚡ SECCIÓN 2: EVENTOS INCIDENTALES EJECUTADOS */}
                 {tareasIncidentales.length > 0 && (
                   <View style={[styles.tareasSection, { borderTopColor: 'rgba(0,0,0,0.05)', marginTop: 10 }]}>
                     <Text style={[styles.tareasSectionTitle, { color: COLORS.amber }]}>Eventos Incidentales Ejecutados</Text>
                     {tareasIncidentales.map((t: any, j: number) => (
                       <View key={`incidental-${j}`} style={styles.tareaItem}>
-                        <Text style={styles.tareaItemIcon}>{ICONOS_TIPO[t.tipo] ?? '⚡'}</Text>
+                        {/* Si ICONOS_TIPO tiene mapeado el tipo de incidental lo usa, si no, clava el rayito por defecto */}
+                        <Text style={styles.tareaItemIcon}>{(typeof ICONOS_TIPO !== 'undefined' && ICONOS_TIPO[t.tipo]) ?? '⚡'}</Text>
                         <Text style={styles.tareaItemText}>
-                          {t.descripcion}
+                          {t.descripcion?.replace('📝 ', '')}
                         </Text>
                         <Text style={styles.tareaItemHora}>
                           {t.hora_completada ? formatHora(t.hora_completada) : '—'}
