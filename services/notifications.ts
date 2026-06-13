@@ -1,3 +1,8 @@
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
+import { registrarPushToken } from './api'; // ajusta la ruta si tu api.ts está en otro lado
+
 export async function registrarNotificaciones() {
   try {
     if (!Device.isDevice) {
