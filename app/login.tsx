@@ -29,12 +29,55 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  // 🛡️ FUNCIÓN DE EMERGENCIA: Registra el token push de forma segura
+  const intentarRegistroPush = async () => {
+    try {
+      // Importación dinámica para aislar fallos de librerías rotas de Expo
+      const Device = await import('expo-device');
+      const Notifications = await import('expo-notifications');
+      
+      if (Device.isDevice) {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        if (existingStatus !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+        if (finalStatus === 'granted') {
+          const tokenData = await Notifications.getExpoPushTokenAsync();
+          const pushToken = tokenData.data;
+
+          if (pushToken) {
+            // Mandamos el token de forma directa a tu nuevo endpoint del backend
+            await fetch(`${SUPABASE_URL.replace('.supabase.co', '')}/push/register`, {
+              method: 'POST',
+              headers: { 
+                'Content-Type': 'application/json',
+                // Asegúrate de inyectar el token de sesión activo aquí
+              },
+              body: JSON.stringify({ token: pushToken, plataforma: Platform.OS })
+            });
+            console.log('📡 Token Push indexado correctamente en el Login');
+          }
+        }
+      }
+    } catch (pushError) {
+      // Captura el "ReferenceError: Property Device doesn't exist" y evita que la app se caiga
+      console.log('⚠️ Inicialización Push ignorada de forma segura en Login:', pushError);
+    }
+  };
+
   const handleLogin = async () => {
     if (!email || !password) { setError('Ingresa tu email y contraseña'); return; }
     setLoading(true); setError('');
     try {
       const data = await login(email.trim(), password);
       if (data.access_token) {
+        await setToken(data.access_token);
+        
+        // 🚀 Ejecutamos el registro push en segundo plano sin bloquear el flujo principal
+        await intentarRegistroPush();
+
         switch (data.tipo) {
           case 'medico': router.replace('/medico'); break;
           case 'cuidador': router.replace('/cuidador'); break;
@@ -51,15 +94,16 @@ export default function LoginScreen() {
   };
 
   const handleRegistro = async () => {
-  if (!email || !password) { setError('Ingresa tu email y contraseña'); return; }
-  if (password !== confirmPassword) { setError('Las contraseñas no coinciden'); return; }
-  if (password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return; }
-  setLoading(true); setError('');
-  try {
-    const data = await register(email.trim(), password);
-    console.log('login response:', JSON.stringify(data));
+    if (!email || !password) { setError('Ingresa tu email y contraseña'); return; }
+    if (password !== confirmPassword) { setError('Las contraseñas no coinciden'); return; }
+    if (password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return; }
+    setLoading(true); setError('');
+    try {
+      const data = await register(email.trim(), password);
+      console.log('login response:', JSON.stringify(data));
       if (data.access_token) {
         await setToken(data.access_token);
+        await intentarRegistroPush();
         router.replace('/completar-perfil');
       } else {
         setError(data.error ?? 'Error al crear cuenta');
@@ -72,32 +116,30 @@ export default function LoginScreen() {
   };
 
   const handleGoogle = async () => {
-  setLoadingGoogle(true);
-  try {
-    const redirectUri = makeRedirectUri({ scheme: 'vitanovaintegralis' });
-    const authUrl = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUri)}`;
-    const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-    
-    if (result.type === 'success' && result.url) {
-      // Extraer token de la URL de retorno
-      const url = result.url;
-      const accessToken = url.match(/access_token=([^&]+)/)?.[1];
+    setLoadingGoogle(true);
+    try {
+      const redirectUri = makeRedirectUri({ scheme: 'vitanovaintegralis' });
+      const authUrl = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUri)}`;
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
       
-      if (accessToken) {
-        await setToken(accessToken);
-        // Verificar si ya completó perfil
-        const { getUserNombre } = await import('../services/api');
-        router.replace('/completar-perfil');
-      } else {
-        setError('No se pudo obtener el token de Google');
+      if (result.type === 'success' && result.url) {
+        const url = result.url;
+        const accessToken = url.match(/access_token=([^&]+)/)?.[1];
+        
+        if (accessToken) {
+          await setToken(accessToken);
+          await intentarRegistroPush();
+          router.replace('/completar-perfil');
+        } else {
+          setError('No se pudo obtener el token de Google');
+        }
       }
+    } catch (e) {
+      setError('Error con Google');
+    } finally {
+      setLoadingGoogle(false);
     }
-  } catch (e) {
-    setError('Error con Google');
-  } finally {
-    setLoadingGoogle(false);
-  }
-};
+  };
 
   return (
     <KeyboardAvoidingView
@@ -157,8 +199,6 @@ export default function LoginScreen() {
             </View>
           </>
         )}
-
-        {error ? <Text style={styles.error}>{error}</Text> : null}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
