@@ -32,38 +32,10 @@ export default function LoginScreen() {
   // 🛡️ FUNCIÓN DE EMERGENCIA: Registra el token push de forma segura
   const intentarRegistroPush = async () => {
     try {
-      // Importación dinámica para aislar fallos de librerías rotas de Expo
-      const Device = await import('expo-device');
-      const Notifications = await import('expo-notifications');
-      
-      if (Device.isDevice) {
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        let finalStatus = existingStatus;
-        if (existingStatus !== 'granted') {
-          const { status } = await Notifications.requestPermissionsAsync();
-          finalStatus = status;
-        }
-        if (finalStatus === 'granted') {
-          const tokenData = await Notifications.getExpoPushTokenAsync();
-          const pushToken = tokenData.data;
-
-          if (pushToken) {
-            // Mandamos el token de forma directa a tu nuevo endpoint del backend
-            await fetch(`${SUPABASE_URL.replace('.supabase.co', '')}/push/register`, {
-              method: 'POST',
-              headers: { 
-                'Content-Type': 'application/json',
-                // Asegúrate de inyectar el token de sesión activo aquí
-              },
-              body: JSON.stringify({ token: pushToken, plataforma: Platform.OS })
-            });
-            console.log('📡 Token Push indexado correctamente en el Login');
-          }
-        }
-      }
+      const { registrarNotificaciones } = await import('../services/notifications');
+      await registrarNotificaciones();
     } catch (pushError) {
-      // Captura el "ReferenceError: Property Device doesn't exist" y evita que la app se caiga
-      console.log('⚠️ Inicialización Push ignorada de forma segura en Login:', pushError);
+      console.log('⚠️ Push ignorado de forma segura en Login:', pushError);
     }
   };
 
@@ -115,26 +87,39 @@ export default function LoginScreen() {
     }
   };
 
-  const handleGoogle = async () => {
+ const handleGoogle = async () => {
     setLoadingGoogle(true);
     try {
       const redirectUri = makeRedirectUri({ scheme: 'vitanovaintegralis' });
+      console.log('🔍 redirectUri usado:', redirectUri);
+
       const authUrl = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUri)}`;
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-      
+      console.log('🔍 OAuth result:', JSON.stringify(result));
+
       if (result.type === 'success' && result.url) {
         const url = result.url;
+
+        // El token puede venir en el fragmento (#) o en la query (?)
         const accessToken = url.match(/access_token=([^&]+)/)?.[1];
-        
+        const code = url.match(/[?&]code=([^&]+)/)?.[1];
+
         if (accessToken) {
-          await setToken(accessToken);
+          await setToken(decodeURIComponent(accessToken));
           await intentarRegistroPush();
           router.replace('/completar-perfil');
+        } else if (code) {
+          console.log('⚠️ Llegó un "code" (PKCE), no un access_token:', code);
+          setError('OAuth devolvió un code (PKCE) — hay que intercambiarlo');
         } else {
+          console.log('⚠️ URL de regreso sin token ni code:', url);
           setError('No se pudo obtener el token de Google');
         }
+      } else {
+        console.log('⚠️ OAuth no exitoso, type:', result.type);
       }
     } catch (e) {
+      console.log('⚠️ Error con Google:', e);
       setError('Error con Google');
     } finally {
       setLoadingGoogle(false);

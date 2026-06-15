@@ -202,9 +202,24 @@ export const getUbicacion = async (pacienteId: string) => {
   return res.json();
 };
 export const registrarPushToken = async (token: string, plataforma: string) => {
+  // Asegura que haya sesión: usa la de memoria, o la carga de SecureStore
+  let auth = getToken();
+  if (!auth) {
+    auth = await loadStoredToken();
+  }
+
+  // Si no hay sesión activa, no tiene sentido registrar — se omite sin error
+  if (!auth) {
+    console.log('📡 Push: sin sesión activa todavía, se omite el registro');
+    return null;
+  }
+
   const res = await fetch(`${BASE_URL}/push/register`, {
     method: 'POST',
-    headers: headers(),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${auth}`,
+    },
     body: JSON.stringify({ token, plataforma }),
   });
   return res.json();
