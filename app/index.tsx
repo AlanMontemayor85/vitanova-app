@@ -75,58 +75,81 @@ const ejecutarMedicionRemota = async () => {
 
 // 🔄 3. Polling automático o carga inicial
 useEffect(() => {
-  cargarSignosDispositivo();
-  // Opcional: Refrescar la telemetría cada 30 segundos de forma pasiva
-  const interval = setInterval(cargarSignosDispositivo, 30000);
-  return () => clearInterval(interval);
-}, [pacienteId]);
+    const init = async () => {
+      try {
+        // 1. Validar Onboarding
+        const onboardingCompletado = await AsyncStorage.getItem('onboarding_completado');
+        if (!onboardingCompletado) {
+          router.replace('/onboarding');
+          return;
+        }
 
+        await registrarNotificaciones();
+        
+        // 2. Verificar si hay un token guardado
+        const token = await loadStoredToken();
+        if (!token) {
+          router.replace('/login');
+          return;
+        }
 
-  useEffect(() => {
-  const init = async () => {
-    try {
-      const onboardingCompletado = await AsyncStorage.getItem('onboarding_completado');
-      if (!onboardingCompletado) {
-        router.replace('/onboarding');
-        return;
-      }
-      await registrarNotificaciones();
-      const token = await loadStoredToken();
-      if (!token) {
+        // 3. 🚨 ENRUTADOR RELACIONAL INTELIGENTE: Preguntamos al backend quién es este usuario
+        // Llamamos a getPacientes para comprobar autenticación y datos
+        const data = await getPacientes();
+        
+        if (data.error || data.detail === 'Not authenticated') {
+          await clearToken();
+          router.replace('/login');
+          return;
+        }
+
+        // 🛡️ ADUANA MAESTRA: Si el backend dice que este auth_id de Google no tiene rol 
+        // o no está registrado en la tabla relacional, lo mandamos a completar su perfil.
+        if (data.status === 'pending_profile' || data.requiere_perfil) {
+          console.log("账户 Ojo: Cuenta nueva detectada. Redirigiendo a completar-perfil.");
+          router.replace('/completar-perfil' as any);
+          return;
+        }
+
+        // 🎛️ REDIRECCIÓN BASADA EN ROLES REALES DESDE EL BACKEND
+        // Si el usuario es Admin o Cuidador, lo sacamos de esta Home de Familiar de inmediato
+        if (data.usuario_tipo === 'admin') {
+          console.log("¡Bienvenido de vuelta, Jefe! Entrando a Panel Admin.");
+          router.replace('/admin');
+          return;
+        } else if (data.usuario_tipo === 'cuidador') {
+          console.log("Entrando a Panel Cuidador.");
+          router.replace('/cuidador');
+          return;
+        } else if (data.usuario_tipo === 'medico') {
+          router.replace('/medico');
+          return;
+        }
+
+        // 4. Flujo Normal de Familiar (Si llegó hasta acá, es un Familiar válido)
+        if (data.patients && data.patients.length > 0) {
+          setPacientes(data.patients);
+          const p = data.patients[0];
+          setPaciente(p);
+          const cierreData = await getUltimoCierre(p.id);
+          if (cierreData.cierre) setUltimoCierre(cierreData.cierre);
+          const notasData = await getNotasTurno(p.id);
+          if (notasData.notas) setNotas(notasData.notas);
+          const turnoRes = await getTurnoActivoResumen(p.id);
+          if (turnoRes.turno) setTurnoResumen(turnoRes.turno);
+          else setTurnoResumen(null);
+          const alertaPesoData = await getAlertaPeso(p.id);
+          if (alertaPesoData.alerta) setAlertaPeso(alertaPesoData);
+        }
+      } catch (e) {
+        console.error('Error init:', e);
         router.replace('/login');
-        return;
+      } finally {
+        setLoading(false);
       }
-      
-      const data = await getPacientes();
-      if (data.error || data.detail === 'Not authenticated') {
-        await clearToken();
-        router.replace('/login');
-        return;
-      }
-      if (data.patients && data.patients.length > 0) {
-        setPacientes(data.patients);
-        const p = data.patients[0];
-        setPaciente(p);
-        const cierreData = await getUltimoCierre(p.id);
-        if (cierreData.cierre) setUltimoCierre(cierreData.cierre);
-        const notasData = await getNotasTurno(p.id);
-        if (notasData.notas) setNotas(notasData.notas.slice(0, 5));
-        if (notasData.notas) setNotas(notasData.notas);
-        const turnoRes = await getTurnoActivoResumen(p.id);
-        if (turnoRes.turno) setTurnoResumen(turnoRes.turno);
-        else setTurnoResumen(null);
-        const alertaPesoData = await getAlertaPeso(p.id);
-        if (alertaPesoData.alerta) setAlertaPeso(alertaPesoData);
-      }
-    } catch (e) {
-      console.error('Error init:', e);
-      router.replace('/login');
-    } finally {
-      setLoading(false);
-    }
-  };
-  init();
-}, [params.refresh]);
+    };
+    init();
+  }, [params.refresh]);
 
 useEffect(() => {
   if (pacientes.length === 0) return;
