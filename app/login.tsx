@@ -89,6 +89,7 @@ export default function LoginScreen() {
 
  const handleGoogle = async () => {
     setLoadingGoogle(true);
+    setError(''); // Limpiamos errores previos antes de arrancar
     try {
       const redirectUri = makeRedirectUri({ scheme: 'vitanovaintegralis' });
       console.log('🔍 redirectUri usado:', redirectUri);
@@ -105,9 +106,22 @@ export default function LoginScreen() {
         const code = url.match(/[?&]code=([^&]+)/)?.[1];
 
         if (accessToken) {
-          await setToken(decodeURIComponent(accessToken));
-          await intentarRegistroPush();
-          router.replace('/completar-perfil');
+          const decodedToken = decodeURIComponent(accessToken);
+          
+          // 1. Guardamos el token de forma prioritaria
+          await setToken(decodedToken);
+          console.log('✅ Token guardado con éxito.');
+
+          // 2. 🚀 INYECCIÓN TÁCTICA: Registramos el Push en segundo plano sin 'await' 
+          // para que un retraso en Railway o Supabase no congele la pantalla del usuario.
+          intentarRegistroPush().catch(err => 
+            console.log('⚠️ Registro Push en background ignorado:', err)
+          );
+
+          // 3. 🎯 REDIRECCIÓN IMPLACABLE: Forzamos el salto a completar-perfil
+          console.log('🚀 Forzando redirección a completar-perfil...');
+          router.replace('/completar-perfil' as any);
+
         } else if (code) {
           console.log('⚠️ Llegó un "code" (PKCE), no un access_token:', code);
           setError('OAuth devolvió un code (PKCE) — hay que intercambiarlo');
