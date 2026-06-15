@@ -43,11 +43,19 @@ export default function CompletarPerfilScreen() {
       setError('La cédula profesional es obligatoria para médicos');
       return;
     }
+    
     setLoading(true);
     setError('');
+    
     try {
-      const token = getToken();
-      // Guardar perfil
+      // 1. Jalamos el token de forma segura desde tu archivo api.ts
+      const token = getToken(); 
+
+      if (!token) {
+        throw new Error('No se encontró una sesión activa en el dispositivo');
+      }
+
+      // Guardar perfil en tu backend de Railway
       const res = await fetch(`${BASE_URL}/auth/completar-perfil`, {
         method: 'POST',
         headers: {
@@ -56,6 +64,12 @@ export default function CompletarPerfilScreen() {
         },
         body: JSON.stringify({ nombre, telefono, cedula, tipo: rol }),
       });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Error al guardar el perfil en el servidor');
+      }
+
       const data = await res.json();
 
       // Si viene con token de invitación, aceptarla
@@ -66,14 +80,24 @@ export default function CompletarPerfilScreen() {
         });
       }
 
-      // Redirigir según rol
+      // 🚨 REDIRECCIÓN UNIFICADA: Cada rol a su archivo plano en /app
       switch (rol) {
-        case 'medico': router.replace('/medico'); break;
-        case 'cuidador': router.replace('/cuidador'); break;
-        default: router.replace('/');
+        case 'admin':
+          console.log("Acceso concedido como Administrador - Redirigiendo a admin.tsx");
+          router.replace('/admin'); // 👈 Apunta directo a tu nuevo admin.tsx
+          break;
+        case 'medico': 
+          router.replace('/medico'); 
+          break;
+        case 'cuidador': 
+          router.replace('/cuidador'); 
+          break;
+        default: 
+          router.replace('/'); // Redirige a index.tsx (Familiar)
       }
-    } catch (e) {
-      setError('Error guardando perfil');
+    } catch (e: any) {
+      console.error("Error en handleGuardar:", e);
+      setError(e.message || 'Error guardando perfil');
     } finally {
       setLoading(false);
     }
