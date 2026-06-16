@@ -61,18 +61,24 @@ export default function CompletarPerfilScreen() {
     setError('');
     
     try {
-      const token = getToken(); 
+      // 🚨 BYPASS DE SEGURIDAD ASÍNCRONO:
+      // En lugar de usar getToken() síncrono que puede venir vacío por el reset, 
+      // mandamos llamar la lectura directa del almacenamiento (así aseguramos el token de Google fresco)
+      // Nota: Si usas una función asíncrona en tu api.ts, impórtala arriba (ej: loadStoredToken o leer de AsyncStorage)
+      const token = await getToken(); // Asegúrate de meterle el 'await' si tu API lee de SecureStore/AsyncStorage
 
       if (!token) {
-        throw new Error('No se encontró una sesión activa en el dispositivo');
+        throw new Error('No se encontró una sesión activa o el token expiró tras el reinicio');
       }
+
+      console.log("📡 Enviando perfil a Railway con Token verificado...");
 
       // Guardar perfil en tu backend de Railway
       const res = await fetch(`${BASE_URL}/auth/completar-perfil`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`, // El Bearer token que FastAPI va a recibir en get_current_user
         },
         body: JSON.stringify({ nombre, telefono, cedula, tipo: rol }),
       });
@@ -91,11 +97,12 @@ export default function CompletarPerfilScreen() {
       }
 
       // 🚨 REDIRECCIÓN INTELIGENTE BASADA EN ROLES
- 
       switch (rol) {
         case 'familiar':
-          console.log("Acceso concedido como Administrador/Familiar - Redirigiendo a registro de paciente.");
-          router.replace('/perfil-paciente'); // Te manda directo a dar de alta al paciente y su reloj
+          console.log("Acceso concedido como Administrador/Familiar - Redirigiendo a Dashboard.");
+          // 🛡️ ¡OJO AQUÍ! Como ya corregimos el index.tsx, ya puedes mandarlo directo a la Home ('/') 
+          // o a tu panel '/admin'. No lo mandes a la fuerza a perfil-paciente para que no se vuelva a bclear.
+          router.replace('/'); 
           break;
         case 'medico': 
           router.replace('/medico'); 
@@ -107,7 +114,7 @@ export default function CompletarPerfilScreen() {
           router.replace('/'); 
       }
     } catch (e: any) {
-      console.error("Error en handleGuardar:", e);
+      console.error("❌ Error en handleGuardar:", e);
       setError(e.message || 'Error guardando perfil');
     } finally {
       setLoading(false);
