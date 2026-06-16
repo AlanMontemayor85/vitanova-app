@@ -2,8 +2,8 @@
 // Vitanova API — conexión al backend Railway
 // ─────────────────────────────────────────
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
-
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
@@ -31,10 +31,24 @@ export const loadStoredToken = async () => {
 };
 
 export const clearToken = async () => {
+  // 1. Limpiamos las variables globales en memoria RAM de la app
   authToken = null;
   userNombre = null;
   userTipo = null;
-  await SecureStore.deleteItemAsync('vitanova_token');
+  
+  try {
+    // 2. Borramos el token seguro de las entrañas de Android/iOS
+    await SecureStore.deleteItemAsync('vitanova_token');
+    
+    // 3. 🧼 BARRIDO PERIMETRAL: Borramos cualquier rastro persistente de roles anteriores
+    // Esto evita que el index.tsx lea un rol viejo que se haya quedado amarrado en el almacenamiento local
+    await AsyncStorage.removeItem('usuario_tipo');
+    await AsyncStorage.removeItem('usuario_rol');
+    
+    console.log("🧼 Sesión e identidades completamente purgadas del dispositivo.");
+  } catch (error) {
+    console.error("Error al purgar el almacenamiento local:", error);
+  }
 };
 
 const headers = () => ({
@@ -480,6 +494,18 @@ export const forzarMedicionSignos = async (patientId: string) => {
   } catch (error) {
     console.error("❌ Error en servicio forzarMedicionSignos:", error);
     return { status: "error", error: String(error) }; // ◀️ Cambiado error.toString() por String(error)
+  }
+};
+export const configurarReloj = async (patientId: string) => {
+  try {
+    const res = await fetch(`${BASE_URL}/pacientes/${patientId}/configurar-reloj`, {
+      method: 'POST',
+      headers: headers(),
+    });
+    return await res.json();
+  } catch (error) {
+    console.error("❌ Error configurando reloj:", error);
+    return { success: false, detail: String(error) };
   }
 };
 export const crearLead = async (lead: object) => {
