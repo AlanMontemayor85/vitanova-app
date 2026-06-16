@@ -94,38 +94,40 @@ useEffect(() => {
         }
 
         // 3. 🚨 ENRUTADOR RELACIONAL INTELIGENTE: Preguntamos al backend quién es este usuario
-        // Llamamos a getPacientes para comprobar autenticación y datos
         const data = await getPacientes();
-        if (data.requiere_perfil || data.status === 'pending_profile') {
-          router.replace('/completar-perfil');
-          return;
-        }
-        if (data.error || data.detail === 'Not authenticated') {
+        
+        // 🛡️ CONTROL DE ERRORES DE AUTENTICACIÓN
+        if (!data || data.error || data.detail === 'Not authenticated') {
           await clearToken();
           router.replace('/login');
           return;
         }
 
-        // 🛡️ ADUANA MAESTRA: Si el backend dice que este auth_id de Google no tiene rol 
-        // o no está registrado en la tabla relacional, lo mandamos a completar su perfil.
-        if (data.status === 'pending_profile' || data.requiere_perfil) {
-          console.log("账户 Ojo: Cuenta nueva detectada. Redirigiendo a completar-perfil.");
-          router.replace('/completar-perfil' as any);
+        // 🛡️ ADUANA A: Cuenta nueva o reseteada desde Supabase
+        if (data.status === 'pending_profile' || data.requiere_perfil || !data.usuario_tipo) {
+          console.log("🚀 Cuenta limpia detectada. Redirigiendo a completar-perfil.");
+          router.replace('/completar-perfil');
           return;
         }
 
-        // 🎛️ REDIRECCIÓN BASADA EN ROLES REALES DESDE EL BACKEND
-        // Si el usuario es Admin o Cuidador, lo sacamos de esta Home de Familiar de inmediato
-        if (data.usuario_tipo === 'admin') {
-          console.log("¡Bienvenido de vuelta, Jefe! Entrando a Panel Admin.");
-          router.replace('/admin');
-          return;
-        } else if (data.usuario_tipo === 'cuidador') {
-          console.log("Entrando a Panel Cuidador.");
+        // 🎛️ REDIRECCIÓN BASADA EN ROLES DE PRODUCCIÓN
+        if (data.usuario_tipo === 'cuidador' || data.usuario_tipo === 'cuidador_contratado') {
+          console.log("🧑‍⚕️ Entrando a Panel Cuidador Operativo.");
           router.replace('/cuidador');
           return;
-        } else if (data.usuario_tipo === 'medico') {
+        } 
+        
+        if (data.usuario_tipo === 'medico') {
+          console.log("🩺 Entrando a Panel Médico.");
           router.replace('/medico');
+          return;
+        }
+
+        // 🛡️ ADUANA B: Si eres un rol 'familiar' (Admin) pero el backend te reporta SIN pacientes
+        // significa que eres un Administrador nuevo que acaba de salir de completar-perfil
+        if (data.usuario_tipo === 'familiar' && (!data.patients || data.patients.length === 0)) {
+          console.log("👑 Perfil Administrador detectado sin paciente activo. Enviando a configuración de hardware...");
+          router.replace('/perfil-paciente');
           return;
         }
 
