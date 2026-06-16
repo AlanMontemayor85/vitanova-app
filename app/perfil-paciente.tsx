@@ -145,21 +145,9 @@ export default function PerfilPacienteScreen() {
  return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
+      
+      {/* HEADER ORIGINAL (Dejado limpio para evitar colisiones visuales) */}
       <View style={styles.header}>
-        
-        {/* 🚨 REEMPLAZA DESDE AQUÍ: BOTÓN DE SALIDA CRÍTICA HASTA EL LOGIN */}
-        <TouchableOpacity 
-          onPress={async () => {
-            console.log("🧼 Ejecutando salida de emergencia desde configuración de hardware...");
-            await clearToken(); // Limpia RAM, SecureStore y el caché de AsyncStorage
-            router.replace('/login'); // Te saca del bucle limpiamente
-          }} 
-          style={styles.backBtn}
-        >
-          <Text style={styles.backIcon}>🚪</Text> 
-        </TouchableOpacity>
-        {/* HASTA AQUÍ */}
-        
         <View style={{ flex: 1 }}>
           <Text style={styles.greeting}>Configuración de Paciente</Text>
           <Text style={styles.userName}>{nombre || 'Nuevo Registro'}</Text>
@@ -168,6 +156,31 @@ export default function PerfilPacienteScreen() {
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
 
+        {/* 🚨 BOTÓN DE ESCAPE REUBICADO EN EL CUERPO (100% VISIBLE) */}
+        <TouchableOpacity 
+          onPress={async () => {
+            console.log("🧼 Ejecutando salida de emergencia desde el cuerpo...");
+            await clearToken(); // Purga RAM, SecureStore y AsyncStorage
+            router.replace('/login'); // Te saca de raíz al Login
+          }} 
+          style={{
+            backgroundColor: COLORS.redPale,
+            borderWidth: 1,
+            borderColor: COLORS.red,
+            borderRadius: 10,
+            paddingVertical: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 20, // Lo separa del input de nombre
+            marginTop: 10
+          }}
+        >
+          <Text style={{ color: COLORS.red, fontWeight: '800', fontSize: 13, letterSpacing: 1 }}>
+            🚪 CERRAR SESIÓN (SALIR DEL BUCLE)
+          </Text>
+        </TouchableOpacity>
+
+        {/* INICIO DE TU FORMULARIO DE HARDWARE Y CLÍNICA */}
         <Text style={styles.label}>Nombre completo *</Text>
         <TextInput
           style={styles.input}
