@@ -83,7 +83,10 @@ export default function PerfilPacienteScreen() {
   };
 
   const guardar = async () => {
-    if (!nombre.trim()) { setError('El nombre es obligatorio'); return; }
+    if (!nombre.trim()) { 
+      setError('El nombre es obligatorio'); 
+      return; 
+    }
     
     if (imei.trim() && imei.trim().length < 10) {
       setError('El número de serie IMEI o ID de GPS no parece válido');
@@ -92,7 +95,11 @@ export default function PerfilPacienteScreen() {
 
     setGuardando(true);
     setError('');
+    setExito(false);
+
     try {
+      console.log("📡 Enviando datos clínicos y de hardware a Railway...");
+      
       // 1. Guardamos o actualizamos la entidad en Supabase mediante Railway
       const dataPac = await actualizarPaciente(paciente?.id || 'nuevo', {
         nombre_completo: nombre.trim(),
@@ -101,31 +108,44 @@ export default function PerfilPacienteScreen() {
         talla_cm: talla ? parseFloat(talla) : null,
         telefono_emergencia: telefonoEmergencia.trim() || null,
         nombre_aseguradora: nombreAseguradora.trim() || null,
-        telefono_aseguradora: telefonoAseguradora.trim() || null,
+        telefono_ura: telefonoAseguradora.trim() || null, // Valida si en tu API es telefono_aseguradora o telefono_ura
         telefono_ambulancia: telefonoAmbulancia.trim() || null,
         reloj_imei: imei.trim() || null,
         reloj_sos1: sos1.trim() || null,
         reloj_sos2: sos2.trim() || null,
       });
 
-      setExito(true);
+      // 2. Extracción segura del ID generado por Postgres
+      // Soportamos si tu API mapea el id directo, en .paciente_id o en un arreglo .data
+      const idActual = paciente?.id || dataPac?.paciente_id || dataPac?.id || (dataPac?.data && dataPac.data[0]?.id);
       
-      // 2. 🚀 ENLACE AUTOMÁTICO EN CALIENTE: Si es un registro nuevo con reloj asignado,
-      // ejecutamos el disparo por Redis inmediatamente sin obligar al usuario a interactuar de más
-      const idActual = paciente?.id || dataPac?.id;
+      console.log(`✅ Registro procesado en base de datos. ID Paciente: ${idActual}`);
+
+      // 3. 🚀 ENLACE EN CALIENTE VÍA REDIS
       if (idActual && imei.trim() && (sos1.trim() || sos2.trim())) {
-        await ejecutarSincronizacionReloj(idActual);
+        console.log("⚡ Disparando hilos de red en Redis para sincronización de hardware...");
+        await ejecutarSincronizacionReloj(idActual).catch(err => 
+          console.log("⚠️ Registro guardado, pero Redis reportó retraso:", err)
+        );
       }
 
+      // Activamos el estado visual de éxito para tus componentes de la interfaz
+      setExito(true);
+      
+      // 4. REDIRECCIÓN CENTRALIZADA CON RETARDO (UX limpia)
       setTimeout(() => {
         if (!paciente) {
-          router.replace('/');
+          console.log("🏁 Onboarding inicial completado. Catapultando a Home...");
+          router.replace('/'); 
         } else {
+          console.log("🔄 Edición finalizada. Retornando en la pila...");
           router.back();
         }
       }, 1200);
-    } catch (e) {
-      setError('Error al guardar los datos del paciente');
+
+    } catch (e: any) {
+      console.error('❌ Fallo crítico en guardar paciente:', e);
+      setError(e.message || 'Error al guardar los datos del paciente');
     } finally {
       setGuardando(false);
     }
