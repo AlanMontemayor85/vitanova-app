@@ -99,10 +99,15 @@ useEffect(() => {
       // 3. 🚨 ADUANA BIOMÉDICA: Preguntamos a Railway/Supabase quién es este usuario
       const data = await getPacientes();
       
-      // 🛡️ CONTROL A: Errores de autenticación o sesión expirada
-      if (!data || data.error || data.detail === 'Not authenticated' || data.status === 401) {
+      // Token inválido/expirado o usuario borrado → limpiar y a login
+      if (data.no_autenticado || data.detail === 'Token inválido o expirado') {
         await clearToken();
         router.replace('/login');
+        return;
+      }
+
+      if (data.requiere_perfil || data.status === 'pending_profile') {
+        router.replace('/completar-perfil');
         return;
       }
 

@@ -72,10 +72,13 @@ export const login = async (email: string, password: string) => {
 };
 
 export const getPacientes = async () => {
-  const res = await fetch(`${BASE_URL}/medical/patients`, {
-    headers: headers(),
-  });
-  return res.json();
+  try {
+    const res = await fetch(`${BASE_URL}/medical/patients`, { headers: headers() });
+    if (res.status === 401) return { no_autenticado: true };
+    return await res.json();
+  } catch (error) {
+    return { error: String(error) };
+  }
 };
 
 export const getUltimoCierre = async (pacienteId: string) => {
