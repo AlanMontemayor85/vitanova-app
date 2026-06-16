@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { actualizarPaciente, clearToken, configurarReloj } from '../services/api'; // 📡 Asegúrate de exportar configurarReloj de tu services/api.ts
+import { actualizarPaciente, clearToken, configurarReloj, reiniciarRegistroServidor } from '../services/api'; // 📡 Asegúrate de exportar configurarReloj de tu services/api.ts
 
 const COLORS = {
   gold: '#BF9A40',
@@ -16,7 +16,9 @@ const COLORS = {
   redPale: '#FDEAEA',
   green: '#3DAA6A',
   goldLight: '#D4B060',
-  textMid: '#4A4540' // 👈 Con su coma previa bien puesta
+  textMid: '#4A4540',
+  amber: '#D4860A',       
+  amberPale: '#FFF4E0',   
 };
 
 const CONDICIONES = [
@@ -156,27 +158,52 @@ export default function PerfilPacienteScreen() {
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
 
-        {/* 🚨 BOTÓN DE ESCAPE REUBICADO EN EL CUERPO (100% VISIBLE) */}
+        {/* 🔄 REINICIAR REGISTRO DESDE EL LOGIN (BARRIDO DE SUPABASE) */}
         <TouchableOpacity 
           onPress={async () => {
-            console.log("🧼 Ejecutando salida de emergencia desde el cuerpo...");
-            await clearToken(); // Purga RAM, SecureStore y AsyncStorage
-            router.replace('/login'); // Te saca de raíz al Login
+            Alert.alert(
+              '🔄 Reiniciar Registro',
+              '¿Quieres borrar este progreso y volver a empezar tu registro desde cero para cambiar de rol?',
+              [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                  text: 'Sí, reiniciar',
+                  style: 'destructive',
+                  onPress: async () => {
+                    console.log("📡 Solicitando purga de perfil a Railway...");
+                    try {
+                      // 1. Le avisamos al backend que destruya nuestro rol trunco
+                      await reiniciarRegistroServidor();
+                      
+                      // 2. Esterilizamos el almacenamiento local del cel
+                      await clearToken(); 
+                      
+                      console.log("🧼 Redirección limpia al Login efectuada.");
+                      router.replace('/login'); 
+                    } catch (err) {
+                      console.error("Fallo operativo en reset, forzando salida:", err);
+                      await clearToken();
+                      router.replace('/login');
+                    }
+                  }
+                }
+              ]
+            );
           }} 
           style={{
-            backgroundColor: COLORS.redPale,
+            backgroundColor: COLORS.amberPale,
             borderWidth: 1,
-            borderColor: COLORS.red,
+            borderColor: COLORS.amber,
             borderRadius: 10,
             paddingVertical: 12,
             alignItems: 'center',
             justifyContent: 'center',
-            marginBottom: 20, // Lo separa del input de nombre
+            marginBottom: 20,
             marginTop: 10
           }}
         >
-          <Text style={{ color: COLORS.red, fontWeight: '800', fontSize: 13, letterSpacing: 1 }}>
-            🚪 CERRAR SESIÓN (SALIR DEL BUCLE)
+          <Text style={{ color: COLORS.amber, fontWeight: '800', fontSize: 12, letterSpacing: 0.5 }}>
+            🔄 REINICIAR REGISTRO DESDE EL LOGIN
           </Text>
         </TouchableOpacity>
 

@@ -339,7 +339,19 @@ export const transferirPendientes = async (turnoId: string, pacienteId: string) 
   });
   return res.json();
 };
-
+export const reiniciarRegistroServidor = async () => {
+  try {
+    const response = await fetch(`${BASE_URL}/auth/reiniciar-registro`, {
+      method: 'DELETE',
+      headers: headers(), // Hereda tu Bearer Token de autenticación actual
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error en reiniciarRegistroServidor:", error);
+    return { error: true };
+  }
+};
 export const agregarTareaManual = async (tarea: object) => {
   const res = await fetch(`${BASE_URL}/tareas`, {
     method: 'POST',
