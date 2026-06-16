@@ -73,88 +73,103 @@ const ejecutarMedicionRemota = async () => {
   }
 };
 
-// 🔄 3. Polling automático o carga inicial
+// 🔄 Carga inicial y Enrutador Inteligente Relacional
 useEffect(() => {
-    const init = async () => {
-      try {
-        // 1. Validar Onboarding
-        const onboardingCompletado = await AsyncStorage.getItem('onboarding_completado');
-        if (!onboardingCompletado) {
-          router.replace('/onboarding');
-          return;
-        }
+  const init = async () => {
+    try {
+      setLoading(true);
 
-        await registrarNotificaciones();
-        
-        // 2. Verificar si hay un token guardado
-        const token = await loadStoredToken();
-        if (!token) {
-          router.replace('/login');
-          return;
-        }
-
-        // 3. 🚨 ENRUTADOR RELACIONAL INTELIGENTE: Preguntamos al backend quién es este usuario
-        const data = await getPacientes();
-        
-        // 🛡️ CONTROL DE ERRORES DE AUTENTICACIÓN
-        if (!data || data.error || data.detail === 'Not authenticated') {
-          await clearToken();
-          router.replace('/login');
-          return;
-        }
-
-        // 🛡️ ADUANA A: Cuenta nueva o reseteada desde Supabase
-        if (data.status === 'pending_profile' || data.requiere_perfil || !data.usuario_tipo) {
-          console.log("🚀 Cuenta limpia detectada. Redirigiendo a completar-perfil.");
-          router.replace('/completar-perfil');
-          return;
-        }
-
-        // 🎛️ REDIRECCIÓN BASADA EN ROLES DE PRODUCCIÓN
-        if (data.usuario_tipo === 'cuidador' || data.usuario_tipo === 'cuidador_contratado') {
-          console.log("🧑‍⚕️ Entrando a Panel Cuidador Operativo.");
-          router.replace('/cuidador');
-          return;
-        } 
-        
-        if (data.usuario_tipo === 'medico') {
-          console.log("🩺 Entrando a Panel Médico.");
-          router.replace('/medico');
-          return;
-        }
-
-        // 🛡️ ADUANA B: Si eres un rol 'familiar' (Admin) pero el backend te reporta SIN pacientes
-        // significa que eres un Administrador nuevo que acaba de salir de completar-perfil
-        if (data.usuario_tipo === 'familiar' && (!data.patients || data.patients.length === 0)) {
-          console.log("👑 Perfil Administrador detectado sin paciente activo. Enviando a configuración de hardware...");
-          router.replace('/perfil-paciente');
-          return;
-        }
-
-        // 4. Flujo Normal de Familiar (Si llegó hasta acá, es un Familiar válido)
-        if (data.patients && data.patients.length > 0) {
-          setPacientes(data.patients);
-          const p = data.patients[0];
-          setPaciente(p);
-          const cierreData = await getUltimoCierre(p.id);
-          if (cierreData.cierre) setUltimoCierre(cierreData.cierre);
-          const notasData = await getNotasTurno(p.id);
-          if (notasData.notas) setNotas(notasData.notas);
-          const turnoRes = await getTurnoActivoResumen(p.id);
-          if (turnoRes.turno) setTurnoResumen(turnoRes.turno);
-          else setTurnoResumen(null);
-          const alertaPesoData = await getAlertaPeso(p.id);
-          if (alertaPesoData.alerta) setAlertaPeso(alertaPesoData);
-        }
-      } catch (e) {
-        console.error('Error init:', e);
-        router.replace('/login');
-      } finally {
-        setLoading(false);
+      // 1. Validar Onboarding local
+      const onboardingCompletado = await AsyncStorage.getItem('onboarding_completado');
+      if (!onboardingCompletado) {
+        router.replace('/onboarding');
+        return;
       }
-    };
-    init();
-  }, [params.refresh]);
+
+      // Inicializar canal de notificaciones push de Expo
+      await registrarNotificaciones().catch(err => console.log("Push omitido en simulación:", err));
+      
+      // 2. Verificar si hay un token de sesión guardado en el dispositivo
+      const token = await loadStoredToken();
+      if (!token) {
+        router.replace('/login');
+        return;
+      }
+
+      // 3. 🚨 ADUANA BIOMÉDICA: Preguntamos a Railway/Supabase quién es este usuario
+      const data = await getPacientes();
+      
+      // 🛡️ CONTROL A: Errores de autenticación o sesión expirada
+      if (!data || data.error || data.detail === 'Not authenticated' || data.status === 401) {
+        await clearToken();
+        router.replace('/login');
+        return;
+      }
+
+      // 🛡️ CONTROL B: Registro trunco o cuenta reseteada con el botón dorado
+      if (data.status === 'pending_profile' || data.requiere_perfil || !data.usuario_tipo) {
+        console.log("🚀 Perfil limpio detectado en Supabase. Redirigiendo a completar-perfil.");
+        router.replace('/completar-perfil');
+        return;
+      }
+
+      // 🎛️ SEGMENTACIÓN DE RUTAS BASADA EN ROLES DE PRODUCCIÓN
+      if (data.usuario_tipo === 'cuidador' || data.usuario_tipo === 'cuidador_contratado') {
+        console.log("🧑‍⚕️ Acceso concedido como Cuidador operativo. Redirigiendo...");
+        router.replace('/cuidador');
+        return;
+      } 
+      
+      if (data.usuario_tipo === 'medico') {
+        console.log("🩺 Acceso concedido como Supervisor Médico. Redirigiendo...");
+        router.replace('/medico');
+        return;
+      }
+
+      // 👑 CONTROL C: Si eres un Familiar/Admin válido, te damos luz verde
+      if (data.usuario_tipo === 'familiar' || data.usuario_tipo === 'admin') {
+        console.log("👑 Acceso concedido como Administrador. Inicializando entorno...");
+        // No ejecutamos .replace() aquí para no romper el flujo hacia abajo. 
+        // Permitimos que el hilo de ejecución pase directo al flujo de carga de datos.
+      }
+
+      // 📡 4. Flujo Normal de Familiar (Carga de telemetría y estado clínico)
+      if (data.patients && data.patients.length > 0) {
+        setPacientes(data.patients);
+        const p = data.patients[pacienteIndex || 0]; // Usa el índice seleccionado o el primero
+        setPaciente(p);
+        
+        // Jalar asíncronamente el último cierre de turno del cuidador
+        const cierreData = await getUltimoCierre(p.id).catch(() => ({ cierre: null }));
+        if (cierreData?.cierre) setUltimoCierre(cierreData.cierre);
+        
+        // Jalar bitácora de notas de cuidado recientes
+        const notasData = await getNotasTurno(p.id).catch(() => ({ notas: [] }));
+        if (notasData?.notas) setNotas(notasData.notas);
+        
+        // Verificar si hay un cuidador en turno activo transmitiendo
+        const turnoRes = await getTurnoActivoResumen(p.id).catch(() => ({ turno: null }));
+        if (turnoRes?.turno) setTurnoResumen(turnoRes.turno);
+        else setTurnoResumen(null);
+        
+        // Verificar alertas críticas de peso/hidratación
+        const alertaPesoData = await getAlertaPeso(p.id).catch(() => ({ alerta: null }));
+        if (alertaPesoData?.alerta) setAlertaPeso(alertaPesoData);
+      } else {
+        console.log("⚠️ Administrador registrado pero sin pacientes asignados actualmente.");
+      }
+
+    } catch (e) {
+      console.error('❌ Error crítico en el init de la Home:', e);
+      // En caso de un fallo generalizado de red o parseo, el sistema se protege regresando al login
+      router.replace('/login');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  init();
+}, [params.refresh]);
 
 useEffect(() => {
   if (pacientes.length === 0) return;
