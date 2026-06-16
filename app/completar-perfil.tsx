@@ -1,10 +1,11 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getToken } from '../services/api';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
+// 🎨 PALETA CORREGIDA: Agregamos textMid con su sintaxis limpia
 const COLORS = {
   gold: '#BF9A40',
   goldPale: '#F5EDD8',
@@ -12,16 +13,19 @@ const COLORS = {
   cream: '#FAFAF7',
   white: '#FFFFFF',
   textDark: '#2C2820',
+  textMid: '#4A4540',   
   textLight: '#8A8078',
   border: '#E0D8CC',
   red: '#D94F4F',
   green: '#3DAA6A',
 };
 
+// 🎛️ ROLES ACTUALIZADOS: Separación explícita según tu visión de negocio
 const ROLES = [
-  { valor: 'familiar', etiqueta: '👨‍👩‍👧 Familiar', desc: 'Visualizo el estado de mi familiar' },
-  { valor: 'cuidador', etiqueta: '🤲 Cuidador', desc: 'Cuido directamente al paciente' },
-  { valor: 'medico', etiqueta: '🩺 Médico', desc: 'Superviso médicamente al paciente' },
+  { valor: 'admin', etiqueta: '👑 Familiar Administrador', desc: 'Registro al paciente, configuro el reloj y controlo la red' },
+  { valor: 'familiar', etiqueta: '👨‍👩‍👧 Familiar Visualizador', desc: 'Solo visualizo el estado y telemetría de mi familiar' },
+  { valor: 'cuidador', etiqueta: '🤲 Cuidador', desc: 'Asistencia directa (requiere asignación de turno por el Admin)' },
+  { valor: 'medico', etiqueta: '🩺 Médico', desc: 'Superviso médicamente los signos del paciente' },
 ];
 
 export default function CompletarPerfilScreen() {
@@ -29,12 +33,15 @@ export default function CompletarPerfilScreen() {
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
   const [cedula, setCedula] = useState('');
-  const [rol, setRol] = useState('familiar');
+  const [rol, setRol] = useState('admin'); // Inicializamos en admin por defecto
   const [tokenInvitacion, setTokenInvitacion] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // 🛡️ CONTROL DEL MODAL DE CONFIRMACIÓN CRÍTICA
+  const [modalVisible, setModalVisible] = useState(false);
 
-  const handleGuardar = async () => {
+  const preGuardarValidacion = () => {
     if (!nombre.trim()) {
       setError('El nombre es obligatorio');
       return;
@@ -43,12 +50,17 @@ export default function CompletarPerfilScreen() {
       setError('La cédula profesional es obligatoria para médicos');
       return;
     }
-    
+    setError('');
+    // Desplegamos el pop-up de confirmación de marketing de experiencia de usuario
+    setModalVisible(true);
+  };
+
+  const handleGuardarDefinitivo = async () => {
+    setModalVisible(false);
     setLoading(true);
     setError('');
     
     try {
-      // 1. Jalamos el token de forma segura desde tu archivo api.ts
       const token = getToken(); 
 
       if (!token) {
@@ -70,9 +82,7 @@ export default function CompletarPerfilScreen() {
         throw new Error(errorData.detail || 'Error al guardar el perfil en el servidor');
       }
 
-      const data = await res.json();
-
-      // Si viene con token de invitación, aceptarla
+      // Si viene con token de invitación (como el cuidador), aceptarla
       if (tokenInvitacion.trim()) {
         await fetch(`${BASE_URL}/invitaciones/${tokenInvitacion.trim()}/aceptar`, {
           method: 'POST',
@@ -80,20 +90,20 @@ export default function CompletarPerfilScreen() {
         });
       }
 
-      // 🚨 REDIRECCIÓN UNIFICADA: Cada rol a su archivo plano en /app
+      // 🚨 REDIRECCIÓN INTELIGENTE BASADA EN ROLES
       switch (rol) {
         case 'admin':
-          console.log("Acceso concedido como Administrador - Redirigiendo a admin.tsx");
-          router.replace('/admin'); // 👈 Apunta directo a tu nuevo admin.tsx
+          console.log("Acceso concedido como Administrador - Redirigiendo a registro de paciente.");
+          router.replace('/perfil-paciente'); // Mandamos directo a dar de alta al paciente y su reloj
           break;
         case 'medico': 
           router.replace('/medico'); 
           break;
         case 'cuidador': 
-          router.replace('/cuidador'); 
+          router.replace('/cuidador'); // Va al dashboard estático de cuidador (esperando asignación de turno)
           break;
         default: 
-          router.replace('/'); // Redirige a index.tsx (Familiar)
+          router.replace('/'); // Familiar Visualizador va directo a la Home
       }
     } catch (e: any) {
       console.error("Error en handleGuardar:", e);
@@ -101,6 +111,11 @@ export default function CompletarPerfilScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getRolTextoMensaje = () => {
+    const rFound = ROLES.find(r => r.valor === rol);
+    return rFound ? rFound.etiqueta : rol;
   };
 
   return (
@@ -137,7 +152,7 @@ export default function CompletarPerfilScreen() {
           />
 
           {/* Rol */}
-          <Text style={styles.label}>Soy...</Text>
+          <Text style={styles.label}>Selecciona tu rol en Vitanova *</Text>
           <View style={styles.rolesContainer}>
             {ROLES.map((r) => (
               <TouchableOpacity
@@ -146,10 +161,12 @@ export default function CompletarPerfilScreen() {
                 onPress={() => setRol(r.valor)}
               >
                 <Text style={styles.rolIcon}>{r.etiqueta.split(' ')[0]}</Text>
-                <Text style={[styles.rolLabel, rol === r.valor && styles.rolLabelActive]}>
-                  {r.etiqueta.split(' ').slice(1).join(' ')}
-                </Text>
-                <Text style={styles.rolDesc}>{r.desc}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.rolLabel, rol === r.valor && styles.rolLabelActive]}>
+                    {r.etiqueta.split(' ').slice(1).join(' ')}
+                  </Text>
+                  <Text style={styles.rolDesc}>{r.desc}</Text>
+                </View>
               </TouchableOpacity>
             ))}
           </View>
@@ -191,16 +208,51 @@ export default function CompletarPerfilScreen() {
 
           <TouchableOpacity
             style={[styles.btn, loading && { opacity: 0.7 }]}
-            onPress={handleGuardar}
+            onPress={preGuardarValidacion}
             disabled={loading}
           >
-            {loading
-              ? <ActivityIndicator color={COLORS.white} />
-              : <Text style={styles.btnText}>Comenzar</Text>
-            }
+            {loading ? (
+              <ActivityIndicator color={COLORS.white} />
+            ) : (
+              <Text style={styles.btnText}>Comenzar</Text>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* 👑 MODAL DE CONFIRMACIÓN CRÍTICA (UX CANDADO) */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>⚠️ Confirmación de Rol Obligatoria</Text>
+            <Text style={styles.modalBody}>
+              Has seleccionado registrarte como:{'\n'}
+              <Text style={styles.modalRolText}>{getRolTextoMensaje()}</Text>
+              {'\n'}{' \n'}
+              Para mantener la integridad y seguridad médica del ecosistema Vitanova, este rol define los accesos de privacidad de datos de salud. Una vez guardado, no podrás cambiarlo desde este panel sin contactar soporte.
+            </Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalBtnCancel}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.modalBtnCancelText}>Revisar de nuevo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalBtnConfirm}
+                onPress={handleGuardarDefinitivo}
+              >
+                <Text style={styles.modalBtnConfirmText}>Estoy seguro</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -222,7 +274,7 @@ const styles = StyleSheet.create({
   form: { padding: 24 },
   label: {
     fontSize: 11, fontWeight: '700', color: COLORS.textLight,
-    letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, marginTop: 8,
+    letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, marginTop: 12,
   },
   input: {
     backgroundColor: COLORS.white, borderRadius: 12,
@@ -230,7 +282,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 14,
     fontSize: 14, color: COLORS.textDark, marginBottom: 8,
   },
-  rolesContainer: { gap: 8, marginBottom: 8 },
+  rolesContainer: { gap: 8, marginBottom: 8, marginTop: 4 },
   rolCard: {
     backgroundColor: COLORS.white, borderRadius: 12,
     borderWidth: 1, borderColor: COLORS.border,
@@ -239,18 +291,18 @@ const styles = StyleSheet.create({
   rolCardActive: {
     borderColor: COLORS.gold, backgroundColor: COLORS.goldPale,
   },
-  rolIcon: { fontSize: 24 },
+  rolIcon: { fontSize: 22 },
   rolLabel: {
     fontSize: 14, fontWeight: '700', color: COLORS.textDark,
   },
   rolLabelActive: { color: COLORS.gold },
   rolDesc: {
-    fontSize: 11, color: COLORS.textLight, flex: 1,
+    fontSize: 11, color: COLORS.textLight, marginTop: 2,
   },
   consentBox: {
     backgroundColor: COLORS.white, borderRadius: 12,
     borderWidth: 1, borderColor: COLORS.border,
-    padding: 14, marginTop: 8, marginBottom: 16,
+    padding: 14, marginTop: 12, marginBottom: 16,
   },
   consentText: {
     fontSize: 11, color: COLORS.textLight, lineHeight: 18,
@@ -262,4 +314,43 @@ const styles = StyleSheet.create({
     paddingVertical: 16, alignItems: 'center', marginTop: 8,
   },
   btnText: { color: COLORS.white, fontSize: 15, fontWeight: '800', letterSpacing: 1 },
+  
+  // ESTILOS DEL CANDADO UX (MODAL CRÍTICO)
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(44, 40, 32, 0.6)',
+    justifyContent: 'center', alignItems: 'center', padding: 24
+  },
+  modalContent: {
+    backgroundColor: COLORS.cream, borderRadius: 20,
+    padding: 24, width: '100%', maxWidth: 340,
+    borderWidth: 1, borderColor: COLORS.border,
+    shadowColor: COLORS.cacao, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15, shadowRadius: 12, elevation: 8
+  },
+  modalTitle: {
+    fontSize: 16, fontWeight: '800', color: COLORS.textDark, marginBottom: 14
+  },
+  modalBody: {
+    fontSize: 13, color: COLORS.textMid, lineHeight: 20, marginBottom: 20
+  },
+  modalRolText: {
+    color: COLORS.gold, fontWeight: '800', fontSize: 14  
+  },
+  modalActions: {
+    flexDirection: 'row', gap: 10, justifyContent: 'flex-end'
+  },
+  modalBtnCancel: {
+    paddingVertical: 12, paddingHorizontal: 14, borderRadius: 10,
+    borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.white
+  },
+  modalBtnCancelText: {
+    color: COLORS.textLight, fontSize: 13, fontWeight: '600'
+  },
+  modalBtnConfirm: {
+    paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10,
+    backgroundColor: COLORS.gold
+  },
+  modalBtnConfirmText: {
+    color: COLORS.white, fontSize: 13, fontWeight: '700'
+  }
 });

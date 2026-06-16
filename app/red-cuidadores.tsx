@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert, ScrollView, StatusBar, StyleSheet, Text,
   TextInput, TouchableOpacity, View
 } from 'react-native';
@@ -8,7 +9,7 @@ import { actualizarHorarioCuidador, crearInvitacion, getEquipoPaciente, removerD
 
 const COLORS = {
   gold: '#BF9A40', goldPale: '#F5EDD8', cacao: '#4A4540', cream: '#FAFAF7',
-  white: '#FFFFFF', textDark: '#2C2820', textLight: '#8A8078',
+  white: '#FFFFFF', textDark: '#2C2820', textMid: '#4A4540', textLight: '#8A8078',
   border: '#E0D8CC', green: '#3DAA6A', greenPale: '#EAF5E8',
   amber: '#D4860A', amberPale: '#FFF4E0', red: '#D94F4F', redPale: '#FDEAEA',
 };
@@ -53,8 +54,6 @@ export default function RedCuidadoresScreen() {
   const [equipo, setEquipo] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🟢 FILTRO TÁCTICO DE ROLES: Detectamos si el usuario actual entró en modo Cuidador
-  // Puedes pasar esto por params desde la pantalla anterior, o leerlo de tu token guardado
   const esCuidador = params.usuarioRol === 'cuidador_contratado' || params.isCuidador === 'true';
 
   // Editar horario
@@ -70,7 +69,7 @@ export default function RedCuidadoresScreen() {
   const [invRol, setInvRol] = useState<'cuidador_contratado' | 'medico' | 'familiar'>('cuidador_contratado');
   const [invMensaje, setInvMensaje] = useState('');
   const [enviandoInv, setEnviandoInv] = useState(false);
-  const [invExito, setInvExito] = useState(false);
+  const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null);
 
   useEffect(() => {
     const cargar = async () => {
@@ -84,7 +83,7 @@ export default function RedCuidadoresScreen() {
       }
     };
     cargar();
-  }, []);
+  }, [pacienteId]);
 
   const familiares = equipo.filter(m => m.rol === 'familiar_principal' || m.rol === 'familiar');
   const cuidadores = equipo.filter(m => m.rol === 'cuidador_contratado');
@@ -107,6 +106,7 @@ export default function RedCuidadoresScreen() {
       setEditando(null);
     } catch (e) {
       console.error(e);
+      Alert.alert('❌ Error', 'No se pudo actualizar el turno de asistencia.');
     } finally {
       setGuardandoHorario(false);
     }
@@ -122,20 +122,26 @@ export default function RedCuidadoresScreen() {
         rol: invRol,
         mensaje: invMensaje.trim() || null,
       });
-      if (res.status === 'ok') {
-        setInvExito(true);
-        setTimeout(() => {
-          setInvitandoOpen(false);
-          setInvEmail('');
-          setInvMensaje('');
-          setInvExito(false);
-        }, 2000);
+      
+      // Capturamos el token dinámico de tu backend para mostrárselo al Admin
+      if (res && (res.status === 'ok' || res.token)) {
+        setCodigoGenerado(res.token || 'VITA-REGISTRO');
+      } else {
+        Alert.alert('⚠️ Aviso', 'La invitación se procesó, revisa el estatus en tu panel.');
       }
     } catch (e) {
       console.error(e);
+      Alert.alert('❌ Error', 'Ocurrió un fallo al levantar el token de invitación en Railway.');
     } finally {
       setEnviandoInv(false);
     }
+  };
+
+  const cerrarModalInvitacion = () => {
+    setInvitandoOpen(false);
+    setInvEmail('');
+    setInvMensaje('');
+    setCodigoGenerado(null);
   };
 
   const renderMiembro = (m: any) => {
@@ -183,7 +189,6 @@ export default function RedCuidadoresScreen() {
           </View>
         </View>
 
-        {/* 🟢 SEGURIDAD: Solo mostramos la edición de horario si NO es un perfil cuidador */}
         {m.rol === 'cuidador_contratado' && !esCuidador && (
           <TouchableOpacity
             style={styles.editarBtn}
@@ -194,11 +199,10 @@ export default function RedCuidadoresScreen() {
               setDiasSeleccionados(m.dias_semana ?? []);
             }}
           >
-            <Text style={styles.editarBtnText}>✏️ Editar horario</Text>
+            <Text style={styles.editarBtnText}>✏️ Editar horario de turno</Text>
           </TouchableOpacity>
         )}
 
-        {/* 🟢 SEGURIDAD: Solo permitimos remover miembros si NO es un perfil cuidador */}
         {m.rol !== 'familiar_principal' && !esCuidador && (
           <TouchableOpacity
             style={styles.removerBtn}
@@ -220,12 +224,20 @@ export default function RedCuidadoresScreen() {
               );
             }}
           >
-            <Text style={styles.removerBtnText}>🗑️ Remover del equipo</Text>
+            <Text style={styles.removerBtnText}>🗑️ Remover de la Red</Text>
           </TouchableOpacity>
         )}
       </View>
     );
   };
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
+        <ActivityIndicator size="large" color={COLORS.gold} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -238,13 +250,12 @@ export default function RedCuidadoresScreen() {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={styles.greeting}>Red de cuidado</Text>
-          <Text style={styles.userName}>{pacienteNombre}</Text>
+          <Text style={styles.userName}>{pacienteNombre || 'Paciente Vitanova'}</Text>
         </View>
         <View style={styles.totalPill}>
           <Text style={styles.totalText}>{equipo.length} miembros</Text>
         </View>
         
-        {/* 🟢 SEGURIDAD: Escondemos el botón de invitar por completo si es un cuidador el que está mirando */}
         {!esCuidador && (
           <TouchableOpacity style={styles.invitarBtn} onPress={() => setInvitandoOpen(true)}>
             <Text style={styles.invitarBtnText}>+ Invitar</Text>
@@ -252,7 +263,7 @@ export default function RedCuidadoresScreen() {
         )}
       </View>
 
-      {/* LISTA */}
+      {/* LISTA DE INTEGRANTES */}
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
         {equipo.length === 0 ? (
           <View style={styles.emptyCard}>
@@ -274,7 +285,7 @@ export default function RedCuidadoresScreen() {
             )}
             {cuidadores.length > 0 && (
               <>
-                <Text style={styles.sectionTitle}>Cuidadores</Text>
+                <Text style={styles.sectionTitle}>Cuidadores Activos</Text>
                 {cuidadores.map(renderMiembro)}
               </>
             )}
@@ -315,7 +326,7 @@ export default function RedCuidadoresScreen() {
               keyboardType="numbers-and-punctuation"
             />
 
-            <Text style={styles.modalLabel}>Días de la semana</Text>
+            <Text style={styles.modalLabel}>Días de la semana asignados</Text>
             <View style={styles.diasModalRow}>
               {['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'].map(d => (
                 <TouchableOpacity
@@ -332,7 +343,7 @@ export default function RedCuidadoresScreen() {
               ))}
             </View>
 
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 20 }}>
               <TouchableOpacity
                 style={[styles.modalBtn, { backgroundColor: COLORS.cream, flex: 1 }]}
                 onPress={() => setEditando(null)}
@@ -353,75 +364,95 @@ export default function RedCuidadoresScreen() {
         </View>
       )}
 
-      {/* MODAL INVITAR */}
+      {/* MODAL INVITAR CON ENTREGA DE TOKEN */}
       {invitandoOpen && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Invitar al equipo</Text>
+            <Text style={styles.modalTitle}>Invitar integrante a la red</Text>
 
-            <Text style={styles.modalLabel}>Email</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={invEmail}
-              onChangeText={setInvEmail}
-              placeholder="correo@ejemplo.com"
-              placeholderTextColor={COLORS.textLight}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-
-            <Text style={styles.modalLabel}>Rol</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-              {([
-                { val: 'cuidador_contratado', label: '🧑‍⚕️ Cuidador' },
-                { val: 'medico', label: '👨‍⚕️ Médico' },
-                { val: 'familiar', label: '👨‍👩‍👧 Familiar' },
-              ] as const).map(r => (
-                <TouchableOpacity
-                  key={r.val}
-                  style={[styles.rolBtn, invRol === r.val && styles.rolBtnActive]}
-                  onPress={() => setInvRol(r.val)}
-                >
-                  <Text style={[styles.rolBtnText, invRol === r.val && styles.rolBtnTextActive]}>
-                    {r.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.modalLabel}>Mensaje (opcional)</Text>
-            <TextInput
-              style={[styles.modalInput, { minHeight: 70, textAlignVertical: 'top' }]}
-              value={invMensaje}
-              onChangeText={setInvMensaje}
-              placeholder="Te invito a cuidar a María..."
-              placeholderTextColor={COLORS.textLight}
-              multiline
-            />
-
-            {invExito && (
-              <Text style={{ color: COLORS.green, fontSize: 13, fontWeight: '700', textAlign: 'center', marginBottom: 8 }}>
-                ✅ Invitación enviada
-              </Text>
-            )}
-
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-              <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: COLORS.cream, flex: 1 }]}
-                onPress={() => { setInvitandoOpen(false); setInvEmail(''); setInvMensaje(''); }}
-              >
-                <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]}
-                onPress={enviarInvitacion}
-                disabled={enviandoInv}
-              >
-                <Text style={styles.modalBtnText}>
-                  {enviandoInv ? 'Enviando...' : 'Enviar invitación'}
+            {codigoGenerado ? (
+              // 👑 UX PREMIUM: Pantalla de token generado para compartir
+              <View style={{ alignItems: 'center', paddingVertical: 12 }}>
+                <Text style={{ fontSize: 13, color: COLORS.textDark, textAlign: 'center', marginBottom: 14 }}>
+                  Invitación registrada. Comparte este código de vinculación con tu asistente:
                 </Text>
-              </TouchableOpacity>
-            </View>
+                <View style={styles.tokenContainer}>
+                  <Text style={styles.tokenText}>{codigoGenerado}</Text>
+                </View>
+                <Text style={{ fontSize: 11, color: COLORS.textLight, textAlign: 'center', marginTop: 12, lineHeight: 16 }}>
+                  Tu cuidador deberá ingresar este código al completar su registro para heredar los horarios asignados.
+                </Text>
+                <TouchableOpacity
+                  style={[styles.modalBtn, { backgroundColor: COLORS.gold, width: '100%', marginTop: 24 }]}
+                  onPress={cerrarModalInvitacion}
+                >
+                  <Text style={styles.modalBtnText}>Listo</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              // Formulario Estándar de Entrada
+              <>
+                <Text style={styles.modalLabel}>Correo Electrónico</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={invEmail}
+                  onChangeText={setInvEmail}
+                  placeholder="correo@ejemplo.com"
+                  placeholderTextColor={COLORS.textLight}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+
+                <Text style={styles.modalLabel}>Asignar Rol</Text>
+                <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 8, marginTop: 4 }}>
+                  {([
+                    { val: 'cuidador_contratado', label: '🧑‍⚕️ Cuidador' },
+                    { val: 'medico', label: '👨‍⚕️ Médico' },
+                    { val: 'familiar', label: '👨‍👩‍👧 Familiar' },
+                  ] as const).map(r => (
+                    <TouchableOpacity
+                      key={r.val}
+                      style={[styles.rolBtn, invRol === r.val && styles.rolBtnActive]}
+                      onPress={() => setInvRol(r.val)}
+                    >
+                      <Text style={[styles.rolBtnText, invRol === r.val && styles.rolBtnTextActive]}>
+                        {r.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.modalLabel}>Indicaciones Iniciales (Opcional)</Text>
+                <TextInput
+                  style={[styles.modalInput, { minHeight: 70, textAlignVertical: 'top' }]}
+                  value={invMensaje}
+                  onChangeText={setInvMensaje}
+                  placeholder="Instrucciones operativas para el equipo..."
+                  placeholderTextColor={COLORS.textLight}
+                  multiline
+                />
+
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { backgroundColor: COLORS.cream, flex: 1 }]}
+                    onPress={cerrarModalInvitacion}
+                  >
+                    <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]}
+                    onPress={enviarInvitacion}
+                    disabled={enviandoInv}
+                  >
+                    {enviandoInv ? (
+                      <ActivityIndicator color={COLORS.white} size="small" />
+                    ) : (
+                      <Text style={styles.modalBtnText}>Generar Acceso</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </View>
       )}
@@ -436,7 +467,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
   },
   greeting: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: 2 },
-  userName: { fontSize: 20, fontWeight: '800', color: COLORS.white },
+  userName: { fontSize: 18, fontWeight: '800', color: COLORS.white },
   backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   backIcon: { fontSize: 18, color: COLORS.white },
   totalPill: { backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
@@ -444,15 +475,15 @@ const styles = StyleSheet.create({
   invitarBtn: { backgroundColor: COLORS.gold, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, marginLeft: 8 },
   invitarBtnText: { fontSize: 11, fontWeight: '800', color: COLORS.white },
   body: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
-  sectionTitle: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: COLORS.textLight, marginBottom: 10, marginTop: 4 },
-  emptyCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+  sectionTitle: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: COLORS.textLight, marginBottom: 10, marginTop: 12 },
+  emptyCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, marginTop: 20 },
   miembroCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: COLORS.border },
   miembroTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 },
   miembroLeft: { flexDirection: 'row', gap: 12, flex: 1 },
   avatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
-  avatarText: { fontSize: 16, fontWeight: '800' },
+  avatarText: { fontSize: 15, fontWeight: '800' },
   miembroNombre: { fontSize: 14, fontWeight: '700', color: COLORS.textDark },
-  miembroEmail: { fontSize: 10, color: COLORS.textLight, marginTop: 2 },
+  miembroEmail: { fontSize: 11, color: COLORS.textLight, marginTop: 2 },
   horarioRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
   horarioIcon: { fontSize: 11 },
   horarioText: { fontSize: 11, color: COLORS.textLight, fontWeight: '600' },
@@ -464,21 +495,31 @@ const styles = StyleSheet.create({
   editarBtn: { marginTop: 10, paddingVertical: 8, alignItems: 'center', borderRadius: 8, backgroundColor: COLORS.goldPale, borderWidth: 1, borderColor: COLORS.gold },
   editarBtnText: { fontSize: 11, fontWeight: '700', color: COLORS.gold },
   modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 },
-  modalCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20 },
+  modalCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: COLORS.border },
   modalTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textDark, marginBottom: 16 },
-  modalLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textLight, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, marginTop: 8 },
+  modalLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textLight, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, marginTop: 10 },
   modalInput: { backgroundColor: COLORS.cream, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: COLORS.border, fontSize: 14, color: COLORS.textDark, marginBottom: 4 },
-  diasModalRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 4 },
+  diasModalRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 6 },
   diaModalChip: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.cream },
   diaModalChipActive: { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold },
   diaModalChipText: { fontSize: 12, color: COLORS.textLight, fontWeight: '600' },
   diaModalChipTextActive: { color: COLORS.gold, fontWeight: '800' },
-  rolBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.cream, alignItems: 'center' },
+  rolBtn: { flex: 1, minWidth: 90, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.cream, alignItems: 'center' },
   rolBtnActive: { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold },
   rolBtnText: { fontSize: 10, fontWeight: '600', color: COLORS.textLight },
   rolBtnTextActive: { color: COLORS.gold, fontWeight: '800' },
-  removerBtn: { marginTop: 12, paddingVertical: 8, alignItems: 'center', borderRadius: 8, backgroundColor: COLORS.redPale, borderWidth: 1, borderColor: COLORS.red },
+  removerBtn: { marginTop: 10, paddingVertical: 8, alignItems: 'center', borderRadius: 8, backgroundColor: COLORS.redPale, borderWidth: 1, borderColor: COLORS.red },
   removerBtnText: { fontSize: 11, fontWeight: '700', color: COLORS.red },
   modalBtn: { borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
   modalBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.white },
+  
+  // CAJA PREMIUM DE TOKEN GENERADO
+  tokenContainer: {
+    backgroundColor: COLORS.goldPale, borderRadius: 12,
+    borderWidth: 2, borderStyle: 'dashed', borderColor: COLORS.gold,
+    paddingVertical: 14, paddingHorizontal: 28, marginTop: 8
+  },
+  tokenText: {
+    fontSize: 22, fontWeight: '900', color: COLORS.gold, letterSpacing: 2
+  }
 });
