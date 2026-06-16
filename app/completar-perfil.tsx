@@ -21,9 +21,9 @@ const COLORS = {
 };
 
 // 🎛️ ROLES ACTUALIZADOS: Separación explícita según tu visión de negocio
+// 🎛️ ROLES ALINEADOS CON EL CONSTRAIN DEL BACKEND (FastAPI / Supabase)
 const ROLES = [
-  { valor: 'admin', etiqueta: '👑 Familiar Administrador', desc: 'Registro al paciente, configuro el reloj y controlo la red' },
-  { valor: 'familiar', etiqueta: '👨‍👩‍👧 Familiar Visualizador', desc: 'Solo visualizo el estado y telemetría de mi familiar' },
+  { valor: 'familiar', etiqueta: '👑 Familiar Administrador', desc: 'Registro al paciente, configuro el reloj y controlo la red' },
   { valor: 'cuidador', etiqueta: '🤲 Cuidador', desc: 'Asistencia directa (requiere asignación de turno por el Admin)' },
   { valor: 'medico', etiqueta: '🩺 Médico', desc: 'Superviso médicamente los signos del paciente' },
 ];
@@ -91,19 +91,20 @@ export default function CompletarPerfilScreen() {
       }
 
       // 🚨 REDIRECCIÓN INTELIGENTE BASADA EN ROLES
+ 
       switch (rol) {
-        case 'admin':
-          console.log("Acceso concedido como Administrador - Redirigiendo a registro de paciente.");
-          router.replace('/perfil-paciente'); // Mandamos directo a dar de alta al paciente y su reloj
+        case 'familiar':
+          console.log("Acceso concedido como Administrador/Familiar - Redirigiendo a registro de paciente.");
+          router.replace('/perfil-paciente'); // Te manda directo a dar de alta al paciente y su reloj
           break;
         case 'medico': 
           router.replace('/medico'); 
           break;
         case 'cuidador': 
-          router.replace('/cuidador'); // Va al dashboard estático de cuidador (esperando asignación de turno)
+          router.replace('/cuidador'); 
           break;
         default: 
-          router.replace('/'); // Familiar Visualizador va directo a la Home
+          router.replace('/'); 
       }
     } catch (e: any) {
       console.error("Error en handleGuardar:", e);
