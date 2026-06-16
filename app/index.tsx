@@ -96,7 +96,10 @@ useEffect(() => {
         // 3. 🚨 ENRUTADOR RELACIONAL INTELIGENTE: Preguntamos al backend quién es este usuario
         // Llamamos a getPacientes para comprobar autenticación y datos
         const data = await getPacientes();
-        
+        if (data.requiere_perfil || data.status === 'pending_profile') {
+          router.replace('/completar-perfil');
+          return;
+        }
         if (data.error || data.detail === 'Not authenticated') {
           await clearToken();
           router.replace('/login');
