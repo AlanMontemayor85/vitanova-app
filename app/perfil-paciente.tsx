@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { actualizarPaciente, configurarReloj } from '../services/api'; // 📡 Asegúrate de exportar configurarReloj de tu services/api.ts
+import { actualizarPaciente, clearToken, configurarReloj } from '../services/api'; // 📡 Asegúrate de exportar configurarReloj de tu services/api.ts
 
 const COLORS = {
   gold: '#BF9A40',
@@ -142,13 +142,24 @@ export default function PerfilPacienteScreen() {
     }
   };
 
-  return (
+ return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backIcon}>←</Text>
+        
+        {/* 🚨 REEMPLAZA DESDE AQUÍ: BOTÓN DE SALIDA CRÍTICA HASTA EL LOGIN */}
+        <TouchableOpacity 
+          onPress={async () => {
+            console.log("🧼 Ejecutando salida de emergencia desde configuración de hardware...");
+            await clearToken(); // Limpia RAM, SecureStore y el caché de AsyncStorage
+            router.replace('/login'); // Te saca del bucle limpiamente
+          }} 
+          style={styles.backBtn}
+        >
+          <Text style={styles.backIcon}>🚪</Text> 
         </TouchableOpacity>
+        {/* HASTA AQUÍ */}
+        
         <View style={{ flex: 1 }}>
           <Text style={styles.greeting}>Configuración de Paciente</Text>
           <Text style={styles.userName}>{nombre || 'Nuevo Registro'}</Text>
