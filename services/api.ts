@@ -466,7 +466,7 @@ export const getSignosRecientes = async (patientId: string) => {
     return await res.json();
   } catch (error) {
     console.error("❌ Error en servicio getSignosRecientes:", error);
-    return { success: false, spo2: "—", presion: "—", fc: "—" };
+    return { success: false, spo2: "—", presion: "—", fc: "—", temperatura: "—" };
   }
 };
 
