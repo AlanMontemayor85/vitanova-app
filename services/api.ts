@@ -341,9 +341,10 @@ export const transferirPendientes = async (turnoId: string, pacienteId: string) 
 };
 export const reiniciarRegistroServidor = async () => {
   try {
-    const response = await fetch(`${BASE_URL}/auth/reiniciar-registro`, {
+    // 🚨 Alineado con la ruta plana del backend
+    const response = await fetch(`${BASE_URL}/reiniciar-registro`, {
       method: 'DELETE',
-      headers: headers(), // Hereda tu Bearer Token de autenticación actual
+      headers: headers(),
     });
     const data = await response.json();
     return data;
