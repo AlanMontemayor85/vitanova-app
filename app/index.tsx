@@ -161,7 +161,10 @@ useEffect(() => {
         const alertaPesoData = await getAlertaPeso(p.id).catch(() => ({ alerta: null }));
         if (alertaPesoData?.alerta) setAlertaPeso(alertaPesoData);
       } else {
-        console.log("⚠️ Administrador registrado pero sin pacientes asignados actualmente.");
+        // Familiar sin paciente configurado → onboarding del paciente (IMEI, SOS, ambulancia...)
+        console.log("⌚ Familiar sin paciente. Redirigiendo a perfil-paciente.");
+        router.replace('/perfil-paciente');
+        return;
       }
 
     } catch (e) {

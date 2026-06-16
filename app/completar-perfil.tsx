@@ -97,12 +97,11 @@ export default function CompletarPerfilScreen() {
       }
 
       // 🚨 REDIRECCIÓN INTELIGENTE BASADA EN ROLES
+      // 🚨 Dentro del switch(rol) de handleGuardarDefinitivo en completar-perfil.tsx:
       switch (rol) {
         case 'familiar':
-          console.log("Acceso concedido como Administrador/Familiar - Redirigiendo a Dashboard.");
-          // 🛡️ ¡OJO AQUÍ! Como ya corregimos el index.tsx, ya puedes mandarlo directo a la Home ('/') 
-          // o a tu panel '/admin'. No lo mandes a la fuerza a perfil-paciente para que no se vuelva a bclear.
-          router.replace('/'); 
+          console.log("👑 Rol Familiar Administrador guardado. Enviando a configuración de hardware...");
+          router.replace('/perfil-paciente'); // ⬅️ Asegúrate de que apunte aquí para el registro inicial
           break;
         case 'medico': 
           router.replace('/medico'); 
