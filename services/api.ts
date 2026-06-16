@@ -191,13 +191,31 @@ export const crearPaciente = async (paciente: object) => {
   });
   return res.json();
 };
-export const actualizarPaciente = async (pacienteId: string, datos: object) => {
-  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}`, {
-    method: 'PATCH',
-    headers: headers(),
-    body: JSON.stringify(datos),
-  });
-  return res.json();
+export const actualizarPaciente = async (id: string, campos: any) => {
+  try {
+    const url = id === 'nuevo' ? `${BASE_URL}/pacientes/nuevo` : `${BASE_URL}/pacientes/${id}`;
+    
+    const response = await fetch(url, {
+      method: 'PATCH', // O POST según tu enrutador
+      headers: headers(),
+      body: JSON.stringify(campos),
+    });
+
+    // 🚨 EL FILTRO TÁCTICO:
+    // Si la respuesta no es exitosa (200/201), leemos como texto para ver qué maldita columna rompió el backend
+    if (!response.ok) {
+      const textoError = await response.text();
+      console.error("❌ El servidor de Railway respondió con error crudo:", textoError);
+      throw new Error(`Error del servidor (${response.status}): ${textoError}`);
+    }
+
+    // Si todo sale bien, entonces sí parseamos el JSON seguro
+    return await response.json();
+
+  } catch (error) {
+    console.error("Error en actualizarPaciente:", error);
+    throw error;
+  }
 };
 export const desactivarTareaRecurrente = async (tareaId: string) => {
   const res = await fetch(`${BASE_URL}/tareas-recurrentes/${tareaId}/desactivar`, {
