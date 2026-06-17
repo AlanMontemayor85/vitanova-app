@@ -41,6 +41,7 @@ export default function PerfilPacienteScreen() {
   const [nombre, setNombre] = useState(paciente?.nombre_completo ?? '');
   const [medico, setMedico] = useState(paciente?.medico_tratante ?? '');
   const [talla, setTalla] = useState(paciente?.talla_cm?.toString() ?? '');
+  const [pesoInput, setPesoInput] = useState('');
   const [condiciones, setCondiciones] = useState<string[]>(paciente?.condiciones_medicas ?? []);
   const [telefonoEmergencia, setTelefonoEmergencia] = useState(paciente?.telefono_emergencia ?? '');
   const [nombreAseguradora, setNombreAseguradora] = useState(paciente?.nombre_aseguradora ?? '');
@@ -106,6 +107,7 @@ export default function PerfilPacienteScreen() {
         condiciones_medicas: condiciones,
         medico_tratante: medico.trim() || null,
         talla_cm: talla ? parseFloat(talla) : null,
+        peso_kg: pesoInput ? parseFloat(pesoInput) : null,
         telefono_emergencia: telefonoEmergencia.trim() || null,
         nombre_aseguradora: nombreAseguradora.trim() || null,
         telefono_aseguradora: telefonoAseguradora.trim() || null, // Valida si en tu API es telefono_aseguradora o telefono_ura
@@ -114,13 +116,13 @@ export default function PerfilPacienteScreen() {
         reloj_sos1: sos1.trim() || null,
         reloj_sos2: sos2.trim() || null,
       });
-
+      
       // 2. Extracción segura del ID generado por Postgres
       // Soportamos si tu API mapea el id directo, en .paciente_id o en un arreglo .data
       const idActual = paciente?.id || dataPac?.paciente_id || dataPac?.id || (dataPac?.data && dataPac.data[0]?.id);
       
       console.log(`✅ Registro procesado en base de datos. ID Paciente: ${idActual}`);
-
+      
       // 3. 🚀 ENLACE EN CALIENTE VÍA REDIS
       if (idActual && imei.trim() && (sos1.trim() || sos2.trim())) {
         console.log("⚡ Disparando hilos de red en Redis para sincronización de hardware...");
@@ -310,7 +312,18 @@ export default function PerfilPacienteScreen() {
           onChangeText={setTalla}
           keyboardType="numeric"
         />
-
+        {/* Input de Peso Clínico */}
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Peso Actual (kg)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Ej: 74.5"
+            placeholderTextColor="#8A8078"
+            keyboardType="numeric"
+            value={pesoInput}
+            onChangeText={setPesoInput}
+          />
+        </View>
         <Text style={styles.label}>Condiciones médicas</Text>
         <View style={styles.condicionesGrid}>
           {CONDICIONES.map(c => (
@@ -438,7 +451,10 @@ const styles = StyleSheet.create({
 
   seccionClinica: { backgroundColor: '#EBEAE6', borderRadius: 10, padding: 12, marginBottom: 12, marginTop: 8, borderWidth: 1, borderColor: COLORS.border },
   clinicaTitulo: { fontSize: 12, fontWeight: '800', color: COLORS.textMid },
-
+  formGroup: {
+    marginBottom: 16, // Le da espacio hacia abajo para que no se pegue con el siguiente input
+    width: '100%',
+  },
   seccionEmergencia: { backgroundColor: COLORS.redPale, borderRadius: 10, padding: 12, marginBottom: 12, marginTop: 8, borderWidth: 1, borderColor: 'rgba(217,79,79,0.2)' },
   seccionTitulo: { fontSize: 12, fontWeight: '800', color: COLORS.red },
   error: { color: COLORS.red, fontSize: 12, marginBottom: 12, textAlign: 'center' },

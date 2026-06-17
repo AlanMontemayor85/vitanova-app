@@ -37,6 +37,7 @@ export default function HomeScreen() {
   const [pacienteIndex, setPacienteIndex] = useState(0);
   const params = useLocalSearchParams();
   const [turnoResumen, setTurnoResumen] = useState<any>(null);
+  const [peso, setPeso] = useState<string>('—');
   const [alertaPeso, setAlertaPeso] = useState<any>(null);
   const [solicitudOpen, setSolicitudOpen] = useState(false);
   const [solicitudItems, setSolicitudItems] = useState<string[]>([]);
