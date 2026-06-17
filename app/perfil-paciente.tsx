@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { actualizarPaciente, clearToken, configurarReloj, reiniciarRegistroServidor } from '../services/api'; // 📡 Asegúrate de exportar configurarReloj de tu services/api.ts
 
@@ -41,7 +41,7 @@ export default function PerfilPacienteScreen() {
   const [nombre, setNombre] = useState(paciente?.nombre_completo ?? '');
   const [medico, setMedico] = useState(paciente?.medico_tratante ?? '');
   const [talla, setTalla] = useState(paciente?.talla_cm?.toString() ?? '');
-  const [pesoInput, setPesoInput] = useState('');
+  const [pesoInput, setPesoInput] = useState(paciente?.peso_kg?.toString() ?? '');
   const [condiciones, setCondiciones] = useState<string[]>(paciente?.condiciones_medicas ?? []);
   const [telefonoEmergencia, setTelefonoEmergencia] = useState(paciente?.telefono_emergencia ?? '');
   const [nombreAseguradora, setNombreAseguradora] = useState(paciente?.nombre_aseguradora ?? '');
@@ -58,7 +58,12 @@ export default function PerfilPacienteScreen() {
       prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]
     );
   };
-
+  // ⚖️ Sincronizador en caliente de la Ficha Clínica
+  useEffect(() => {
+    if (paciente?.peso_kg) {
+      setPesoInput(paciente.peso_kg.toString());
+    }
+  }, [paciente?.peso_kg]);
   // 📡 FUNCIÓN TÁCTICA: Disparador del Bus de Comandos por Redis
   const ejecutarSincronizacionReloj = async (targetId: string) => {
     try {
@@ -312,11 +317,21 @@ export default function PerfilPacienteScreen() {
           onChangeText={setTalla}
           keyboardType="numeric"
         />
-        {/* Input de Peso Clínico */}
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Peso Actual (kg)</Text>
+        {/* ⚖️ Input de Peso Clínico Unificado */}
+        <View style={{ marginBottom: 16, width: '100%' }}>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: '#4A4540', marginBottom: 6 }}>
+            Peso Actual (kg)
+          </Text>
           <TextInput
-            style={styles.input}
+            style={{
+              borderWidth: 1,
+              borderColor: '#E0D8CC',
+              borderRadius: 8,
+              padding: 12,
+              fontSize: 16,
+              color: '#2C2820',
+              backgroundColor: '#FAFAF7'
+            }}
             placeholder="Ej: 74.5"
             placeholderTextColor="#8A8078"
             keyboardType="numeric"
