@@ -43,6 +43,7 @@ export default function HomeScreen() {
   const [solicitudNota, setSolicitudNota] = useState('');
   const [signosDispositivo, setSignosDispositivo] = useState<any>(null);
   const [midiendo, setMidiendo] = useState<boolean>(false);
+  const [nombreUsuario, setNombreUsuario] = useState<string>('Familiar');
   const pacienteId = paciente?.id;
 
 // 📡 1. Función para jalar la telemetría más reciente del reloj
@@ -78,7 +79,7 @@ useEffect(() => {
   const init = async () => {
     try {
       setLoading(true);
-
+      
       // 1. Validar Onboarding local
       const onboardingCompletado = await AsyncStorage.getItem('onboarding_completado');
       if (!onboardingCompletado) {
@@ -99,15 +100,17 @@ useEffect(() => {
       // 3. 🚨 ADUANA BIOMÉDICA: Preguntamos a Railway/Supabase quién es este usuario
       const data = await getPacientes();
       
-      // Token inválido/expirado o usuario borrado → limpiar y a login
-      if (data.no_autenticado || data.detail === 'Token inválido o expirado') {
-        await clearToken();
-        router.replace('/login');
-        return;
+      // Mapeo del nombre completo (Alan Montemayor). 
+      // Usamos un typeof para evitar que truene en rojo si aún no has declarado el useState arriba.
+      if (data && data.usuario_nombre && typeof setNombreUsuario === 'function') {
+        setNombreUsuario(data.usuario_nombre); 
       }
 
-      if (data.requiere_perfil || data.status === 'pending_profile') {
-        router.replace('/completar-perfil');
+      // 🛡️ CONTROL A: Token inválido/expirado o usuario borrado → limpiar y a login
+      if (!data || data.no_autenticado || data.error || data.detail === 'Token inválido o expirado') {
+        console.log("🛑 Sesión inválida o expirada. Expulsando al Login.");
+        await clearToken();
+        router.replace('/login');
         return;
       }
 
@@ -131,11 +134,9 @@ useEffect(() => {
         return;
       }
 
-      // 👑 CONTROL C: Si eres un Familiar/Admin válido, te damos luz verde
+      // 👑 CONTROL C: Si eres un Familiar/Admin válido, te damos luz verde para continuar abajo
       if (data.usuario_tipo === 'familiar' || data.usuario_tipo === 'admin') {
-        console.log("👑 Acceso concedido como Administrador. Inicializando entorno...");
-        // No ejecutamos .replace() aquí para no romper el flujo hacia abajo. 
-        // Permitimos que el hilo de ejecución pase directo al flujo de carga de datos.
+        console.log("👑 Acceso concedido como Administrador. Inicializando entorno de telemetría...");
       }
 
       // 📡 4. Flujo Normal de Familiar (Carga de telemetría y estado clínico)
@@ -160,9 +161,11 @@ useEffect(() => {
         // Verificar alertas críticas de peso/hidratación
         const alertaPesoData = await getAlertaPeso(p.id).catch(() => ({ alerta: null }));
         if (alertaPesoData?.alerta) setAlertaPeso(alertaPesoData);
+        
       } else {
-        // Familiar sin paciente configurado → onboarding del paciente (IMEI, SOS, ambulancia...)
-        console.log("⌚ Familiar sin paciente. Redirigiendo a perfil-paciente.");
+        // 🔥 LA CORRECCIÓN CLAVE: Si ya tienes rol de admin, pero no hay pacientes en Supabase,
+        // la app te transfiere directo a vincular el hardware, no a completar perfil.
+        console.log("⌚ Familiar sin paciente asignado actualmente. Redirigiendo a perfil-paciente.");
         router.replace('/perfil-paciente');
         return;
       }
@@ -178,7 +181,6 @@ useEffect(() => {
 
   init();
 }, [params.refresh]);
-
 useEffect(() => {
   if (pacientes.length === 0) return;
   const p = pacientes[pacienteIndex];
