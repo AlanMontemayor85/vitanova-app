@@ -309,11 +309,38 @@ useEffect(() => {
           </View>
 
           {/* FILA 1: ESTADO GENERAL DE BIENESTAR, TEMPERATURA Y PESO */}
+          
           <View style={[styles.vitalsRow, { marginBottom: 8 }]}>
-            {/* Tarjeta de Estado Clínico Emocional */}
+            
+           {/* 🧠 Tarjeta de Condición Inteligente Automatizada por Reloj */}
             <View style={styles.vitalCard}>
-              <Text style={[styles.vitalVal, { fontSize: 22, lineHeight: 26, color: ultimoCierre?.estado_paciente === 'bien' ? COLORS.green : ultimoCierre?.estado_paciente === 'preocupante' ? COLORS.red : COLORS.amber }]}>
-                {ultimoCierre?.estado_paciente === 'bien' ? '😊' : ultimoCierre?.estado_paciente === 'preocupante' ? '😟' : ultimoCierre ? '😐' : '—'}
+              {(() => {
+                // 📡 INYECCIÓN DE LOG EN CALIENTE: Verificamos qué tiene signosDispositivo en el render
+                console.log("🕵️‍♂️ [RENDERING CARD] signosDispositivo completo:", JSON.stringify(signosDispositivo));
+                console.log("🎭 [RENDERING CARD] condicion_carita:", signosDispositivo?.condicion_carita);
+                console.log("👤 [RENDERING CARD] ultimoCierre estado_paciente:", ultimoCierre?.estado_paciente);
+                return null;
+              })()}
+              
+              <Text style={[
+                styles.vitalVal, 
+                { 
+                  fontSize: 22, 
+                  lineHeight: 26, 
+                  color: signosDispositivo?.condicion_carita === 'critica' 
+                    ? COLORS.red 
+                    : signosDispositivo?.condicion_carita === 'regular' 
+                      ? COLORS.amber 
+                      : COLORS.green 
+                }
+              ]}>
+                {signosDispositivo?.condicion_carita === 'critica' 
+                  ? '😟' 
+                  : signosDispositivo?.condicion_carita === 'regular' 
+                    ? '😐' 
+                    : signosDispositivo?.condicion_carita === 'buena' 
+                      ? '😊' 
+                      : (ultimoCierre?.estado_paciente === 'bien' ? '😊' : ultimoCierre?.estado_paciente === 'preocupante' ? '😟' : '—')}
               </Text>
               <Text style={styles.vitalLabel}>Condición</Text>
             </View>
@@ -328,13 +355,15 @@ useEffect(() => {
               <Text style={styles.vitalLabel}>Temp. Corp.</Text>
             </View>
 
-            {/* Tarjeta de Peso de Control Métrico */}
+            {/* ⚖️ Tarjeta de Peso Clínico Unificado (Cierre u Onboarding) */}
             <View style={styles.vitalCard}>
               <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
-                {ultimoCierre?.peso_kg ? `${ultimoCierre.peso_kg}` : '—'}
+                {signosDispositivo?.peso && signosDispositivo?.peso !== "—"
+                  ? signosDispositivo.peso.replace(" kg", "") // Si viene '74.5 kg' de signos-recientes, extrae solo el número
+                  : (ultimoCierre?.peso_kg ? `${ultimoCierre.peso_kg}` : '—')}
               </Text>
               <Text style={styles.vitalUnit}>kg</Text>
-              <Text style={styles.vitalLabel}> Peso</Text>
+              <Text style={styles.vitalLabel}>Peso</Text>
             </View>
           </View>
 

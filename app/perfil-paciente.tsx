@@ -67,7 +67,7 @@ export default function PerfilPacienteScreen() {
         
         // Ejecutamos tu función global que va a Railway/Supabase
         const data = await getPacientes(); 
-        
+        console.log("📦 RESPUESTA DE GET_PACIENTES EN TU CELULAR:", JSON.stringify(data));
         if (data && data.patients) {
           // Buscamos a nuestro paciente específico dentro del arreglo fresco
           const pFresco = data.patients.find((x: any) => x.id === paciente.id);
