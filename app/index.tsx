@@ -48,11 +48,21 @@ export default function HomeScreen() {
   const pacienteId = paciente?.id;
 
 // 📡 1. Función para jalar la telemetría más reciente del reloj
-const cargarSignosDispositivo = async () => {
-  if (!pacienteId) return;
-  const res = await getSignosRecientes(pacienteId);
-  if (res && res.success) {
-    setSignosDispositivo(res);
+const cargarSignosDispositivo = async (idToLoad?: string) => {
+  const targetId = idToLoad || pacienteId;
+  if (!targetId) return;
+  
+  try {
+    const res = await getSignosRecientes(targetId);
+    if (res && res.success) {
+      console.log(`📥 [INDEX] Telemetría fresca guardada para el paciente: ${targetId}`);
+      setSignosDispositivo(res);
+      
+      // 💾 Guardamos respaldo local persistente
+      await AsyncStorage.setItem(`@vitals_${targetId}`, JSON.stringify(res));
+    }
+  } catch (error) {
+    console.log("⚠️ Error cargando signos vitales:", error);
   }
 };
 
@@ -203,6 +213,25 @@ useEffect(() => {
 };
   cargarDatos();
 }, [pacienteIndex]);
+
+// 3️⃣ TERCER EFFECT: Polling asíncrono y autónomo para los signos vitales
+useEffect(() => {
+  if (pacientes.length === 0) return;
+  const p = pacientes[pacienteIndex];
+  if (!p?.id) return;
+
+  // ⚡ Carga inmediata de red al cambiar de paciente
+  cargarSignosDispositivo(p.id);
+
+  // ⏱️ Cronómetro silencioso en segundo plano cada 30 segundos
+  const intervalo = setInterval(() => {
+    console.log(`🔄 [POLLING] Solicitando signos frescos para: ${p.id}`);
+    cargarSignosDispositivo(p.id);
+  }, 30000);
+
+  // 🧼 Limpieza obligatoria al cambiar de pestaña o paciente
+  return () => clearInterval(intervalo);
+}, [pacienteIndex, pacientes]);
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAFAF7' }}>
