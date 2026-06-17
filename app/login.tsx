@@ -119,9 +119,9 @@ export default function LoginScreen() {
           );
 
           // 3. 🎯 REDIRECCIÓN IMPLACABLE: Forzamos el salto a completar-perfil
-          console.log('🚀 Forzando redirección a completar-perfil...');
-          router.replace('/completar-perfil' as any);
-
+          // 3. Dejamos que el init del index enrute según perfil/paciente/rol
+          console.log('🚀 Login Google OK, enrutando desde el index...');
+          router.replace('/' as any);
         } else if (code) {
           console.log('⚠️ Llegó un "code" (PKCE), no un access_token:', code);
           setError('OAuth devolvió un code (PKCE) — hay que intercambiarlo');
