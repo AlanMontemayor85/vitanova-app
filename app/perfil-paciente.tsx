@@ -89,7 +89,7 @@ export default function PerfilPacienteScreen() {
     }
     
     if (imei.trim() && imei.trim().length < 10) {
-      setError('El número de serie IMEI o ID de GPS no parece válido');
+      setError('El Device ID del reloj no parece válido (deben ser 10 dígitos)');
       return;
     }
 
@@ -108,7 +108,7 @@ export default function PerfilPacienteScreen() {
         talla_cm: talla ? parseFloat(talla) : null,
         telefono_emergencia: telefonoEmergencia.trim() || null,
         nombre_aseguradora: nombreAseguradora.trim() || null,
-        telefono_ura: telefonoAseguradora.trim() || null, // Valida si en tu API es telefono_aseguradora o telefono_ura
+        telefono_aseguradora: telefonoAseguradora.trim() || null, // Valida si en tu API es telefono_aseguradora o telefono_ura
         telefono_ambulancia: telefonoAmbulancia.trim() || null,
         reloj_imei: imei.trim() || null,
         reloj_sos1: sos1.trim() || null,
@@ -242,7 +242,7 @@ export default function PerfilPacienteScreen() {
           <Text style={styles.relojTitulo}>⌚ Enlace y Configuración del Reloj Vitanova</Text>
         </View>
 
-        <Text style={styles.label}>Número IMEI / ID del Localizador GPS</Text>
+        <Text style={styles.label}>Número ID De Dispositivo / ID del Localizador GPS</Text>
         <TextInput
           style={styles.input}
           placeholder="Código de 10 a 15 dígitos grabado en el reloj"
