@@ -374,64 +374,75 @@ useEffect(() => {
               <Text style={styles.vitalLabel}>Condición</Text>
             </View>
 
-            {/* Tarjeta Temperatura Corporal (Inyectada desde el Reloj o Cierre) */}
-            <View style={styles.vitalCard}>
-              <Text style={[styles.vitalVal, { color: COLORS.green }]}>
-                {signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
-                  ? `${signosDispositivo.temperatura}°` 
-                  : (ultimoCierre?.temperatura_corporal ? `${ultimoCierre.temperatura_corporal}°` : '—')}
-              </Text>
-              <Text style={styles.vitalLabel}>Temp. Corp.</Text>
-            </View>
-
-            {/* ⚖️ Tarjeta de Peso Clínico Unificado (Cierre u Onboarding) */}
-            <View style={styles.vitalCard}>
-              <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
-                {signosDispositivo?.peso && signosDispositivo?.peso !== "—"
-                  ? signosDispositivo.peso.replace(" kg", "") // Si viene '74.5 kg' de signos-recientes, extrae solo el número
-                  : (ultimoCierre?.peso_kg ? `${ultimoCierre.peso_kg}` : '—')}
-              </Text>
-              <Text style={styles.vitalUnit}>kg</Text>
-              <Text style={styles.vitalLabel}>Peso</Text>
-            </View>
+           {/* Tarjeta Temperatura Corporal (Pura de Hardware — Sin respaldo histórico) */}
+          <View style={styles.vitalCard}>
+            <Text style={[
+              styles.vitalVal, 
+              { color: signosDispositivo?.frescura?.temperatura ? COLORS.green : COLORS.textLight }
+            ]}>
+              {/* 🚫 Cortamos el respaldo de ultimoCierre aquí también */}
+              {signosDispositivo?.frescura?.temperatura && signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
+                ? `${signosDispositivo.temperatura}°` 
+                : '—'}
+            </Text>
+            <Text style={styles.vitalLabel}>Temp. Corp.</Text>
           </View>
 
-          {/* FILA 2: TELEMETRÍA PURA DEL HARDWARE RECHFAR RF-V48 */}
-          <View style={styles.vitalsRow}>
-            {/* Tarjeta SpO2 */}
-            <View style={styles.vitalCard}>
-              <Text style={styles.vitalVal}>
-                {signosDispositivo?.spo2 !== "—" ? signosDispositivo?.spo2 : (ultimoCierre?.spo2 ?? '—')}
-              </Text>
-              <Text style={styles.vitalUnit}>%</Text>
-              <Text style={styles.vitalLabel}>SpO₂</Text>
-            </View>
-
-            {/* Tarjeta Presión Arterial */}
-            <View style={styles.vitalCard}>
-              <Text style={styles.vitalVal}>
-                {signosDispositivo?.presion !== "—" 
-                  ? signosDispositivo?.presion.split('/')[0] 
-                  : (ultimoCierre ? `${ultimoCierre.presion_sistolica}` : '—')}
-                <Text style={styles.vitalValSmall}>
-                  {signosDispositivo?.presion !== "—" 
-                    ? `/${signosDispositivo?.presion.split('/')[1]}` 
-                    : (ultimoCierre ? `/${ultimoCierre.presion_diastolica}` : '')}
-                </Text>
-              </Text>
-              <Text style={styles.vitalLabel}>Presión</Text>
-            </View>
-
-            {/* Tarjeta Frecuencia Cardíaca */}
-            <View style={styles.vitalCard}>
-              <Text style={[styles.vitalVal, { color: COLORS.red }]}>
-                {signosDispositivo?.fc !== "—" ? signosDispositivo?.fc : (ultimoCierre?.frecuencia_cardiaca ?? '—')}
-              </Text>
-              <Text style={styles.vitalUnit}>bpm</Text>
-              <Text style={styles.vitalLabel}>F. Card.</Text>
-            </View>
+          {/* ⚖️ Tarjeta de Peso Clínico Unificado (Se mantiene estable con la BD) */}
+          <View style={styles.vitalCard}>
+            <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
+              {signosDispositivo?.peso && signosDispositivo?.peso !== "—"
+                ? signosDispositivo.peso.replace(" kg", "") 
+                : (ultimoCierre?.peso_kg ? `${ultimoCierre.peso_kg}` : '—')}
+            </Text>
+            <Text style={styles.vitalUnit}>kg</Text>
+            <Text style={styles.vitalLabel}>Peso</Text>
           </View>
         </View>
+
+        {/* FILA 2: TELEMETRÍA PURA DEL HARDWARE RECHFAR RF-V48 */}
+        <View style={styles.vitalsRow}>
+          {/* Tarjeta SpO2 */}
+          <View style={styles.vitalCard}>
+            <Text style={styles.vitalVal}>
+              {signosDispositivo?.frescura?.spo2 && signosDispositivo?.spo2 !== "—" 
+                ? signosDispositivo?.spo2 
+                : '—'}
+            </Text>
+            <Text style={styles.vitalUnit}>%</Text>
+            <Text style={styles.vitalLabel}>SpO₂</Text>
+          </View>
+
+          {/* Tarjeta Presión Arterial */}
+          <View style={styles.vitalCard}>
+            <Text style={styles.vitalVal}>
+              {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
+                ? signosDispositivo?.presion.split('/')[0] 
+                : '—'}
+              <Text style={styles.vitalValSmall}>
+                {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
+                  ? `/${signosDispositivo?.presion.split('/')[1]}` 
+                  : ''}
+              </Text>
+            </Text>
+            <Text style={styles.vitalLabel}>Presión</Text>
+          </View>
+
+          {/* Tarjeta Frecuencia Cardíaca */}
+          <View style={styles.vitalCard}>
+            <Text style={[
+              styles.vitalVal, 
+              { color: signosDispositivo?.frescura?.bphrt ? COLORS.red : COLORS.textLight }
+            ]}>
+              {signosDispositivo?.frescura?.bphrt && signosDispositivo?.fc !== "—" 
+                ? signosDispositivo?.fc 
+                : '—'}
+            </Text>
+            <Text style={styles.vitalUnit}>bpm</Text>
+            <Text style={styles.vitalLabel}>F. Card.</Text>
+          </View>
+        </View>
+      </View>
         {/* ACTIVIDAD RECIENTE */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Último turno</Text>
