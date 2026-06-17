@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { actualizarPaciente, clearToken, configurarReloj, reiniciarRegistroServidor } from '../services/api'; // 📡 Asegúrate de exportar configurarReloj de tu services/api.ts
+import { actualizarPaciente, clearToken, configurarReloj, getPacientes, reiniciarRegistroServidor } from '../services/api'; // 📡 Asegúrate de exportar configurarReloj de tu services/api.ts
 
 const COLORS = {
   gold: '#BF9A40',
@@ -58,12 +58,32 @@ export default function PerfilPacienteScreen() {
       prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]
     );
   };
-  // ⚖️ Sincronizador en caliente de la Ficha Clínica
+  // ⚖️ Sincronizador Maestro de la Ficha Clínica (Rompe el caché de la navegación)
   useEffect(() => {
-    if (paciente?.peso_kg) {
-      setPesoInput(paciente.peso_kg.toString());
-    }
-  }, [paciente?.peso_kg]);
+    const refrescarDatosAlEntrar = async () => {
+      if (!paciente?.id) return;
+      try {
+        console.log("🔍 Rompiendo caché de navegación. Solicitando datos frescos al servidor...");
+        
+        // Ejecutamos tu función global que va a Railway/Supabase
+        const data = await getPacientes(); 
+        
+        if (data && data.patients) {
+          // Buscamos a nuestro paciente específico dentro del arreglo fresco
+          const pFresco = data.patients.find((x: any) => x.id === paciente.id);
+          
+          if (pFresco && pFresco.peso_kg) {
+            console.log("⚖️ Peso real recuperado de la BD:", pFresco.peso_kg);
+            setPesoInput(pFresco.peso_kg.toString());
+          }
+        }
+      } catch (err) {
+        console.log("⚠️ Error sincronizando peso en segundo plano:", err);
+      }
+    };
+
+    refrescarDatosAlEntrar();
+  }, [paciente?.id, params.refresh]); // Reacciona al ID del paciente o al refresh de la Home
   // 📡 FUNCIÓN TÁCTICA: Disparador del Bus de Comandos por Redis
   const ejecutarSincronizacionReloj = async (targetId: string) => {
     try {
