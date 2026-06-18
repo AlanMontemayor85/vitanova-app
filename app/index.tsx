@@ -444,11 +444,28 @@ useEffect(() => {
         </View>
       </View>
        {/* ======================================================== */}
-        {/* ⚡ SECCIÓN 1: TURNO ACTIVO DE CUIDADO (EN VIVO)          */}
+        {/* ⚡ SECCIÓN 1: TURNO ACTIVO DE CUIDADO (CON BOTONES)     */}
         {/* ======================================================== */}
-        <Text style={[styles.sectionTitle, { marginTop: 12, marginBottom: 12 }]}>Turno activo</Text>
+        <View style={[styles.sectionHeader, { marginTop: 12 }]}>
+          <Text style={styles.sectionTitle}>Turno activo</Text>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity onPress={() => router.push({
+              pathname: '/grafica-signos' as any,
+              params: { pacienteId: paciente?.id, pacienteNombre: paciente?.nombre_completo }
+            })}>
+              <Text style={styles.sectionLink}>Ver gráficas</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push({
+              pathname: '/historial' as any,
+              params: { pacienteId: paciente?.id, pacienteNombre: paciente?.nombre_completo }
+            })}>
+              <Text style={styles.sectionLink}>Ver historial</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {turnoResumen ? (
-          <View style={styles.turnoCard}>
+          <View style={[styles.turnoCard, { marginTop: 8 }]}>
             <View style={styles.turnoLeft}>
               <View style={styles.turnoAvatar}>
                 <Text style={styles.turnoAvatarText}>
@@ -466,7 +483,7 @@ useEffect(() => {
             </View>
           </View>
         ) : (
-          <View style={[styles.turnoCard, { justifyContent: 'center' }]}>
+          <View style={[styles.turnoCard, { justifyContent: 'center', marginTop: 8 }]}>
             <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
               Sin turno activo en este momento
             </Text>
@@ -534,25 +551,9 @@ useEffect(() => {
         </View>
 
         {/* ======================================================== */}
-        {/* 📜 SECCIÓN 4: BITÁCORA E HISTORIAL (ÚLTIMO TURNO CERRADO) */}
+        {/* 📜 SECCIÓN 4: BITÁCORA DE RESUMEN (ÚLTIMO TURNO CERRADO) */}
         {/* ======================================================== */}
-        <View style={[styles.sectionHeader, { marginTop: 20 }]}>
-          <Text style={styles.sectionTitle}>Último turno</Text>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <TouchableOpacity onPress={() => router.push({
-              pathname: '/grafica-signos' as any,
-              params: { pacienteId: paciente?.id, pacienteNombre: paciente?.nombre_completo }
-            })}>
-              <Text style={styles.sectionLink}>Ver gráficas</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push({
-              pathname: '/historial' as any,
-              params: { pacienteId: paciente?.id, pacienteNombre: paciente?.nombre_completo }
-            })}>
-              <Text style={styles.sectionLink}>Ver historial</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <Text style={[styles.sectionTitle, { marginTop: 20, marginBottom: 12 }]}>Último turno</Text>
 
         {ultimoCierre ? (
           <>
@@ -614,10 +615,10 @@ useEffect(() => {
       {/* BOTTOM NAV */}
       <View style={styles.bottomNav}>
         {[
-          { icon: '🏠', label: 'Inicio', ruta: '/', active: true },
+          { icon: '📋', label: 'Inicio', ruta: '/', active: true },
           { icon: '📍', label: 'Mapa', ruta: '/mapa', active: false },
           { icon: '🔔', label: 'Alertas', ruta: '/alertas' },
-          { icon: '📋', label: 'Medicam.', ruta: '/medicamentos', active: false },
+          { icon: '💊', label: 'Medicam.', ruta: '/medicamentos', active: false },
         ].map((item) => (
           <TouchableOpacity
             key={item.label}
