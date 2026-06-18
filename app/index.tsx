@@ -443,7 +443,100 @@ useEffect(() => {
           </View>
         </View>
       </View>
-        {/* ACTIVIDAD RECIENTE */}
+      {/* TURNO ACTIVO */}
+      <Text style={[styles.sectionTitle, { marginTop: 8, marginBottom: 12 }]}>Turno activo</Text>
+      {turnoResumen ? (
+        <View style={styles.turnoCard}>
+          <View style={styles.turnoLeft}>
+            <View style={styles.turnoAvatar}>
+              <Text style={styles.turnoAvatarText}>
+                {turnoResumen.cuidador_nombre?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+              </Text>
+            </View>
+            <View>
+              <Text style={styles.turnoName}>{turnoResumen.cuidador_nombre}</Text>
+              <Text style={styles.turnoHora}>{turnoResumen.horario}</Text>
+            </View>
+          </View>
+          <View style={styles.turnoProgress}>
+            <Text style={styles.turnoProgressText}>{turnoResumen.completadas}/{turnoResumen.total}</Text>
+            <Text style={styles.turnoProgressLabel}>tareas</Text>
+          </View>
+        </View>
+      ) : (
+        <View style={[styles.turnoCard, { justifyContent: 'center' }]}>
+          <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
+            Sin turno activo en este momento
+          </Text>
+        </View>
+          )}
+
+        <View style={{ height: 100 }} />
+      </ScrollView>
+        
+
+       
+        {/* ======================================================== */}
+        {/* 🎛️ SECCIÓN 1: ACCESOS RÁPIDOS OPERATIVOS                */}
+        {/* ======================================================== */}
+        <Text style={[styles.sectionTitle, { marginTop: 8, marginBottom: 12 }]}>Accesos rápidos</Text>
+        <View style={styles.quickActions}>
+          {[
+            { icon: '📍', label: 'Ubicación', ruta: '/mapa' },
+            { icon: '💊', label: 'Medicam.', ruta: '/medicamentos' },
+            { icon: '🔔', label: 'Alertas', ruta: '/alertas' },
+            { icon: '💬', label: 'Cuidadores', ruta: null },
+          ].map((item) => (
+            <TouchableOpacity
+              key={item.label}
+              style={styles.qaBtn}
+              onPress={() => {
+                if (item.label === 'Cuidadores') {
+                  router.push({
+                    pathname: '/red-cuidadores' as any,
+                    params: {
+                      pacienteId: paciente?.id,
+                      pacienteNombre: paciente?.nombre_completo,
+                    }
+                  });
+                } else {
+                  item.ruta && router.push(item.ruta as any);
+                }
+              }}
+            >
+              <Text style={styles.qaIcon}>{item.icon}</Text>
+              <Text style={styles.qaLabel}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* ======================================================== */}
+        {/* 👑 SECCIÓN 2: SERVICIOS VITANOVA INTEGRALIS              */}
+        {/* ======================================================== */}
+        <Text style={[styles.sectionTitle, { marginTop: 20, marginBottom: 12 }]}>Servicios Vitanova Integralis</Text>
+        <View style={[styles.quickActions, { justifyContent: 'flex-start', gap: 12 }]}>
+          {[
+            { icon: '🏠', label: 'Evaluación de Entorno', ruta: '/evaluacion-hogar' },
+            { icon: '🛏️', label: 'Solicitar Equipamiento', ruta: null },       
+          ].map((item) => (
+            <TouchableOpacity
+              key={item.label}
+              style={[styles.qaBtn, { width: '48%', maxWidth: '48%' }]} // Forzamos ancho balanceado para dos elementos
+              onPress={() => {
+                if (item.label === 'Solicitar Equipamiento') {
+                  setSolicitudOpen(true);
+                } else {
+                  item.ruta && router.push(item.ruta as any);
+                }
+              }}
+            >
+              <Text style={styles.qaIcon}>{item.icon}</Text>
+              {/*numberOfLines={2} evita el recorte feo de texto en pantallas chicas */}
+              <Text style={styles.qaLabel} numberOfLines={2}>{item.label}</Text> 
+            </TouchableOpacity>
+          ))}
+        </View>
+       {/* ACTIVIDAD RECIENTE */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Último turno</Text>
           <View style={{ flexDirection: 'row', gap: 12 }}>
@@ -514,99 +607,7 @@ useEffect(() => {
               <Text style={styles.alertSub}>{alertaPeso.mensaje}</Text>
             </View>
           </View>
-        )}
-
-       
-        {/* ======================================================== */}
-        {/* 🎛️ SECCIÓN 1: ACCESOS RÁPIDOS OPERATIVOS                */}
-        {/* ======================================================== */}
-        <Text style={[styles.sectionTitle, { marginTop: 8, marginBottom: 12 }]}>Accesos rápidos</Text>
-        <View style={styles.quickActions}>
-          {[
-            { icon: '📍', label: 'Ubicación', ruta: '/mapa' },
-            { icon: '💊', label: 'Medicam.', ruta: '/medicamentos' },
-            { icon: '🔔', label: 'Alertas', ruta: '/alertas' },
-            { icon: '💬', label: 'Cuidadores', ruta: null },
-          ].map((item) => (
-            <TouchableOpacity
-              key={item.label}
-              style={styles.qaBtn}
-              onPress={() => {
-                if (item.label === 'Cuidadores') {
-                  router.push({
-                    pathname: '/red-cuidadores' as any,
-                    params: {
-                      pacienteId: paciente?.id,
-                      pacienteNombre: paciente?.nombre_completo,
-                    }
-                  });
-                } else {
-                  item.ruta && router.push(item.ruta as any);
-                }
-              }}
-            >
-              <Text style={styles.qaIcon}>{item.icon}</Text>
-              <Text style={styles.qaLabel}>{item.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* ======================================================== */}
-        {/* 👑 SECCIÓN 2: SERVICIOS VITANOVA INTEGRALIS              */}
-        {/* ======================================================== */}
-        <Text style={[styles.sectionTitle, { marginTop: 20, marginBottom: 12 }]}>Servicios Vitanova Integralis</Text>
-        <View style={[styles.quickActions, { justifyContent: 'flex-start', gap: 12 }]}>
-          {[
-            { icon: '🏠', label: 'Evaluación de Entorno', ruta: '/evaluacion-hogar' },
-            { icon: '🛏️', label: 'Solicitar Equipamiento', ruta: null },       
-          ].map((item) => (
-            <TouchableOpacity
-              key={item.label}
-              style={[styles.qaBtn, { width: '48%', maxWidth: '48%' }]} // Forzamos ancho balanceado para dos elementos
-              onPress={() => {
-                if (item.label === 'Solicitar Equipamiento') {
-                  setSolicitudOpen(true);
-                } else {
-                  item.ruta && router.push(item.ruta as any);
-                }
-              }}
-            >
-              <Text style={styles.qaIcon}>{item.icon}</Text>
-              {/*numberOfLines={2} evita el recorte feo de texto en pantallas chicas */}
-              <Text style={styles.qaLabel} numberOfLines={2}>{item.label}</Text> 
-            </TouchableOpacity>
-          ))}
-        </View>
-        {/* TURNO ACTIVO */}
-      <Text style={[styles.sectionTitle, { marginTop: 8, marginBottom: 12 }]}>Turno activo</Text>
-      {turnoResumen ? (
-        <View style={styles.turnoCard}>
-          <View style={styles.turnoLeft}>
-            <View style={styles.turnoAvatar}>
-              <Text style={styles.turnoAvatarText}>
-                {turnoResumen.cuidador_nombre?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
-              </Text>
-            </View>
-            <View>
-              <Text style={styles.turnoName}>{turnoResumen.cuidador_nombre}</Text>
-              <Text style={styles.turnoHora}>{turnoResumen.horario}</Text>
-            </View>
-          </View>
-          <View style={styles.turnoProgress}>
-            <Text style={styles.turnoProgressText}>{turnoResumen.completadas}/{turnoResumen.total}</Text>
-            <Text style={styles.turnoProgressLabel}>tareas</Text>
-          </View>
-        </View>
-      ) : (
-        <View style={[styles.turnoCard, { justifyContent: 'center' }]}>
-          <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
-            Sin turno activo en este momento
-          </Text>
-        </View>
-          )}
-
-        <View style={{ height: 100 }} />
-      </ScrollView>
+        )} 
 
       {/* BOTTOM NAV */}
       <View style={styles.bottomNav}>
