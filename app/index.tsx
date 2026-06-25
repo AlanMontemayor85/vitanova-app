@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { clearToken, debugMe, forzarMedicionSignos, getAlertaPeso, getNotasTurno, getPacientes, getSignosRecientes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
+import { clearToken, forzarMedicionSignos, getAlertaPeso, getNotasTurno, getPacientes, getSignosRecientes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 
   
@@ -109,11 +109,8 @@ useEffect(() => {
       }
 
       // 3. 🚨 ADUANA BIOMÉDICA: Preguntamos a Railway/Supabase quién es este usuario
-      const debug = await debugMe();
-  console.log('🔍 DEBUG ME:', JSON.stringify(debug));
       const data = await getPacientes();
       
-      console.log('🔍 RESPUESTA COMPLETA:', JSON.stringify(data));
       // Mapeo del nombre completo (Alan Montemayor). 
       // Usamos un typeof para evitar que truene en rojo si aún no has declarado el useState arriba.
       if (data && data.usuario_nombre && typeof setNombreUsuario === 'function') {
