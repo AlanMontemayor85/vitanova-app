@@ -110,6 +110,10 @@ export const getTokenFresh = async (): Promise<string | null> => {
   const stored = await loadStoredToken();
   return stored;
 };
+export const debugMe = async () => {
+  const res = await fetch(`${BASE_URL}/debug/me`, { headers: headers() });
+  return await res.json();
+};
 export const getHistorialCierres = async (pacienteId: string) => {
   const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/historial-cierres`, {
     headers: headers(),
