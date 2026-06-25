@@ -296,6 +296,8 @@ export default function CuidadorScreen() {
     setIniciando(true);
     try {
       const tareasCheck = await getTareasHoy(p.id);
+      
+      console.log('🔍 tareasCheck:', JSON.stringify(tareasCheck));
       if (tareasCheck.sin_horario) {
         Alert.alert('Sin horario', 'El familiar no ha configurado tu horario de entrada.');
         return;
