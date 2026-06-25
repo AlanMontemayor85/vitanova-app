@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { getTokenFresh } from '../services/api';
+import { loadStoredToken } from '../services/api';
+
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
@@ -65,14 +66,11 @@ export default function CompletarPerfilScreen() {
       // En lugar de usar getToken() síncrono que puede venir vacío por el reset, 
       // mandamos llamar la lectura directa del almacenamiento (así aseguramos el token de Google fresco)
       // Nota: Si usas una función asíncrona en tu api.ts, impórtala arriba (ej: loadStoredToken o leer de AsyncStorage)
-      const token = await getTokenFresh();
+      const token = await loadStoredToken();
       if (!token) {
         router.replace('/login');
         return;
       }
-
-      console.log("📡 Enviando perfil a Railway con Token verificado...");
-
       console.log("📡 Enviando perfil a Railway con Token verificado...");
 
       // Guardar perfil en tu backend de Railway
