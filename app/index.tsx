@@ -360,16 +360,19 @@ useEffect(() => {
                     ? COLORS.red 
                     : signosDispositivo?.condicion_carita === 'regular' 
                       ? COLORS.amber 
-                      : COLORS.green 
+                      : signosDispositivo?.condicion_carita === 'buena'
+                        ? COLORS.green
+                        : '#8E8E93' // Color neutro/gris para cuando esté en raya "—"
                 }
               ]}>
+                {/* 🎯 REGLA DE ORO: Si el hardware reporta raya, se pinta raya. No se aceptan zombis del cuidador */}
                 {signosDispositivo?.condicion_carita === 'critica' 
                   ? '😟' 
                   : signosDispositivo?.condicion_carita === 'regular' 
                     ? '😐' 
                     : signosDispositivo?.condicion_carita === 'buena' 
                       ? '😊' 
-                      : (ultimoCierre?.estado_paciente === 'bien' ? '😊' : ultimoCierre?.estado_paciente === 'preocupante' ? '😟' : '—')}
+                      : '—'} 
               </Text>
               <Text style={styles.vitalLabel}>Condición</Text>
             </View>
