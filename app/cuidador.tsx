@@ -136,45 +136,48 @@ export default function CuidadorScreen() {
   const [iniciando, setIniciando] = useState(false);
 
   const sincronizarSignosReloj = async (pacienteId: string, forzarComando: boolean = false) => {
-  if (!pacienteId) return;
-  setCargandoSignos(true);
-  try {
-    if (forzarComando) {
-      const token = getToken();
-      await fetch(`${BASE_URL}/pacientes/${pacienteId}/forzar-medicion`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          'Authorization': `Bearer ${token}` 
-        }
-      });
-      await new Promise(resolve => setTimeout(resolve, 5000));
-    }
-    
-    const res = await getSignosRecientes(pacienteId);
-    
-    if (res && res.success) {
-      // 🛡️ REGLA DE NEGOCIO: El cuidador solo ve datos si el pulso/presión están frescos (UMBRAL_CONTINUO_MIN)
-      if (res.frescura && res.frescura.bphrt) {
-        setSignosDispositivo(res);
-      } else {
-        // Si el backend reporta que el dato ya caducó (reloj quitado o apagado), pintamos guiones
-        setSignosDispositivo({
-          spo2: "—",
-          presion: "—",
-          fc: "—",
-          // Mantenemos la temperatura si su propio umbral de 4 horas sigue activo
-          temperatura: res.frescura.temperatura ? res.temperatura : "—"
+    if (!pacienteId) return;
+    setCargandoSignos(true);
+    try {
+      if (forzarComando) {
+        const token = getToken();
+        await fetch(`${BASE_URL}/pacientes/${pacienteId}/forzar-medicion`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${token}` 
+          }
         });
+        await new Promise(resolve => setTimeout(resolve, 5000));
       }
+      
+      const res = await getSignosRecientes(pacienteId);
+      
+      if (res && res.success) {
+        // 🛡️ REGLA DE NEGOCIO INTEGRAL: El cuidador solo ve signos si el hardware reporta datos FRESCOS
+        if (res.frescura && res.frescura.bphrt === true) {
+          setSignosDispositivo(res);
+        } else {
+          // 🧼 Si bphrt es false (reloj quitado o inactivo), forzamos de inmediato los guiones en la consola del cuidador
+          setSignosDispositivo({
+            success: true,
+            spo2: "—",
+            presion: "—",
+            fc: "—",
+            // Conservamos la temperatura únicamente si su umbral extendido de 4 horas sigue fresco
+            temperatura: res.frescura?.temperatura ? res.temperatura : "—"
+          });
+          console.log("⌚ [FRONTEND CUIDADOR] Datos caducados o dispositivo removido. Limpiando tablero visual.");
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error sincronizando telemetría:", error);
+      // Fallback seguro ante caídas de red
+      setSignosDispositivo({ spo2: "—", presion: "—", fc: "—", temperatura: "—" });
+    } finally {
+      setCargandoSignos(false);
     }
-  } catch (error) {
-    console.error("❌ Error sincronizando telemetría:", error);
-    setSignosDispositivo({ spo2: "—", presion: "—", fc: "—", temperatura: "—" });
-  } finally {
-    setCargandoSignos(false);
-  }
-};
+  };
 
   useEffect(() => {
     if (vista === 'turno' && pacienteActivo?.id) {
