@@ -22,6 +22,8 @@ const COLORS = {
 
 const TIPO_CONFIG: Record<string, { icon: string; color: string; bg: string }> = {
   SOS: { icon: '🚨', color: '#D94F4F', bg: '#FDEAEA' },
+  sos: { icon: '🚨', color: '#D94F4F', bg: '#FDEAEA' }, // 🛡️ Blindado
+  CAIDA: { icon: '⚠️', color: '#D4860A', bg: '#FFF4E0' }, // 🛡️ Blindado
   caida: { icon: '⚠️', color: '#D4860A', bg: '#FFF4E0' },
   geocerca: { icon: '📍', color: '#D4860A', bg: '#FFF4E0' },
   medicamento: { icon: '💊', color: '#BF9A40', bg: '#F5EDD8' },
@@ -86,7 +88,8 @@ export default function AlertasScreen() {
           </View>
         ) : (
           alertas.map((a) => {
-            const config = TIPO_CONFIG[a.tipo] ?? TIPO_CONFIG.otro;
+            // Convierte el tipo de la BD a minúsculas antes de buscar en la config
+            const config = TIPO_CONFIG[a.tipo?.toLowerCase()] ?? TIPO_CONFIG.otro;
             return (
               <View key={a.id} style={[styles.alertaCard, { backgroundColor: config.bg, borderColor: config.color + '40' }]}>
                 <View style={[styles.alertaIconWrap, { backgroundColor: config.color + '20' }]}>
