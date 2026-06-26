@@ -368,64 +368,60 @@ useEffect(() => {
 
   {/* FILA 1: ESTADO GENERAL DE BIENESTAR, TEMPERATURA Y PESO */}
   <View style={[styles.vitalsRow, { marginBottom: 8 }]}>
-    
-    {/* 🧠 Tarjeta de Condición Inteligente Automatizada por Reloj */}
-    <View style={styles.vitalCard}>
-      {(() => {
-        console.log("🕵️‍♂️ [RENDERING CARD] signosDispositivo completo:", JSON.stringify(signosDispositivo));
-        console.log("🎭 [RENDERING CARD] condicion_carita:", signosDispositivo?.condicion_carita);
-        console.log("👤 [RENDERING CARD] ultimoCierre estado_paciente:", ultimoCierre?.estado_paciente);
-        return null;
-      })()}
-      
-      <Text style={[
-        styles.vitalVal, 
-        { 
-          fontSize: 22, 
-          lineHeight: 26, 
-          color: signosDispositivo?.condicion_carita === 'critica' 
-            ? COLORS.red 
-            : signosDispositivo?.condicion_carita === 'regular' 
-              ? COLORS.amber 
-              : signosDispositivo?.condicion_carita === 'buena'
-                ? COLORS.green
-                : '#8E8E93'
-        }
-      ]}>
-        {signosDispositivo?.condicion_carita === 'critica' 
-          ? '😟' 
-          : signosDispositivo?.condicion_carita === 'regular' 
-            ? '😐' 
-            : signosDispositivo?.condicion_carita === 'buena' 
-              ? '😊' 
-              : '—'} 
-      </Text>
-      <Text style={styles.vitalLabel}>Condición</Text>
-    </View>
-
-    {/* Tarjeta Temperatura Corporal (Pura de Hardware — Sin respaldo histórico) */}
-    <View style={styles.vitalCard}>
-      <Text style={[
-        styles.vitalVal, 
-        { color: signosDispositivo?.frescura?.temperatura ? COLORS.green : COLORS.textLight }
-      ]}>
-        {signosDispositivo?.frescura?.temperatura && signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
-          ? `${signosDispositivo.temperatura}°` 
-          : '—'}
-      </Text>
-      <Text style={styles.vitalLabel}>Temp. Corp.</Text>
-    </View>
-
-    {/* ⚖️ Tarjeta de Peso Clínico Unificado (Se mantiene estable con la BD) */}
-    <View style={styles.vitalCard}>
-      <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
-        {signosDispositivo?.peso && signosDispositivo?.peso !== "—"
-          ? signosDispositivo.peso.replace(" kg", "") 
-          : (ultimoCierre?.peso_kg ? `${ultimoCierre.peso_kg}` : '—')}
-      </Text>
-      <Text style={styles.vitalLabel}>Peso</Text>
-    </View>
+  
+  {/* 🧠 Tarjeta de Condición Inteligente Automatizada por Reloj */}
+  <View style={styles.vitalCard}>
+    <Text style={[
+      styles.vitalVal, 
+      { 
+        fontSize: 22, 
+        lineHeight: 26, 
+        // 🎯 Candado de contacto: Si no hay pulso fresco, el color se va a neutro
+        color: signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'critica' 
+          ? COLORS.red 
+          : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'regular' 
+            ? COLORS.amber 
+            : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'buena'
+              ? COLORS.green
+              : '#8E8E93'
+      }
+    ]}>
+      {/* 🛡️ REGLA DE ORO RECONCILIADA: Si no hay pulso vivo, no hay carita. Evitamos zombis */}
+      {signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'critica' 
+        ? '😟' 
+        : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'regular' 
+          ? '😐' 
+          : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'buena' 
+            ? '😊' 
+            : '—'} 
+    </Text>
+    <Text style={styles.vitalLabel}>Condición</Text>
   </View>
+
+    {/* Tarjeta Temperatura Corporal (Pura de Hardware) */}
+  <View style={styles.vitalCard}>
+    <Text style={[
+      styles.vitalVal, 
+      { color: (signosDispositivo?.frescura?.temperatura && signosDispositivo?.frescura?.bphrt) ? COLORS.green : COLORS.textLight }
+    ]}>
+      {/* 🛡️ Candado doble: Solo muestra temperatura si el sensor térmico Y el pulso están vivos al mismo tiempo */}
+      {signosDispositivo?.frescura?.temperatura && signosDispositivo?.frescura?.bphrt && signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
+        ? `${signosDispositivo.temperatura}°` 
+        : '—'}
+    </Text>
+    <Text style={styles.vitalLabel}>Temp. Corp.</Text>
+  </View>
+
+    {/* ⚖️ Tarjeta de Peso Clínico Unificado */}
+  <View style={styles.vitalCard}>
+    <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
+      {signosDispositivo?.peso && signosDispositivo?.peso !== "—"
+        ? signosDispositivo.peso.replace(" kg", "") 
+        : (ultimoCierre?.peso_kg ? `${ultimoCierre.peso_kg}` : '—')}
+    </Text>
+    <Text style={styles.vitalLabel}>Peso</Text>
+  </View>
+</View>
 
   {/* FILA 2: TELEMETRÍA PURA DEL HARDWARE RECHFAR RF-V48 */}
   <View style={styles.vitalsRow}>
