@@ -66,12 +66,20 @@ const cargarSignosDispositivo = async (idToLoad?: string) => {
   }
 };
 
-// ⚡ 2. Función para disparar la ráfaga 'hrtstart' por Redis
+// ⚡ 2. Función para disparar la ráfaga 'hrtstart' por Redis (Alineada para Index)
 const ejecutarMedicionRemota = async () => {
-  if (!pacienteId || midiendo) return;
+  // 🎯 CONCILIACIÓN DE LLAVES: Usamos el ID real de tu pantalla index
+  const idReal = paciente?.id || paciente?.paciente_id || pacienteId;
+
+  if (!idReal || midiendo) {
+    console.warn("⚠️ Abortando medición: El ID del paciente llegó vacío:", idReal);
+    return;
+  }
+  
   setMidiendo(true);
   try {
-    await forzarMedicionSignos(pacienteId);
+    // Mandamos el ID real validado
+    await forzarMedicionSignos(idReal);
     alert("📡 Solicitud enviada. El reloj comenzará la lectura en unos segundos...");
     
     // Polling táctico: Esperamos 15 segundos a que el reloj mida y mande los datos a Supabase, luego refrescamos
@@ -80,7 +88,7 @@ const ejecutarMedicionRemota = async () => {
       setMidiendo(false);
     }, 15000);
   } catch (error) {
-    console.error(error);
+    console.error("❌ Error al inyectar comando desde la app familiar:", error);
     setMidiendo(false);
   }
 };
