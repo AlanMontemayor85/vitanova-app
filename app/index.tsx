@@ -398,14 +398,14 @@ useEffect(() => {
     <Text style={styles.vitalLabel}>Condición</Text>
   </View>
 
-    {/* Tarjeta Temperatura Corporal (Pura de Hardware) */}
+      {/* Tarjeta Temperatura Corporal (Pura de Hardware — Ajuste Relajado) */}
   <View style={styles.vitalCard}>
     <Text style={[
       styles.vitalVal, 
-      { color: (signosDispositivo?.frescura?.temperatura && signosDispositivo?.frescura?.bphrt) ? COLORS.green : COLORS.textLight }
+      { color: signosDispositivo?.frescura?.bphrt ? COLORS.green : COLORS.textLight }
     ]}>
-      {/* 🛡️ Candado doble: Solo muestra temperatura si el sensor térmico Y el pulso están vivos al mismo tiempo */}
-      {signosDispositivo?.frescura?.temperatura && signosDispositivo?.frescura?.bphrt && signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
+      {/* Mientras el reloj detecte pulso (esté puesto), pintamos la última temperatura guardada */}
+      {signosDispositivo?.frescura?.bphrt && signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
         ? `${signosDispositivo.temperatura}°` 
         : '—'}
     </Text>
