@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { clearToken, forzarMedicionSignos, getAlertaPeso, getNotasTurno, getPacientes, getSignosRecientes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
+import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getNotasTurno, getPacientes, getSignosRecientes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 
   
@@ -92,7 +92,28 @@ const ejecutarMedicionRemota = async () => {
     setMidiendo(false);
   }
 };
+const handleCalibrarReloj = async () => {
+  const idReal = paciente?.id || paciente?.paciente_id || pacienteId;
+  if (!idReal) {
+    alert("⚠️ No se pudo determinar el ID del paciente.");
+    return;
+  }
 
+  try {
+    // Mandamos el ID y por defecto se va con "2" (Sensibilidad Estándar)
+    const res = await calibrarAcelerometroReloj(idReal, "2");
+    
+    // 🎯 VALIDACIÓN CORREGIDA: Cambiamos res.success por res.status === 'ok'
+    if (res && (res.status === 'ok' || res.success)) {
+      alert("⚙️ ¡Comando enviado! El acelerómetro se calibró a nivel estándar (Nivel 2).");
+    } else {
+      alert(`⚠️ API respondió con error: ${res.detail || res.detail || 'No se pudo aplicar'}`);
+    }
+  } catch (error) {
+    console.error("❌ Error al calibrar desde index:", error);
+    alert("Error de red al conectar con el servidor.");
+  }
+};
 // 🔄 Carga inicial y Enrutador Inteligente Relacional
 useEffect(() => {
   const init = async () => {
@@ -331,129 +352,144 @@ useEffect(() => {
 
        
 {/* VITALS CON TELEMETRÍA EN VIVO (MÓDULO SIMÉTRICO PARA EL FAMILIAR) */}
-        <View style={styles.vitalsContainer}>
-          <View style={styles.vitalsHeaderRow}>
-            <Text style={styles.sectionTitle}>Estatus y Parámetros</Text>
-            <TouchableOpacity 
-              style={[styles.btnMedir, midiendo && styles.btnMedirDesactivado]} 
-              onPress={ejecutarMedicionRemota}
-              disabled={midiendo}
-            >
-              <Text style={styles.btnMedirText}>
-                {midiendo ? "Leyendo... ⏳" : "🔄 Sensa Reloj"}
-              </Text>
-            </TouchableOpacity>
-          </View>
+<View style={styles.vitalsContainer}>
+  <View style={styles.vitalsHeaderRow}>
+    <Text style={styles.sectionTitle}>Estatus y Parámetros</Text>
+    <TouchableOpacity 
+      style={[styles.btnMedir, midiendo && styles.btnMedirDesactivado]} 
+      onPress={ejecutarMedicionRemota}
+      disabled={midiendo}
+    >
+      <Text style={styles.btnMedirText}>
+        {midiendo ? "Leyendo... ⏳" : "🔄 Sensa Reloj"}
+      </Text>
+    </TouchableOpacity>
+  </View>
 
-          {/* FILA 1: ESTADO GENERAL DE BIENESTAR, TEMPERATURA Y PESO */}
-          
-          <View style={[styles.vitalsRow, { marginBottom: 8 }]}>
-            
-           {/* 🧠 Tarjeta de Condición Inteligente Automatizada por Reloj */}
-            <View style={styles.vitalCard}>
-              {(() => {
-                // 📡 INYECCIÓN DE LOG EN CALIENTE: Verificamos qué tiene signosDispositivo en el render
-                console.log("🕵️‍♂️ [RENDERING CARD] signosDispositivo completo:", JSON.stringify(signosDispositivo));
-                console.log("🎭 [RENDERING CARD] condicion_carita:", signosDispositivo?.condicion_carita);
-                console.log("👤 [RENDERING CARD] ultimoCierre estado_paciente:", ultimoCierre?.estado_paciente);
-                return null;
-              })()}
-              
-              <Text style={[
-                styles.vitalVal, 
-                { 
-                  fontSize: 22, 
-                  lineHeight: 26, 
-                  color: signosDispositivo?.condicion_carita === 'critica' 
-                    ? COLORS.red 
-                    : signosDispositivo?.condicion_carita === 'regular' 
-                      ? COLORS.amber 
-                      : signosDispositivo?.condicion_carita === 'buena'
-                        ? COLORS.green
-                        : '#8E8E93' // Color neutro/gris para cuando esté en raya "—"
-                }
-              ]}>
-                {/* 🎯 REGLA DE ORO: Si el hardware reporta raya, se pinta raya. No se aceptan zombis del cuidador */}
-                {signosDispositivo?.condicion_carita === 'critica' 
-                  ? '😟' 
-                  : signosDispositivo?.condicion_carita === 'regular' 
-                    ? '😐' 
-                    : signosDispositivo?.condicion_carita === 'buena' 
-                      ? '😊' 
-                      : '—'} 
-              </Text>
-              <Text style={styles.vitalLabel}>Condición</Text>
-            </View>
+  {/* FILA 1: ESTADO GENERAL DE BIENESTAR, TEMPERATURA Y PESO */}
+  <View style={[styles.vitalsRow, { marginBottom: 8 }]}>
+    
+    {/* 🧠 Tarjeta de Condición Inteligente Automatizada por Reloj */}
+    <View style={styles.vitalCard}>
+      {(() => {
+        console.log("🕵️‍♂️ [RENDERING CARD] signosDispositivo completo:", JSON.stringify(signosDispositivo));
+        console.log("🎭 [RENDERING CARD] condicion_carita:", signosDispositivo?.condicion_carita);
+        console.log("👤 [RENDERING CARD] ultimoCierre estado_paciente:", ultimoCierre?.estado_paciente);
+        return null;
+      })()}
+      
+      <Text style={[
+        styles.vitalVal, 
+        { 
+          fontSize: 22, 
+          lineHeight: 26, 
+          color: signosDispositivo?.condicion_carita === 'critica' 
+            ? COLORS.red 
+            : signosDispositivo?.condicion_carita === 'regular' 
+              ? COLORS.amber 
+              : signosDispositivo?.condicion_carita === 'buena'
+                ? COLORS.green
+                : '#8E8E93'
+        }
+      ]}>
+        {signosDispositivo?.condicion_carita === 'critica' 
+          ? '😟' 
+          : signosDispositivo?.condicion_carita === 'regular' 
+            ? '😐' 
+            : signosDispositivo?.condicion_carita === 'buena' 
+              ? '😊' 
+              : '—'} 
+      </Text>
+      <Text style={styles.vitalLabel}>Condición</Text>
+    </View>
 
-           {/* Tarjeta Temperatura Corporal (Pura de Hardware — Sin respaldo histórico) */}
-          <View style={styles.vitalCard}>
-            <Text style={[
-              styles.vitalVal, 
-              { color: signosDispositivo?.frescura?.temperatura ? COLORS.green : COLORS.textLight }
-            ]}>
-              {/* 🚫 Cortamos el respaldo de ultimoCierre aquí también */}
-              {signosDispositivo?.frescura?.temperatura && signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
-                ? `${signosDispositivo.temperatura}°` 
-                : '—'}
-            </Text>
-            <Text style={styles.vitalLabel}>Temp. Corp.</Text>
-          </View>
+    {/* Tarjeta Temperatura Corporal (Pura de Hardware — Sin respaldo histórico) */}
+    <View style={styles.vitalCard}>
+      <Text style={[
+        styles.vitalVal, 
+        { color: signosDispositivo?.frescura?.temperatura ? COLORS.green : COLORS.textLight }
+      ]}>
+        {signosDispositivo?.frescura?.temperatura && signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
+          ? `${signosDispositivo.temperatura}°` 
+          : '—'}
+      </Text>
+      <Text style={styles.vitalLabel}>Temp. Corp.</Text>
+    </View>
 
-          {/* ⚖️ Tarjeta de Peso Clínico Unificado (Se mantiene estable con la BD) */}
-          <View style={styles.vitalCard}>
-            <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
-              {signosDispositivo?.peso && signosDispositivo?.peso !== "—"
-                ? signosDispositivo.peso.replace(" kg", "") 
-                : (ultimoCierre?.peso_kg ? `${ultimoCierre.peso_kg}` : '—')}
-            </Text>
-            <Text style={styles.vitalUnit}>kg</Text>
-            <Text style={styles.vitalLabel}>Peso</Text>
-          </View>
-        </View>
+    {/* ⚖️ Tarjeta de Peso Clínico Unificado (Se mantiene estable con la BD) */}
+    <View style={styles.vitalCard}>
+      <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
+        {signosDispositivo?.peso && signosDispositivo?.peso !== "—"
+          ? signosDispositivo.peso.replace(" kg", "") 
+          : (ultimoCierre?.peso_kg ? `${ultimoCierre.peso_kg}` : '—')}
+      </Text>
+      <Text style={styles.vitalLabel}>Peso</Text>
+    </View>
+  </View>
 
-        {/* FILA 2: TELEMETRÍA PURA DEL HARDWARE RECHFAR RF-V48 */}
-        <View style={styles.vitalsRow}>
-          {/* Tarjeta SpO2 */}
-          <View style={styles.vitalCard}>
-            <Text style={styles.vitalVal}>
-              {signosDispositivo?.frescura?.spo2 && signosDispositivo?.spo2 !== "—" 
-                ? signosDispositivo?.spo2 
-                : '—'}
-            </Text>
-            <Text style={styles.vitalUnit}>%</Text>
-            <Text style={styles.vitalLabel}>SpO₂</Text>
-          </View>
+  {/* FILA 2: TELEMETRÍA PURA DEL HARDWARE RECHFAR RF-V48 */}
+  <View style={styles.vitalsRow}>
+    {/* Tarjeta SpO2 */}
+    <View style={styles.vitalCard}>
+      <Text style={styles.vitalVal}>
+        {signosDispositivo?.frescura?.spo2 && signosDispositivo?.spo2 !== "—" 
+          ? signosDispositivo?.spo2 
+          : '—'}
+      </Text>
+      <Text style={styles.vitalUnit}>%</Text>
+      <Text style={styles.vitalLabel}>SpO₂</Text>
+    </View>
 
-          {/* Tarjeta Presión Arterial */}
-          <View style={styles.vitalCard}>
-            <Text style={styles.vitalVal}>
-              {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
-                ? signosDispositivo?.presion.split('/')[0] 
-                : '—'}
-              <Text style={styles.vitalValSmall}>
-                {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
-                  ? `/${signosDispositivo?.presion.split('/')[1]}` 
-                  : ''}
-              </Text>
-            </Text>
-            <Text style={styles.vitalLabel}>Presión</Text>
-          </View>
+    {/* Tarjeta Presión Arterial */}
+    <View style={styles.vitalCard}>
+      <Text style={styles.vitalVal}>
+        {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
+          ? signosDispositivo?.presion.split('/')[0] 
+          : '—'}
+        <Text style={styles.vitalValSmall}>
+          {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
+            ? `/${signosDispositivo?.presion.split('/')[1]}` 
+            : ''}
+        </Text>
+      </Text>
+      <Text style={styles.vitalLabel}>Presión</Text>
+    </View>
 
-          {/* Tarjeta Frecuencia Cardíaca */}
-          <View style={styles.vitalCard}>
-            <Text style={[
-              styles.vitalVal, 
-              { color: signosDispositivo?.frescura?.bphrt ? COLORS.red : COLORS.textLight }
-            ]}>
-              {signosDispositivo?.frescura?.bphrt && signosDispositivo?.fc !== "—" 
-                ? signosDispositivo?.fc 
-                : '—'}
-            </Text>
-            <Text style={styles.vitalUnit}>bpm</Text>
-            <Text style={styles.vitalLabel}>F. Card.</Text>
-          </View>
-        </View>
-      </View>
+    {/* Tarjeta Frecuencia Cardíaca */}
+    <View style={styles.vitalCard}>
+      <Text style={[
+        styles.vitalVal, 
+        { color: signosDispositivo?.frescura?.bphrt ? COLORS.red : COLORS.textLight }
+      ]}>
+        {signosDispositivo?.frescura?.bphrt && signosDispositivo?.fc !== "—" 
+          ? signosDispositivo?.fc 
+          : '—'}
+      </Text>
+      <Text style={styles.vitalUnit}>bpm</Text>
+      <Text style={styles.vitalLabel}>F. Card.</Text>
+    </View>
+  </View>
+
+  {/* 🔧 ACCIÓN TÁCTICA EXTRA: Calibración remota del acelerómetro anti-falsas alarmas */}
+  <TouchableOpacity 
+    style={{
+      marginTop: 12,
+      backgroundColor: COLORS.cream,
+      borderColor: COLORS.gold,
+      borderWidth: 1,
+      padding: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row'
+    }}
+    onPress={handleCalibrarReloj}
+  >
+    <Text style={{ color: COLORS.textDark, fontWeight: 'bold', fontSize: 14 }}>
+      🔧 Ajustar Acelerómetro a Sensibilidad Estándar
+    </Text>
+  </TouchableOpacity>
+</View>
        {/* ======================================================== */}
         {/* ⚡ SECCIÓN 1: TURNO ACTIVO DE CUIDADO (CON BOTONES)     */}
         {/* ======================================================== */}

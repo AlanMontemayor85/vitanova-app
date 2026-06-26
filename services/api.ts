@@ -397,7 +397,18 @@ export const completarActividad = async (actividadId: string, pacienteId: string
   });
   return res.json();
 };
-
+// 🪐 Inyección universal para mandar configuraciones (como el FALL,2) al reloj
+export const calibrarAcelerometroReloj = async (pacienteId: string, sensibilidad: string = "2") => {
+  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/configurar-reloj`, {
+    method: 'POST',
+    headers: headers(), // 🎯 Hereda tus mismos headers y tokens automáticos
+    body: JSON.stringify({
+      comando: "FALL",
+      argumento: sensibilidad
+    }),
+  });
+  return res.json();
+};
 export const actualizarHorarioCuidador = async (
   pacienteId: string,
   usuarioId: string,
