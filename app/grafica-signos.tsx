@@ -352,9 +352,11 @@ export default function GraficaSignosScreen() {
                           {new Date(r.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         </Text>
                         <Text style={styles.historialCuidador}>
-                          {r.usuarios?.nombre_completo?.split(' ')[0] ?? 'Personal'}
-                        </Text>
-                      </View>
+                        {r.fuente === 'cuidador' 
+                          ? (r.usuarios?.nombre_completo?.split(' ')[0] ?? 'Cuidador')
+                          : '⌚ Reloj'}
+                      </Text>
+                      </View> 
                       <Text style={styles.historialVal}>{r.spo2 ? `${r.spo2}%` : '—'}</Text>
                       <Text style={styles.historialVal}>
                         {r.presion_sistolica && r.presion_diastolica ? `${r.presion_sistolica}/${r.presion_diastolica}` : '—'}
