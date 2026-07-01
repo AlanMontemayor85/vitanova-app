@@ -146,18 +146,35 @@ export default function GraficaSignosScreen() {
     cargar();
   }, [pacienteId]);
 
+  // ── REEMPLAZO EXACTO DE MAPEOS INTELIGENTES ──
   const registrosFiltrados = [...registros].reverse();
-  const fechasData = registrosFiltrados.map(r => r.created_at);
-  const spo2Data = registrosFiltrados.map(r => r.spo2).filter(v => v !== null && v !== undefined);
-  const sstolicaData = registrosFiltrados.map(r => r.presion_sistolica).filter(v => v !== null && v !== undefined);
-  const dstolicaData = registrosFiltrados.map(r => r.presion_diastolica).filter(v => v !== null && v !== undefined);
-  const fcData = registrosFiltrados.map(r => r.frecuencia_cardiaca).filter(v => v !== null && v !== undefined);
-  const pesoData = registrosFiltrados.map(r => r.peso_kg).filter(v => v !== null && v !== undefined);
-  
-  // 🟢 Extracción elástica libre de nulos
-  const temperaturaData = registrosFiltrados
-    .map(leerTemperatura)
-    .filter((v): v is number => v !== null);
+
+  // 🩸 Oxígeno + sus fechas sin nulos
+  const registrosSpo2 = registrosFiltrados.filter(r => r.spo2 !== null && r.spo2 !== undefined);
+  const spo2Data = registrosSpo2.map(r => r.spo2);
+  const spo2Fechas = registrosSpo2.map(r => r.created_at);
+
+  // 🩺 Presión Arterial + sus fechas sin nulos
+  const registrosPresion = registrosFiltrados.filter(r => r.presion_sistolica !== null && r.presion_diastolica !== null);
+  const sstolicaData = registrosPresion.map(r => r.presion_sistolica);
+  const dstolicaData = registrosPresion.map(r => r.presion_diastolica);
+  const presionFechas = registrosPresion.map(r => r.created_at);
+
+  // ❤️ Pulso (Frecuencia Cardíaca) + sus fechas sin nulos
+  const registrosFc = registrosFiltrados.filter(r => r.frecuencia_cardiaca !== null && r.frecuencia_cardiaca !== undefined);
+  const fcData = registrosFc.map(r => r.frecuencia_cardiaca);
+  const fcFechas = registrosFc.map(r => r.created_at);
+
+  // 🌡️ Temperatura Corporal + sus fechas sin nulos (Usando tu helper)
+  const registrosTemp = registrosFiltrados.filter(r => leerTemperatura(r) !== null);
+  const temperaturaData = registrosTemp.map(leerTemperatura) as number[];
+  const tempFechas = registrosTemp.map(r => r.created_at);
+
+  // ⚖️ Peso + sus fechas sin nulos
+  const registrosPeso = registrosFiltrados.filter(r => r.peso_kg !== null && r.peso_kg !== undefined);
+  const pesoData = registrosPeso.map(r => r.peso_kg);
+  const pesoFechas = registrosPeso.map(r => r.created_at);
+  // ─────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -166,7 +183,6 @@ export default function GraficaSignosScreen() {
       </View>
     );
   }
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
@@ -203,13 +219,13 @@ export default function GraficaSignosScreen() {
                   </View>
                 </View>
                 <MiniChart
-                  datos={spo2Data}
-                  fechas={fechasData}
-                  color={COLORS.gold}
-                  min={85} max={100}
-                  unidad="%"
-                  alerta={92}
-                />
+                datos={spo2Data}
+                fechas={spo2Fechas} // ✅ Fechas exclusivas de oxígeno
+                color={COLORS.gold}
+                min={85} max={100}
+                unidad="%"
+                alerta={92}
+              />
                 {spo2Data[spo2Data.length - 1] < 92 && (
                   <View style={[styles.alertaBanner, { backgroundColor: COLORS.redPale }]}>
                     <Text style={{ fontSize: 11, color: COLORS.red, fontWeight: '700' }}>
@@ -234,7 +250,7 @@ export default function GraficaSignosScreen() {
                     <Text style={styles.chartSubtitle}>Sistólica</Text>
                     <MiniChart
                       datos={sstolicaData}
-                      fechas={fechasData}
+                      fechas={presionFechas} // ✅ Fechas exclusivas de PA
                       color={COLORS.red}
                       min={Math.min(...sstolicaData) - 10}
                       max={Math.max(...sstolicaData) + 10}
@@ -246,7 +262,7 @@ export default function GraficaSignosScreen() {
                     <Text style={styles.chartSubtitle}>Diastólica</Text>
                     <MiniChart
                       datos={dstolicaData}
-                      fechas={fechasData}
+                      fechas={presionFechas} // ✅ Fechas exclusivas de PA (Mismo match temporal)
                       color={COLORS.amber}
                       min={Math.min(...dstolicaData) - 10}
                       max={Math.max(...dstolicaData) + 10}
@@ -268,13 +284,13 @@ export default function GraficaSignosScreen() {
                   </View>
                 </View>
                 <MiniChart
-                  datos={fcData}
-                  fechas={fechasData}
-                  color={COLORS.red}
-                  min={40} max={140}
-                  unidad=" bpm"
-                  alerta={100}
-                />
+              datos={fcData}
+              fechas={fcFechas} // ✅ Fechas exclusivas de pulso
+              color={COLORS.red}
+              min={40} max={140}
+              unidad=" bpm"
+              alerta={100}
+            />
               </View>
             )}
 
@@ -287,13 +303,13 @@ export default function GraficaSignosScreen() {
                 </View>
               </View>
               <MiniChart
-                datos={temperaturaData}
-                fechas={fechasData}
-                color={COLORS.amber}
-                min={34} max={41}
-                unidad="°C"
-                alerta={37.8}
-              />
+              datos={temperaturaData}
+              fechas={tempFechas} // ✅ Fechas exclusivas de temperatura
+              color={COLORS.amber}
+              min={34} max={41}
+              unidad="°C"
+              alerta={37.8}
+            />
             </View>
 
             {/* GRÁFICA PESO */}
@@ -304,7 +320,7 @@ export default function GraficaSignosScreen() {
                 </View>
                 <MiniChart
                   datos={pesoData}
-                  fechas={fechasData}
+                  fechas={pesoFechas} // ✅ Fechas exclusivas de peso
                   color={COLORS.cacao}
                   min={Math.min(...pesoData) - 4}
                   max={Math.max(...pesoData) + 4}
