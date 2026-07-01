@@ -154,22 +154,31 @@ export default function CuidadorScreen() {
       const res = await getSignosRecientes(pacienteId);
       
       if (res && res.success) {
-        // 🛡️ REGLA DE NEGOCIO INTEGRAL: El cuidador solo ve signos si el hardware reporta datos FRESCOS
-        if (res.frescura && res.frescura.bphrt === true) {
-          setSignosDispositivo(res);
-        } else {
-          // 🧼 Si bphrt es false (reloj quitado o inactivo), forzamos de inmediato los guiones en la consola del cuidador
-          setSignosDispositivo({
-            success: true,
-            spo2: "—",
-            presion: "—",
-            fc: "—",
-            // Conservamos la temperatura únicamente si su umbral extendido de 4 horas sigue fresco
-            temperatura: res.frescura?.temperatura ? res.temperatura : "—"
-          });
-          console.log("⌚ [FRONTEND CUIDADOR] Datos caducados o dispositivo removido. Limpiando tablero visual.");
-        }
+      const tempFresca = res.frescura?.temperatura === true;
+      const bphrtFresco = res.frescura?.bphrt === true;
+
+      if (bphrtFresco) {
+        // 🟢 ESCENARIO 1: Reloj puesto y activo
+        setSignosDispositivo({
+          ...res,
+          // Si la telemetría está activa pero la temperatura es antigua, 
+          // puedes decidir si mostrar "—" o dejarla si el proceso térmico sigue en marcha.
+          temperatura: tempFresca ? res.temperatura : "—",
+          dispositivoPuesto: true // Bandera para la interfaz
+        });
+      } else {
+        // 🔴 ESCENARIO 2: Reloj quitado o inactivo — LIMPIEZA ABSOLUTA
+        setSignosDispositivo({
+          success: true,
+          spo2: "—",
+          presion: "—", 
+          fc: "—",
+          temperatura: "—", // ⚠️ Forzamos a rayas inmediatamente al quitarse el reloj
+          dispositivoPuesto: false // Bandera para activar el display de retiro
+        });
+        console.log("⌚ [FRONTEND CUIDADOR] Dispositivo inactivo o retirado. Tablero en rayas.");
       }
+    }
     } catch (error) {
       console.error("❌ Error sincronizando telemetría:", error);
       // Fallback seguro ante caídas de red
