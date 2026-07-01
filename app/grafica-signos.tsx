@@ -145,7 +145,7 @@ export default function GraficaSignosScreen() {
     };
     cargar();
   }, [pacienteId]);
-
+   
   // ── REEMPLAZO EXACTO DE MAPEOS INTELIGENTES ──
   const registrosFiltrados = [...registros].reverse();
 
@@ -175,7 +175,17 @@ export default function GraficaSignosScreen() {
   const pesoData = registrosPeso.map(r => r.peso_kg);
   const pesoFechas = registrosPeso.map(r => r.created_at);
   // ─────────────────────────────────────────────
-
+  const cargar = async () => {
+  try {
+    const data = await getSignosVitalesHistorico(pacienteId, 14);
+    console.log("📊 RESPUESTA HISTORICO:", JSON.stringify(data));  // ← agrega esto
+    if (data.registros) setRegistros(data.registros);
+  } catch (e) {
+    console.error("Error cargando histórico clínico:", e);
+  } finally {
+    setLoading(false);
+  }
+};
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
