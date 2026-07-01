@@ -157,7 +157,7 @@ export default function GraficaSignosScreen() {
   // 🩺 Presión Arterial + sus fechas sin nulos
   const registrosPresion = registrosFiltrados.filter(r => r.presion_sistolica !== null && r.presion_diastolica !== null);
   const sstolicaData = registrosPresion.map(r => r.presion_sistolica);
-  const dstolicaData = registrosPresion.map(r => r.presion_diastolica);
+  const dstolicaData = registrosPresion.map(r => r.presion_diastolica ?? 0);
   const presionFechas = registrosPresion.map(r => r.created_at);
 
   // ❤️ Pulso (Frecuencia Cardíaca) + sus fechas sin nulos
