@@ -650,7 +650,24 @@ export default function CuidadorScreen() {
           </View>
           <View style={styles.turnoActivoPill}><View style={styles.activoDot} /><Text style={styles.activoText}>Monitoreo</Text></View>
         </View>
-
+        {/* Display de Situación Detectada (React Native Oficial) */}
+        {!signosDispositivo?.dispositivoPuesto && (
+          <View style={{
+            backgroundColor: '#FFFBEB', // Ámbar suave
+            borderLeftWidth: 4,
+            borderLeftColor: '#F59E0B',
+            padding: 12,
+            borderRadius: 6,
+            marginHorizontal: 16,
+            marginTop: 16,
+            flexDirection: 'row',
+            alignItems: 'center'
+          }}>
+            <Text style={{ color: '#B45309', fontSize: 12, fontWeight: '600', flex: 1 }}>
+              ⚠️ <Text style={{ fontWeight: '800' }}>Situación Detectada:</Text> El paciente se ha retirado el reloj inteligente o el dispositivo se encuentra apagado.
+            </Text>
+          </View>
+        )}
         {/* 📡 TELEMETRÍA AUTOMÁTICA */}
         <View style={[styles.monitorCard, { marginHorizontal: 16, marginTop: 16, backgroundColor: COLORS.white, borderColor: COLORS.border }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
