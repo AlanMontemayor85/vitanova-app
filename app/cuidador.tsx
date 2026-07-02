@@ -135,6 +135,9 @@ export default function CuidadorScreen() {
   const [peso, setPeso] = useState(70.0);
   const [iniciando, setIniciando] = useState(false);
 
+  // Estado temporal para la sensibilidad de caídas recuperada del servidor
+  const [sensibilidadCaidas, setSensibilidadCaidas] = useState('');
+
   const sincronizarSignosReloj = async (pacienteId: string, forzarComando: boolean = false) => {
     if (!pacienteId) return;
     setCargandoSignos(true);
@@ -154,34 +157,29 @@ export default function CuidadorScreen() {
       const res = await getSignosRecientes(pacienteId);
       
       if (res && res.success) {
-      const tempFresca = res.frescura?.temperatura === true;
-      const bphrtFresco = res.frescura?.bphrt === true;
+        const tempFresca = res.frescura?.temperatura === true;
+        const bphrtFresco = res.frescura?.bphrt === true;
 
-      if (bphrtFresco) {
-        // 🟢 ESCENARIO 1: Reloj puesto y activo
-        setSignosDispositivo({
-          ...res,
-          // Si la telemetría está activa pero la temperatura es antigua, 
-          // puedes decidir si mostrar "—" o dejarla si el proceso térmico sigue en marcha.
-          temperatura: tempFresca ? res.temperatura : "—",
-          dispositivoPuesto: true // Bandera para la interfaz
-        });
-      } else {
-        // 🔴 ESCENARIO 2: Reloj quitado o inactivo — LIMPIEZA ABSOLUTA
-        setSignosDispositivo({
-          success: true,
-          spo2: "—",
-          presion: "—", 
-          fc: "—",
-          temperatura: "—", // ⚠️ Forzamos a rayas inmediatamente al quitarse el reloj
-          dispositivoPuesto: false // Bandera para activar el display de retiro
-        });
-        console.log("⌚ [FRONTEND CUIDADOR] Dispositivo inactivo o retirado. Tablero en rayas.");
+        if (bphrtFresco) {
+          setSignosDispositivo({
+            ...res,
+            temperatura: tempFresca ? res.temperatura : "—",
+            dispositivoPuesto: true
+          });
+        } else {
+          setSignosDispositivo({
+            success: true,
+            spo2: "—",
+            presion: "—", 
+            fc: "—",
+            temperatura: "—",
+            dispositivoPuesto: false
+          });
+          console.log("⌚ [FRONTEND CUIDADOR] Dispositivo inactivo o retirado. Tablero en rayas.");
+        }
       }
-    }
     } catch (error) {
       console.error("❌ Error sincronizando telemetría:", error);
-      // Fallback seguro ante caídas de red
       setSignosDispositivo({ spo2: "—", presion: "—", fc: "—", temperatura: "—" });
     } finally {
       setCargandoSignos(false);
@@ -197,6 +195,41 @@ export default function CuidadorScreen() {
       return () => clearInterval(interval);
     }
   }, [vista, pacienteActivo?.id]);
+
+  // ── EFECTO: REFRESCAR CONFIGURACIONES AL ENTRAR AL PACIENTE ──
+  useEffect(() => {
+    const refrescarDatosAlEntrar = async () => {
+      if (!pacienteActivo?.id) return;
+      try { 
+        console.log("🔍 Rompiendo caché de navegación. Solicitando datos frescos al servidor...");
+        
+        const data = await getPacientes(); 
+        if (data && data.patients) {
+          const pFresco = data.patients.find((x: any) => x.id === pacienteActivo.id);
+          if (pFresco && pFresco.peso_kg) {
+            console.log("⚖️ Peso real recuperado de la BD:", pFresco.peso_kg);
+            setPeso(pFresco.peso_kg);
+          }
+        }
+
+        const token = await getToken(); 
+        const resDisp = await fetch(
+          `${BASE_URL}/pacientes/${pacienteActivo.id}/config-reloj`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const dataDisp = await resDisp.json();
+        if (dataDisp?.sensibilidad_caidas) {
+          setSensibilidadCaidas(dataDisp.sensibilidad_caidas.toString());
+          console.log("⚙️ Sensibilidad cargada:", dataDisp.sensibilidad_caidas);
+        }
+
+      } catch (err) {
+        console.log("⚠️ Error sincronizando datos en segundo plano:", err);
+      }
+    };
+
+    refrescarDatosAlEntrar();
+  }, [pacienteActivo?.id, params?.refresh]);
 
   // ── CARGA INICIAL ──
   useEffect(() => {
@@ -287,9 +320,9 @@ export default function CuidadorScreen() {
     setBarthelOpen(false); setMorseOpen(false); setMnaOpen(false);
     setBarthelTocado(false); setMorseTocado(false); setMnaTocado(false);
     setEscalaRequerida(false); setEscalasLista([]);
+    setSensibilidadCaidas('');
   };
 
-  // ⚡ FIX OPERATIVO: Aseguramos la mutación simultánea del paciente activo y la apertura del modal
   const manejarInicioTurno = async (p: any) => {
     if (iniciando) return;
     setIniciando(true);
@@ -301,11 +334,12 @@ export default function CuidadorScreen() {
         return;
       }
       
+      // 🎯 CORREGIDO: Eliminamos "Sidebar." para llamar directamente a la función importada
       const cambiosData = await detectarCambiosTurno(p.id);
       if (cambiosData.cambios && cambiosData.cambios.length > 0) {
         setPacienteActivo(p);
         setCambiosPendientes(cambiosData.cambios);
-        setCambiosModal(true); // Se despliega de manera atómica
+        setCambiosModal(true);
       } else {
         irARegistroSalud(p);
       }
@@ -490,12 +524,12 @@ export default function CuidadorScreen() {
         }
       }
 
-      let sistolica = null;
-      let diastolica = null;
+      let _sistolica = null;
+      let _diastolica = null;
       if (signosDispositivo?.presion && String(signosDispositivo.presion).includes('/')) {
         const partes = String(signosDispositivo.presion).split('/');
-        sistolica = parseInt(partes[0], 10) || null;
-        diastolica = parseInt(partes[1], 10) || null;
+        _sistolica = parseInt(partes[0], 10) || null;
+        _diastolica = parseInt(partes[1], 10) || null;
       }
 
       const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
@@ -509,8 +543,8 @@ export default function CuidadorScreen() {
           notes: notasConsolidadas, 
           spo2: signosDispositivo?.spo2 ? parseInt(signosDispositivo.spo2, 10) : null,
           frecuencia_cardiaca: signosDispositivo?.fc ? parseInt(signosDispositivo.fc, 10) : null,
-          presion_sistolica: sistolica,
-          presion_diastolica: diastolica,
+          presion_sistolica: _sistolica,
+          presion_diastolica: _diastolica,
           temperatura: signosDispositivo?.temperatura ? parseFloat(String(signosDispositivo.temperatura)) : null,
           barthel_scores: barthelTocado ? barthelScores : null, 
           barthel_total: barthelTocado ? barthelTotal : null, 
@@ -597,7 +631,6 @@ export default function CuidadorScreen() {
           })}
         </ScrollView>
 
-        {/* ── MODAL DE CAMBIOS PENDIENTES (UBICADO CORRECTAMENTE AL FINAL DEL VIEW PADRE) ── */}
         <Modal visible={cambiosModal} transparent={true} animationType="slide">
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
             <View style={{ backgroundColor: COLORS.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24 }}>
@@ -650,10 +683,10 @@ export default function CuidadorScreen() {
           </View>
           <View style={styles.turnoActivoPill}><View style={styles.activoDot} /><Text style={styles.activoText}>Monitoreo</Text></View>
         </View>
-        {/* Display de Situación Detectada (React Native Oficial) */}
+
         {!signosDispositivo?.dispositivoPuesto && (
           <View style={{
-            backgroundColor: '#FFFBEB', // Ámbar suave
+            backgroundColor: '#FFFBEB',
             borderLeftWidth: 4,
             borderLeftColor: '#F59E0B',
             padding: 12,
@@ -668,7 +701,7 @@ export default function CuidadorScreen() {
             </Text>
           </View>
         )}
-        {/* 📡 TELEMETRÍA AUTOMÁTICA */}
+
         <View style={[styles.monitorCard, { marginHorizontal: 16, marginTop: 16, backgroundColor: COLORS.white, borderColor: COLORS.border }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <Text style={{ fontSize: 10, fontWeight: '800', color: COLORS.textLight }}>📡 TELEMETRÍA DE HARDWARE EN VIVO</Text>
@@ -688,17 +721,17 @@ export default function CuidadorScreen() {
             <View style={{ alignItems: 'center' }}><Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.red }}>{signosDispositivo?.fc ?? "—"}</Text><Text style={styles.monitorSubTextLabel}>Pulso (bpm)</Text></View>
             <View style={{ width: 1, height: 24, backgroundColor: COLORS.border }} />
             <View style={{ alignItems: 'center' }}>
-            {signosDispositivo?.temperatura && signosDispositivo.temperatura !== "—" ? (
-              <Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.green }}>
-                {`${signosDispositivo.temperatura}°`}
-              </Text>
-            ) : (
-              <Text style={{ fontSize: 9, color: COLORS.gold, textAlign: 'center', fontWeight: '700' }}>
-                {'Presiona\n"Sensa Ahora"'}
-              </Text>
-            )}
-            <Text style={styles.monitorSubTextLabel}>T. Corporal</Text>
-          </View>
+              {signosDispositivo?.temperatura && signosDispositivo.temperatura !== "—" ? (
+                <Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.green }}>
+                  {`${signosDispositivo.temperatura}°`}
+                </Text>
+              ) : (
+                <Text style={{ fontSize: 9, color: COLORS.gold, textAlign: 'center', fontWeight: '700' }}>
+                  {'Presiona\n"Sensa Ahora"'}
+                </Text>
+              )}
+              <Text style={styles.monitorSubTextLabel}>T. Corporal</Text>
+            </View>
           </View>
         </View>
 
@@ -729,46 +762,46 @@ export default function CuidadorScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity 
-            style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
-            onPress={() => router.push({
-              pathname: '/grafica-signos' as any,
-              params: { 
-                pacienteId: pacienteActivo.id, 
-                pacienteNombre: pacienteActivo.nombre_completo 
-              }
-            })}
-          >
-            <Text style={{ fontSize: 20, marginBottom: 4 }}>📊</Text>
-            <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Gráficas</Text>
-          </TouchableOpacity>
+              style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
+              onPress={() => router.push({
+                pathname: '/grafica-signos' as any,
+                params: { 
+                  pacienteId: pacienteActivo.id, 
+                  pacienteNombre: pacienteActivo.nombre_completo 
+                }
+              })}
+            >
+              <Text style={{ fontSize: 20, marginBottom: 4 }}>📊</Text>
+              <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Gráficas</Text>
+            </TouchableOpacity>
           </View>
           
           {/* 📝 SECCIÓN: NOTAS DEL CUIDADOR */}
-<View style={{ 
-  flexDirection: 'row', 
-  justifyContent: 'space-between', 
-  alignItems: 'center', 
-  marginTop: 15,
-  marginBottom: 12 
-}}>
-  <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
-    Notas del Cuidador (Últimos Relevos)
-  </Text>
-  
-  <TouchableOpacity 
-    style={[styles.iniciarBtn, { 
-      paddingHorizontal: 14, 
-      paddingVertical: 6,
-      borderRadius: 20, // Lo hace ver más estilizado tipo píldora
-      marginBottom: 0 
-    }]} 
-    onPress={() => setNotaOpen(true)}
-  >
-    <Text style={[styles.iniciarBtnText, { fontSize: 12, fontWeight: 'bold' }]}>
-      + Nota
-    </Text>
-  </TouchableOpacity>
-</View>
+          <View style={{ 
+            flexDirection: 'row', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            marginTop: 15,
+            marginBottom: 12 
+          }}>
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+              Notas del Cuidador (Últimos Relevos)
+            </Text>
+            
+            <TouchableOpacity 
+              style={[styles.iniciarBtn, { 
+                paddingHorizontal: 14, 
+                paddingVertical: 6,
+                borderRadius: 20,
+                marginBottom: 0 
+              }]} 
+              onPress={() => setNotaOpen(true)}
+            >
+              <Text style={[styles.iniciarBtnText, { fontSize: 12, fontWeight: 'bold' }]}>
+                + Nota
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           {/* NOTAS RECIENTES */}
           {notas && notas.length > 0 ? (
@@ -838,10 +871,10 @@ export default function CuidadorScreen() {
           <Text style={styles.sectionTitle}>Acciones de bitácora</Text>
           <View style={styles.accionesRow}>
             <TouchableOpacity style={[styles.accionBtn, { backgroundColor: COLORS.redPale, borderColor: COLORS.red }]} onPress={() => setIncidenteOpen(true)}>
-              <Text style={styles.accionBtnIcon}>🚨</Text><Text style={[styles.accionBtnText, { color: COLORS.red }]}>Reportar Incidente</Text>
+              <Text style={{ color: COLORS.red, marginRight: 6 }}>🚨</Text><Text style={[styles.accionBtnText, { color: COLORS.red }]}>Reportar Incidente</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.accionBtn, { backgroundColor: COLORS.bluePale, borderColor: COLORS.blue }]} onPress={() => setVista('espontaneo')}>
-              <Text style={styles.accionBtnIcon}>🩺</Text><Text style={[styles.accionBtnText, { color: COLORS.blue }]}>Registro Confort</Text>
+              <Text style={{ color: COLORS.blue, marginRight: 6 }}>🩺</Text><Text style={[styles.accionBtnText, { color: COLORS.blue }]}>Registro Confort</Text>
             </TouchableOpacity>
           </View>
 
@@ -960,6 +993,48 @@ export default function CuidadorScreen() {
               </TouchableOpacity>
             ))}
           </View>
+
+          {/* PESO EN CIERRE DE TURNO */}
+          <Text style={styles.sectionTitle}>Peso del paciente (kg)</Text>
+          <View style={{ 
+            flexDirection: 'row', 
+            alignItems: 'center', 
+            backgroundColor: COLORS.white,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            paddingHorizontal: 16,
+            marginBottom: 16
+          }}>
+            <Text style={{ fontSize: 20, marginRight: 8 }}>⚖️</Text>
+            <TextInput
+              style={{ flex: 1, fontSize: 16, color: COLORS.textDark, paddingVertical: 14 }}
+              placeholder="Ej. 70.5"
+              placeholderTextColor={COLORS.textLight}
+              keyboardType="numeric"
+              value={peso === 0 ? '' : peso.toString()} 
+              onChangeText={(val) => {
+                const textoLimpio = val.replace(',', '.');
+                
+                if (textoLimpio === '') {
+                  setPeso(0);
+                  return;
+                }
+
+                if (textoLimpio.endsWith('.')) {
+                  const num = parseFloat(textoLimpio);
+                  if (!isNaN(num)) setPeso(num);
+                  return;
+                }
+
+                const num = parseFloat(textoLimpio);
+                if (!isNaN(num)) {
+                  setPeso(num);
+                }
+              }}
+            />
+            <Text style={{ fontSize: 13, color: COLORS.textLight }}>{'kg'}</Text>
+          </View>
           <TouchableOpacity style={[styles.confirmarBtn, { backgroundColor: '#25D366' }]} onPress={compartirWhatsApp}>
             <Text style={styles.confirmarBtnText}>📲 Resumen por WhatsApp</Text>
           </TouchableOpacity>
@@ -974,57 +1049,56 @@ export default function CuidadorScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.cream },
-  header: { backgroundColor: COLORS.cacao, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  greeting: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: 2 },
-  userName: { fontSize: 20, fontWeight: '800', color: COLORS.white },
-  notifBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-  notifIcon: { fontSize: 18 },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  backIcon: { fontSize: 18, color: COLORS.white },
-  turnoActivoPill: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(61,170,106,0.2)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: 'rgba(61,170,106,0.3)' },
+  header: { backgroundColor: COLORS.cacao, padding: 16, flexDirection: 'row', alignItems: 'center' },
+  backBtn: { marginRight: 12 },
+  backIcon: { color: COLORS.white, fontSize: 20 },
+  greeting: { color: 'rgba(255,255,255,0.6)', fontSize: 12 },
+  userName: { color: COLORS.white, fontSize: 16, fontWeight: '700' },
+  notifBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
+  notifIcon: { fontSize: 16 },
+  body: { flex: 1, padding: 16 },
+  sectionTitle: { fontSize: 14, fontWeight: '800', color: COLORS.cacao, marginBottom: 12 },
+  pacienteCard: { backgroundColor: COLORS.white, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
+  pacienteAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.goldPale, justifyContent: 'center', alignItems: 'center' },
+  pacienteAvatarText: { color: COLORS.gold, fontWeight: '700', fontSize: 16 },
+  pacienteNombre: { fontSize: 15, fontWeight: '700', color: COLORS.textDark },
+  pacienteCondiciones: { fontSize: 12, color: COLORS.textLight, marginTop: 2 },
+  badgeActivo: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.greenPale, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   activoDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.green },
-  activoText: { fontSize: 9, fontWeight: '700', color: COLORS.green },
-  body: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
-  sectionTitle: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: COLORS.textLight, marginBottom: 10, marginTop: 8 },
-  pacienteCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 14, flexDirection: 'column', borderWidth: 1, borderColor: COLORS.border, marginBottom: 10 },
-  pacienteAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.goldPale, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.gold },
-  pacienteAvatarText: { fontSize: 16, fontWeight: '800', color: COLORS.gold },
-  pacienteNombre: { fontSize: 14, fontWeight: '700', color: COLORS.textDark },
-  iniciarBtn: { backgroundColor: COLORS.goldPale, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: COLORS.gold, alignItems: 'center' },
-  iniciarBtnText: { fontSize: 10, fontWeight: '700', color: COLORS.gold },
-  badgeActivo: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(61,170,106,0.15)', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: 'rgba(61,170,106,0.3)' },
-  badgeActivoText: { fontSize: 9, fontWeight: '700', color: COLORS.green },
-  monitorCard: { backgroundColor: COLORS.cacao, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: COLORS.border, marginBottom: 12 },
+  badgeActivoText: { fontSize: 11, fontWeight: '700', color: COLORS.green },
+  iniciarBtn: { backgroundColor: COLORS.cacao, borderRadius: 8, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: COLORS.cacao },
+  iniciarBtnText: { color: COLORS.white, fontWeight: '700', fontSize: 13 },
+  turnoActivoPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  activoText: { color: COLORS.white, fontSize: 11, fontWeight: '600' },
+  monitorCard: { borderRadius: 12, padding: 16, borderWidth: 1 },
   monitorSubTextLabel: { fontSize: 9, color: COLORS.textLight, marginTop: 4, fontWeight: '600' },
-  tareaCard: { backgroundColor: COLORS.white, borderRadius: 12, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: COLORS.border, marginBottom: 8 },
-  tareaIcon: { fontSize: 20 },
+  estadoRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  estadoCard: { flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+  estadoCardActive: { borderColor: COLORS.gold, backgroundColor: COLORS.goldPale },
+  estadoLabel: { fontSize: 13, fontWeight: '600', color: COLORS.textMid, marginTop: 4 },
+  confirmarBtn: { backgroundColor: COLORS.cacao, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 12 },
+  confirmarBtnText: { color: COLORS.white, fontWeight: '800', fontSize: 14 },
+  moduloCard: { backgroundColor: COLORS.white, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
+  signoLabel: { fontSize: 13, fontWeight: '700', color: COLORS.cacao, marginBottom: 10 },
+  evaContainer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  evaBtn: { padding: 8, borderRadius: 4, backgroundColor: COLORS.cream, borderWidth: 1, borderColor: COLORS.border },
+  evaBtnActive: { backgroundColor: COLORS.red, borderColor: COLORS.red },
+  evaBtnText: { fontSize: 12, color: COLORS.textDark, fontWeight: '600' },
+  evaBtnTextActive: { color: COLORS.white },
+  tareaCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, padding: 12, borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: COLORS.border },
+  tareaIcon: { fontSize: 18, marginRight: 12 },
   tareaInfo: { flex: 1 },
   tareaTexto: { fontSize: 13, fontWeight: '600', color: COLORS.textDark },
-  tareaHora: { fontSize: 10, color: COLORS.textLight, marginTop: 2 },
-  tareaCheck: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: COLORS.border },
-  accionesRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  accionBtn: { flex: 1, borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1, flexDirection: 'row', justifyContent: 'center', gap: 6 },
-  accionBtnIcon: { fontSize: 16 },
+  tareaHora: { fontSize: 11, color: COLORS.textLight, marginTop: 2 },
+  tareaCheck: { width: 18, height: 18, borderRadius: 4, borderWidth: 2, borderColor: COLORS.border },
+  accionesRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  accionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 10, borderWidth: 1 },
   accionBtnText: { fontSize: 12, fontWeight: '700' },
-  cerrarBtn: { backgroundColor: COLORS.cacao, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 12 },
-  cerrarBtnText: { fontSize: 14, fontWeight: '800', color: COLORS.white },
-  moduloCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: COLORS.border, marginBottom: 12 },
-  signoLabel: { fontSize: 13, fontWeight: '700', color: COLORS.textDark },
-  evaContainer: { flexDirection: 'row', gap: 3, marginTop: 6 },
-  evaBtn: { flex: 1, backgroundColor: COLORS.cream, borderRadius: 6, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  evaBtnActive: { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold },
-  evaBtnText: { fontSize: 11, fontWeight: '700', color: COLORS.textLight },
-  evaBtnTextActive: { color: COLORS.gold },
-  estadoRow: { flexDirection: 'row', gap: 8, marginBottom: 14, marginTop: 4 },
-  estadoCard: { flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  estadoCardActive: { borderColor: COLORS.gold, backgroundColor: COLORS.goldPale },
-  estadoLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textLight, marginTop: 4 },
-  confirmarBtn: { backgroundColor: COLORS.gold, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 14 },
-  confirmarBtnText: { fontSize: 14, fontWeight: '800', color: COLORS.white, letterSpacing: 1 },
-  pacienteCondiciones: { fontSize: 11, color: COLORS.textLight, marginTop: 2 },
-  alertCard: { borderRadius: 12, padding: 12, marginBottom: 10, flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderWidth: 1, borderColor: COLORS.border },
-  alertIcon: { fontSize: 20 },
+  cerrarBtn: { backgroundColor: COLORS.gold, paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 8 },
+  cerrarBtnText: { color: COLORS.white, fontWeight: '800', fontSize: 14 },
+  alertCard: { flexDirection: 'row', padding: 12, borderRadius: 10, borderWidth: 1, marginBottom: 8 },
+  alertIcon: { fontSize: 18, marginRight: 10 },
   alertContent: { flex: 1 },
-  alertTitle: { fontSize: 12, fontWeight: '700', color: COLORS.textDark },
-  alertSub: { fontSize: 10, color: COLORS.textLight, marginTop: 2, lineHeight: 14 },
+  alertTitle: { fontSize: 13, fontWeight: '700', color: COLORS.textDark },
+  alertSub: { fontSize: 11, color: COLORS.textLight, marginTop: 2 },
 });
