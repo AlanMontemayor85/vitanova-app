@@ -718,24 +718,48 @@ export default function CuidadorScreen() {
             </TouchableOpacity>
           </View>
           
-          {/* BOTÓN + NOTA */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <Text style={styles.sectionTitle}>Notas del Cuidador (Últimos Relevos)</Text>
-            <TouchableOpacity 
-              style={[styles.iniciarBtn, { paddingHorizontal: 12, paddingVertical: 4 }]} 
-              onPress={() => setNotaOpen(true)}
-            >
-              <Text style={[styles.iniciarBtnText, { fontSize: 11 }]}>+ Nota</Text>
-            </TouchableOpacity>
-          </View>
+          {/* 📝 SECCIÓN: NOTAS DEL CUIDADOR */}
+<View style={{ 
+  flexDirection: 'row', 
+  justifyContent: 'space-between', 
+  alignItems: 'center', 
+  marginTop: 15,
+  marginBottom: 12 
+}}>
+  <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+    Notas del Cuidador (Últimos Relevos)
+  </Text>
+  
+  <TouchableOpacity 
+    style={[styles.iniciarBtn, { 
+      paddingHorizontal: 14, 
+      paddingVertical: 6,
+      borderRadius: 20, // Lo hace ver más estilizado tipo píldora
+      marginBottom: 0 
+    }]} 
+    onPress={() => setNotaOpen(true)}
+  >
+    <Text style={[styles.iniciarBtnText, { fontSize: 12, fontWeight: 'bold' }]}>
+      + Nota
+    </Text>
+  </TouchableOpacity>
+</View>
+
           {/* NOTAS RECIENTES */}
-          <Text style={styles.sectionTitle}>Notas del Cuidador (Últimos Relevos)</Text>
           {notas && notas.length > 0 ? (
             <View style={{ gap: 8, marginBottom: 4 }}>
               {notas.map((n, i) => {
                 const contenidoNota = n?.descripcion || n?.texto || "Nota de relevo registrada";
                 return (
-                  <View key={n?.id || i} style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0', marginHorizontal: 0, marginBottom: 0 }]}>
+                  <View 
+                    key={n?.id || i} 
+                    style={[styles.alertCard, { 
+                      backgroundColor: COLORS.amberPale, 
+                      borderColor: '#F5DBA0', 
+                      marginHorizontal: 0, 
+                      marginBottom: 0 
+                    }]}
+                  >
                     <Text style={styles.alertIcon}>📝</Text>
                     <View style={styles.alertContent}>
                       <Text style={styles.alertTitle}>{String(contenidoNota).replace('📝 ', '')}</Text>
@@ -750,7 +774,7 @@ export default function CuidadorScreen() {
               <Text style={styles.alertIcon}>🔍</Text>
               <View style={styles.alertContent}>
                 <Text style={styles.alertTitle}>Sin notas en el bloque actual</Text>
-                <Text style={styles.alertSub}>Usa el botón de abajo para registrar incidencias.</Text>
+                <Text style={styles.alertSub}>Usa el botón superior para registrar incidencias o notas.</Text>
               </View>
             </View>
           )}
