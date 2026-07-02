@@ -717,7 +717,17 @@ export default function CuidadorScreen() {
               <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Ubicación</Text>
             </TouchableOpacity>
           </View>
-
+          
+          {/* BOTÓN + NOTA */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <Text style={styles.sectionTitle}>Notas del Cuidador (Últimos Relevos)</Text>
+            <TouchableOpacity 
+              style={[styles.iniciarBtn, { paddingHorizontal: 12, paddingVertical: 4 }]} 
+              onPress={() => setNotaOpen(true)}
+            >
+              <Text style={[styles.iniciarBtnText, { fontSize: 11 }]}>+ Nota</Text>
+            </TouchableOpacity>
+          </View>
           {/* NOTAS RECIENTES */}
           <Text style={styles.sectionTitle}>Notas del Cuidador (Últimos Relevos)</Text>
           {notas && notas.length > 0 ? (
