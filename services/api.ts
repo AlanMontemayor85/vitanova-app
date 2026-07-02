@@ -450,14 +450,14 @@ export const forzarMedicionSignos = async (patientId: string) => {
   }
 };
 
-export const configurarReloj = async (patientId: string) => {
-  try {
-    const res = await fetchWithAuth(`${BASE_URL}/pacientes/${patientId}/configurar-reloj`, { method: 'POST' });
-    return await res.json();
-  } catch (error) {
-    console.error("❌ Error configurando reloj:", error);
-    return { success: false, detail: String(error) };
-  }
+export const configurarReloj = async (patientId: string, sensibilidad?: string) => {
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}/pacientes/${patientId}/configurar-reloj`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(sensibilidad ? { comando: 'FALL', argumento: sensibilidad } : {})
+  });
+  return res.json();
 };
 
 export const crearLead = async (lead: object) => {

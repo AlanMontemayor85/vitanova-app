@@ -52,6 +52,10 @@ export default function PerfilPacienteScreen() {
   const [imei, setImei] = useState(paciente?.reloj_imei ?? '');
   const [sos1, setSos1] = useState(paciente?.reloj_sos1 ?? '');
   const [sos2, setSos2] = useState(paciente?.reloj_sos2 ?? '');
+  const [sos3, setSos3] = useState(paciente?.reloj_sos3 ?? '');
+  const [sensibilidadCaidas, setSensibilidadCaidas] = useState<string>(
+    paciente?.sensibilidad_caidas?.toString() ?? '3'
+  );
 
   const toggleCondicion = (c: string) => {
     setCondiciones(prev =>
@@ -88,7 +92,8 @@ export default function PerfilPacienteScreen() {
   const ejecutarSincronizacionReloj = async (targetId: string) => {
     try {
       setSincronizandoHardware(true);
-      const res = await configurarReloj(targetId);
+      const res = await configurarReloj(targetId, sensibilidadCaidas); 
+      
       
       if (res && res.success) {
         Alert.alert(
@@ -140,6 +145,7 @@ export default function PerfilPacienteScreen() {
         reloj_imei: imei.trim() || null,
         reloj_sos1: sos1.trim() || null,
         reloj_sos2: sos2.trim() || null,
+        reloj_sos3: sos3.trim() || null,
       });
       
       // 2. Extracción segura del ID generado por Postgres
@@ -298,7 +304,50 @@ export default function PerfilPacienteScreen() {
           onChangeText={setSos2}
           keyboardType="phone-pad"
         />
+        <Text style={styles.label}>Número SOS 3 (Tercer contacto)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Tercer contacto de emergencia"
+          placeholderTextColor={COLORS.textLight}
+          value={sos3}
+          onChangeText={setSos3}
+          keyboardType="phone-pad"
+        />
 
+        {/* CONFIGURACIÓN AVANZADA DEL RELOJ */}
+        <View style={[styles.seccionReloj, { marginTop: 16 }]}>
+          <Text style={styles.relojTitulo}>⚙️ Parámetros del Sensor de Caídas</Text>
+        </View>
+
+        <Text style={styles.label}>Sensibilidad del detector de caídas</Text>
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+          {[
+            { val: '1', label: '🔴 Alta', desc: 'Detecta mínimo movimiento' },
+            { val: '2', label: '🟡 Estándar', desc: 'Uso normal recomendado' },
+            { val: '3', label: '🟢 Baja', desc: 'Solo caídas bruscas' },
+          ].map((op) => (
+            <TouchableOpacity
+              key={op.val}
+              style={{
+                flex: 1,
+                padding: 10,
+                borderRadius: 10,
+                borderWidth: 2,
+                borderColor: sensibilidadCaidas === op.val ? COLORS.gold : COLORS.border,
+                backgroundColor: sensibilidadCaidas === op.val ? COLORS.goldPale : COLORS.white,
+                alignItems: 'center',
+              }}
+              onPress={() => setSensibilidadCaidas(op.val)}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '800', color: sensibilidadCaidas === op.val ? COLORS.gold : COLORS.textLight }}>
+                {op.label}
+              </Text>
+              <Text style={{ fontSize: 9, color: COLORS.textLight, textAlign: 'center', marginTop: 2 }}>
+                {op.desc}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
         {/* 🚀 BOTÓN DE FORZADO MANUAL DE REDIS (Mantiene tu funcionalidad previa para edición) */}
         {paciente?.id && imei.trim() ? (
           <TouchableOpacity
