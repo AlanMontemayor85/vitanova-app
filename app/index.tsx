@@ -654,7 +654,35 @@ useEffect(() => {
 
         <View style={{ height: 100 }} />
       </ScrollView>
-
+      {/* NOTAS RECIENTES DEL CUIDADOR */}
+      {notas && notas.length > 0 && (
+        <>
+          <Text style={[styles.sectionTitle, { marginTop: 20, marginBottom: 12 }]}>
+            Notas del cuidador
+          </Text>
+          {notas.slice(0, 3).map((n, i) => (
+            <View key={n?.id || i} style={[styles.alertCard, { 
+              backgroundColor: COLORS.amberPale, 
+              borderColor: '#F5DBA0', 
+              marginBottom: 8 
+            }]}>
+              <Text style={styles.alertIcon}>📝</Text>
+              <View style={styles.alertContent}>
+                <Text style={styles.alertTitle}>
+                  {String(n?.descripcion || n?.texto || "Nota de relevo").replace('📝 ', '')}
+                </Text>
+                <Text style={styles.alertSub}>
+                  {n?.usuarios?.nombre_completo ?? 'Personal Vitanova'} · {
+                    n?.created_at 
+                      ? new Date(n.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                      : ''
+                  }
+                </Text>
+              </View>
+            </View>
+          ))}
+        </>
+      )}
       {/* BOTTOM NAV */}
       <View style={styles.bottomNav}>
         {[
