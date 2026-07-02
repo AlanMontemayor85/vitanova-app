@@ -600,9 +600,9 @@ useEffect(() => {
 
         {ultimoCierre ? (
           <>
-            <View style={[styles.alertCard, { backgroundColor: COLORS.greenPale, borderColor: '#C5E8D4' }]}>
+            <View style={[styles.alertCard, { backgroundColor: COLORS.greenPale, borderColor: '#C5E8D4', flexDirection: 'row', alignItems: 'center' }]}>
               <Text style={styles.alertIcon}>👤</Text>
-              <View style={styles.alertContent}>
+              <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
                 <Text style={styles.alertTitle}>
                   {ultimoCierre.usuarios?.nombre_completo ?? 'Cuidador'}
                 </Text>
@@ -613,9 +613,9 @@ useEffect(() => {
             </View>
 
             {ultimoCierre.barthel_total !== null && (
-              <View style={[styles.alertCard, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, marginTop: 8 }]}>
+              <View style={[styles.alertCard, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, marginTop: 8, flexDirection: 'row', alignItems: 'center' }]}>
                 <Text style={styles.alertIcon}>📋</Text>
-                <View style={styles.alertContent}>
+                <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
                   <Text style={styles.alertTitle}>Índice de Barthel: {ultimoCierre.barthel_total}/100</Text>
                   <Text style={styles.alertSub}>{ultimoCierre.barthel_label}</Text>
                 </View>
@@ -623,9 +623,9 @@ useEffect(() => {
             )}
 
             {ultimoCierre.morse_total !== null && ultimoCierre.morse_total >= 25 && (
-              <View style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0', marginTop: 8 }]}>
+              <View style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0', marginTop: 8, flexDirection: 'row', alignItems: 'center' }]}>
                 <Text style={styles.alertIcon}>⚠️</Text>
-                <View style={styles.alertContent}>
+                <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
                   <Text style={styles.alertTitle}>Riesgo de caída: {ultimoCierre.morse_total} pts</Text>
                   <Text style={styles.alertSub}>{ultimoCierre.morse_label}</Text>
                 </View>
@@ -633,9 +633,9 @@ useEffect(() => {
             )}
           </>
         ) : (
-          <View style={[styles.alertCard, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold }]}>
+          <View style={[styles.alertCard, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, flexDirection: 'row', alignItems: 'center' }]}>
             <Text style={styles.alertIcon}>ℹ️</Text>
-            <View style={styles.alertContent}>
+            <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
               <Text style={styles.alertTitle}>Sin registros aún</Text>
               <Text style={styles.alertSub}>El cuidador no ha cerrado ningún turno todavía</Text>
             </View>
@@ -643,46 +643,51 @@ useEffect(() => {
         )}
 
         {alertaPeso && (
-          <View style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0', marginTop: 8 }]}>
+          <View style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0', marginTop: 8, flexDirection: 'row', alignItems: 'center' }]}>
             <Text style={styles.alertIcon}>⚖️</Text>
-            <View style={styles.alertContent}>
+            <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
               <Text style={styles.alertTitle}>Recordatorio de peso</Text>
               <Text style={styles.alertSub}>{alertaPeso.mensaje}</Text>
             </View>
           </View>
         )}
 
-        <View style={{ height: 100 }} />
-      </ScrollView>
-      {/* NOTAS RECIENTES DEL CUIDADOR */}
-      {notas && notas.length > 0 && (
-        <>
-          <Text style={[styles.sectionTitle, { marginTop: 20, marginBottom: 12 }]}>
-            Notas del cuidador
-          </Text>
-          {notas.slice(0, 3).map((n, i) => (
-            <View key={n?.id || i} style={[styles.alertCard, { 
-              backgroundColor: COLORS.amberPale, 
-              borderColor: '#F5DBA0', 
-              marginBottom: 8 
-            }]}>
-              <Text style={styles.alertIcon}>📝</Text>
-              <View style={styles.alertContent}>
-                <Text style={styles.alertTitle}>
-                  {String(n?.descripcion || n?.texto || "Nota de relevo").replace('📝 ', '')}
-                </Text>
-                <Text style={styles.alertSub}>
-                  {n?.usuarios?.nombre_completo ?? 'Personal Vitanova'} · {
-                    n?.created_at 
-                      ? new Date(n.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-                      : ''
-                  }
-                </Text>
+        {/* NOTAS RECIENTES DEL CUIDADOR */}
+        {notas && notas.length > 0 && (
+          <>
+            <Text style={[styles.sectionTitle, { marginTop: 24, marginBottom: 12 }]}>
+              Notas del cuidador
+            </Text>
+            {notas.slice(0, 3).map((n, i) => (
+              <View key={n?.id || i} style={[styles.alertCard, { 
+                backgroundColor: COLORS.amberPale, 
+                borderColor: '#F5DBA0', 
+                marginBottom: 8,
+                flexDirection: 'row',
+                alignItems: 'center'
+              }]}>
+                <Text style={styles.alertIcon}>📝</Text>
+                <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
+                  <Text style={styles.alertTitle}>
+                    {String(n?.descripcion || n?.texto || "Nota de relevo").replace('📝 ', '')}
+                  </Text>
+                  <Text style={styles.alertSub}>
+                    {n?.usuarios?.nombre_completo ?? 'Personal Vitanova'} · {
+                      n?.created_at 
+                        ? new Date(n.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                        : ''
+                    }
+                  </Text>
+                </View>
               </View>
-            </View>
-          ))}
-        </>
-      )}
+            ))}
+          </>
+        )}
+
+        {/* Espaciador final correcto al fondo del ScrollView */}
+        <View style={{ height: 60 }} />
+      </ScrollView>
+      
       {/* BOTTOM NAV */}
       <View style={styles.bottomNav}>
         {[
