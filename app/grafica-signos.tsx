@@ -129,8 +129,11 @@ export default function GraficaSignosScreen() {
   const pacienteId = params.pacienteId as string;
   const pacienteNombre = params.pacienteNombre as string;
 
+  // ── ESTADOS ── todos juntos arriba
   const [registros, setRegistros] = useState<any[]>([]);
-  const [registrosTemp, setRegistrosTemp] = useState<any[]>([]);  // ← nuevo
+  const [registrosTemp, setRegistrosTemp] = useState<any[]>([]);
+  const [pesoData, setPesoData] = useState<number[]>([]);
+  const [pesoFechas, setPesoFechas] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -140,6 +143,10 @@ export default function GraficaSignosScreen() {
         console.log("📊 RESPUESTA HISTORICO:", JSON.stringify(data));
         if (data.registros) setRegistros(data.registros);
         if (data.registros_temperatura) setRegistrosTemp(data.registros_temperatura);  // ← nuevo
+        if (data.registros_peso) {
+        setPesoData(data.registros_peso.map((r: any) => r.peso_kg));
+        setPesoFechas(data.registros_peso.map((r: any) => r.created_at));
+}
       } catch (e) {
         console.error("Error cargando histórico clínico:", e);
       } finally {
@@ -149,7 +156,7 @@ export default function GraficaSignosScreen() {
     cargar();
   }, [pacienteId]);
 
-  // ── MAPEOS ──
+   // ── MAPEOS ──
   const registrosFiltrados = [...registros].reverse();
 
   const registrosSpo2 = registrosFiltrados.filter(r => r.spo2 !== null && r.spo2 !== undefined);
@@ -165,14 +172,10 @@ export default function GraficaSignosScreen() {
   const fcData = registrosFc.map(r => r.frecuencia_cardiaca);
   const fcFechas = registrosFc.map(r => r.created_at);
 
-  // 🌡️ Temperatura — ahora viene de registrosTemp directamente (ya ordenado cronológico)
   const temperaturaData = registrosTemp.map(r => r.temperatura) as number[];
   const tempFechas = registrosTemp.map(r => r.created_at);
 
-  const registrosPeso = registrosFiltrados.filter(r => r.peso_kg !== null && r.peso_kg !== undefined);
-  const pesoData = registrosPeso.map(r => r.peso_kg);
-  const pesoFechas = registrosPeso.map(r => r.created_at);
-
+  
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
@@ -180,7 +183,7 @@ export default function GraficaSignosScreen() {
       </View>
     );
   }
-  // ... resto del render
+  
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
