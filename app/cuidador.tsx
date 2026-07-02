@@ -727,6 +727,20 @@ export default function CuidadorScreen() {
               <Text style={{ fontSize: 20, marginBottom: 4 }}>📍</Text>
               <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Ubicación</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity 
+            style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
+            onPress={() => router.push({
+              pathname: '/grafica-signos' as any,
+              params: { 
+                pacienteId: pacienteActivo.id, 
+                pacienteNombre: pacienteActivo.nombre_completo 
+              }
+            })}
+          >
+            <Text style={{ fontSize: 20, marginBottom: 4 }}>📊</Text>
+            <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Gráficas</Text>
+          </TouchableOpacity>
           </View>
           
           {/* 📝 SECCIÓN: NOTAS DEL CUIDADOR */}
