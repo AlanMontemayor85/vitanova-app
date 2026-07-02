@@ -130,13 +130,16 @@ export default function GraficaSignosScreen() {
   const pacienteNombre = params.pacienteNombre as string;
 
   const [registros, setRegistros] = useState<any[]>([]);
+  const [registrosTemp, setRegistrosTemp] = useState<any[]>([]);  // ← nuevo
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const cargar = async () => {
       try {
         const data = await getSignosVitalesHistorico(pacienteId, 14);
+        console.log("📊 RESPUESTA HISTORICO:", JSON.stringify(data));
         if (data.registros) setRegistros(data.registros);
+        if (data.registros_temperatura) setRegistrosTemp(data.registros_temperatura);  // ← nuevo
       } catch (e) {
         console.error("Error cargando histórico clínico:", e);
       } finally {
@@ -145,47 +148,31 @@ export default function GraficaSignosScreen() {
     };
     cargar();
   }, [pacienteId]);
-   
-  // ── REEMPLAZO EXACTO DE MAPEOS INTELIGENTES ──
+
+  // ── MAPEOS ──
   const registrosFiltrados = [...registros].reverse();
 
-  // 🩸 Oxígeno + sus fechas sin nulos
   const registrosSpo2 = registrosFiltrados.filter(r => r.spo2 !== null && r.spo2 !== undefined);
   const spo2Data = registrosSpo2.map(r => r.spo2);
   const spo2Fechas = registrosSpo2.map(r => r.created_at);
 
-  // 🩺 Presión Arterial + sus fechas sin nulos
   const registrosPresion = registrosFiltrados.filter(r => r.presion_sistolica !== null && r.presion_diastolica !== null);
   const sstolicaData = registrosPresion.map(r => r.presion_sistolica);
   const dstolicaData = registrosPresion.map(r => r.presion_diastolica ?? 0);
   const presionFechas = registrosPresion.map(r => r.created_at);
 
-  // ❤️ Pulso (Frecuencia Cardíaca) + sus fechas sin nulos
   const registrosFc = registrosFiltrados.filter(r => r.frecuencia_cardiaca !== null && r.frecuencia_cardiaca !== undefined);
   const fcData = registrosFc.map(r => r.frecuencia_cardiaca);
   const fcFechas = registrosFc.map(r => r.created_at);
 
-  // 🌡️ Temperatura Corporal + sus fechas sin nulos (Usando tu helper)
-  const registrosTemp = registrosFiltrados.filter(r => leerTemperatura(r) !== null);
-  const temperaturaData = registrosTemp.map(leerTemperatura) as number[];
+  // 🌡️ Temperatura — ahora viene de registrosTemp directamente (ya ordenado cronológico)
+  const temperaturaData = registrosTemp.map(r => r.temperatura) as number[];
   const tempFechas = registrosTemp.map(r => r.created_at);
 
-  // ⚖️ Peso + sus fechas sin nulos
   const registrosPeso = registrosFiltrados.filter(r => r.peso_kg !== null && r.peso_kg !== undefined);
   const pesoData = registrosPeso.map(r => r.peso_kg);
   const pesoFechas = registrosPeso.map(r => r.created_at);
-  // ─────────────────────────────────────────────
-  const cargar = async () => {
-  try {
-    const data = await getSignosVitalesHistorico(pacienteId, 14);
-    console.log("📊 RESPUESTA HISTORICO:", JSON.stringify(data));  // ← agrega esto
-    if (data.registros) setRegistros(data.registros);
-  } catch (e) {
-    console.error("Error cargando histórico clínico:", e);
-  } finally {
-    setLoading(false);
-  }
-};
+
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
@@ -193,6 +180,7 @@ export default function GraficaSignosScreen() {
       </View>
     );
   }
+  // ... resto del render
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
@@ -304,22 +292,31 @@ export default function GraficaSignosScreen() {
               </View>
             )}
 
-            {/* 🟢 GRÁFICA TEMPERATURA CORPORAL (BLINDADA CONTRA OCULTAMIENTO) */}
+            {/* 🟢 GRÁFICA TEMPERATURA CORPORAL */}
             <View style={styles.chartCard}>
               <View style={styles.chartHeader}>
-                <Text style={styles.chartTitle}>Temperatura Corporal Histórica</Text>
+                <Text style={styles.chartTitle}>Temperatura Corporal</Text>
                 <View style={[styles.chartBadge, { backgroundColor: COLORS.amberPale }]}>
                   <Text style={[styles.chartBadgeText, { color: COLORS.amber }]}>Umbral Febril: 37.8°</Text>
                 </View>
               </View>
               <MiniChart
-              datos={temperaturaData}
-              fechas={tempFechas} // ✅ Fechas exclusivas de temperatura
-              color={COLORS.amber}
-              min={34} max={41}
-              unidad="°C"
-              alerta={37.8}
-            />
+                datos={registrosTemp.map(r => r.temperatura)}
+                fechas={registrosTemp.map(r => r.created_at)}
+                color={COLORS.amber}
+                min={34} max={41}
+                unidad="°C"
+                alerta={37.8}
+              />
+              {/* Disclaimer */}
+              <Text style={{ 
+                fontSize: 9, 
+                color: COLORS.textLight, 
+                marginTop: 8,
+                fontStyle: 'italic'
+              }}>
+                ⏱️ Temperatura medida bajo demanda cada ~30 min. Los valores intermedios no son interpolados.
+              </Text>
             </View>
 
             {/* GRÁFICA PESO */}
