@@ -687,7 +687,18 @@ export default function CuidadorScreen() {
             <View style={{ width: 1, height: 24, backgroundColor: COLORS.border }} />
             <View style={{ alignItems: 'center' }}><Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.red }}>{signosDispositivo?.fc ?? "—"}</Text><Text style={styles.monitorSubTextLabel}>Pulso (bpm)</Text></View>
             <View style={{ width: 1, height: 24, backgroundColor: COLORS.border }} />
-            <View style={{ alignItems: 'center' }}><Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.green }}>{signosDispositivo?.temperatura ?? "—"}°</Text><Text style={styles.monitorSubTextLabel}>T. Corporal</Text></View>
+            <View style={{ alignItems: 'center' }}>
+            {signosDispositivo?.temperatura && signosDispositivo.temperatura !== "—" ? (
+              <Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.green }}>
+                {`${signosDispositivo.temperatura}°`}
+              </Text>
+            ) : (
+              <Text style={{ fontSize: 9, color: COLORS.gold, textAlign: 'center', fontWeight: '700' }}>
+                {'Presiona\n"Sensa Ahora"'}
+              </Text>
+            )}
+            <Text style={styles.monitorSubTextLabel}>T. Corporal</Text>
+          </View>
           </View>
         </View>
 

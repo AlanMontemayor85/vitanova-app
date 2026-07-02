@@ -1,8 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { actualizarPaciente, clearToken, configurarReloj, getPacientes, reiniciarRegistroServidor } from '../services/api'; // 📡 Asegúrate de exportar configurarReloj de tu services/api.ts
+import { actualizarPaciente, clearToken, configurarReloj, getPacientes, getToken, reiniciarRegistroServidor } from '../services/api'; // 📡 Asegúrate de exportar configurarReloj de tu services/api.ts
 
+const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 const COLORS = {
   gold: '#BF9A40',
   goldPale: '#F5EDD8',
@@ -64,30 +65,45 @@ export default function PerfilPacienteScreen() {
   };
   // ⚖️ Sincronizador Maestro de la Ficha Clínica (Rompe el caché de la navegación)
   useEffect(() => {
-    const refrescarDatosAlEntrar = async () => {
-      if (!paciente?.id) return;
-      try {
-        console.log("🔍 Rompiendo caché de navegación. Solicitando datos frescos al servidor...");
-        
-        // Ejecutamos tu función global que va a Railway/Supabase
-        const data = await getPacientes(); 
-        console.log("📦 RESPUESTA DE GET_PACIENTES EN TU CELULAR:", JSON.stringify(data));
-        if (data && data.patients) {
-          // Buscamos a nuestro paciente específico dentro del arreglo fresco
-          const pFresco = data.patients.find((x: any) => x.id === paciente.id);
-          
-          if (pFresco && pFresco.peso_kg) {
-            console.log("⚖️ Peso real recuperado de la BD:", pFresco.peso_kg);
-            setPesoInput(pFresco.peso_kg.toString());
-          }
+  const refrescarDatosAlEntrar = async () => {
+    if (!paciente?.id) return;
+    
+    // CORREGIDO: Se cambiaron los dos puntos ":" por la llave de apertura "{"
+    try { 
+      console.log("🔍 Rompiendo caché de navegación. Solicitando datos frescos al servidor...");
+      
+      const data = await getPacientes(); 
+      if (data && data.patients) {
+        const pFresco = data.patients.find((x: any) => x.id === paciente.id);
+        if (pFresco && pFresco.peso_kg) {
+          console.log("⚖️ Peso real recuperado de la BD:", pFresco.peso_kg);
+          setPesoInput(pFresco.peso_kg.toString());
         }
-      } catch (err) {
-        console.log("⚠️ Error sincronizando peso en segundo plano:", err);
       }
-    };
 
-    refrescarDatosAlEntrar();
-  }, [paciente?.id, params.refresh]); // Reacciona al ID del paciente o al refresh de la Home
+      // ← Cargar sensibilidad real del dispositivo
+      // NOTA: Si getToken() es una promesa/asíncrono, asegúrate de ponerle "await"
+      const token = await getToken(); 
+      const resDisp = await fetch(
+        `${BASE_URL}/pacientes/${paciente.id}/config-reloj`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const dataDisp = await resDisp.json();
+      if (dataDisp?.sensibilidad_caidas) {
+        setSensibilidadCaidas(dataDisp.sensibilidad_caidas.toString());
+        console.log("⚙️ Sensibilidad cargada:", dataDisp.sensibilidad_caidas);
+      }
+
+    } catch (err) {
+      console.log("⚠️ Error sincronizando datos en segundo plano:", err);
+    }
+  };
+
+  refrescarDatosAlEntrar();
+}, [paciente?.id, params?.refresh]); // Agregué el optional chaining "params?.refresh" por seguridad
+  
+  
+  // Reacciona al ID del paciente o al refresh de la Home
   // 📡 FUNCIÓN TÁCTICA: Disparador del Bus de Comandos por Redis
   const ejecutarSincronizacionReloj = async (targetId: string) => {
     try {
