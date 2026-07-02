@@ -313,7 +313,15 @@ export default function PerfilPacienteScreen() {
           onChangeText={setSos3}
           keyboardType="phone-pad"
         />
-
+        <TouchableOpacity
+          style={{ backgroundColor: COLORS.red, padding: 12, borderRadius: 8, marginBottom: 8, alignItems: 'center' }}
+          onPress={async () => {
+            const res = await configurarReloj(paciente.id, undefined, 'FALLDOWN', '1,1');
+            alert(res.detail || 'Enviado');
+          }}
+        >
+          <Text style={{ color: 'white', fontWeight: '800' }}>🔄 Reactivar detector de caídas</Text>
+        </TouchableOpacity>
         {/* CONFIGURACIÓN AVANZADA DEL RELOJ */}
         <View style={[styles.seccionReloj, { marginTop: 16 }]}>
           <Text style={styles.relojTitulo}>⚙️ Parámetros del Sensor de Caídas</Text>
@@ -346,7 +354,10 @@ export default function PerfilPacienteScreen() {
                 {op.desc}
               </Text>
             </TouchableOpacity>
+
+            
           ))}
+          
         </View>
         {/* 🚀 BOTÓN DE FORZADO MANUAL DE REDIS (Mantiene tu funcionalidad previa para edición) */}
         {paciente?.id && imei.trim() ? (

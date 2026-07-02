@@ -450,12 +450,23 @@ export const forzarMedicionSignos = async (patientId: string) => {
   }
 };
 
-export const configurarReloj = async (patientId: string, sensibilidad?: string) => {
+export const configurarReloj = async (
+  patientId: string, 
+  sensibilidad?: string,
+  comando?: string,
+  argumento?: string
+) => {
   const token = getToken();
+  const body = comando 
+    ? { comando, argumento }
+    : sensibilidad 
+      ? { comando: 'FALL', argumento: sensibilidad }
+      : {};
+      
   const res = await fetch(`${BASE_URL}/pacientes/${patientId}/configurar-reloj`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-    body: JSON.stringify(sensibilidad ? { comando: 'FALL', argumento: sensibilidad } : {})
+    body: JSON.stringify(body)
   });
   return res.json();
 };
