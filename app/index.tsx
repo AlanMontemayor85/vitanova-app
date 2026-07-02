@@ -350,8 +350,7 @@ useEffect(() => {
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
 
-       
-{/* VITALS CON TELEMETRÍA EN VIVO (MÓDULO SIMÉTRICO PARA EL FAMILIAR) */}
+       {/* VITALS CON TELEMETRÍA EN VIVO */}
 <View style={styles.vitalsContainer}>
   <View style={styles.vitalsHeaderRow}>
     <Text style={styles.sectionTitle}>Estatus y Parámetros</Text>
@@ -368,204 +367,209 @@ useEffect(() => {
 
   {/* FILA 1: ESTADO GENERAL DE BIENESTAR, TEMPERATURA Y PESO */}
   <View style={[styles.vitalsRow, { marginBottom: 8 }]}>
-  
-  {/* 🧠 Tarjeta de Condición Inteligente Automatizada por Reloj */}
-  <View style={styles.vitalCard}>
-    <Text style={[
-      styles.vitalVal, 
-      { 
-        fontSize: 22, 
-        lineHeight: 26, 
-        // 🎯 Candado de contacto: Si no hay pulso fresco, el color se va a neutro
-        color: signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'critica' 
-          ? COLORS.red 
-          : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'regular' 
-            ? COLORS.amber 
-            : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'buena'
-              ? COLORS.green
-              : '#8E8E93'
-      }
-    ]}>
-      {/* 🛡️ REGLA DE ORO RECONCILIADA: Si no hay pulso vivo, no hay carita. Evitamos zombis */}
-      {signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'critica' 
-        ? '😟' 
-        : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'regular' 
-          ? '😐' 
-          : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'buena' 
-            ? '😊' 
-            : '—'} 
-    </Text>
-    <Text style={styles.vitalLabel}>Condición</Text>
+    <View style={styles.vitalCard}>
+      <Text style={[styles.vitalVal, { fontSize: 22, lineHeight: 26,
+        color: signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'critica' ? COLORS.red 
+          : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'regular' ? COLORS.amber 
+          : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'buena' ? COLORS.green
+          : '#8E8E93'
+      }]}>
+        {signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'critica' ? '😟' 
+          : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'regular' ? '😐' 
+          : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'buena' ? '😊' 
+          : '—'} 
+      </Text>
+      <Text style={styles.vitalLabel}>Condición</Text>
+    </View>
+
+    <View style={styles.vitalCard}>
+      <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.bphrt ? COLORS.green : COLORS.textLight }]}>
+        {signosDispositivo?.frescura?.bphrt && signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
+          ? `${signosDispositivo.temperatura}°` : '—'}
+      </Text>
+      <Text style={styles.vitalLabel}>Temp. Corp.</Text>
+    </View>
+
+    <View style={styles.vitalCard}>
+      <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
+        {signosDispositivo?.peso && signosDispositivo?.peso !== "—"
+          ? signosDispositivo.peso.replace(" kg", "") 
+          : (ultimoCierre?.peso_kg ? `${ultimoCierre.peso_kg}` : '—')}
+      </Text>
+      <Text style={styles.vitalLabel}>Peso</Text>
+    </View>
   </View>
 
-      {/* Tarjeta Temperatura Corporal (Pura de Hardware — Ajuste Relajado) */}
-  <View style={styles.vitalCard}>
-    <Text style={[
-      styles.vitalVal, 
-      { color: signosDispositivo?.frescura?.bphrt ? COLORS.green : COLORS.textLight }
-    ]}>
-      {/* Mientras el reloj detecte pulso (esté puesto), pintamos la última temperatura guardada */}
-      {signosDispositivo?.frescura?.bphrt && signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
-        ? `${signosDispositivo.temperatura}°` 
-        : '—'}
-    </Text>
-    <Text style={styles.vitalLabel}>Temp. Corp.</Text>
-  </View>
-
-    {/* ⚖️ Tarjeta de Peso Clínico Unificado */}
-  <View style={styles.vitalCard}>
-    <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
-      {signosDispositivo?.peso && signosDispositivo?.peso !== "—"
-        ? signosDispositivo.peso.replace(" kg", "") 
-        : (ultimoCierre?.peso_kg ? `${ultimoCierre.peso_kg}` : '—')}
-    </Text>
-    <Text style={styles.vitalLabel}>Peso</Text>
-  </View>
-</View>
-
-  {/* FILA 2: TELEMETRÍA PURA DEL HARDWARE RECHFAR RF-V48 */}
+  {/* FILA 2: TELEMETRÍA PURA DEL HARDWARE */}
   <View style={styles.vitalsRow}>
-    {/* Tarjeta SpO2 */}
     <View style={styles.vitalCard}>
       <Text style={styles.vitalVal}>
         {signosDispositivo?.frescura?.spo2 && signosDispositivo?.spo2 !== "—" 
-          ? signosDispositivo?.spo2 
-          : '—'}
+          ? signosDispositivo?.spo2 : '—'}
       </Text>
       <Text style={styles.vitalUnit}>%</Text>
       <Text style={styles.vitalLabel}>SpO₂</Text>
     </View>
 
-    {/* Tarjeta Presión Arterial */}
     <View style={styles.vitalCard}>
       <Text style={styles.vitalVal}>
         {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
-          ? signosDispositivo?.presion.split('/')[0] 
-          : '—'}
+          ? signosDispositivo?.presion.split('/')[0] : '—'}
         <Text style={styles.vitalValSmall}>
           {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
-            ? `/${signosDispositivo?.presion.split('/')[1]}` 
-            : ''}
+            ? `/${signosDispositivo?.presion.split('/')[1]}` : ''}
         </Text>
       </Text>
       <Text style={styles.vitalLabel}>Presión</Text>
     </View>
 
-    {/* Tarjeta Frecuencia Cardíaca */}
     <View style={styles.vitalCard}>
-      <Text style={[
-        styles.vitalVal, 
-        { color: signosDispositivo?.frescura?.bphrt ? COLORS.red : COLORS.textLight }
-      ]}>
+      <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.bphrt ? COLORS.red : COLORS.textLight }]}>
         {signosDispositivo?.frescura?.bphrt && signosDispositivo?.fc !== "—" 
-          ? signosDispositivo?.fc 
-          : '—'}
+          ? signosDispositivo?.fc : '—'}
       </Text>
       <Text style={styles.vitalUnit}>bpm</Text>
       <Text style={styles.vitalLabel}>F. Card.</Text>
     </View>
   </View>
+</View> {/* ← CIERRA vitalsContainer */}
 
-  {/* 🔧 ACCIÓN TÁCTICA EXTRA: Calibración remota del acelerómetro anti-falsas alarmas */}
-  <TouchableOpacity 
-    style={{
-      marginTop: 12,
-      backgroundColor: COLORS.cream,
-      borderColor: COLORS.gold,
-      borderWidth: 1,
-      padding: 12,
-      borderRadius: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexDirection: 'row'
-    }}
-    onPress={handleCalibrarReloj}
-  >
-    <Text style={{ color: COLORS.textDark, fontWeight: 'bold', fontSize: 14 }}>
-      🔧 Ajustar Acelerómetro a Sensibilidad Estándar
-    </Text>
-  </TouchableOpacity>
+{/* TARJETA CONFIG RELOJ — fuera del vitalsContainer */}
+{signosDispositivo?.reloj_config && (
+  <View style={{
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 8,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12
+  }}>
+    <Text style={{ fontSize: 24 }}>⚙️</Text>
+    <View style={{ flex: 1 }}>
+      <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textDark }}>
+        Configuración del reloj
+      </Text>
+      <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
+        Detector de caídas: {
+          signosDispositivo.reloj_config.sensibilidad === 1 ? '🔴 Alta' :
+          signosDispositivo.reloj_config.sensibilidad === 2 ? '🟡 Estándar' :
+          '🟢 Baja (recomendada)'
+        }
+      </Text>
+      <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 2 }}>
+        Última sincronización: {
+          signosDispositivo.reloj_config.ultima_configuracion
+            ? new Date(signosDispositivo.reloj_config.ultima_configuracion)
+                .toLocaleDateString('es-MX', { 
+                  day: 'numeric', month: 'short', 
+                  hour: '2-digit', minute: '2-digit' 
+                })
+            : 'Sin registro aún'
+        }
+      </Text>
+    </View>
+    <TouchableOpacity
+      onPress={() => router.push({
+        pathname: '/perfil-paciente' as any,
+        params: { paciente: JSON.stringify(paciente) }
+      })}
+      style={{
+        backgroundColor: COLORS.goldPale,
+        borderRadius: 8,
+        padding: 8,
+        borderWidth: 1,
+        borderColor: COLORS.gold
+      }}
+    >
+      <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '700' }}>Ajustar</Text>
+    </TouchableOpacity>
+  </View>
+)}
+
+{/* ======================================================== */}
+{/* ⚡ SECCIÓN 1: TURNO ACTIVO DE CUIDADO                   */}
+{/* ======================================================== */}
+<View style={[styles.sectionHeader, { marginTop: 12 }]}>
+  <Text style={styles.sectionTitle}>Turno activo</Text>
+  <View style={{ flexDirection: 'row', gap: 12 }}>
+    <TouchableOpacity onPress={() => router.push({
+      pathname: '/grafica-signos' as any,
+      params: { pacienteId: paciente?.id, pacienteNombre: paciente?.nombre_completo }
+    })}>
+      <Text style={styles.sectionLink}>Ver gráficas</Text>
+    </TouchableOpacity>
+    <TouchableOpacity onPress={() => router.push({
+      pathname: '/historial' as any,
+      params: { pacienteId: paciente?.id, pacienteNombre: paciente?.nombre_completo }
+    })}>
+      <Text style={styles.sectionLink}>Ver historial</Text>
+    </TouchableOpacity>
+  </View>
 </View>
-       {/* ======================================================== */}
-        {/* ⚡ SECCIÓN 1: TURNO ACTIVO DE CUIDADO (CON BOTONES)     */}
-        {/* ======================================================== */}
-        <View style={[styles.sectionHeader, { marginTop: 12 }]}>
-          <Text style={styles.sectionTitle}>Turno activo</Text>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <TouchableOpacity onPress={() => router.push({
-              pathname: '/grafica-signos' as any,
-              params: { pacienteId: paciente?.id, pacienteNombre: paciente?.nombre_completo }
-            })}>
-              <Text style={styles.sectionLink}>Ver gráficas</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push({
-              pathname: '/historial' as any,
-              params: { pacienteId: paciente?.id, pacienteNombre: paciente?.nombre_completo }
-            })}>
-              <Text style={styles.sectionLink}>Ver historial</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
 
-        {turnoResumen ? (
-          <View style={[styles.turnoCard, { marginTop: 8 }]}>
-            <View style={styles.turnoLeft}>
-              <View style={styles.turnoAvatar}>
-                <Text style={styles.turnoAvatarText}>
-                  {turnoResumen.cuidador_nombre?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
-                </Text>
-              </View>
-              <View>
-                <Text style={styles.turnoName}>{turnoResumen.cuidador_nombre}</Text>
-                <Text style={styles.turnoHora}>{turnoResumen.horario}</Text>
-              </View>
-            </View>
-            <View style={styles.turnoProgress}>
-              <Text style={styles.turnoProgressText}>{turnoResumen.completadas}/{turnoResumen.total}</Text>
-              <Text style={styles.turnoProgressLabel}>tareas</Text>
-            </View>
-          </View>
-        ) : (
-          <View style={[styles.turnoCard, { justifyContent: 'center', marginTop: 8 }]}>
-            <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
-              Sin turno activo en este momento
-            </Text>
-          </View>
-        )}
+{turnoResumen ? (
+  <View style={[styles.turnoCard, { marginTop: 8 }]}>
+    <View style={styles.turnoLeft}>
+      <View style={styles.turnoAvatar}>
+        <Text style={styles.turnoAvatarText}>
+          {turnoResumen.cuidador_nombre?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+        </Text>
+      </View>
+      <View>
+        <Text style={styles.turnoName}>{turnoResumen.cuidador_nombre}</Text>
+        <Text style={styles.turnoHora}>{turnoResumen.horario}</Text>
+      </View>
+    </View>
+    <View style={styles.turnoProgress}>
+      <Text style={styles.turnoProgressText}>{turnoResumen.completadas}/{turnoResumen.total}</Text>
+      <Text style={styles.turnoProgressLabel}>tareas</Text>
+    </View>
+  </View>
+) : (
+  <View style={[styles.turnoCard, { justifyContent: 'center', marginTop: 8 }]}>
+    <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
+      Sin turno activo en este momento
+    </Text>
+  </View>
+)}
 
-        {/* ======================================================== */}
-        {/* 🎛️ SECCIÓN 2: ACCESOS RÁPIDOS OPERATIVOS                */}
-        {/* ======================================================== */}
-        <Text style={[styles.sectionTitle, { marginTop: 16, marginBottom: 12 }]}>Accesos rápidos</Text>
-        <View style={styles.quickActions}>
-          {[
-            { icon: '📍', label: 'Ubicación', ruta: '/mapa' },
-            { icon: '💊', label: 'Medicam.', ruta: '/medicamentos' },
-            { icon: '🔔', label: 'Alertas', ruta: '/alertas' },
-            { icon: '💬', label: 'Cuidadores', ruta: null },
-          ].map((item) => (
-            <TouchableOpacity
-              key={item.label}
-              style={styles.qaBtn}
-              onPress={() => {
-                if (item.label === 'Cuidadores') {
-                  router.push({
-                    pathname: '/red-cuidadores' as any,
-                    params: {
-                      pacienteId: paciente?.id,
-                      pacienteNombre: paciente?.nombre_completo,
-                    }
-                  });
-                } else {
-                  item.ruta && router.push(item.ruta as any);
-                }
-              }}
-            >
-              <Text style={styles.qaIcon}>{item.icon}</Text>
-              <Text style={styles.qaLabel}>{item.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+{/* ======================================================== */}
+{/* 🎛️ SECCIÓN 2: ACCESOS RÁPIDOS OPERATIVOS               */}
+{/* ======================================================== */}
+<Text style={[styles.sectionTitle, { marginTop: 16, marginBottom: 12 }]}>Accesos rápidos</Text>
+<View style={styles.quickActions}>
+  {[
+    { icon: '📍', label: 'Ubicación', ruta: '/mapa' },
+    { icon: '💊', label: 'Medicam.', ruta: '/medicamentos' },
+    { icon: '🔔', label: 'Alertas', ruta: '/alertas' },
+    { icon: '💬', label: 'Cuidadores', ruta: null },
+  ].map((item) => (
+    <TouchableOpacity
+      key={item.label}
+      style={styles.qaBtn}
+      onPress={() => {
+        if (item.label === 'Cuidadores') {
+          router.push({
+            pathname: '/red-cuidadores' as any,
+            params: {
+              pacienteId: paciente?.id,
+              pacienteNombre: paciente?.nombre_completo,
+            }
+          });
+        } else {
+          item.ruta && router.push(item.ruta as any);
+        }
+      }}
+    >
+      <Text style={styles.qaIcon}>{item.icon}</Text>
+      <Text style={styles.qaLabel}>{item.label}</Text>
+    </TouchableOpacity>
+  ))}
+</View>
 
         {/* ======================================================== */}
         {/* 👑 SECCIÓN 3: SERVICIOS VITANOVA INTEGRALIS              */}
