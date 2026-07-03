@@ -48,6 +48,7 @@ export default function PerfilPacienteScreen() {
   const [nombreAseguradora, setNombreAseguradora] = useState(paciente?.nombre_aseguradora ?? '');
   const [telefonoAseguradora, setTelefonoAseguradora] = useState(paciente?.telefono_aseguradora ?? '');
   const [telefonoAmbulancia, setTelefonoAmbulancia] = useState(paciente?.telefono_ambulancia ?? '');
+  
 
   // 📡 Parámetros Estructurales del Reloj GPS
   const [imei, setImei] = useState(paciente?.reloj_imei ?? '');
@@ -57,7 +58,7 @@ export default function PerfilPacienteScreen() {
   const [sensibilidadCaidas, setSensibilidadCaidas] = useState<string>(
     paciente?.sensibilidad_caidas?.toString() ?? '3'
   );
-
+  const [caídaActiva, setCaidaActiva] = useState<boolean>(true);
   const toggleCondicion = (c: string) => {
     setCondiciones(prev =>
       prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]
@@ -80,7 +81,7 @@ export default function PerfilPacienteScreen() {
           setPesoInput(pFresco.peso_kg.toString());
         }
       }
-
+    
       // ← Cargar sensibilidad real del dispositivo
       // NOTA: Si getToken() es una promesa/asíncrono, asegúrate de ponerle "await"
       const token = await getToken(); 
@@ -92,6 +93,9 @@ export default function PerfilPacienteScreen() {
       if (dataDisp?.sensibilidad_caidas) {
         setSensibilidadCaidas(dataDisp.sensibilidad_caidas.toString());
         console.log("⚙️ Sensibilidad cargada:", dataDisp.sensibilidad_caidas);
+      }
+      if (dataDisp?.caida_activa !== undefined) {
+        setCaidaActiva(dataDisp.caida_activa);
       }
 
     } catch (err) {
@@ -329,15 +333,60 @@ export default function PerfilPacienteScreen() {
           onChangeText={setSos3}
           keyboardType="phone-pad"
         />
-        {/*<TouchableOpacity
-          style={{ backgroundColor: COLORS.red, padding: 12, borderRadius: 8, marginBottom: 8, alignItems: 'center' }}
-          onPress={async () => {
-            const res = await configurarReloj(paciente.id, undefined, 'FALLDOWN', '1,1');
-            alert(res.detail || 'Enviado');
-          }}
-        >
-          <Text style={{ color: 'white', fontWeight: '800' }}>🔄 Reactivar detector de caídas</Text>
-        </TouchableOpacity>*/}
+        {/* TOGGLE DETECTOR DE CAÍDAS */}
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          backgroundColor: COLORS.white,
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: COLORS.border,
+          padding: 16,
+          marginBottom: 16
+        }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 13, fontWeight: '800', color: COLORS.textDark }}>
+              🛡️ Detector de caídas
+            </Text>
+            <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 2 }}>
+              {caidaActiva ? 'Activo — el reloj detecta caídas' : 'Desactivado — sin alertas de caída'}
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={async () => {
+              const nuevoEstado = !caidaActiva;
+              setCaidaActiva(nuevoEstado);
+              try {
+                // Activar: FALLDOWN,1,1 | Desactivar: FALLDOWN,0,0
+                const arg = nuevoEstado ? '1,1' : '0,0';
+                const res = await configurarReloj(paciente.id, undefined, 'FALLDOWN', arg);
+                if (!res.success) {
+                  setCaidaActiva(!nuevoEstado); // revertir si falló
+                  alert('No se pudo enviar el comando al reloj.');
+                }
+              } catch {
+                setCaidaActiva(!nuevoEstado);
+              }
+            }}
+            style={{
+              width: 50,
+              height: 28,
+              borderRadius: 14,
+              backgroundColor: caidaActiva ? COLORS.green : COLORS.border,
+              justifyContent: 'center',
+              paddingHorizontal: 3,
+            }}
+          >
+            <View style={{
+              width: 22,
+              height: 22,
+              borderRadius: 11,
+              backgroundColor: COLORS.white,
+              alignSelf: caidaActiva ? 'flex-end' : 'flex-start',
+            }} />
+          </TouchableOpacity>
+        </View>
 
         {/* CONFIGURACIÓN AVANZADA DEL RELOJ */}
         <View style={[styles.seccionReloj, { marginTop: 16 }]}>
