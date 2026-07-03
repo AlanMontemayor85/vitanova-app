@@ -1049,7 +1049,7 @@ export default function CuidadorScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.cream },
-  header: { backgroundColor: COLORS.cacao, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16, flexDirection: 'row', alignItems: 'center' },
+  header: { backgroundColor: COLORS.cacao, padding: 16, flexDirection: 'row', alignItems: 'center' },
   backBtn: { marginRight: 12 },
   backIcon: { color: COLORS.white, fontSize: 20 },
   greeting: { color: 'rgba(255,255,255,0.6)', fontSize: 12 },
