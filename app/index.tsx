@@ -433,61 +433,61 @@ useEffect(() => {
             </View>
           </View>
         </View>
-
-        {/* TARJETA CONFIG RELOJ */}
-        {signosDispositivo?.reloj_config && (
-          <View style={{
-            backgroundColor: COLORS.white,
-            borderRadius: 12,
-            padding: 14,
-            marginTop: 8,
-            marginBottom: 4,
-            borderWidth: 1,
-            borderColor: COLORS.border,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 12
-          }}>
-            <Text style={{ fontSize: 24 }}>{'⚙️'}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textDark }}>
-                {'Configuración del reloj'}
-              </Text>
-              <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
-                {(() => {
-                  const s = signosDispositivo.reloj_config.sensibilidad;
-                  if (s === 1) return 'Detector de caídas: 🔴 Alta';
-                  if (s === 2) return 'Detector de caídas: 🟡 Estándar';
-                  return 'Detector de caídas: 🟢 Baja (recomendada)';
-                })()}
-              </Text>
-              <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 2 }}>
-                {(() => {
-                  const uc = signosDispositivo.reloj_config.ultima_configuracion;
-                  if (!uc) return 'Última sincronización: Sin registro aún';
-                  return `Última sincronización: ${new Date(uc).toLocaleDateString('es-MX', { 
-                    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
-                  })}`;
-                })()}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => router.push({
-                pathname: '/perfil-paciente' as any,
-                params: { paciente: JSON.stringify(paciente) }
-              })}
-              style={{
-                backgroundColor: COLORS.goldPale,
-                borderRadius: 8,
-                padding: 8,
-                borderWidth: 1,
-                borderColor: COLORS.gold
-              }}
-            >
-              <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '700' }}>{'Ajustar'}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+{/* TARJETA CONFIG RELOJ */}
+{signosDispositivo?.reloj_config && (
+  <View style={{
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 8,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12
+  }}>
+    <Text style={{ fontSize: 24 }}>{'⚙️'}</Text>
+    <View style={{ flex: 1 }}>
+      <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textDark }}>
+        {'Configuración del reloj'}
+      </Text>
+      <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
+        {(() => {
+          const config = signosDispositivo.reloj_config;
+          if (!config.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
+          if (config.sensibilidad === 1) return 'Detector de caídas: 🔴 Alta';
+          if (config.sensibilidad === 2) return 'Detector de caídas: 🟡 Estándar';
+          return 'Detector de caídas: 🟢 Baja (recomendada)';
+        })()}
+      </Text>
+      <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 2 }}>
+        {(() => {
+          const uc = signosDispositivo.reloj_config.ultima_configuracion;
+          if (!uc) return 'Última sincronización: Sin registro aún';
+          return `Última sincronización: ${new Date(uc).toLocaleDateString('es-MX', { 
+            day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
+          })}`;
+        })()}
+      </Text>
+    </View>
+    <TouchableOpacity
+      onPress={() => router.push({
+        pathname: '/perfil-paciente' as any,
+        params: { paciente: JSON.stringify(paciente) }
+      })}
+      style={{
+        backgroundColor: COLORS.goldPale,
+        borderRadius: 8,
+        padding: 8,
+        borderWidth: 1,
+        borderColor: COLORS.gold
+      }}
+    >
+      <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '700' }}>{'Ajustar'}</Text>
+    </TouchableOpacity>
+  </View>
+)}
 
         {/* ======================================================== */}
         {/* ⚡ SECCIÓN 1: TURNO ACTIVO DE CUIDADO                   */}

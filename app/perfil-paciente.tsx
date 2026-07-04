@@ -90,12 +90,13 @@ export default function PerfilPacienteScreen() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const dataDisp = await resDisp.json();
+      console.log("⚙️ Config reloj cargada:", JSON.stringify(dataDisp));
       if (dataDisp?.sensibilidad_caidas) {
         setSensibilidadCaidas(dataDisp.sensibilidad_caidas.toString());
         console.log("⚙️ Sensibilidad cargada:", dataDisp.sensibilidad_caidas);
       }
-      if (dataDisp?.caida_activa !== undefined) {
-        setCaidaActiva(dataDisp.caida_activa);
+      if (dataDisp && 'caida_activa' in dataDisp) {
+        setCaidaActiva(Boolean(dataDisp.caida_activa));
       }
 
     } catch (err) {
@@ -110,28 +111,33 @@ export default function PerfilPacienteScreen() {
   // Reacciona al ID del paciente o al refresh de la Home
   // 📡 FUNCIÓN TÁCTICA: Disparador del Bus de Comandos por Redis
   const ejecutarSincronizacionReloj = async (targetId: string) => {
-    try {
-      setSincronizandoHardware(true);
-      const res = await configurarReloj(targetId, sensibilidadCaidas); 
-      
-      
-      if (res && res.success) {
-        Alert.alert(
-          '📡 Conexión Establecida',
-          `El perfil se guardó y se transmitieron las tramas de control (CENTER/SOS) al reloj (IMEI: ${imei.trim()}) de forma exitosa.`
-        );
-      } else {
-        Alert.alert(
-          '⚠️ Registro Guardado Localmente',
-          res?.detail || 'El reloj no respondió al empuje inicial de comandos por estar fuera de línea. Podrás reintentar la sincronización desde su panel de control una vez que se encienda.'
-        );
-      }
-    } catch (hwErr) {
-      console.log('⚠️ Falla pasiva de bus de comandos de hardware:', hwErr);
-    } finally {
-      setSincronizandoHardware(false);
+  try {
+    setSincronizandoHardware(true);
+    
+    // 1. Manda sensibilidad de caídas
+    const res = await configurarReloj(targetId, sensibilidadCaidas);
+    
+    // 2. ← AGREGAR: Manda estado activo/desactivado del detector
+    const argFalldown = caidaActiva ? '1,1' : '0,0';
+    await configurarReloj(targetId, undefined, 'FALLDOWN', argFalldown);
+    
+    if (res && res.success) {
+      Alert.alert(
+        '📡 Conexión Establecida',
+        `El perfil se guardó y se transmitieron las tramas de control al reloj (IMEI: ${imei.trim()}) de forma exitosa.`
+      );
+    } else {
+      Alert.alert(
+        '⚠️ Registro Guardado Localmente',
+        res?.detail || 'El reloj no respondió al empuje inicial de comandos por estar fuera de línea.'
+      );
     }
-  };
+  } catch (hwErr) {
+    console.log('⚠️ Falla pasiva de bus de comandos de hardware:', hwErr);
+  } finally {
+    setSincronizandoHardware(false);
+  }
+};
 
   const guardar = async () => {
     if (!nombre.trim()) { 
@@ -333,60 +339,56 @@ export default function PerfilPacienteScreen() {
           onChangeText={setSos3}
           keyboardType="phone-pad"
         />
-        {/* TOGGLE DETECTOR DE CAÍDAS */}
-        <View style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: COLORS.white,
-          borderRadius: 12,
-          borderWidth: 1,
-          borderColor: COLORS.border,
-          padding: 16,
-          marginBottom: 16
-        }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 13, fontWeight: '800', color: COLORS.textDark }}>
-              🛡️ Detector de caídas
-            </Text>
-            <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 2 }}>
-              {caidaActiva ? 'Activo — el reloj detecta caídas' : 'Desactivado — sin alertas de caída'}
-            </Text>
-          </View>
-          <TouchableOpacity
-            onPress={async () => {
-              const nuevoEstado = !caidaActiva;
-              setCaidaActiva(nuevoEstado);
-              try {
-                // Activar: FALLDOWN,1,1 | Desactivar: FALLDOWN,0,0
-                const arg = nuevoEstado ? '1,1' : '0,0';
-                const res = await configurarReloj(paciente.id, undefined, 'FALLDOWN', arg);
-                if (!res.success) {
-                  setCaidaActiva(!nuevoEstado); // revertir si falló
-                  alert('No se pudo enviar el comando al reloj.');
-                }
-              } catch {
-                setCaidaActiva(!nuevoEstado);
-              }
-            }}
-            style={{
-              width: 50,
-              height: 28,
-              borderRadius: 14,
-              backgroundColor: caidaActiva ? COLORS.green : COLORS.border,
-              justifyContent: 'center',
-              paddingHorizontal: 3,
-            }}
-          >
-            <View style={{
-              width: 22,
-              height: 22,
-              borderRadius: 11,
-              backgroundColor: COLORS.white,
-              alignSelf: caidaActiva ? 'flex-end' : 'flex-start',
-            }} />
-          </TouchableOpacity>
-        </View>
+       {/* TOGGLE DETECTOR DE CAÍDAS */}
+<View style={{
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  backgroundColor: COLORS.white,
+  borderRadius: 12,
+  borderWidth: 1,
+  borderColor: COLORS.border,
+  padding: 16,
+  marginBottom: 16
+}}>
+  <View style={{ flex: 1 }}>
+    <Text style={{ fontSize: 13, fontWeight: '800', color: COLORS.textDark }}>
+      {'🛡️ Detector de caídas'}
+    </Text>
+    <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 2 }}>
+      {caidaActiva ? 'Activo — el reloj detecta caídas' : 'Desactivado — sin alertas de caída'}
+    </Text>
+  </View>
+  <TouchableOpacity
+    onPress={async () => {
+      const nuevoEstado = !caidaActiva;
+      setCaidaActiva(nuevoEstado); // cambia visualmente de inmediato
+      try {
+        const arg = nuevoEstado ? '1,1' : '0,0';
+        await configurarReloj(paciente.id, undefined, 'FALLDOWN', arg);
+        // No revertimos aunque falle — se aplicará en la próxima sincronización al guardar
+      } catch {
+        console.log('⚠️ Toggle guardado localmente, se aplicará al sincronizar');
+      }
+    }}
+    style={{
+      width: 50,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: caidaActiva ? COLORS.green : COLORS.border,
+      justifyContent: 'center',
+      paddingHorizontal: 3,
+    }}
+  >
+    <View style={{
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: COLORS.white,
+      alignSelf: caidaActiva ? 'flex-end' : 'flex-start',
+    }} />
+  </TouchableOpacity>
+</View>
 
         {/* CONFIGURACIÓN AVANZADA DEL RELOJ */}
         <View style={[styles.seccionReloj, { marginTop: 16 }]}>
