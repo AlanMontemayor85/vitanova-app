@@ -369,7 +369,7 @@ export default function GraficaSignosScreen() {
                       </View> 
                       <Text style={styles.historialVal}>{r.spo2 ? `${r.spo2}%` : '—'}</Text>
                       <Text style={styles.historialVal}>
-                        {r.presion_sistolica && r.presion_diastolica ? `${r.presion_sistolica}/${r.presion_diastolica}` : '—'}
+                        {r.presion_sistolica && r.presion_diastolica ? `${Math.round(r.presion_sistolica)}/${Math.round(r.presion_diastolica)}` : '—'}
                       </Text>
                       <Text style={styles.historialVal}>{r.frecuencia_cardiaca ?? '—'}</Text>
                       <Text style={styles.historialVal}>{temp !== null ? `${temp.toFixed(1)}°` : '—'}</Text>
