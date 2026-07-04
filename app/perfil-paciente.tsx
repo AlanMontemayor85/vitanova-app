@@ -222,7 +222,7 @@ export default function PerfilPacienteScreen() {
       setGuardando(false);
     }
   };
-
+ console.log("🔄 [RENDER] caidaActiva:", caidaActiva);
  return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
