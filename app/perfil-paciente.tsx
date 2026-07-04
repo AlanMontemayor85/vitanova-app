@@ -58,7 +58,7 @@ export default function PerfilPacienteScreen() {
   const [sensibilidadCaidas, setSensibilidadCaidas] = useState<string>(
     paciente?.sensibilidad_caidas?.toString() ?? '3'
   );
-  const [caídaActiva, setCaidaActiva] = useState<boolean>(true);
+  const [caidaActiva, setCaidaActiva] = useState<boolean>(true);
   const toggleCondicion = (c: string) => {
     setCondiciones(prev =>
       prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]
