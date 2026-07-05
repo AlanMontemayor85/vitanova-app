@@ -226,12 +226,14 @@ export const registrarPushToken = async (token: string, plataforma: string) => {
 
   const res = await fetch(`${BASE_URL}/push/register`, {
     method: 'POST',
-    headers: { 'Authorization': `Bearer ${auth}` },
+    headers: { 
+      'Authorization': `Bearer ${auth}`,
+      'Content-Type': 'application/json',  // ← faltaba esto
+    },
     body: JSON.stringify({ token, plataforma }),
   });
   return res.json();
 };
-
 export const crearEvaluacion = async (data: object) => {
   const res = await fetchWithAuth(`${BASE_URL}/evaluaciones/hogar`, {
     method: 'POST',
