@@ -22,6 +22,7 @@ import {
   getUserNombre, loadStoredToken,
   verificarEscalas
 } from '../services/api';
+import { registrarNotificaciones } from '../services/notifications';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
@@ -232,12 +233,18 @@ export default function CuidadorScreen() {
   }, [pacienteActivo?.id, params?.refresh]);
 
   // ── CARGA INICIAL ──
+  
   useEffect(() => {
     const cargar = async () => {
       try {
         await loadStoredToken();
         const data = await getPacientes();
         if (data.patients) setPacientes(data.patients);
+        
+        // ← AGREGAR: Registrar notificaciones push para el cuidador
+        await registrarNotificaciones().catch(err => 
+          console.log("Push omitido en cuidador:", err)
+        );
       } catch (e) {
         console.error(e);
       } finally {
