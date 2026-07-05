@@ -12,8 +12,17 @@
       "supportsTablet": true
     },
     "android": {
-    "googleServicesFile": "./google-services.json",
-    "config": {
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "notification": {
+        "channelId": "vitanova",
+        "color": "#BF9A40"
+      },
+      "config": {
       "googleMaps": {
         "apiKey": "AIzaSyDmsC8pXQIOuBxy5tUfbVP7FZCABpTjC6M"
       }
