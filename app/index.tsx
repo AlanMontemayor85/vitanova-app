@@ -127,8 +127,7 @@ useEffect(() => {
         return;
       }
 
-      // Inicializar canal de notificaciones push de Expo
-      await registrarNotificaciones().catch(err => console.log("Push omitido en simulación:", err));
+      
       
       // 2. Verificar si hay un token de sesión guardado en el dispositivo
       const token = await loadStoredToken();
@@ -145,7 +144,9 @@ useEffect(() => {
       if (data && data.usuario_nombre && typeof setNombreUsuario === 'function') {
         setNombreUsuario(data.usuario_nombre); 
       }
-
+      // Inicializar canal de notificaciones push de Expo
+      await registrarNotificaciones().catch(err => console.log("Push omitido en simulación:", err));
+      
       // 🛡️ CONTROL A: Token inválido/expirado o usuario borrado → limpiar y a login
       if (!data || data.no_autenticado || data.error || data.detail === 'Token inválido o expirado') {
         console.log("🛑 Sesión inválida o expirada. Expulsando al Login.");
