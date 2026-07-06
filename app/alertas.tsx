@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getAlertas, getPacientes, loadStoredToken } from '../services/api';
@@ -31,7 +31,8 @@ const TIPO_CONFIG: Record<string, { icon: string; color: string; bg: string }> =
   signo_vital: { icon: '🩺', color: '#D94F4F', bg: '#FDEAEA' },
   otro: { icon: '🔔', color: '#8A8078', bg: '#F1EFE8' },
 };
-
+const params = useLocalSearchParams();
+const pacienteIdParam = params.pacienteId as string;
 export default function AlertasScreen() {
   const router = useRouter();
   const [paciente, setPaciente] = useState<any>(null);
@@ -39,24 +40,27 @@ export default function AlertasScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const cargar = async () => {
-      try {
-        await loadStoredToken();
-        const data = await getPacientes();
-        if (data.patients && data.patients.length > 0) {
-          const p = data.patients[0];
-          setPaciente(p);
-          const alertasData = await getAlertas(p.id);
-          if (alertasData.alertas) setAlertas(alertasData.alertas);
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
+  const cargar = async () => {
+    try {
+      await loadStoredToken();
+      const data = await getPacientes();
+      if (data.patients && data.patients.length > 0) {
+        // Usar el pacienteId del parámetro si existe, sino el primero
+        const p = pacienteIdParam 
+          ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
+          : data.patients[0];
+        setPaciente(p);
+        const alertasData = await getAlertas(p.id);
+        if (alertasData.alertas) setAlertas(alertasData.alertas);
       }
-    };
-    cargar();
-  }, []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+  cargar();
+}, [pacienteIdParam]);
 
   if (loading) {
     return (

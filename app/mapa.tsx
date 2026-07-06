@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -17,6 +17,8 @@ const COLORS = {
 };
 
 export default function MapaScreen() {
+  const params = useLocalSearchParams();
+  const pacienteIdParam = params.pacienteId as string;
   const router = useRouter();
   const mapRef = useRef<MapView>(null);
   const [paciente, setPaciente] = useState<any>(null);
@@ -26,31 +28,31 @@ export default function MapaScreen() {
 
   // 1. EFECTO INICIAL: Carga los datos base del paciente al montar la pantalla
   useEffect(() => {
-    const cargarDatosIniciales = async () => {
-      try {
-        await loadStoredToken();
-        const data = await getPacientes();
+  const cargarDatosIniciales = async () => {
+    try { // 💡 Cambiado 'try:' por 'try {'
+      await loadStoredToken();
+      const data = await getPacientes();
+      if (data.patients && data.patients.length > 0) {
+        const p = pacienteIdParam
+          ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
+          : data.patients[0];
+        setPaciente(p);
         
-        if (data.patients && data.patients.length > 0) {
-          const p = data.patients[0];
-          setPaciente(p);
-          
-          // Carga inmediata de ubicación inicial y geocercas
-          const ubData = await getUbicacion(p.id);
-          if (ubData.ubicacion) setUbicacion(ubData.ubicacion);
-          
-          const geocercaData = await getGeocercas(p.id);
-          if (geocercaData.geocercas) setGeocercas(geocercaData.geocercas);
-        }
-      } catch (e) {
-        console.error("❌ Error en la carga inicial del mapa:", e);
-      } finally {
-        setLoading(false);
+        const ubData = await getUbicacion(p.id);
+        if (ubData.ubicacion) setUbicacion(ubData.ubicacion);
+        
+        const geocercaData = await getGeocercas(p.id);
+        if (geocercaData.geocercas) setGeocercas(geocercaData.geocercas);
       }
-    };
-    
-    cargarDatosIniciales();
-  }, []);
+    } catch (e) {
+      console.error("❌ Error en la carga inicial del mapa:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  cargarDatosIniciales();
+}, [pacienteIdParam]);
 
   // 2. EFECTO SECUNDARIO: Monitorea y actualiza la ubicación en tiempo real cada 30 segundos
   useEffect(() => {

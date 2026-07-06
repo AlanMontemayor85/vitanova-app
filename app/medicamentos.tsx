@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { crearMedicamento, crearTareaRecurrente, desactivarMedicamento, desactivarTareaRecurrente, getMedicamentos, getPacientes, getTareasRecurrentes, loadStoredToken } from '../services/api';
@@ -26,6 +26,8 @@ const ICONOS_RUTINA: Record<string, string> = {
 };
 
 export default function MedicamentosScreen() {
+  const params = useLocalSearchParams();
+  const pacienteIdParam = params.pacienteId as string;
   const router = useRouter();
   const [paciente, setPaciente] = useState<any>(null);
   const [medicamentos, setMedicamentos] = useState<any[]>([]);
@@ -60,7 +62,9 @@ export default function MedicamentosScreen() {
         }
         const data = await getPacientes();
         if (data.patients && data.patients.length > 0) {
-          const p = data.patients[0];
+          const p = pacienteIdParam
+            ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
+            : data.patients[0];
           setPaciente(p);
           const meds = await getMedicamentos(p.id);
           if (meds.medicamentos) setMedicamentos(meds.medicamentos);
@@ -68,14 +72,13 @@ export default function MedicamentosScreen() {
           if (rutinas.tareas) setTareasRec(rutinas.tareas);
         }
       } catch (e) {
-      console.error('ERROR RUTINA:', e);
-    }   finally {
+        console.error('ERROR:', e);
+      } finally {
         setLoading(false);
       }
     };
     cargar();
-  }, []);
-
+  }, [pacienteIdParam]);
   const guardarMedicamento = async () => {
     if (!nombre.trim() || !dosis.trim() || !paciente?.id) return;
     setGuardando(true);
