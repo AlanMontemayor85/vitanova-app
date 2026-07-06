@@ -34,9 +34,10 @@ const TIPO_CONFIG: Record<string, { icon: string; color: string; bg: string }> =
 
 export default function AlertasScreen() {
 
-  const router = useRouter();
+  
   const params = useLocalSearchParams();
   const pacienteIdParam = params.pacienteId as string;
+  const router = useRouter();
   const [paciente, setPaciente] = useState<any>(null);
   const [alertas, setAlertas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

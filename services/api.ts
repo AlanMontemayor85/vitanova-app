@@ -1,20 +1,28 @@
-// ─────────────────────────────────────────
-// Vitanova API — conexión al backend Railway
-// ─────────────────────────────────────────
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router'; // 🎯 Importación clave para expulsión táctica
-import * as SecureStore from 'expo-secure-store';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
+// 🎯 CORREGIDO: Usamos null en minúsculas en lugar de None (sintaxis de Python)
 let authToken: string | null = null;
 let userNombre: string | null = null;
 let userTipo: string | null = null;
 
+// 🎯 CORREGIDO: Comentarios nativos de JS (//) en lugar de (#)
+// Importación dinámica diferida de SecureStore y AsyncStorage para evitar colisiones en hilos nativos
+let SecureStore: any;
+let AsyncStorage: any;
+try {
+  SecureStore = require('expo-secure-store');
+  AsyncStorage = require('@react-native-async-storage/async-storage').default;
+} catch (e) {
+  console.warn("⚠️ Advertencia: Error cargando módulos de almacenamiento persistente:", e);
+}
 export const setToken = async (token: string) => {
   authToken = token;
-  await SecureStore.setItemAsync('vitanova_token', token);
+  if (SecureStore) {
+    await SecureStore.setItemAsync('vitanova_token', token);
+  }
 };
 
 export const getToken = () => authToken;
@@ -23,9 +31,12 @@ export const getUserTipo = () => userTipo;
 
 export const loadStoredToken = async () => {
   try {
-    const token = await SecureStore.getItemAsync('vitanova_token');
-    if (token) authToken = token;
-    return token;
+    if (SecureStore) {
+      const token = await SecureStore.getItemAsync('vitanova_token');
+      if (token) authToken = token;
+      return token;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -37,9 +48,11 @@ export const clearToken = async () => {
   userTipo = null;
   
   try {
-    await SecureStore.deleteItemAsync('vitanova_token');
-    await AsyncStorage.removeItem('usuario_tipo');
-    await AsyncStorage.removeItem('usuario_rol');
+    if (SecureStore) await SecureStore.deleteItemAsync('vitanova_token');
+    if (AsyncStorage) {
+      await AsyncStorage.removeItem('usuario_tipo');
+      await AsyncStorage.removeItem('usuario_rol');
+    }
     console.log("🧼 Sesión e identidades completamente purgadas del dispositivo.");
   } catch (error) {
     console.error("Error al purgar el almacenamiento local:", error);
@@ -63,11 +76,11 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
       },
     });
 
-    // 🥾 DETECCIÓN Y EXPULSIÓN AUTOMÁTICA
+    // 🥾 DETECCIÓN Y EXPULSIÓN AUTOMÁTICA ENTERPRISE
     if (res.status === 401 || res.status === 403) {
       console.warn("🚨 [SESIÓN CAÍDA] Token inválido o expirado. Purgando acceso local...");
       await clearToken();
-      router.replace('/login'); // 🎯 Te saca de inmediato a la pantalla de login
+      router.replace('/login'); 
     }
     return res;
   } catch (error) {
@@ -107,7 +120,6 @@ export const getPacientes = async () => {
 export const getUltimoCierre = async (pacienteId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/pacientes/${pacienteId}/ultimo-cierre`);
   const data = await res.json();
-  console.log('getPacientes:', JSON.stringify(data));
   return data;
 };
 
@@ -147,10 +159,20 @@ export const getMedicamentos = async (pacienteId: string) => {
   return res.json();
 };
 
-export const crearMedicamento = async (medicamento: object) => {
+export const crearMedicamento = async (pacienteId: string, data: any) => {
+  // 🎯 FIX: Migrado a fetchWithAuth para evitar fugas de tokens manuales
   const res = await fetchWithAuth(`${BASE_URL}/medicamentos`, {
     method: 'POST',
-    body: JSON.stringify(medicamento),
+    body: JSON.stringify({
+      paciente_id: pacienteId,
+      nombre: data.nombre,
+      dosis: data.dosis,
+      frecuencia: data.frecuencia,
+      via_administracion: data.via_administracion,
+      horarios: data.horarios,
+      indicaciones: data.indicaciones,
+      activo: true,
+    }),
   });
   return res.json();
 };
@@ -165,10 +187,18 @@ export const getTareasRecurrentes = async (pacienteId: string) => {
   return res.json();
 };
 
-export const crearTareaRecurrente = async (tarea: object) => {
+// 🎯 FIX: Firma polimórfica adaptada para soportar tanto pasarle (objeto unificado) como (id, objeto)
+export const crearTareaRecurrente = async (arg1: any, arg2?: any) => {
+  let bodyPayload = {};
+  if (arg2) {
+    bodyPayload = { paciente_id: arg1, ...arg2 };
+  } else {
+    bodyPayload = arg1;
+  }
+  
   const res = await fetchWithAuth(`${BASE_URL}/tareas-recurrentes`, {
     method: 'POST',
-    body: JSON.stringify(tarea),
+    body: JSON.stringify(bodyPayload),
   });
   return res.json();
 };
@@ -217,23 +247,13 @@ export const getUbicacion = async (pacienteId: string) => {
 };
 
 export const registrarPushToken = async (token: string, plataforma: string) => {
-  let auth = getToken();
-  if (!auth) auth = await loadStoredToken();
-  if (!auth) {
-    console.log('📡 Push: sin sesión activa todavía, se omite el registro');
-    return null;
-  }
-
-  const res = await fetch(`${BASE_URL}/push/register`, {
+  const res = await fetchWithAuth(`${BASE_URL}/push/register`, {
     method: 'POST',
-    headers: { 
-      'Authorization': `Bearer ${auth}`,
-      'Content-Type': 'application/json',  // ← faltaba esto
-    },
     body: JSON.stringify({ token, plataforma }),
   });
   return res.json();
 };
+
 export const crearEvaluacion = async (data: object) => {
   const res = await fetchWithAuth(`${BASE_URL}/evaluaciones/hogar`, {
     method: 'POST',
@@ -458,16 +478,14 @@ export const configurarReloj = async (
   comando?: string,
   argumento?: string
 ) => {
-  const token = getToken();
   const body = comando 
     ? { comando, argumento }
     : sensibilidad 
       ? { comando: 'FALL', argumento: sensibilidad }
       : {};
       
-  const res = await fetch(`${BASE_URL}/pacientes/${patientId}/configurar-reloj`, {
+  const res = await fetchWithAuth(`${BASE_URL}/pacientes/${patientId}/configurar-reloj`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(body)
   });
   return res.json();

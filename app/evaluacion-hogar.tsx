@@ -26,9 +26,10 @@ type Paso = 'perfil' | 'entrada' | 'bano' | 'sala' | 'recamara' | 'escaleras' | 
 
 export default function EvaluacionHogarScreen() {
 
-  const router = useRouter();
+  
   const params = useLocalSearchParams();
   const pacienteIdParam = params.pacienteId as string;
+  const router = useRouter();
   const [paso, setPaso] = useState<Paso>('perfil');
   const [paciente, setPaciente] = useState<any>(null);
   const [guardando, setGuardando] = useState(false);

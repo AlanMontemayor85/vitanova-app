@@ -23,10 +23,10 @@
         "color": "#BF9A40"
       },
       "config": {
-      "googleMaps": {
-        "apiKey": "AIzaSyDmsC8pXQIOuBxy5tUfbVP7FZCABpTjC6M"
-      }
-    },
+        "googleMaps": {
+          "apiKey": "AIzaSyDmsC8pXQIOuBxy5tUfbVP7FZCABpTjC6M"
+        }
+      },
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -57,7 +57,8 @@
         }
       ],
       "expo-web-browser",
-      "expo-secure-store"
+      "expo-secure-store",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,
