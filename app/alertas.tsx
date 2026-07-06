@@ -31,10 +31,12 @@ const TIPO_CONFIG: Record<string, { icon: string; color: string; bg: string }> =
   signo_vital: { icon: '🩺', color: '#D94F4F', bg: '#FDEAEA' },
   otro: { icon: '🔔', color: '#8A8078', bg: '#F1EFE8' },
 };
-const params = useLocalSearchParams();
-const pacienteIdParam = params.pacienteId as string;
+
 export default function AlertasScreen() {
+
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const pacienteIdParam = params.pacienteId as string;
   const [paciente, setPaciente] = useState<any>(null);
   const [alertas, setAlertas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
