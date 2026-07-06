@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { crearEvaluacion, crearLead, getEvaluaciones, getPacientes, loadStoredToken } from '../services/api';
@@ -27,6 +27,8 @@ type Paso = 'perfil' | 'entrada' | 'bano' | 'sala' | 'recamara' | 'escaleras' | 
 export default function EvaluacionHogarScreen() {
 
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const pacienteIdParam = params.pacienteId as string;
   const [paso, setPaso] = useState<Paso>('perfil');
   const [paciente, setPaciente] = useState<any>(null);
   const [guardando, setGuardando] = useState(false);
@@ -42,7 +44,9 @@ export default function EvaluacionHogarScreen() {
         await loadStoredToken();
         const data = await getPacientes();
         if (data.patients && data.patients.length > 0) {
-          const p = data.patients[0];
+          const p = pacienteIdParam
+            ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
+            : data.patients[0];
           setPaciente(p);
           const evals = await getEvaluaciones(p.id);
           if (evals.evaluaciones && evals.evaluaciones.length > 0) {
@@ -56,7 +60,7 @@ export default function EvaluacionHogarScreen() {
       }
     };
     cargar();
-  }, []);
+  }, [pacienteIdParam]);
 
   // PERFIL
   const [tieneDemencia, setTieneDemencia] = useState(false);

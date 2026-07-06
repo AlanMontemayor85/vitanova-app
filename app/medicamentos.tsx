@@ -26,9 +26,11 @@ const ICONOS_RUTINA: Record<string, string> = {
 };
 
 export default function MedicamentosScreen() {
+
+  const router = useRouter();
   const params = useLocalSearchParams();
   const pacienteIdParam = params.pacienteId as string;
-  const router = useRouter();
+  
   const [paciente, setPaciente] = useState<any>(null);
   const [medicamentos, setMedicamentos] = useState<any[]>([]);
   const [tareasRec, setTareasRec] = useState<any[]>([]);
@@ -79,6 +81,7 @@ export default function MedicamentosScreen() {
     };
     cargar();
   }, [pacienteIdParam]);
+
   const guardarMedicamento = async () => {
     if (!nombre.trim() || !dosis.trim() || !paciente?.id) return;
     setGuardando(true);
