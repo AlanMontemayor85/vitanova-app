@@ -560,8 +560,28 @@ useEffect(() => {
                       pacienteNombre: paciente?.nombre_completo,
                     }
                   });
-                } else {
-                  item.ruta && router.push(item.ruta as any);
+                } else if (item.label === 'Medicam.') {
+                  router.push({
+                    pathname: '/medicamentos' as any,
+                    params: {
+                      pacienteId: paciente?.id,
+                      pacienteNombre: paciente?.nombre_completo,
+                    }
+                  });
+                } else if (item.label === 'Alertas') {
+                  router.push({
+                    pathname: '/alertas' as any,
+                    params: {
+                      pacienteId: paciente?.id,
+                    }
+                  });
+                } else if (item.label === 'Ubicación') {
+                  router.push({
+                    pathname: '/mapa' as any,
+                    params: {
+                      pacienteId: paciente?.id,
+                    }
+                  });
                 }
               }}
             >
@@ -697,13 +717,25 @@ useEffect(() => {
         {[
           { icon: '📋', label: 'Inicio', ruta: '/', active: true },
           { icon: '📍', label: 'Mapa', ruta: '/mapa', active: false },
-          { icon: '🔔', label: 'Alertas', ruta: '/alertas' },
+          { icon: '🔔', label: 'Alertas', ruta: '/alertas', active: false },
           { icon: '💊', label: 'Medicam.', ruta: '/medicamentos', active: false },
         ].map((item) => (
           <TouchableOpacity
             key={item.label}
             style={styles.navItem}
-            onPress={() => item.ruta && router.push(item.ruta as any)}
+            onPress={() => {
+              if (item.ruta === '/') {
+                router.push('/');
+              } else {
+                router.push({
+                  pathname: item.ruta as any,
+                  params: {
+                    pacienteId: paciente?.id,
+                    pacienteNombre: paciente?.nombre_completo,
+                  }
+                });
+              }
+            }}
           >
             <Text style={styles.navIcon}>{item.icon}</Text>
             <Text style={[styles.navLabel, item.active && { color: COLORS.gold }]}>
