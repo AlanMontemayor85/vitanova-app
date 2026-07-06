@@ -17,9 +17,10 @@ const COLORS = {
 };
 
 export default function MapaScreen() {
+  const router = useRouter();
   const params = useLocalSearchParams();
   const pacienteIdParam = params.pacienteId as string;
-  const router = useRouter();
+  
   const mapRef = useRef<MapView>(null);
   const [paciente, setPaciente] = useState<any>(null);
   const [ubicacion, setUbicacion] = useState<any>(null);
