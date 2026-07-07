@@ -25,7 +25,7 @@ const COLORS = {
 const ROLES = [
   { valor: 'familiar', etiqueta: '👑 Familiar Administrador', desc: 'Registro al paciente, configuro el reloj y controlo la red' },
   { valor: 'cuidador', etiqueta: '🤲 Cuidador', desc: 'Asistencia directa (requiere asignación de turno por el Admin)' },
-  { valor: 'autonomo', etiqueta: '🧓 Cuidador', desc: 'Quiero gestionar mis medicamentos y rutinas' },
+  { valor: 'autonomo', etiqueta: '🧓 Autónomo', desc: 'Quiero gestionar mis medicamentos y rutinas' },
   { valor: 'medico', etiqueta: '🩺 Médico', desc: 'Superviso médicamente los signos del paciente' },
 ];
 
@@ -57,71 +57,77 @@ export default function CompletarPerfilScreen() {
   };
 
   const handleGuardarDefinitivo = async () => {
-    setModalVisible(false);
-    setLoading(true);
-    setError('');
-    
-    try {
-      // 🚨 BYPASS DE SEGURIDAD ASÍNCRONO:
-      // En lugar de usar getToken() síncrono que puede venir vacío por el reset, 
-      // mandamos llamar la lectura directa del almacenamiento (así aseguramos el token de Google fresco)
-      // Nota: Si usas una función asíncrona en tu api.ts, impórtala arriba (ej: loadStoredToken o leer de AsyncStorage)
-      const token = await getToken(); // Asegúrate de meterle el 'await' si tu API lee de SecureStore/AsyncStorage
+  setModalVisible(false);
+  setLoading(true);
+  setError('');
+  
+  try {
+    const token = await getToken();
 
-      if (!token) {
-        throw new Error('No se encontró una sesión activa o el token expiró tras el reinicio');
-      }
-
-      console.log("📡 Enviando perfil a Railway con Token verificado...");
-
-      // Guardar perfil en tu backend de Railway
-      const res = await fetch(`${BASE_URL}/auth/completar-perfil`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`, // El Bearer token que FastAPI va a recibir en get_current_user
-        },
-        body: JSON.stringify({ nombre, telefono, cedula, tipo: rol }),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Error al guardar el perfil en el servidor');
-      }
-
-      // Si viene con token de invitación (como el cuidador), aceptarla
-      if (tokenInvitacion.trim()) {
-        await fetch(`${BASE_URL}/invitaciones/${tokenInvitacion.trim()}/aceptar`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      }
-
-      // 🚨 REDIRECCIÓN INTELIGENTE BASADA EN ROLES
-      // 🚨 Dentro del switch(rol) de handleGuardarDefinitivo en completar-perfil.tsx:
-      switch (rol) {
-        case 'familiar':
-          console.log("👑 Rol Familiar Administrador guardado. Enviando a configuración de hardware...");
-          router.replace('/perfil-paciente'); // ⬅️ Asegúrate de que apunte aquí para el registro inicial
-          break;
-        case 'medico': 
-          router.replace('/medico'); 
-          break;
-        case 'cuidador': 
-          router.replace('/cuidador'); 
-          break;
-        case 'autonomo':
-          router.replace('/autocuidador'); 
-        default: 
-          router.replace('/'); 
-      }
-    } catch (e: any) {
-      console.error("❌ Error en handleGuardar:", e);
-      setError(e.message || 'Error guardando perfil');
-    } finally {
-      setLoading(false);
+    if (!token) {
+      throw new Error('No se encontró una sesión activa o el token expiró tras el reinicio');
     }
-  };
+
+    console.log("📡 Enviando perfil a Railway con Token verificado...");
+
+    const res = await fetch(`${BASE_URL}/auth/completar-perfil`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ nombre, telefono, cedula, tipo: rol }),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Error al guardar el perfil en el servidor');
+    }
+
+    // Solo aceptar invitación si es cuidador
+    if (rol === 'cuidador' && tokenInvitacion.trim()) {
+      await fetch(`${BASE_URL}/invitaciones/${tokenInvitacion.trim()}/aceptar`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    }
+
+    // Setup automático para autocuidador
+    if (rol === 'autonomo') {
+      await fetch(`${BASE_URL}/autocuidador/setup`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify({ nombre }),
+      });
+    }
+
+    switch (rol) {
+      case 'familiar':
+        console.log("👑 Rol Familiar guardado. Enviando a configuración de hardware...");
+        router.replace('/perfil-paciente');
+        break;
+      case 'medico': 
+        router.replace('/medico'); 
+        break;
+      case 'cuidador': 
+        router.replace('/cuidador'); 
+        break;
+      case 'autonomo':
+        router.replace('/autocuidador');
+        break;
+      default: 
+        router.replace('/');
+    }
+  } catch (e: any) {
+    console.error("❌ Error en handleGuardar:", e);
+    setError(e.message || 'Error guardando perfil');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const getRolTextoMensaje = () => {
     const rFound = ROLES.find(r => r.valor === rol);
