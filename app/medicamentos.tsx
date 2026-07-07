@@ -1,8 +1,8 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { crearMedicamento, crearTareaRecurrente, desactivarMedicamento, desactivarTareaRecurrente, getMedicamentos, getPacientes, getTareasRecurrentes, loadStoredToken } from '../services/api';
+import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { actualizarMedicamento, actualizarTareaRecurrente, crearMedicamento, crearTareaRecurrente, desactivarMedicamento, desactivarTareaRecurrente, getMedicamentos, getPacientes, getTareasRecurrentes, loadStoredToken } from '../services/api';
 
 const COLORS = {
   gold: '#BF9A40',
@@ -35,7 +35,7 @@ export default function MedicamentosScreen() {
   const [tareasRec, setTareasRec] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'medicamentos' | 'rutinas'>('medicamentos');
-
+  const [medicamentoEditando, setMedicamentoEditando] = useState<any>(null);
   // Modal medicamento
   const [modalOpen, setModalOpen] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -57,7 +57,7 @@ export default function MedicamentosScreen() {
   const [rutinaTipo, setRutinaTipo] = useState('higiene');
   const [rutinaHora, setRutinaHora] = useState('09:00');
   const [showRutinaTimePicker, setShowRutinaTimePicker] = useState(false);
-
+  const [rutinaEditando, setRutinaEditando] = useState<any>(null);
   useEffect(() => {
     const cargar = async () => {
       try {
@@ -87,9 +87,21 @@ export default function MedicamentosScreen() {
   }, [pacienteIdParam]);
 
   const guardarMedicamento = async () => {
-    if (!nombre.trim() || !dosis.trim() || !paciente?.id) return;
-    setGuardando(true);
-    try {
+  if (!nombre.trim() || !dosis.trim()) return;
+  setGuardando(true);
+  try {
+    if (medicamentoEditando) {
+      // Edición
+      await actualizarMedicamento(medicamentoEditando.id, {
+        nombre: nombre.trim(),
+        dosis: dosis.trim(),
+        frecuencia,
+        via_administracion: via,
+        horarios: horariosArray,
+        indicaciones: indicaciones.trim() || null,
+      });
+    } else {
+      // Nuevo
       await crearMedicamento(paciente.id, {
         nombre: nombre.trim(),
         dosis: dosis.trim(),
@@ -98,43 +110,67 @@ export default function MedicamentosScreen() {
         horarios: horariosArray,
         indicaciones: indicaciones.trim() || null,
       });
-      const meds = await getMedicamentos(paciente.id);
-      if (meds.medicamentos) setMedicamentos(meds.medicamentos);
-      setModalOpen(false);
-      setNombre(''); setDosis(''); setFrecuencia('cada 12 horas');
-      setVia('oral'); setIndicaciones('');
-      setHorariosArray(['08:00']);
-    } catch (e) {
-      console.error('ERROR GUARDANDO MEDICAMENTO:', e);
-      Alert.alert('⚠️ Error', 'No se pudo guardar el medicamento.');
-    } finally {
-      setGuardando(false);
     }
-  };
+    const meds = await getMedicamentos(paciente.id);
+    if (meds.medicamentos) setMedicamentos(meds.medicamentos);
+    setModalOpen(false);
+    setMedicamentoEditando(null);
+    setNombre(''); setDosis(''); setFrecuencia('cada 12 horas');
+    setVia('oral'); setIndicaciones('');
+    setHorariosArray(['08:00']);
+  } catch (e) {
+    console.error(e);
+  } finally {
+    setGuardando(false);
+  }
+};
 
   const guardarRutina = async () => {
-    if (!rutinaDesc.trim() || !paciente?.id) return;
-    setGuardandoRutina(true);
-    try {
-      // 🎯 SANEAMIENTO: Alineado al formato de tu API (Pasando un objeto con paciente_id)
-      await crearTareaRecurrente({
-        paciente_id: paciente.id,
-        tipo: rutinaTipo,
+  if (!rutinaDesc.trim()) return;
+  setGuardandoRutina(true);
+  try {
+    if (rutinaEditando) {
+      await actualizarTareaRecurrente(rutinaEditando.id, {
         descripcion: rutinaDesc.trim(),
+        tipo: rutinaTipo,
         hora: rutinaHora,
       });
-      const rutinas = await getTareasRecurrentes(paciente.id);
-      if (rutinas.tareas) setTareasRec(rutinas.tareas);
-      setModalRutinaOpen(false);
-      setRutinaDesc(''); setRutinaTipo('higiene'); setRutinaHora('09:00');
-    } catch (e) {
-      console.error('ERROR GUARDANDO RUTINA:', e);
-      Alert.alert('⚠️ Error', 'No se pudo guardar la rutina de cuidados.');
-    } finally {
-      setGuardandoRutina(false);
+    } else {
+      await crearTareaRecurrente(paciente.id, {
+        descripcion: rutinaDesc.trim(),
+        tipo: rutinaTipo,
+        hora: rutinaHora,
+      });
     }
+    const rutinas = await getTareasRecurrentes(paciente.id);
+    if (rutinas.tareas) setTareasRec(rutinas.tareas);
+    setModalRutinaOpen(false);
+    setRutinaEditando(null);
+    setRutinaDesc(''); setRutinaTipo('higiene'); setRutinaHora('09:00');
+  } catch (e) {
+    console.error(e);
+  } finally {
+    setGuardandoRutina(false);
+  }
+};
+  const abrirEdicionMedicamento = (med: any) => {
+    setMedicamentoEditando(med);
+    setNombre(med.nombre);
+    setDosis(med.dosis);
+    setFrecuencia(med.frecuencia);
+    setVia(med.via_administracion);
+    setHorariosArray(med.horarios || ['08:00']);
+    setIndicaciones(med.indicaciones || '');
+    setModalOpen(true);
   };
 
+const abrirEdicionRutina = (t: any) => {
+  setRutinaEditando(t);
+  setRutinaDesc(t.descripcion);
+  setRutinaTipo(t.tipo);
+  setRutinaHora(t.hora);
+  setModalRutinaOpen(true);
+  };
   const eliminarMedicamento = async (id: string) => {
     if (!paciente?.id) return;
     try {
@@ -246,6 +282,9 @@ export default function MedicamentosScreen() {
                     </View>
                   )}
                 </View>
+                <TouchableOpacity onPress={() => abrirEdicionMedicamento(med)} style={[styles.deleteBtn, { marginRight: 4 }]}>
+                  <Text style={{ color: COLORS.gold, fontSize: 16 }}>✏️</Text>
+                </TouchableOpacity>
                 <TouchableOpacity onPress={() => eliminarMedicamento(med.id)} style={styles.deleteBtn}>
                   <Text style={styles.deleteBtnText}>✕</Text>
                 </TouchableOpacity>
@@ -271,6 +310,9 @@ export default function MedicamentosScreen() {
                     <Text style={styles.horarioBadgeText}>{'⏰ ' + t.hora}</Text>
                   </View>
                 </View>
+                <TouchableOpacity onPress={() => abrirEdicionRutina(t)} style={[styles.deleteBtn, { marginRight: 4 }]}>
+                  <Text style={{ color: COLORS.gold, fontSize: 16 }}>✏️</Text>
+                </TouchableOpacity>
                 <TouchableOpacity onPress={() => eliminarRutina(t.id)} style={styles.deleteBtn}>
                   <Text style={styles.deleteBtnText}>✕</Text>
                 </TouchableOpacity>

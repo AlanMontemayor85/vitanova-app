@@ -490,7 +490,25 @@ export const configurarReloj = async (
   });
   return res.json();
 };
+export const actualizarMedicamento = async (medicamentoId: string, data: any) => {
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}/medicamentos/${medicamentoId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+};
 
+export const actualizarTareaRecurrente = async (tareaId: string, data: any) => {
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}/tareas-recurrentes/${tareaId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+};
 export const crearLead = async (lead: object) => {
   const res = await fetchWithAuth(`${BASE_URL}/leads`, {
     method: 'POST',
