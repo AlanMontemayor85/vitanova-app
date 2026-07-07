@@ -51,6 +51,7 @@ export default function AutocuidadorScreen() {
           : data.patients[0];
         setPaciente(p);
         const res = await getTareasHoy(p.id);
+        console.log("📋 Respuesta getTareasHoy:", JSON.stringify(res));
         if (res.tareas) {
           setTareas(res.tareas);
           setTotal(res.total);

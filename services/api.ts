@@ -154,6 +154,7 @@ export const completarTarea = async (data: {
   tarea_id?: string;
   medicamento_id?: string;
   tipo: 'rutina' | 'medicamento';
+  hora?: string;
   notas?: string;
 }) => {
   const token = getToken();
@@ -169,6 +170,7 @@ export const descompletarTarea = async (data: {
   tarea_id?: string;
   medicamento_id?: string;
   tipo: 'rutina' | 'medicamento';
+  hora?: string;
 }) => {
   const token = getToken();
   const res = await fetch(`${BASE_URL}/autocuidador/descompletar-tarea`, {
