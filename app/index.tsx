@@ -166,8 +166,16 @@ useEffect(() => {
       if (data.usuario_tipo === 'cuidador' || data.usuario_tipo === 'cuidador_contratado') {
         console.log("🧑‍⚕️ Acceso concedido como Cuidador operativo. Redirigiendo...");
         router.replace('/cuidador');
-        return;
-      } 
+      } else if (data.usuario_tipo === 'autonomo') {
+        console.log("🧓 Acceso concedido como Autocuidador. Redirigiendo...");
+        router.replace({
+          pathname: '/autocuidador' as any,
+          params: { pacienteId: data.patients?.[0]?.id }
+        });
+      } else {
+        console.log("👨‍👩‍👧 Acceso familiar confirmado. Cargando panel principal...");
+        
+      }
       
       if (data.usuario_tipo === 'medico') {
         console.log("🩺 Acceso concedido como Supervisor Médico. Redirigiendo...");
