@@ -39,23 +39,35 @@ export default function EvaluacionHogarScreen() {
   const [modalContacto, setModalContacto] = useState(false);
   const [contactoTel, setContactoTel] = useState('');
 
+  // ── 1. EFECTO DE CARGA CORREGIDO Y BLINDADO ──
   useEffect(() => {
     const cargar = async () => {
       try {
         await loadStoredToken();
         const data = await getPacientes();
         if (data.patients && data.patients.length > 0) {
+          // Buscamos el paciente correcto que viene por URL, o por defecto el primero
           const p = pacienteIdParam
             ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
             : data.patients[0];
           setPaciente(p);
+          
           const evals = await getEvaluaciones(p.id);
-          if (evals.evaluaciones && evals.evaluaciones.length > 0) {
-            setUltimaEvaluacion(evals.evaluaciones[0]);
+          console.log("📥 [EVALUACIÓN ANTERIOR] Respuesta de la API:", JSON.stringify(evals));
+          
+          // 🎯 PARCHE DE INTEGRIDAD: Soportamos si viene como objeto directo o en lista {"evaluaciones": [...]}
+          const dataEval = evals?.evaluaciones && evals.evaluaciones.length > 0 
+            ? evals.evaluaciones[0] 
+            : (evals?.id || evals?.score_total ? evals : null);
+
+          if (dataEval) {
+            setUltimaEvaluacion(dataEval);
+          } else {
+            setUltimaEvaluacion(null);
           }
         }
       } catch (e) {
-        console.error(e);
+        console.error("❌ Error cargando historial de entorno:", e);
       } finally {
         setLoadingEval(false);
       }
@@ -98,13 +110,17 @@ export default function EvaluacionHogarScreen() {
   };
 
   const enviar = async () => {
+    // Si no ha cargado el paciente activo de la pantalla, bloqueamos el envío
+    if (!paciente?.id) {
+      Alert.alert("⚠️ Error", "No se ha identificado el ID del paciente activo.");
+      return;
+    }
+
     setGuardando(true);
     try {
-      await loadStoredToken();
-      const data = await getPacientes();
-      const p = data.patients?.[0];
+      // 🎯 SOLUCIÓN AL LOOP: Mandamos estrictamente el id del paciente en pantalla
       const res = await crearEvaluacion({
-        paciente_id: p?.id,
+        paciente_id: paciente.id, 
         tiene_demencia: tieneDemencia,
         tiene_respiratorio: tieneRespiratorio,
         tiene_diabetes: tieneDiabetes,
@@ -112,10 +128,15 @@ export default function EvaluacionHogarScreen() {
         usa_movilidad: usaMovilidad,
         respuestas: r,
       });
+      
+      console.log("📤 [EVALUACIÓN GUARDADA] Respuesta del Servidor:", JSON.stringify(res));
+      
+      // Seteamos el resultado para mostrar la pantalla de éxito final
       setResultado(res);
       setPaso('resultado');
     } catch (e) {
-      console.error(e);
+      console.error("❌ Error enviando evaluación a Railway:", e);
+      Alert.alert("⚠️ Error de Red", "No se pudo consolidar el reporte en el servidor.");
     } finally {
       setGuardando(false);
     }
