@@ -610,7 +610,8 @@ useEffect(() => {
                   // 🎯 CORRECCIÓN DEFINITIVA: Estructura correcta de envío en expo-router
                   router.push({
                     pathname: item.ruta as any,
-                    params: { pacienteId: paciente?.id }
+                    params: { pacienteId: paciente?.id,ts: Date.now().toString() }
+                    
                   });
                 }
               }}

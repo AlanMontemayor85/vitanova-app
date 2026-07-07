@@ -29,6 +29,7 @@ export default function EvaluacionHogarScreen() {
   
   const params = useLocalSearchParams();
   const pacienteIdParam = params.pacienteId as string;
+  const ts = params.ts as string; 
   const router = useRouter();
   const [paso, setPaso] = useState<Paso>('perfil');
   const [paciente, setPaciente] = useState<any>(null);
@@ -86,7 +87,7 @@ export default function EvaluacionHogarScreen() {
       }
     };
     cargar();
-  }, [pacienteIdParam]); // Se vuelve a disparar obligatoriamente al cambiar de ID
+  }, [pacienteIdParam, ts]); // Se vuelve a disparar obligatoriamente al cambiar de ID
 
   // PERFIL
   const [tieneDemencia, setTieneDemencia] = useState(false);
