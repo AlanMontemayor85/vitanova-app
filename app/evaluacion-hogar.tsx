@@ -42,38 +42,50 @@ export default function EvaluacionHogarScreen() {
   // ── 1. EFECTO DE CARGA CORREGIDO Y BLINDADO ──
   useEffect(() => {
     const cargar = async () => {
+      // 🎯 CANDADO 1: Limpiamos los estados de inmediato al cambiar de paciente
+      // Esto evita que el fantasma del paciente anterior se quede pintado en pantalla
+      setUltimaEvaluacion(null);
+      setResultado(null);
+      setPaciente(null);
+      setLoadingEval(true);
+
       try {
         await loadStoredToken();
         const data = await getPacientes();
         if (data.patients && data.patients.length > 0) {
-          // Buscamos el paciente correcto que viene por URL, o por defecto el primero
           const p = pacienteIdParam
             ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
             : data.patients[0];
+          
           setPaciente(p);
+          console.log("🔄 Solicitando evaluación del paciente activo:", p.id);
           
           const evals = await getEvaluaciones(p.id);
-          console.log("📥 [EVALUACIÓN ANTERIOR] Respuesta de la API:", JSON.stringify(evals));
+          console.log("📥 [EVALUACIÓN ANTERIOR] Respuesta cruda de la API:", JSON.stringify(evals));
           
-          // 🎯 PARCHE DE INTEGRIDAD: Soportamos si viene como objeto directo o en lista {"evaluaciones": [...]}
+          // Mapeamos con cuidado la respuesta interna
           const dataEval = evals?.evaluaciones && evals.evaluaciones.length > 0 
             ? evals.evaluaciones[0] 
             : (evals?.id || evals?.score_total ? evals : null);
 
-          if (dataEval) {
+          // 🎯 CANDADO 2: Verificamos estrictamente que la evaluación recuperada coincida con el paciente actual
+          if (dataEval && dataEval.paciente_id === p.id) {
+            console.log("✨ Evaluación correspondiente al paciente cargada con éxito.");
             setUltimaEvaluacion(dataEval);
           } else {
+            console.log("📭 Los datos no corresponden o están vacíos. Formulario limpio asignado.");
             setUltimaEvaluacion(null);
           }
         }
       } catch (e) {
         console.error("❌ Error cargando historial de entorno:", e);
+        setUltimaEvaluacion(null);
       } finally {
         setLoadingEval(false);
       }
     };
     cargar();
-  }, [pacienteIdParam]);
+  }, [pacienteIdParam]); // Se vuelve a disparar obligatoriamente al cambiar de ID
 
   // PERFIL
   const [tieneDemencia, setTieneDemencia] = useState(false);
