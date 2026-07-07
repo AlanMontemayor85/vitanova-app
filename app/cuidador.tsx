@@ -868,7 +868,11 @@ export default function CuidadorScreen() {
                     <Text style={styles.alertIcon}>📝</Text>
                     <View style={styles.alertContent}>
                       <Text style={styles.alertTitle}>{String(contenidoNota).replace('📝 ', '')}</Text>
-                      <Text style={styles.alertSub}>{n?.usuarios?.nombre_completo || 'Personal Vitanova'}</Text>
+                      <Text style={styles.alertSub}>{`${n?.usuarios?.nombre_completo ?? 'Personal Vitanova'} · ${
+                        n?.created_at 
+                          ? new Date(n.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                          : ''
+                      }`} </Text>
                     </View>
                   </View>
                 );
