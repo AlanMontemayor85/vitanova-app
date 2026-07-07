@@ -1,4 +1,13 @@
+import * as Notifications from 'expo-notifications';
 import { Stack } from 'expo-router';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  } as any), // ⚡ Forzamos a TypeScript a aceptar el objeto de retorno
+});
 
 export default function RootLayout() {
   return (
