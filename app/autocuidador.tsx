@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { completarTarea, descompletarTarea, getPacientes, getTareasHoy, loadStoredToken } from '../services/api';
+import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { clearToken, completarTarea, descompletarTarea, getPacientes, getTareasHoy, loadStoredToken } from '../services/api';
+
 
 const COLORS = {
   gold: '#BF9A40',
@@ -92,6 +93,24 @@ export default function AutocuidadorScreen() {
     }
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+        'Cerrar sesión',
+        '¿Estás seguro que deseas salir?',
+        [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+            text: 'Salir', 
+            style: 'destructive',
+            onPress: async () => {
+            await clearToken();
+            router.replace('/login');
+            }
+        },
+        ]
+    );
+    };
+
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
@@ -101,6 +120,7 @@ export default function AutocuidadorScreen() {
   }
 
   const porcentaje = total > 0 ? Math.round((completadas / total) * 100) : 0;
+  const hoy = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
     <View style={styles.container}>
@@ -108,31 +128,50 @@ export default function AutocuidadorScreen() {
 
       {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerSub}>Mi plan de hoy</Text>
-          <Text style={styles.headerTitle}>{paciente?.nombre_completo?.split(' ')[0] ?? 'Hola'}</Text>
+          <Text style={styles.headerSub}>{hoy}</Text>
+          <Text style={styles.headerTitle}>
+            {'Hola, ' + (paciente?.nombre_completo?.split(' ')[0] ?? 'bienvenido') + ' 👋'}
+          </Text>
         </View>
-        <View style={styles.progressBadge}>
-          <Text style={styles.progressText}>{`${completadas}/${total}`}</Text>
-          <Text style={styles.progressLabel}>completadas</Text>
-        </View>
+        <TouchableOpacity
+          onPress={handleLogout}
+          style={styles.logoutBtn}
+        >
+          <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>{'Salir'}</Text>
+        </TouchableOpacity>
       </View>
 
       {/* BARRA DE PROGRESO */}
-      <View style={styles.progressBar}>
-        <View style={[styles.progressFill, { width: `${porcentaje}%` as any }]} />
+      <View style={{ backgroundColor: COLORS.white, paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+          <Text style={{ fontSize: 12, color: COLORS.textLight }}>{'Progreso de hoy'}</Text>
+          <Text style={{ fontSize: 12, fontWeight: '800', color: COLORS.cacao }}>{`${completadas}/${total} tareas`}</Text>
+        </View>
+        <View style={styles.progressBar}>
+          <View style={[styles.progressFill, { width: `${porcentaje}%` as any }]} />
+        </View>
+        <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 4, textAlign: 'right' }}>
+          {`${porcentaje}% completado`}
+        </Text>
       </View>
-      <Text style={styles.progressPct}>{`${porcentaje}% completado hoy`}</Text>
 
       {/* LISTA DE TAREAS */}
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+
         {tareas.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={{ fontSize: 48 }}>🎉</Text>
-            <Text style={styles.emptyText}>Sin tareas programadas para hoy</Text>
+            <Text style={{ fontSize: 48, marginBottom: 12 }}>📋</Text>
+            <Text style={styles.emptyText}>{'Sin tareas programadas para hoy'}</Text>
+            <TouchableOpacity
+              style={[styles.accionBtn, { marginTop: 16 }]}
+              onPress={() => router.push({
+                pathname: '/medicamentos' as any,
+                params: { pacienteId: paciente?.id }
+              })}
+            >
+              <Text style={styles.accionBtnText}>{'+ Agregar medicamentos y rutinas'}</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           tareas.map((t, i) => (
@@ -168,28 +207,62 @@ export default function AutocuidadorScreen() {
             </TouchableOpacity>
           ))
         )}
-        <View style={{ height: 40 }} />
+
+        <View style={{ height: 20 }} />
       </ScrollView>
+
+      {/* BOTTOM NAV */}
+      <View style={styles.bottomNav}>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => router.push({
+            pathname: '/medicamentos' as any,
+            params: { pacienteId: paciente?.id }
+          })}
+        >
+          <Text style={styles.navIcon}>💊</Text>
+          <Text style={styles.navLabel}>{'Medicamentos'}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.navItem, styles.navSOS]}
+          onPress={() => Alert.alert('🚨 SOS', '¿Necesitas ayuda de emergencia?', [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Llamar SOS', style: 'destructive', onPress: () => console.log('SOS activado') }
+          ])}
+        >
+          <Text style={{ fontSize: 28 }}>🆘</Text>
+          <Text style={[styles.navLabel, { color: COLORS.red, fontWeight: '800' }]}>{'SOS'}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => router.push({
+            pathname: '/alertas' as any,
+            params: { pacienteId: paciente?.id }
+          })}
+        >
+          <Text style={styles.navIcon}>🔔</Text>
+          <Text style={styles.navLabel}>{'Alertas'}</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.cream },
-  header: { backgroundColor: COLORS.cacao, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
-  backIcon: { color: '#FFFFFF', fontSize: 18 },
-  headerSub: { color: 'rgba(255,255,255,0.6)', fontSize: 11 },
-  headerTitle: { color: '#FFFFFF', fontSize: 22, fontWeight: '800' },
-  progressBadge: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: 10 },
-  progressText: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
-  progressLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 9 },
-  progressBar: { height: 6, backgroundColor: COLORS.border, marginHorizontal: 20, marginTop: 12, borderRadius: 3 },
-  progressFill: { height: 6, backgroundColor: COLORS.green, borderRadius: 3 },
-  progressPct: { fontSize: 11, color: COLORS.textLight, textAlign: 'center', marginTop: 6, marginBottom: 4 },
+  header: { backgroundColor: COLORS.cacao, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16, flexDirection: 'row', alignItems: 'center' },
+  headerSub: { color: 'rgba(255,255,255,0.6)', fontSize: 11, textTransform: 'capitalize' },
+  headerTitle: { color: '#FFFFFF', fontSize: 20, fontWeight: '800', marginTop: 2 },
+  logoutBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
+  progressBar: { height: 8, backgroundColor: COLORS.border, borderRadius: 4 },
+  progressFill: { height: 8, backgroundColor: COLORS.green, borderRadius: 4 },
   body: { flex: 1, padding: 16 },
-  emptyState: { alignItems: 'center', paddingTop: 60, gap: 12 },
+  emptyState: { alignItems: 'center', paddingTop: 60 },
   emptyText: { fontSize: 14, color: COLORS.textLight, textAlign: 'center' },
+  accionBtn: { backgroundColor: COLORS.gold, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10 },
+  accionBtnText: { color: COLORS.white, fontWeight: '700', fontSize: 14 },
   tareaCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 14, marginBottom: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, gap: 12 },
   tareaCardCompletada: { backgroundColor: COLORS.greenPale, borderColor: COLORS.green },
   tareaIcono: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.cream, justifyContent: 'center', alignItems: 'center' },
@@ -200,4 +273,9 @@ const styles = StyleSheet.create({
   tareaIndicaciones: { fontSize: 11, color: COLORS.textLight, marginTop: 4, fontStyle: 'italic' },
   checkbox: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, borderColor: COLORS.border, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.white },
   checkboxCompletado: { backgroundColor: COLORS.green, borderColor: COLORS.green },
+  bottomNav: { flexDirection: 'row', backgroundColor: COLORS.white, borderTopWidth: 1, borderTopColor: COLORS.border, paddingVertical: 8, paddingHorizontal: 20, justifyContent: 'space-around', alignItems: 'center' },
+  navItem: { alignItems: 'center', flex: 1 },
+  navSOS: { flex: 1 },
+  navIcon: { fontSize: 22, marginBottom: 2 },
+  navLabel: { fontSize: 10, color: COLORS.textLight },
 });
