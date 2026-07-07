@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { clearToken, completarTarea, descompletarTarea, getPacientes, getTareasHoy, loadStoredToken } from '../services/api';
 
-
 const COLORS = {
   gold: '#BF9A40',
   goldPale: '#F5EDD8',
@@ -68,7 +67,7 @@ export default function AutocuidadorScreen() {
   }, [pacienteIdParam]);
 
   const toggleTarea = async (tarea: any) => {
-    setActualizando(tarea.id);
+    setActualizando(`${tarea.id}-${tarea.hora}`);
     try {
       if (tarea.completada) {
         await descompletarTarea({
@@ -95,21 +94,21 @@ export default function AutocuidadorScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-        'Cerrar sesión',
-        '¿Estás seguro que deseas salir?',
-        [
+      'Cerrar sesión',
+      '¿Estás seguro que deseas salir?',
+      [
         { text: 'Cancelar', style: 'cancel' },
-        { 
-            text: 'Salir', 
-            style: 'destructive',
-            onPress: async () => {
+        {
+          text: 'Salir',
+          style: 'destructive',
+          onPress: async () => {
             await clearToken();
             router.replace('/login');
-            }
+          }
         },
-        ]
+      ]
     );
-    };
+  };
 
   if (loading) {
     return (
@@ -131,14 +130,14 @@ export default function AutocuidadorScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.headerSub}>{hoy}</Text>
           <Text style={styles.headerTitle}>
-            {'Hola, ' + (paciente?.nombre_completo?.split(' ')[0] ?? 'bienvenido') + ' 👋'}
+            {`Hola, ${paciente?.nombre_completo?.split(' ')[0] ?? 'bienvenido'} 👋`}
           </Text>
         </View>
         <TouchableOpacity
           onPress={handleLogout}
           style={styles.logoutBtn}
         >
-          <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>{'Salir'}</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>{'🚪 Salir'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -158,7 +157,6 @@ export default function AutocuidadorScreen() {
 
       {/* LISTA DE TAREAS */}
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-
         {tareas.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={{ fontSize: 48, marginBottom: 12 }}>📋</Text>
@@ -179,7 +177,7 @@ export default function AutocuidadorScreen() {
               key={`${t.id}-${t.hora}-${i}`}
               style={[styles.tareaCard, t.completada && styles.tareaCardCompletada]}
               onPress={() => toggleTarea(t)}
-              disabled={actualizando === t.id}
+              disabled={actualizando === `${t.id}-${t.hora}`}
             >
               <View style={styles.tareaIcono}>
                 <Text style={{ fontSize: 24 }}>
@@ -196,7 +194,7 @@ export default function AutocuidadorScreen() {
                 )}
               </View>
               <View style={[styles.checkbox, t.completada && styles.checkboxCompletado]}>
-                {actualizando === t.id ? (
+                {actualizando === `${t.id}-${t.hora}` ? (
                   <ActivityIndicator size="small" color={COLORS.white} />
                 ) : (
                   <Text style={{ color: COLORS.white, fontSize: 16, fontWeight: '800' }}>
@@ -207,7 +205,6 @@ export default function AutocuidadorScreen() {
             </TouchableOpacity>
           ))
         )}
-
         <View style={{ height: 20 }} />
       </ScrollView>
 
@@ -225,11 +222,15 @@ export default function AutocuidadorScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.navItem, styles.navSOS]}
-          onPress={() => Alert.alert('🚨 SOS', '¿Necesitas ayuda de emergencia?', [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Llamar SOS', style: 'destructive', onPress: () => console.log('SOS activado') }
-          ])}
+          style={[styles.navItem]}
+          onPress={() => Alert.alert(
+            '🚨 SOS',
+            '¿Necesitas ayuda de emergencia?',
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Llamar SOS', style: 'destructive', onPress: () => console.log('SOS activado') }
+            ]
+          )}
         >
           <Text style={{ fontSize: 28 }}>🆘</Text>
           <Text style={[styles.navLabel, { color: COLORS.red, fontWeight: '800' }]}>{'SOS'}</Text>
@@ -275,7 +276,6 @@ const styles = StyleSheet.create({
   checkboxCompletado: { backgroundColor: COLORS.green, borderColor: COLORS.green },
   bottomNav: { flexDirection: 'row', backgroundColor: COLORS.white, borderTopWidth: 1, borderTopColor: COLORS.border, paddingVertical: 8, paddingHorizontal: 20, justifyContent: 'space-around', alignItems: 'center' },
   navItem: { alignItems: 'center', flex: 1 },
-  navSOS: { flex: 1 },
   navIcon: { fontSize: 22, marginBottom: 2 },
   navLabel: { fontSize: 10, color: COLORS.textLight },
 });
