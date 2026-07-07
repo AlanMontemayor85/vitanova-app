@@ -43,6 +43,8 @@ export default function AutocuidadorScreen() {
     try {
       await loadStoredToken();
       const data = await getPacientes();
+      console.log("🔍 pacienteIdParam en autocuidador:", pacienteIdParam);
+      console.log("🔍 Pacientes disponibles:", data.patients?.map((p: any) => ({id: p.id, nombre: p.nombre_completo})));
       if (data.patients && data.patients.length > 0) {
         const p = pacienteIdParam
           ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
@@ -64,6 +66,7 @@ export default function AutocuidadorScreen() {
 
   useEffect(() => {
     cargar();
+    
   }, [pacienteIdParam]);
 
   const toggleTarea = async (tarea: any) => {
