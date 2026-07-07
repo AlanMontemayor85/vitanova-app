@@ -140,7 +140,50 @@ export default function AutocuidadorScreen() {
           <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>{'🚪 Salir'}</Text>
         </TouchableOpacity>
       </View>
-
+    {/* MI TARJETA DE PERFIL */}
+    <View style={{
+    backgroundColor: COLORS.cacao,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12
+    }}>
+    <TouchableOpacity
+        onPress={() => router.push({
+        pathname: '/perfil-paciente' as any,
+        params: { paciente: JSON.stringify(paciente) }
+        })}
+        style={{
+        width: 48, height: 48, borderRadius: 24,
+        backgroundColor: COLORS.gold,
+        justifyContent: 'center', alignItems: 'center'
+        }}
+    >
+        <Text style={{ color: COLORS.white, fontSize: 18, fontWeight: '800' }}>
+        {paciente?.nombre_completo?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() ?? '??'}
+        </Text>
+    </TouchableOpacity>
+    <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 }}>
+        {'Mi perfil'}
+        </Text>
+        <Text style={{ color: COLORS.white, fontSize: 16, fontWeight: '800' }}>
+        {paciente?.nombre_completo ?? ''}
+        </Text>
+        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>
+        {paciente?.condiciones_medicas?.join(', ') ?? 'Sin condiciones registradas'}
+        </Text>
+    </View>
+    <View style={{
+        backgroundColor: 'rgba(61,170,106,0.2)',
+        borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
+        flexDirection: 'row', alignItems: 'center', gap: 4
+    }}>
+        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.green }} />
+        <Text style={{ color: COLORS.green, fontSize: 10, fontWeight: '700' }}>{'Activo'}</Text>
+    </View>
+    </View>
       {/* BARRA DE PROGRESO */}
       <View style={{ backgroundColor: COLORS.white, paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
