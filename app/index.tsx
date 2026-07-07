@@ -606,8 +606,12 @@ useEffect(() => {
               onPress={() => {
                 if (item.label === 'Solicitar Equipamiento') {
                   setSolicitudOpen(true);
-                } else {
-                  item.ruta && router.push(item.ruta as any);
+                } else if (item.ruta) {
+                  // 🎯 CORRECCIÓN DEFINITIVA: Estructura correcta de envío en expo-router
+                  router.push({
+                    pathname: item.ruta as any,
+                    params: { pacienteId: paciente?.id }
+                  });
                 }
               }}
             >

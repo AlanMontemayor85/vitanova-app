@@ -41,6 +41,7 @@ export default function EvaluacionHogarScreen() {
 
   // ── 1. EFECTO DE CARGA CORREGIDO Y BLINDADO ──
   useEffect(() => {
+    console.log("🔍 pacienteIdParam recibido:", pacienteIdParam);
     const cargar = async () => {
       // 🎯 CANDADO 1: Limpiamos los estados de inmediato al cambiar de paciente
       // Esto evita que el fantasma del paciente anterior se quede pintado en pantalla
