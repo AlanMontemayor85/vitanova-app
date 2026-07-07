@@ -71,14 +71,17 @@ export default function AutocuidadorScreen() {
   }, [pacienteIdParam]);
 
   const toggleTarea = async (tarea: any) => {
+    console.log("🔄 Tarea completa:", JSON.stringify(tarea));
     setActualizando(`${tarea.id}-${tarea.hora}`);
     try {
       if (tarea.completada) {
         await descompletarTarea({
           paciente_id: paciente.id,
           tarea_id: tarea.tipo === 'rutina' ? tarea.id : undefined,
-          medicamento_id: tarea.tipo === 'medicamento' ? tarea.id : undefined,
+          // En toggleTarea, cambia medicamento_id por una clave compuesta:
+          medicamento_id: tarea.tipo === 'medicamento' ? `${tarea.id}|${tarea.hora}` : undefined,
           tipo: tarea.tipo,
+          hora: tarea.hora,
         });
       } else {
         await completarTarea({
@@ -86,7 +89,9 @@ export default function AutocuidadorScreen() {
           tarea_id: tarea.tipo === 'rutina' ? tarea.id : undefined,
           medicamento_id: tarea.tipo === 'medicamento' ? tarea.id : undefined,
           tipo: tarea.tipo,
+          hora: tarea.hora,
         });
+        
       }
       await cargar();
     } catch (e) {

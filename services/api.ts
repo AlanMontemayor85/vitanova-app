@@ -158,6 +158,7 @@ export const completarTarea = async (data: {
   notas?: string;
 }) => {
   const token = getToken();
+  console.log("📤 completarTarea payload:", JSON.stringify(data));
   const res = await fetch(`${BASE_URL}/autocuidador/completar-tarea`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
