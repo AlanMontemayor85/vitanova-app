@@ -58,6 +58,7 @@ export default function MedicamentosScreen() {
   const [rutinaHora, setRutinaHora] = useState('09:00');
   const [showRutinaTimePicker, setShowRutinaTimePicker] = useState(false);
   const [rutinaEditando, setRutinaEditando] = useState<any>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{tipo: 'med' | 'rutina', id: string, nombre: string} | null>(null);
   useEffect(() => {
     const cargar = async () => {
       try {
@@ -282,10 +283,16 @@ const abrirEdicionRutina = (t: any) => {
                     </View>
                   )}
                 </View>
-                <TouchableOpacity onPress={() => abrirEdicionMedicamento(med)} style={[styles.deleteBtn, { marginRight: 4 }]}>
+                <TouchableOpacity 
+                  onPress={() => abrirEdicionMedicamento(med)} 
+                  style={[styles.deleteBtn, { marginRight: 8 }]}
+                >
                   <Text style={{ color: COLORS.gold, fontSize: 16 }}>✏️</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => eliminarMedicamento(med.id)} style={styles.deleteBtn}>
+                <TouchableOpacity 
+                  onPress={() => setConfirmDelete({ tipo: 'med', id: med.id, nombre: `${med.nombre} ${med.dosis}` })}
+                  style={styles.deleteBtn}
+                >
                   <Text style={styles.deleteBtnText}>✕</Text>
                 </TouchableOpacity>
               </View>
@@ -310,10 +317,16 @@ const abrirEdicionRutina = (t: any) => {
                     <Text style={styles.horarioBadgeText}>{'⏰ ' + t.hora}</Text>
                   </View>
                 </View>
-                <TouchableOpacity onPress={() => abrirEdicionRutina(t)} style={[styles.deleteBtn, { marginRight: 4 }]}>
+                <TouchableOpacity 
+                  onPress={() => abrirEdicionRutina(t)} 
+                  style={[styles.deleteBtn, { marginRight: 8 }]}
+                >
                   <Text style={{ color: COLORS.gold, fontSize: 16 }}>✏️</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => eliminarRutina(t.id)} style={styles.deleteBtn}>
+                <TouchableOpacity 
+                  onPress={() => setConfirmDelete({ tipo: 'rutina', id: t.id, nombre: t.descripcion })}
+                  style={styles.deleteBtn}
+                >
                   <Text style={styles.deleteBtnText}>✕</Text>
                 </TouchableOpacity>
               </View>
@@ -466,6 +479,42 @@ const abrirEdicionRutina = (t: any) => {
               </View>
             </View>
           </ScrollView>
+        </View>
+      )}
+
+      {/* MODAL CONFIRMACIÓN ELIMINAR */}
+      {confirmDelete && (
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { gap: 16 }]}>
+            <Text style={{ fontSize: 32, textAlign: 'center' }}>🗑️</Text>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.textDark, textAlign: 'center' }}>
+              {'¿Eliminar registro?'}
+            </Text>
+            <Text style={{ fontSize: 13, color: COLORS.textLight, textAlign: 'center' }}>
+              {`"${confirmDelete.nombre}" será desactivado y no aparecerá en la lista.`}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity 
+                style={[styles.modalBtn, { backgroundColor: COLORS.cream, flex: 1 }]} 
+                onPress={() => setConfirmDelete(null)}
+              >
+                <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalBtn, { backgroundColor: COLORS.red, flex: 1 }]} 
+                onPress={async () => {
+                  if (confirmDelete.tipo === 'med') {
+                    await eliminarMedicamento(confirmDelete.id);
+                  } else {
+                    await eliminarRutina(confirmDelete.id);
+                  }
+                  setConfirmDelete(null);
+                }}
+              >
+                <Text style={styles.modalBtnText}>{'Eliminar'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       )}
     </View>
