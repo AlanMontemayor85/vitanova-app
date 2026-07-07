@@ -31,7 +31,7 @@ const COLORS = {
   white: '#FFFFFF', textDark: '#2C2820', textMid: '#4A4540', textLight: '#8A8078',
   border: '#E0D8CC', green: '#3DAA6A', greenPale: '#EAF5E8', amber: '#D4860A',
   amberPale: '#FFF4E0', red: '#D94F4F', redPale: '#FDEAEA',
-  blue: '#3A91FF', bluePale: '#EBF3FF',
+  blue: '#3A91FF', bluePale: '#EBF3FF', 
 };
 
 const BARTHEL_ITEMS = [
@@ -135,6 +135,13 @@ export default function CuidadorScreen() {
   const [estadoPaciente, setEstadoPaciente] = useState('bien');
   const [peso, setPeso] = useState(70.0);
   const [iniciando, setIniciando] = useState(false);
+  const [presionSist, setPresionSist] = useState('');
+  const [presionDiast, setPresionDiast] = useState('');
+  const [frecCard, setFrecCard] = useState('');
+  const [spo2Manual, setSpo2Manual] = useState('');
+  const [tempManual, setTempManual] = useState('');
+  const [glucosa, setGlucosa] = useState('');
+  const [observaciones, setObservaciones] = useState('');
 
   // Estado temporal para la sensibilidad de caídas recuperada del servidor
   const [sensibilidadCaidas, setSensibilidadCaidas] = useState('');
@@ -365,31 +372,40 @@ export default function CuidadorScreen() {
   };
 
   const guardarRegistroEspontaneo = async () => {
-    setGuardandoEspontaneo(true);
-    try {
-      const token = getToken();
-      await fetch(`${BASE_URL}/registros/salud`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          paciente_id: pacienteActivo.id,
-          momento: 'espontaneo',
-          dolor_eva: dolorEva,
-          hidratacion_vasos: hidratacion,
-          estado_animo: estadoAnimo,
-          alimentacion: alimentacion,
-          spo2: signosDispositivo?.spo2 !== '—' ? Number(signosDispositivo?.spo2) : 98,
-          frecuencia_cardiaca: signosDispositivo?.fc !== '—' ? Number(signosDispositivo?.fc) : 72,
-        })
-      });
-      setVista('turno');
-      Alert.alert('✅ Registro guardado', 'Los datos de confort y telemetría fueron actualizados.');
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setGuardandoEspontaneo(false);
-    }
-  };
+  setGuardandoEspontaneo(true);
+  try {
+    const token = getToken();
+    await fetch(`${BASE_URL}/registros/salud`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        paciente_id: pacienteActivo.id,
+        momento: 'espontaneo',
+        dolor_eva: dolorEva,
+        hidratacion_vasos: hidratacion,
+        estado_animo: estadoAnimo,
+        alimentacion: alimentacion,
+        spo2: spo2Manual ? Number(spo2Manual) : (signosDispositivo?.spo2 !== '—' ? Number(signosDispositivo?.spo2) : null),
+        frecuencia_cardiaca: frecCard ? Number(frecCard) : (signosDispositivo?.fc !== '—' ? Number(signosDispositivo?.fc) : null),
+        presion_sistolica: presionSist ? Number(presionSist) : null,
+        presion_diastolica: presionDiast ? Number(presionDiast) : null,
+        temperatura: tempManual ? Number(tempManual) : null,
+        glucosa: glucosa ? Number(glucosa) : null,
+        observaciones: observaciones.trim() || null,
+      })
+    });
+    setPresionSist(''); setPresionDiast('');
+    setFrecCard(''); setSpo2Manual('');
+    setTempManual(''); setGlucosa('');
+    setObservaciones('');
+    setVista('turno');
+    Alert.alert('✅ Registro guardado', 'Los datos de confort fueron actualizados.');
+  } catch (e) {
+    console.error(e);
+  } finally {
+    setGuardandoEspontaneo(false);
+  }
+};
 
   const guardarNota = async () => {
     if (!notaTexto.trim()) return;
@@ -1065,34 +1081,271 @@ export default function CuidadorScreen() {
     );
   }
 
-  // ── 3. VISTA MONITOREO ESPONTÁNEO ──
-  if (vista === 'espontaneo' && pacienteActivo) {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => setVista('turno')} style={styles.backBtn}><Text style={styles.backIcon}>←</Text></TouchableOpacity>
-          <View style={{ flex: 1 }}><Text style={styles.greeting}>Evaluación de Bienestar</Text><Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text></View>
+  // ── 3. VISTA MONITOREO ESPONTÁNEO (DISEÑO PREMIUM) ──
+if (vista === 'espontaneo' && pacienteActivo) {
+  // Aseguramos colores locales consistentes para hidratación
+  const COMPONENT_COLORS = Object.assign({}, COLORS, {
+    blue: '#2B73B4',
+    bluePale: '#E6F0FA'
+  });
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={COMPONENT_COLORS.cacao} />
+      
+      {/* HEADER ULTRA-CLEAN */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => setVista('turno')} style={styles.backBtn}>
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.greeting}>Evaluación de Bienestar</Text>
+          <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
         </View>
-        <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-          <View style={styles.moduloCard}>
-            <Text style={styles.signoLabel}>Intensidad del Dolor (EVA): {dolorEva}/10</Text>
-            <View style={styles.evaContainer}>
+      </View>
+
+      <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+
+        {/* ESCALA DE DOLOR EVA (SELECTOR HORIZONTAL FLUIDO) */}
+        <View style={styles.moduloCard}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={styles.signoLabel}>Intensidad del Dolor (EVA)</Text>
+            <View style={{ backgroundColor: dolorEva > 6 ? COMPONENT_COLORS.redPale : dolorEva > 3 ? COMPONENT_COLORS.goldPale : COMPONENT_COLORS.greenPale, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: dolorEva > 6 ? COMPONENT_COLORS.red : dolorEva > 3 ? COMPONENT_COLORS.gold : COMPONENT_COLORS.green }}>
+                {dolorEva}/10
+              </Text>
+            </View>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 4 }}>
+            <View style={{ flexDirection: 'row', gap: 6 }}>
               {[0,1,2,3,4,5,6,7,8,9,10].map(n => (
-                <TouchableOpacity key={n} style={[styles.evaBtn, dolorEva === n && styles.evaBtnActive]} onPress={() => setDolorEva(n)}>
-                  <Text style={[styles.evaBtnText, dolorEva === n && styles.evaBtnTextActive]}>{n}</Text>
+                <TouchableOpacity 
+                  key={n} 
+                  style={[
+                    styles.evaBtn, 
+                    { width: 38, height: 38, borderRadius: 10, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+                    dolorEva === n ? { backgroundColor: COMPONENT_COLORS.gold, borderColor: COMPONENT_COLORS.gold } : { backgroundColor: COMPONENT_COLORS.cream, borderColor: COMPONENT_COLORS.border }
+                  ]} 
+                  onPress={() => setDolorEva(n)}
+                >
+                  <Text style={[styles.evaBtnText, dolorEva === n && { color: COMPONENT_COLORS.white, fontWeight: '800' }]}>{n}</Text>
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
-          <TouchableOpacity style={styles.confirmarBtn} onPress={guardarRegistroEspontaneo} disabled={guardandoEspontaneo}>
-            <Text style={styles.confirmarBtnText}>Guardar Parámetros →</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-    );
-  }
+          </ScrollView>
+        </View>
 
+        {/* ESTADO DE ÁNIMO (CHIPS COGNITIVOS) */}
+        <View style={styles.moduloCard}>
+          <Text style={[styles.signoLabel, { marginBottom: 10 }]}>Estado de ánimo</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {[
+              { val: 'tranquilo', icon: '😌', label: 'Tranquilo' },
+              { val: 'ansioso', icon: '😰', label: 'Ansioso' },
+              { val: 'triste', icon: '😢', label: 'Triste' },
+              { val: 'agitado', icon: '😤', label: 'Agitado' },
+              { val: 'confundido', icon: '😵', label: 'Confundido' },
+              { val: 'alegre', icon: '😊', label: 'Alegre' },
+            ].map(e => {
+              const activo = estadoAnimo === e.val;
+              return (
+                <TouchableOpacity
+                  key={e.val}
+                  style={{
+                    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: activo ? COMPONENT_COLORS.gold : COMPONENT_COLORS.border,
+                    backgroundColor: activo ? COMPONENT_COLORS.goldPale : COMPONENT_COLORS.white,
+                    flexDirection: 'row', alignItems: 'center', gap: 6
+                  }}
+                  onPress={() => setEstadoAnimo(e.val)}
+                >
+                  <Text style={{ fontSize: 15 }}>{e.icon}</Text>
+                  <Text style={{ fontSize: 13, fontWeight: activo ? '700' : '500', color: activo ? COMPONENT_COLORS.gold : COMPONENT_COLORS.textDark, textTransform: 'capitalize' }}>
+                    {e.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* HIDRATACIÓN (CONTADOR DE VASOS ESTILIZADO) */}
+        <View style={styles.moduloCard}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <Text style={styles.signoLabel}>Hidratación</Text>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: COMPONENT_COLORS.textLight }}>{hidratacion} de 8 vasos</Text>
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+            {[1,2,3,4,5,6,7,8].map(n => {
+              const tomado = hidratacion >= n;
+              return (
+                <TouchableOpacity
+                  key={n}
+                  style={{
+                    width: 36, height: 36, borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: tomado ? COMPONENT_COLORS.blue : COMPONENT_COLORS.border,
+                    backgroundColor: tomado ? COMPONENT_COLORS.bluePale : COMPONENT_COLORS.white,
+                    justifyContent: 'center', alignItems: 'center'
+                  }}
+                  onPress={() => setHidratacion(n)}
+                >
+                  <Text style={{ fontSize: 16, color: tomado ? COMPONENT_COLORS.blue : COMPONENT_COLORS.textLight }}>💧</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* ALIMENTACIÓN (SEGMENTED BUTTONS) */}
+        <View style={styles.moduloCard}>
+          <Text style={[styles.signoLabel, { marginBottom: 10 }]}>Alimentación</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {[
+              { val: 'completa', label: '🍽️ Completa' },
+              { val: 'parcial', label: '🥣 Parcial' },
+              { val: 'ninguna', label: '❌ Ninguna' },
+            ].map(a => {
+              const activo = alimentacion === a.val;
+              return (
+                <TouchableOpacity
+                  key={a.val}
+                  style={{
+                    flex: 1, paddingVertical: 12, borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: activo ? COMPONENT_COLORS.green : COMPONENT_COLORS.border,
+                    backgroundColor: activo ? COMPONENT_COLORS.greenPale : COMPONENT_COLORS.white,
+                    alignItems: 'center'
+                  }}
+                  onPress={() => setAlimentacion(a.val)}
+                >
+                  <Text style={{ fontSize: 13, color: activo ? COMPONENT_COLORS.green : COMPONENT_COLORS.textDark, fontWeight: '700' }}>
+                    {a.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* SIGNOS VITALES MANUALES (TABLA EN GRID SIMÉTRICA) */}
+        <View style={styles.moduloCard}>
+          <Text style={[styles.signoLabel, { marginBottom: 14 }]}>Signos Vitales Manuales (Opcional)</Text>
+
+          {/* Fila 1: Presión Arterial */}
+          <Text style={{ fontSize: 11, fontWeight: '700', color: COMPONENT_COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>Presión Arterial (mmHg)</Text>
+          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 14 }}>
+            <TextInput
+              style={[styles.input, { flex: 1, textAlign: 'center', marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COMPONENT_COLORS.border, backgroundColor: COMPONENT_COLORS.white }]}
+              placeholder="Sistólica (Ej. 120)"
+              placeholderTextColor={COMPONENT_COLORS.textLight}
+              keyboardType="numeric"
+              value={presionSist}
+              onChangeText={setPresionSist}
+            />
+            <Text style={{ fontSize: 20, color: COMPONENT_COLORS.border, fontWeight: '300' }}>/</Text>
+            <TextInput
+              style={[styles.input, { flex: 1, textAlign: 'center', marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COMPONENT_COLORS.border, backgroundColor: COMPONENT_COLORS.white }]}
+              placeholder="Diastólica (Ej. 80)"
+              placeholderTextColor={COMPONENT_COLORS.textLight}
+              keyboardType="numeric"
+              value={presionDiast}
+              onChangeText={setPresionDiast}
+            />
+          </View>
+
+          {/* Fila 2: Frecuencia Cardíaca y SpO2 en Paralelo */}
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 14 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: COMPONENT_COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>Pulso (bpm)</Text>
+              <TextInput
+                style={[styles.input, { marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COMPONENT_COLORS.border, backgroundColor: COMPONENT_COLORS.white, textAlign: 'center' }]}
+                placeholder="Ej. 72"
+                placeholderTextColor={COMPONENT_COLORS.textLight}
+                keyboardType="numeric"
+                value={frecCard}
+                onChangeText={setFrecCard}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: COMPONENT_COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>Saturación (%)</Text>
+              <TextInput
+                style={[styles.input, { marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COMPONENT_COLORS.border, backgroundColor: COMPONENT_COLORS.white, textAlign: 'center' }]}
+                placeholder="Ej. 97"
+                placeholderTextColor={COMPONENT_COLORS.textLight}
+                keyboardType="numeric"
+                value={spo2Manual}
+                onChangeText={setSpo2Manual}
+              />
+            </View>
+          </View>
+
+          {/* Fila 3: Temperatura y Glucosa en Paralelo */}
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 4 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: COMPONENT_COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>Temperatura (°C)</Text>
+              <TextInput
+                style={[styles.input, { marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COMPONENT_COLORS.border, backgroundColor: COMPONENT_COLORS.white, textAlign: 'center' }]}
+                placeholder="Ej. 36.5"
+                placeholderTextColor={COMPONENT_COLORS.textLight}
+                keyboardType="numeric"
+                value={tempManual}
+                onChangeText={setTempManual}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: COMPONENT_COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>Glucosa (mg/dL)</Text>
+              <TextInput
+                style={[styles.input, { marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COMPONENT_COLORS.border, backgroundColor: COMPONENT_COLORS.white, textAlign: 'center' }]}
+                placeholder="Ej. 95"
+                placeholderTextColor={COMPONENT_COLORS.textLight}
+                keyboardType="numeric"
+                value={glucosa}
+                onChangeText={setGlucosa}
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* OBSERVACIONES CLÍNICAS */}
+        <View style={styles.moduloCard}>
+          <Text style={[styles.signoLabel, { marginBottom: 8 }]}>Observaciones Clínicas</Text>
+          <TextInput
+            style={{ 
+              minHeight: 90, 
+              textAlignVertical: 'top',
+              borderWidth: 1,
+              borderColor: COMPONENT_COLORS.border,
+              borderRadius: 12,
+              padding: 12,
+              fontSize: 14,
+              color: COMPONENT_COLORS.textDark,
+              backgroundColor: COMPONENT_COLORS.white
+            }}
+            placeholder="Describe brevemente el comportamiento, estado cognitivo, quejas o anomalías detectadas en el paciente..."
+            placeholderTextColor={COMPONENT_COLORS.textLight}
+            multiline
+            value={observaciones}
+            onChangeText={setObservaciones}
+          />
+        </View>
+
+        {/* BOTÓN CONFIRMAR EN ACCIÓN PRINCIPAL */}
+        <TouchableOpacity
+          style={[styles.confirmarBtn, { borderRadius: 14, paddingVertical: 16, marginTop: 8 }]}
+          onPress={guardarRegistroEspontaneo}
+          disabled={guardandoEspontaneo}
+        >
+          <Text style={styles.confirmarBtnText}>
+            {guardandoEspontaneo ? 'Consolidando Reporte...' : 'Guardar Parámetros →'}
+          </Text>
+        </TouchableOpacity>
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </View>
+  );
+}
   // ── 4. VISTA CIERRE DE TURNO ──
   if (vista === 'cierre' && pacienteActivo) {
     return (
@@ -1220,4 +1473,12 @@ const styles = StyleSheet.create({
   alertContent: { flex: 1 },
   alertTitle: { fontSize: 13, fontWeight: '700', color: COLORS.textDark },
   alertSub: { fontSize: 11, color: COLORS.textLight, marginTop: 2 },
+  input: {
+  borderBottomWidth: 1,
+  borderBottomColor: COLORS.border,
+  paddingVertical: 10,
+  fontSize: 15,
+  color: COLORS.textDark,
+  marginBottom: 16,
+},
 });
