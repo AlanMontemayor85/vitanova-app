@@ -149,11 +149,35 @@ export const getTurnoActivo = async (pacienteId: string) => {
   return res.json();
 };
 
-export const completarTarea = async (tareaId: string) => {
-  const res = await fetchWithAuth(`${BASE_URL}/tareas/${tareaId}/completar`, { method: 'PATCH' });
+export const completarTarea = async (data: {
+  paciente_id: string;
+  tarea_id?: string;
+  medicamento_id?: string;
+  tipo: 'rutina' | 'medicamento';
+  notas?: string;
+}) => {
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}/autocuidador/completar-tarea`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(data),
+  });
   return res.json();
 };
-
+export const descompletarTarea = async (data: {
+  paciente_id: string;
+  tarea_id?: string;
+  medicamento_id?: string;
+  tipo: 'rutina' | 'medicamento';
+}) => {
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}/autocuidador/descompletar-tarea`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+};
 export const getMedicamentos = async (pacienteId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/medicamentos/${pacienteId}`);
   return res.json();
@@ -357,9 +381,13 @@ export const agregarTareaManual = async (tarea: object) => {
 };
 
 export const getTareasHoy = async (pacienteId: string) => {
-  const res = await fetchWithAuth(`${BASE_URL}/pacientes/${pacienteId}/tareas-hoy`);
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}/autocuidador/tareas-hoy/${pacienteId}`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
   return res.json();
 };
+
 
 export const completarActividad = async (actividadId: string, pacienteId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/actividades/completar`, {

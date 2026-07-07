@@ -29,6 +29,7 @@ export default function RootLayout() {
       <Stack.Screen name="red-cuidadores" options={{ headerShown: false }} />
       <Stack.Screen name="aceptar-invitacion" options={{ headerShown: false }} />
       <Stack.Screen name="grafica-signos" options={{ headerShown: false }} />
+      <Stack.Screen name="autocuidador" options={{ headerShown: false }} />
     </Stack>
   );
 }
