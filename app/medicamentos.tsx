@@ -328,7 +328,9 @@ const abrirEdicionRutina = (t: any) => {
         <View style={styles.modalOverlay}>
           <ScrollView showsVerticalScrollIndicator={false}>
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Nuevo medicamento</Text>
+              <Text style={styles.modalTitle}>
+                {medicamentoEditando ? 'Editar medicamento' : 'Nuevo medicamento'}
+              </Text>
 
               <Text style={styles.label}>Nombre *</Text>
               <TextInput style={styles.input} placeholder="Ej: Metformina" placeholderTextColor={COLORS.textLight} value={nombre} onChangeText={setNombre} autoFocus />
@@ -415,7 +417,9 @@ const abrirEdicionRutina = (t: any) => {
         <View style={styles.modalOverlay}>
           <ScrollView showsVerticalScrollIndicator={false}>
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Nueva rutina</Text>
+              <Text style={styles.modalTitle}>
+                {rutinaEditando ? 'Editar rutina' : 'Nueva rutina'}
+              </Text>
 
               <Text style={styles.label}>Descripción *</Text>
               <TextInput style={styles.input} placeholder="Ej: Baño matutino" placeholderTextColor={COLORS.textLight} value={rutinaDesc} onChangeText={setRutinaDesc} autoFocus />
