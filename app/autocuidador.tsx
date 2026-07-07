@@ -1,5 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { clearToken, completarTarea, descompletarTarea, getPacientes, getTareasHoy, loadStoredToken } from '../services/api';
 
@@ -65,10 +65,11 @@ export default function AutocuidadorScreen() {
     }
   };
 
-  useEffect(() => {
+  useFocusEffect(
+  useCallback(() => {
     cargar();
-    
-  }, [pacienteIdParam]);
+  }, [pacienteIdParam])
+);
 
   const toggleTarea = async (tarea: any) => {
     console.log("🔄 Tarea completa:", JSON.stringify(tarea));
