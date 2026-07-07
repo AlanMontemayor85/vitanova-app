@@ -87,7 +87,7 @@ export default function AutocuidadorScreen() {
         await completarTarea({
           paciente_id: paciente.id,
           tarea_id: tarea.tipo === 'rutina' ? tarea.id : undefined,
-          medicamento_id: tarea.tipo === 'medicamento' ? tarea.id : undefined,
+          medicamento_id: tarea.tipo === 'medicamento' ? `${tarea.id}|${tarea.hora}` : undefined,
           tipo: tarea.tipo,
           hora: tarea.hora,
         });
