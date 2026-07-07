@@ -960,17 +960,85 @@ export default function CuidadorScreen() {
         </Modal>
 
         {/* MODAL EMERGENCIA */}
-        <Modal visible={incidenteOpen} animationType="slide" transparent={true}>
-          <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 16 }}>
-            <View style={{ backgroundColor: COLORS.white, padding: 24, borderRadius: 16, gap: 16 }}>
-              <Text style={{ fontSize: 18, fontWeight: '800', color: COLORS.red, textAlign: 'center' }}>Protocolo de Emergencia</Text>
-              <TouchableOpacity style={{ backgroundColor: '#FFF5F5', borderWidth: 1, borderColor: COLORS.red, padding: 14, borderRadius: 10 }} onPress={() => { registrarIncidente("Ambulancia 911", "SOS"); setIncidenteOpen(false); Linking.openURL('tel:911'); }}>
-                <Text style={{ fontWeight: '700', color: COLORS.red, textAlign: 'center' }}>🚑 Llamar a Ambulancia (911)</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setIncidenteOpen(false)} style={{ paddingVertical: 12, alignItems: 'center' }}><Text style={{ color: COLORS.textLight }}>Cerrar</Text></TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
+<Modal visible={incidenteOpen} animationType="slide" transparent={true}>
+  <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 16 }}>
+    <View style={{ backgroundColor: COLORS.white, padding: 24, borderRadius: 16, gap: 12 }}>
+      <Text style={{ fontSize: 18, fontWeight: '800', color: COLORS.red, textAlign: 'center' }}>
+        {'Protocolo de Emergencia'}
+      </Text>
+      <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center', marginBottom: 4 }}>
+        {'Selecciona a quién contactar'}
+      </Text>
+
+      {/* 911 */}
+      <TouchableOpacity 
+        style={{ backgroundColor: '#FFF5F5', borderWidth: 1, borderColor: COLORS.red, padding: 14, borderRadius: 10 }} 
+        onPress={() => { 
+          registrarIncidente("Ambulancia 911", "SOS"); 
+          setIncidenteOpen(false); 
+          Linking.openURL('tel:911'); 
+        }}
+      >
+        <Text style={{ fontWeight: '700', color: COLORS.red, textAlign: 'center' }}>{'🚑 Llamar a Ambulancia (911)'}</Text>
+      </TouchableOpacity>
+
+      {/* Familiar principal */}
+      {pacienteActivo?.telefono_emergencia && (
+        <TouchableOpacity 
+          style={{ backgroundColor: COLORS.amberPale, borderWidth: 1, borderColor: COLORS.amber, padding: 14, borderRadius: 10 }} 
+          onPress={() => { 
+            registrarIncidente("Familiar principal", "urgencia"); 
+            setIncidenteOpen(false); 
+            Linking.openURL(`tel:${pacienteActivo.telefono_emergencia}`); 
+          }}
+        >
+          <Text style={{ fontWeight: '700', color: COLORS.amber, textAlign: 'center' }}>
+            {`👨‍👩‍👧 Familiar (${pacienteActivo.telefono_emergencia})`}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Ambulancia aseguradora */}
+      {pacienteActivo?.telefono_ambulancia && (
+        <TouchableOpacity 
+          style={{ backgroundColor: '#F0F8FF', borderWidth: 1, borderColor: '#4A90D9', padding: 14, borderRadius: 10 }} 
+          onPress={() => { 
+            registrarIncidente("Ambulancia aseguradora", "urgencia"); 
+            setIncidenteOpen(false); 
+            Linking.openURL(`tel:${pacienteActivo.telefono_ambulancia}`); 
+          }}
+        >
+          <Text style={{ fontWeight: '700', color: '#4A90D9', textAlign: 'center' }}>
+            {`🏥 Ambulancia Aseguradora (${pacienteActivo.telefono_ambulancia})`}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Aseguradora */}
+      {pacienteActivo?.telefono_aseguradora && (
+        <TouchableOpacity 
+          style={{ backgroundColor: '#F0FFF4', borderWidth: 1, borderColor: COLORS.green, padding: 14, borderRadius: 10 }} 
+          onPress={() => { 
+            registrarIncidente("Aseguradora", "informativo"); 
+            setIncidenteOpen(false); 
+            Linking.openURL(`tel:${pacienteActivo.telefono_aseguradora}`); 
+          }}
+        >
+          <Text style={{ fontWeight: '700', color: COLORS.green, textAlign: 'center' }}>
+            {`📋 Aseguradora ${pacienteActivo.nombre_aseguradora ? `(${pacienteActivo.nombre_aseguradora})` : ''} - ${pacienteActivo.telefono_aseguradora}`}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      <TouchableOpacity 
+        onPress={() => setIncidenteOpen(false)} 
+        style={{ paddingVertical: 12, alignItems: 'center' }}
+      >
+        <Text style={{ color: COLORS.textLight }}>{'Cerrar'}</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
 
         {/* MODAL ADICIONAR NOTA */}
         <Modal visible={notaOpen} animationType="slide" transparent={true}>
