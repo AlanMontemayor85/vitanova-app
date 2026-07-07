@@ -25,6 +25,7 @@ const COLORS = {
 const ROLES = [
   { valor: 'familiar', etiqueta: '👑 Familiar Administrador', desc: 'Registro al paciente, configuro el reloj y controlo la red' },
   { valor: 'cuidador', etiqueta: '🤲 Cuidador', desc: 'Asistencia directa (requiere asignación de turno por el Admin)' },
+  { valor: 'autonomo', etiqueta: '🧓 Cuidador', desc: 'Quiero gestionar mis medicamentos y rutinas' },
   { valor: 'medico', etiqueta: '🩺 Médico', desc: 'Superviso médicamente los signos del paciente' },
 ];
 
@@ -109,6 +110,8 @@ export default function CompletarPerfilScreen() {
         case 'cuidador': 
           router.replace('/cuidador'); 
           break;
+        case 'autonomo':
+          router.replace('/autocuidador'); 
         default: 
           router.replace('/'); 
       }
