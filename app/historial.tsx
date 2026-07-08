@@ -1,8 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getHistorialCierres } from '../services/api';
+import { loadStoredToken } from '../services/api';
 
+const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 const COLORS = {
   gold: '#BF9A40', goldPale: '#F5EDD8', cacao: '#4A4540', cream: '#FAFAF7',
   white: '#FFFFFF', textDark: '#2C2820', textLight: '#8A8078',
@@ -38,20 +39,37 @@ export default function HistorialScreen() {
 
   const [cierres, setCierres] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [registrosConfort, setRegistrosConfort] = useState<any[]>([]);
 
   useEffect(() => {
-    const cargar = async () => {
-      try {
-        const data = await getHistorialCierres(pacienteId);
-        if (data.cierres) setCierres(data.cierres);
-      } catch (e) {
-        console.error("Error cargando historial:", e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    cargar();
-  }, [pacienteId]);
+  const cargar = async () => {
+    try {
+      const token = await loadStoredToken();
+      if (!token) { router.replace('/login'); return; }
+
+      const [cierresRes, confortRes] = await Promise.all([
+        fetch(`${BASE_URL}/pacientes/${pacienteId}/historial-cierres?limit=10`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${BASE_URL}/pacientes/${pacienteId}/registros-confort?limit=10`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      ]);
+
+      const cierresData = await cierresRes.json();
+      const confortData = await confortRes.json();
+
+      if (cierresData.cierres) setCierres(cierresData.cierres);
+      if (confortData.registros) setRegistrosConfort(confortData.registros);
+
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+  cargar();
+}, [pacienteId]);
 
   if (loading) {
     return (
@@ -229,7 +247,69 @@ export default function HistorialScreen() {
                     ) : null}
                   </View>
                 )}
-
+                {registrosConfort.length > 0 && (
+                  <>
+                    <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase', color: COLORS.textLight, marginBottom: 8, marginTop: 8 }}>
+                      {'Registros de Confort'}
+                    </Text>
+                    {registrosConfort.map((r, i) => (
+                      <View key={r.id || i} style={styles.cierreCard}>
+                        <Text style={styles.cierreNombreCuidador}>
+                          {`🩺 ${r.usuarios?.nombre_completo ?? 'Cuidador'}`}
+                        </Text>
+                        <Text style={styles.cierreFecha}>
+                          {new Date(r.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                        <View style={[styles.signosRow, { marginTop: 10 }]}>
+                          {r.dolor_eva !== null && r.dolor_eva !== undefined && (
+                            <View style={styles.signoItem}>
+                              <Text style={styles.signoVal}>{`${r.dolor_eva}/10`}</Text>
+                              <Text style={styles.signoLabel}>Dolor</Text>
+                            </View>
+                          )}
+                          {r.spo2 && (
+                            <View style={styles.signoItem}>
+                              <Text style={styles.signoVal}>{`${r.spo2}%`}</Text>
+                              <Text style={styles.signoLabel}>SpO₂</Text>
+                            </View>
+                          )}
+                          {r.presion_sistolica && r.presion_diastolica && (
+                            <View style={styles.signoItem}>
+                              <Text style={styles.signoVal}>{`${r.presion_sistolica}/${r.presion_diastolica}`}</Text>
+                              <Text style={styles.signoLabel}>Presión</Text>
+                            </View>
+                          )}
+                          {r.frecuencia_cardiaca && (
+                            <View style={styles.signoItem}>
+                              <Text style={styles.signoVal}>{`${r.frecuencia_cardiaca}`}</Text>
+                              <Text style={styles.signoLabel}>FC</Text>
+                            </View>
+                          )}
+                          {r.temperatura && (
+                            <View style={styles.signoItem}>
+                              <Text style={styles.signoVal}>{`${r.temperatura}°`}</Text>
+                              <Text style={styles.signoLabel}>Temp</Text>
+                            </View>
+                          )}
+                          {r.glucosa && (
+                            <View style={styles.signoItem}>
+                              <Text style={styles.signoVal}>{`${r.glucosa}`}</Text>
+                              <Text style={styles.signoLabel}>Glucosa</Text>
+                            </View>
+                          )}
+                        </View>
+                        {r.estado_animo && (
+                          <Text style={[styles.cierreFecha, { marginTop: 4 }]}>{`Estado: ${r.estado_animo}`}</Text>
+                        )}
+                        {r.observaciones && (
+                          <View style={styles.notaItem}>
+                            <Text style={{ fontSize: 11, color: COLORS.textDark }}>{r.observaciones}</Text>
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                  </>
+                )}
                 {/* ESCALAS CLÍNICAS */}
                 {(c.barthel_total !== null || c.morse_total !== null || c.mna_total !== null) && (
                   <View style={{ borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 10, marginTop: 8, gap: 6 }}>
