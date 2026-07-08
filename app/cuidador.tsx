@@ -142,6 +142,7 @@ export default function CuidadorScreen() {
   const [tempManual, setTempManual] = useState('');
   const [glucosa, setGlucosa] = useState('');
   const [observaciones, setObservaciones] = useState('');
+  
 
   // Estado temporal para la sensibilidad de caídas recuperada del servidor
   const [sensibilidadCaidas, setSensibilidadCaidas] = useState('');
@@ -518,76 +519,88 @@ export default function CuidadorScreen() {
   };
 
   const ejecutarCierre = async () => {
-    try {
-      const notasRes = await fetch(`${BASE_URL}/notas?paciente_id=${pacienteActivo.id}`, {
-        headers: { Authorization: `Bearer ${getToken()}` }
-      });
-      const datasetNotas = await notasRes.json();
-      const notasActualizadas = datasetNotas?.notas || datasetNotas?.registros || [];
-      setNotas(Array.isArray(notasActualizadas) ? notasActualizadas.slice(0, 3) : []);
-      
-      let notasConsolidadas = "Sin notas incidentales en el turno.";
-      const arrayParaFiltrar = Array.isArray(datasetNotas?.notas) 
-        ? datasetNotas.notas 
-        : (Array.isArray(datasetNotas?.registros) ? datasetNotas.registros : null);
+  try {
+    const notasRes = await fetch(`${BASE_URL}/notas?paciente_id=${pacienteActivo.id}`, {
+      headers: { Authorization: `Bearer ${getToken()}` }
+    });
+    const datasetNotas = await notasRes.json();
+    const notasActualizadas = datasetNotas?.notas || datasetNotas?.registros || [];
+    setNotas(Array.isArray(notasActualizadas) ? notasActualizadas.slice(0, 3) : []);
+    
+    let notasConsolidadas = "Sin notas incidentales en el turno.";
+    const arrayParaFiltrar = Array.isArray(datasetNotas?.notas) 
+      ? datasetNotas.notas 
+      : (Array.isArray(datasetNotas?.registros) ? datasetNotas.registros : null);
 
-      if (arrayParaFiltrar) {
-        const idTurnoActual = turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId;
-        const notasDelTurno = arrayParaFiltrar.filter((n: any) => n.turno_id === idTurnoActual || n.turno_id === null);
+    if (arrayParaFiltrar) {
+      const idTurnoActual = turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId;
+      const notasDelTurno = arrayParaFiltrar.filter((n: any) => n.turno_id === idTurnoActual || n.turno_id === null);
 
-        if (notasDelTurno.length > 0) {
-          notasConsolidadas = notasDelTurno
-            .reverse() 
-            .map((n: any) => {
-              const textoNota = n.texto || n.descripcion || "Nota sin texto";
-              const hora = n.created_at ? new Date(n.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : "";
-              return hora ? `[${hora}] ${textoNota}` : `- ${textoNota}`;
-            })
-            .join('\n');
-        }
+      if (notasDelTurno.length > 0) {
+        notasConsolidadas = notasDelTurno
+          .reverse() 
+          .map((n: any) => {
+            const textoNota = n.texto || n.descripcion || "Nota sin texto";
+            const hora = n.created_at ? new Date(n.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : "";
+            return hora ? `[${hora}] ${textoNota}` : `- ${textoNota}`;
+          })
+          .join('\n');
       }
-
-      let _sistolica = null;
-      let _diastolica = null;
-      if (signosDispositivo?.presion && String(signosDispositivo.presion).includes('/')) {
-        const partes = String(signosDispositivo.presion).split('/');
-        _sistolica = parseInt(partes[0], 10) || null;
-        _diastolica = parseInt(partes[1], 10) || null;
-      }
-
-      const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-        body: JSON.stringify({
-          turno_id: turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId, 
-          paciente_id: pacienteActivo.id, 
-          estado_paciente: estadoPaciente, 
-          peso_kg: peso,
-          notes: notasConsolidadas, 
-          spo2: signosDispositivo?.spo2 ? parseInt(signosDispositivo.spo2, 10) : null,
-          frecuencia_cardiaca: signosDispositivo?.fc ? parseInt(signosDispositivo.fc, 10) : null,
-          presion_sistolica: _sistolica,
-          presion_diastolica: _diastolica,
-          temperatura: signosDispositivo?.temperatura ? parseFloat(String(signosDispositivo.temperatura)) : null,
-          barthel_scores: barthelTocado ? barthelScores : null, 
-          barthel_total: barthelTocado ? barthelTotal : null, 
-          barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
-        }),
-      });
-
-      const data = await res.json();
-      if (data.status === 'ok') {
-        const pData = await getPacientes();
-        if (pData.patients) setPacientes(pData.patients);
-        resetEstados(); 
-        setVista('lista');
-        Alert.alert('✅ Turno Cerrado', 'La bitácora del día se ha consolidado con éxito.');
-      }
-    } catch (e) { 
-      console.error("❌ Error en ejecutarCierre:", e); 
-      Alert.alert('⚠️ Error', 'Ocurrió un problema al procesar el cierre del turno.');
     }
-  };
+
+    let _sistolica = null;
+    let _diastolica = null;
+    if (signosDispositivo?.presion && String(signosDispositivo.presion).includes('/')) {
+      const partes = String(signosDispositivo.presion).split('/');
+      _sistolica = parseInt(partes[0], 10) || null;
+      _diastolica = parseInt(partes[1], 10) || null;
+    }
+
+    const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+      body: JSON.stringify({
+        turno_id: turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId, 
+        paciente_id: pacienteActivo.id, 
+        estado_paciente: estadoPaciente, 
+        peso_kg: peso,
+        notes: notasConsolidadas, 
+        spo2: signosDispositivo?.spo2 ? parseInt(signosDispositivo.spo2, 10) : null,
+        frecuencia_cardiaca: signosDispositivo?.fc ? parseInt(signosDispositivo.fc, 10) : null,
+        presion_sistolica: _sistolica,
+        presion_diastolica: _diastolica,
+        temperatura: signosDispositivo?.temperatura ? parseFloat(String(signosDispositivo.temperatura)) : null,
+        barthel_scores: barthelTocado ? barthelScores : null, 
+        barthel_total: barthelTocado ? barthelTotal : null, 
+        barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
+        // ← AGREGAR campos de confort:
+        dolor_eva: dolorEva,
+        estado_animo: estadoAnimo || null,
+        hidratacion_vasos: hidratacion || null,
+        alimentacion: alimentacion || null,
+        observaciones: observaciones.trim() || null,
+      }),
+    });
+
+    const data = await res.json();
+    if (data.status === 'ok') {
+      const pData = await getPacientes();
+      if (pData.patients) setPacientes(pData.patients);
+      // Reset campos de confort
+      setDolorEva(0);
+      setEstadoAnimo('');
+      setHidratacion(0);
+      setAlimentacion('');
+      setObservaciones('');
+      resetEstados(); 
+      setVista('lista');
+      Alert.alert('✅ Turno Cerrado', 'La bitácora del día se ha consolidado con éxito.');
+    }
+  } catch (e) { 
+    console.error("❌ Error en ejecutarCierre:", e); 
+    Alert.alert('⚠️ Error', 'Ocurrió un problema al procesar el cierre del turno.');
+  }
+};
 
   if (loading) {
     return (
@@ -1347,74 +1360,165 @@ if (vista === 'espontaneo' && pacienteActivo) {
   );
 }
   // ── 4. VISTA CIERRE DE TURNO ──
-  if (vista === 'cierre' && pacienteActivo) {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => setVista('turno')} style={styles.backBtn}><Text style={styles.backIcon}>←</Text></TouchableOpacity>
-          <View style={{ flex: 1 }}><Text style={styles.greeting}>Cierre de operaciones</Text><Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text></View>
+if (vista === 'cierre' && pacienteActivo) {
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => setVista('turno')} style={styles.backBtn}>
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.greeting}>Cierre de operaciones</Text>
+          <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
         </View>
-        <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-          <Text style={styles.sectionTitle}>Condición de Entrega del Paciente</Text>
-          <View style={styles.estadoRow}>
-            {[{ val: 'bien', icon: '😊', label: 'Estable' }, { val: 'regular', icon: '😐', label: 'Regular' }].map((e) => (
-              <TouchableOpacity key={e.val} style={[styles.estadoCard, estadoPaciente === e.val && styles.estadoCardActive]} onPress={() => setEstadoPaciente(e.val)}>
-                <Text style={{ fontSize: 26 }}>{e.icon}</Text>
-                <Text style={[styles.estadoLabel, estadoPaciente === e.val && { color: COLORS.gold }]}>{e.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* PESO EN CIERRE DE TURNO */}
-          <Text style={styles.sectionTitle}>Peso del paciente (kg)</Text>
-          <View style={{ 
-            flexDirection: 'row', 
-            alignItems: 'center', 
-            backgroundColor: COLORS.white,
-            borderRadius: 12,
-            borderWidth: 1,
-            borderColor: COLORS.border,
-            paddingHorizontal: 16,
-            marginBottom: 16
-          }}>
-            <Text style={{ fontSize: 20, marginRight: 8 }}>⚖️</Text>
-            <TextInput
-              style={{ flex: 1, fontSize: 16, color: COLORS.textDark, paddingVertical: 14 }}
-              placeholder="Ej. 70.5"
-              placeholderTextColor={COLORS.textLight}
-              keyboardType="numeric"
-              value={peso === 0 ? '' : peso.toString()} 
-              onChangeText={(val) => {
-                const textoLimpio = val.replace(',', '.');
-                
-                if (textoLimpio === '') {
-                  setPeso(0);
-                  return;
-                }
-
-                if (textoLimpio.endsWith('.')) {
-                  const num = parseFloat(textoLimpio);
-                  if (!isNaN(num)) setPeso(num);
-                  return;
-                }
-
-                const num = parseFloat(textoLimpio);
-                if (!isNaN(num)) {
-                  setPeso(num);
-                }
-              }}
-            />
-            <Text style={{ fontSize: 13, color: COLORS.textLight }}>{'kg'}</Text>
-          </View>
-          <TouchableOpacity style={[styles.confirmarBtn, { backgroundColor: '#25D366' }]} onPress={compartirWhatsApp}>
-            <Text style={styles.confirmarBtnText}>📲 Resumen por WhatsApp</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.confirmarBtn} onPress={ejecutarCierre}><Text style={styles.confirmarBtnText}>Confirmar y Concluir Turno</Text></TouchableOpacity>
-        </ScrollView>
       </View>
-    );
-  }
+      <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+
+        {/* CONDICIÓN DE ENTREGA */}
+        <Text style={styles.sectionTitle}>Condición de Entrega del Paciente</Text>
+        <View style={styles.estadoRow}>
+          {[{ val: 'bien', icon: '😊', label: 'Estable' }, { val: 'regular', icon: '😐', label: 'Regular' }].map((e) => (
+            <TouchableOpacity key={e.val} style={[styles.estadoCard, estadoPaciente === e.val && styles.estadoCardActive]} onPress={() => setEstadoPaciente(e.val)}>
+              <Text style={{ fontSize: 26 }}>{e.icon}</Text>
+              <Text style={[styles.estadoLabel, estadoPaciente === e.val && { color: COLORS.gold }]}>{e.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* PESO */}
+        <Text style={styles.sectionTitle}>Peso del paciente (kg)</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 16, marginBottom: 16 }}>
+          <Text style={{ fontSize: 20, marginRight: 8 }}>⚖️</Text>
+          <TextInput
+            style={{ flex: 1, fontSize: 16, color: COLORS.textDark, paddingVertical: 14 }}
+            placeholder="Ej. 70.5"
+            placeholderTextColor={COLORS.textLight}
+            keyboardType="numeric"
+            value={peso === 0 ? '' : peso.toString()}
+            onChangeText={(val) => {
+              const textoLimpio = val.replace(',', '.');
+              if (textoLimpio === '') { setPeso(0); return; }
+              if (textoLimpio.endsWith('.')) { const num = parseFloat(textoLimpio); if (!isNaN(num)) setPeso(num); return; }
+              const num = parseFloat(textoLimpio);
+              if (!isNaN(num)) setPeso(num);
+            }}
+          />
+          <Text style={{ fontSize: 13, color: COLORS.textLight }}>{'kg'}</Text>
+        </View>
+
+        {/* DOLOR EVA */}
+        <Text style={styles.sectionTitle}>{`Intensidad del Dolor (EVA): ${dolorEva}/10`}</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+          {[0,1,2,3,4,5,6,7,8,9,10].map(n => (
+            <TouchableOpacity
+              key={n}
+              style={{
+                width: 44, height: 44, borderRadius: 22,
+                borderWidth: 2,
+                borderColor: dolorEva === n ? COLORS.gold : COLORS.border,
+                backgroundColor: dolorEva === n ? COLORS.goldPale : COLORS.white,
+                justifyContent: 'center', alignItems: 'center'
+              }}
+              onPress={() => setDolorEva(n)}
+            >
+              <Text style={{ fontSize: 14, fontWeight: '700', color: dolorEva === n ? COLORS.gold : COLORS.textLight }}>{n}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* ESTADO DE ÁNIMO */}
+        <Text style={styles.sectionTitle}>Estado de ánimo</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+          {[
+            { val: 'tranquilo', icon: '😌' },
+            { val: 'ansioso', icon: '😰' },
+            { val: 'triste', icon: '😢' },
+            { val: 'agitado', icon: '😤' },
+            { val: 'confundido', icon: '😵' },
+            { val: 'alegre', icon: '😊' },
+          ].map(e => (
+            <TouchableOpacity
+              key={e.val}
+              style={{
+                paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
+                borderWidth: 1,
+                borderColor: estadoAnimo === e.val ? COLORS.gold : COLORS.border,
+                backgroundColor: estadoAnimo === e.val ? COLORS.goldPale : COLORS.white,
+              }}
+              onPress={() => setEstadoAnimo(e.val)}
+            >
+              <Text style={{ fontSize: 12, color: estadoAnimo === e.val ? COLORS.gold : COLORS.textLight }}>
+                {`${e.icon} ${e.val}`}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* HIDRATACIÓN */}
+        <Text style={styles.sectionTitle}>{`Hidratación: ${hidratacion} de 8 vasos`}</Text>
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+          {[1,2,3,4,5,6,7,8].map(n => (
+            <TouchableOpacity
+              key={n}
+              onPress={() => setHidratacion(hidratacion === n ? 0 : n)}
+              style={{ alignItems: 'center' }}
+            >
+              <Text style={{ fontSize: 28, opacity: hidratacion >= n ? 1 : 0.3 }}>💧</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* ALIMENTACIÓN */}
+        <Text style={styles.sectionTitle}>Alimentación</Text>
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+          {[
+            { val: 'completa', label: '🍽️ Completa' },
+            { val: 'parcial', label: '🥣 Parcial' },
+            { val: 'ninguna', label: '❌ Ninguna' },
+          ].map(a => (
+            <TouchableOpacity
+              key={a.val}
+              style={{
+                flex: 1, padding: 10, borderRadius: 10,
+                borderWidth: 1,
+                borderColor: alimentacion === a.val ? COLORS.green : COLORS.border,
+                backgroundColor: alimentacion === a.val ? COLORS.greenPale : COLORS.white,
+                alignItems: 'center'
+              }}
+              onPress={() => setAlimentacion(a.val)}
+            >
+              <Text style={{ fontSize: 11, color: alimentacion === a.val ? COLORS.green : COLORS.textLight, fontWeight: '700' }}>
+                {a.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* OBSERVACIONES */}
+        <Text style={styles.sectionTitle}>Observaciones del turno</Text>
+        <View style={{ backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 16, marginBottom: 16 }}>
+          <TextInput
+            style={{ fontSize: 14, color: COLORS.textDark, paddingVertical: 14, minHeight: 80, textAlignVertical: 'top' }}
+            placeholder="Comportamiento, incidencias, notas importantes..."
+            placeholderTextColor={COLORS.textLight}
+            multiline
+            value={observaciones}
+            onChangeText={setObservaciones}
+          />
+        </View>
+
+        <TouchableOpacity style={[styles.confirmarBtn, { backgroundColor: '#25D366' }]} onPress={compartirWhatsApp}>
+          <Text style={styles.confirmarBtnText}>{'📲 Resumen por WhatsApp'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.confirmarBtn} onPress={ejecutarCierre}>
+          <Text style={styles.confirmarBtnText}>{'Confirmar y Concluir Turno'}</Text>
+        </TouchableOpacity>
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </View>
+  );
+}
 
   return null;
 }
