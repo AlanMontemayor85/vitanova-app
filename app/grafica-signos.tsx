@@ -135,6 +135,8 @@ export default function GraficaSignosScreen() {
   const [pesoData, setPesoData] = useState<number[]>([]);
   const [pesoFechas, setPesoFechas] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  // ── FILTROS DE LA BITÁCORA ──
+  const [periodoFiltro, setPeriodoFiltro] = useState<'todos' | 'hoy' | 'semana'>('todos');
 
   useEffect(() => {
     const cargar = async () => {
@@ -175,6 +177,25 @@ export default function GraficaSignosScreen() {
   const temperaturaData = registrosTemp.map(r => r.temperatura) as number[];
   const tempFechas = registrosTemp.map(r => r.created_at);
 
+  // ── FILTRADO DINÁMICO DE LA BITÁCORA ──
+  const registrosBitacoraFiltrados = registros.filter(r => {
+    if (periodoFiltro === 'todos') return true;
+    
+    const fechaRegistro = new Date(r.created_at);
+    const ahora = new Date();
+    
+    if (periodoFiltro === 'hoy') {
+      return fechaRegistro.toDateString() === ahora.toDateString();
+    }
+    
+    if (periodoFiltro === 'semana') {
+      const haceUnaSemana = new Date();
+      haceUnaSemana.setDate(ahora.getDate() - 7);
+      return fechaRegistro >= haceUnaSemana;
+    }
+    
+    return true;
+  });
   
   if (loading) {
     return (
@@ -339,10 +360,35 @@ export default function GraficaSignosScreen() {
               </View>
             )}
 
-            {/* TABLA HISTÓRICA COMPLETA DE REGISTROS */}
+            {/* TABLA HISTÓRICA COMPLETA DE REGISTROS (CON FILTROS DINÁMICOS) */}
             <View style={styles.chartCard}>
-              <Text style={[styles.chartTitle, { marginBottom: 12 }]}>Bitácora de Monitoreo General</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                <Text style={styles.chartTitle}>Bitácora de Monitoreo General</Text>
+                
+                {/* Selector de Periodo Estilizado (Pills) */}
+                <View style={{ flexDirection: 'row', backgroundColor: COLORS.cream, borderRadius: 8, padding: 2, borderWidth: 1, borderColor: COLORS.border }}>
+                  {[
+                    { id: 'todos', label: 'Todos' },
+                    { id: 'hoy', label: 'Hoy' },
+                    { id: 'semana', label: '7 Días' },
+                  ].map((p) => (
+                    <TouchableOpacity
+                      key={p.id}
+                      onPress={() => setPeriodoFiltro(p.id as any)}
+                      style={{
+                        paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6,
+                        backgroundColor: periodoFiltro === p.id ? COLORS.gold : 'transparent',
+                      }}
+                    >
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: periodoFiltro === p.id ? COLORS.white : COLORS.textLight }}>
+                        {p.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
 
+              {/* Encabezados de la Tabla */}
               <View style={styles.historialHeaders}>
                 <Text style={[styles.historialHeaderText, { flex: 1.5, textAlign: 'left' }]}>Fecha/Hora</Text>
                 <Text style={styles.historialHeaderText}>SpO₂</Text>
@@ -352,31 +398,40 @@ export default function GraficaSignosScreen() {
                 <Text style={styles.historialHeaderText}>Peso</Text>
               </View>
 
+              {/* Cuerpo de la Tabla Dinámica */}
               <View style={{ marginTop: 4 }}>
-                {registros.slice(0, 10).map((r, i) => {
-                  const temp = leerTemperatura(r);
-                  return (
-                    <View key={i} style={styles.historialRow}>
-                      <View style={{ flex: 1.5 }}>
-                        <Text style={styles.historialFecha}>
-                          {new Date(r.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                {registrosBitacoraFiltrados.length === 0 ? (
+                  <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 12, color: COLORS.textLight, fontStyle: 'italic' }}>
+                      No hay registros en el periodo seleccionado.
+                    </Text>
+                  </View>
+                ) : (
+                  registrosBitacoraFiltrados.map((r, i) => {
+                    const temp = leerTemperatura(r);
+                    return (
+                      <View key={i} style={styles.historialRow}>
+                        <View style={{ flex: 1.5 }}>
+                          <Text style={styles.historialFecha}>
+                            {new Date(r.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </Text>
+                          <Text style={styles.historialCuidador}>
+                            {r.fuente === 'cuidador' 
+                              ? (r.usuarios?.nombre_completo?.split(' ')[0] ?? 'Cuidador')
+                              : '⌚ Reloj'}
+                          </Text>
+                        </View> 
+                        <Text style={styles.historialVal}>{r.spo2 ? `${r.spo2}%` : '—'}</Text>
+                        <Text style={styles.historialVal}>
+                          {r.presion_sistolica && r.presion_diastolica ? `${Math.round(r.presion_sistolica)}/${Math.round(r.presion_diastolica)}` : '—'}
                         </Text>
-                        <Text style={styles.historialCuidador}>
-                        {r.fuente === 'cuidador' 
-                          ? (r.usuarios?.nombre_completo?.split(' ')[0] ?? 'Cuidador')
-                          : '⌚ Reloj'}
-                      </Text>
-                      </View> 
-                      <Text style={styles.historialVal}>{r.spo2 ? `${r.spo2}%` : '—'}</Text>
-                      <Text style={styles.historialVal}>
-                        {r.presion_sistolica && r.presion_diastolica ? `${Math.round(r.presion_sistolica)}/${Math.round(r.presion_diastolica)}` : '—'}
-                      </Text>
-                      <Text style={styles.historialVal}>{r.frecuencia_cardiaca ?? '—'}</Text>
-                      <Text style={styles.historialVal}>{temp !== null ? `${temp.toFixed(1)}°` : '—'}</Text>
-                      <Text style={styles.historialVal}>{r.peso_kg ? `${r.peso_kg}k` : '—'}</Text>
-                    </View>
-                  );
-                })}
+                        <Text style={styles.historialVal}>{r.frecuencia_cardiaca ?? '—'}</Text>
+                        <Text style={styles.historialVal}>{temp !== null ? `${temp.toFixed(1)}°` : '—'}</Text>
+                        <Text style={styles.historialVal}>{r.peso_kg ? `${r.peso_kg}k` : '—'}</Text>
+                      </View>
+                    );
+                  })
+                )}
               </View>
             </View>
           </>
