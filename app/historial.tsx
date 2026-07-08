@@ -81,32 +81,130 @@ export default function HistorialScreen() {
   }, [pacienteId]);
 
   const generarPDF = async (c: any) => {
+    // 🎯 VALIDACIÓN DE SEGURIDAD: Tipamos como arreglo dinámico para apagar el rojo del filter
+    const tareasTrabajo = ((c?.tareas || []) as any[]).filter((t: any) => !(t.descripcion || '').startsWith('📝'));
+    const notasTurno = ((c?.tareas || []) as any[]).filter((t: any) => (t.descripcion || '').startsWith('📝'));
+
+    // Generamos las filas de la tabla de actividades planificadas de forma dinámica
+    const filasActividades = tareasTrabajo.map((t: any) => `
+      <tr style="border-bottom: 1px solid #E0D8CC;">
+        <td style="padding: 10px; font-size: 13px; font-weight: 600; color: #2C2820;">
+          ${t.tipo === 'medicamento' ? '💊' : t.tipo === 'rutina' ? '🚶' : '📋'} ${t.descripcion}
+        </td>
+        <td style="padding: 10px; font-size: 13px; text-align: center;">
+          ${t.completada ? '<span style="color: #3DAA6A; font-weight: 800;">✓ Completada</span>' : '<span style="color: #8A8078;">⏳ Pendiente</span>'}
+        </td>
+        <td style="padding: 10px; font-size: 13px; color: #8A8078; text-align: center;">
+          ${t.hora_completada ? formatHora(t.hora_completada) : '—'}
+        </td>
+      </tr>
+    `).join('');
+
     const html = `
+      <!DOCTYPE html>
       <html>
-      <body style="font-family: Arial; padding: 20px; color: #2C2820;">
-        <h2 style="color: #BF9A40;">Reporte de Turno — ${pacienteNombre}</h2>
-        <p><strong>Cuidador:</strong> ${c.usuarios?.nombre_completo ?? 'Personal Vitanova'}</p>
-        <p><strong>Fecha:</strong> ${formatFecha(c.created_at)}</p>
-        <p><strong>Estado:</strong> ${c.estado_paciente}</p>
-        <hr/>
-        <h3>Signos Vitales</h3>
-        <p>SpO₂: ${c.spo2 ?? '—'}% | Presión: ${c.presion_sistolica ?? '—'}/${c.presion_diastolica ?? '—'} mmHg | FC: ${c.frecuencia_cardiaca ?? '—'} bpm | Temp: ${c.temperatura ?? '—'}°C | Peso: ${c.peso_kg ?? '—'} kg</p>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 30px; color: #2C2820; background-color: #FAFAF7; }
+          .header-container { background-color: #4A4540; padding: 24px; border-radius: 14px; color: #FFFFFF; margin-bottom: 25px; }
+          .brand-title { font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: #BF9A40; margin-bottom: 4px; }
+          .main-title { font-size: 24px; font-weight: 800; margin: 0; padding-bottom: 4px; }
+          .meta-info { font-size: 13px; color: #E0D8CC; margin-top: 8px; line-height: 1.6; }
+          
+          .section-title { font-size: 14px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #8A8078; margin-top: 30px; margin-bottom: 12px; border-bottom: 2px solid #E0D8CC; padding-bottom: 6px; }
+          
+          .grid-container { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+          .metric-card { flex: 1; min-width: 130px; background-color: #FFFFFF; border: 1px solid #E0D8CC; border-radius: 10px; padding: 12px; text-align: center; }
+          .metric-val { font-size: 16px; font-weight: 800; color: #BF9A40; margin-bottom: 2px; }
+          .metric-label { font-size: 10px; font-weight: 700; color: #8A8078; text-transform: uppercase; }
+          
+          .data-table { width: 100%; border-collapse: collapse; background-color: #FFFFFF; border: 1px solid #E0D8CC; border-radius: 12px; overflow: hidden; margin-bottom: 25px; }
+          .data-table th { background-color: #F5EDD8; color: #4A4540; padding: 12px; font-size: 11px; font-weight: 800; text-transform: uppercase; text-align: left; letter-spacing: 1px; }
+          
+          .alert-box { background-color: #FFF4E0; border-left: 5px solid #D4860A; border-radius: 8px; padding: 16px; margin-top: 15px; }
+          .alert-title { font-size: 12px; font-weight: 800; color: #D4860A; text-transform: uppercase; margin-bottom: 6px; }
+          .alert-desc { font-size: 13px; color: #2C2820; margin: 0; line-height: 1.5; }
+        </style>
+      </head>
+      <body>
+
+        <div class="header-container">
+          <div class="brand-title">Vitanova Integralis — Telemetría Vital</div>
+          <h1 class="main-title">Reporte Clínico de Turno</h1>
+          <div class="meta-info">
+            <strong>Paciente:</strong> ${pacienteNombre}<br/>
+            <strong>Especialista/Cuidador:</strong> ${c.usuarios?.nombre_completo ?? 'Personal Vitanova'}<br/>
+            <strong>Fecha de Consolidación:</strong> ${formatFecha(c.created_at)}<br/>
+            <strong>Estado General Dictado:</strong> <span style="font-weight: 800; color: ${c.estado_paciente === 'bien' ? '#3DAA6A' : '#D94F4F'};">${c.estado_paciente?.toUpperCase()}</span>
+          </div>
+        </div>
+
+        <div class="section-title">Signos Vitales Consolidados</div>
+        <div class="grid-container">
+          <div class="metric-card"><div class="metric-val">${c.spo2 ? `${c.spo2}%` : '—'}</div><div class="metric-label">SpO₂</div></div>
+          <div class="metric-card"><div class="metric-val">${c.presion_sistolica && c.presion_diastolica ? `${Math.round(c.presion_sistolica)}/${Math.round(c.presion_diastolica)}` : '—'}</div><div class="metric-label">Presión (mmHg)</div></div>
+          <div class="metric-card"><div class="metric-val">${c.frecuencia_cardiaca ? `${c.frecuencia_cardiaca}` : '—'}</div><div class="metric-label">Pulso (bpm)</div></div>
+          <div class="metric-card"><div class="metric-val">${c.temperatura ? `${c.temperatura}°C` : '—'}</div><div class="metric-label">Temperatura</div></div>
+          <div class="metric-card"><div class="metric-val">${c.peso_kg ? `${c.peso_kg} kg` : '—'}</div><div class="metric-label">Peso</div></div>
+        </div>
+
         ${c.dolor_eva !== null && c.dolor_eva !== undefined ? `
-          <h3>Registro de Confort</h3>
-          <p>Dolor EVA: ${c.dolor_eva}/10 | Ánimo: ${c.estado_animo ?? '—'} | Hidratación: ${c.hidratacion_vasos ?? '—'} vasos | Alimentación: ${c.alimentacion ?? '—'}</p>
+          <div class="section-title">Evaluación de Confort Diario</div>
+          <div class="grid-container">
+            <div class="metric-card" style="border-top: 3px solid ${c.dolor_eva > 4 ? '#D94F4F' : '#3DAA6A'};"><div class="metric-val">${c.dolor_eva}/10</div><div class="metric-label">Dolor (EVA)</div></div>
+            <div class="metric-card"><div class="metric-val" style="text-transform: capitalize;">${c.estado_animo ?? '—'}</div><div class="metric-label">Estado de Ánimo</div></div>
+            <div class="metric-card"><div class="metric-val">${c.hidratacion_vasos ?? '0'} 💧</div><div class="metric-label">Hidratación</div></div>
+            <div class="metric-card"><div class="metric-val" style="text-transform: capitalize;">${c.alimentacion ?? '—'}</div><div class="metric-label">Alimentación</div></div>
+          </div>
         ` : ''}
-        ${c.observaciones ? `<p><strong>Observaciones:</strong> ${c.observaciones}</p>` : ''}
-        ${c.notas ? `<h3>Notas del turno</h3><p>${c.notas}</p>` : ''}
-        ${c.barthel_total !== null ? `<h3>Escalas Clínicas</h3><p>Barthel: ${c.barthel_total}/100 — ${c.barthel_label}</p>` : ''}
-        ${c.morse_total !== null ? `<p>Morse: ${c.morse_total} pts — ${c.morse_label}</p>` : ''}
+
+        ${tareasTrabajo.length > 0 ? `
+          <div class="section-title">Cronograma de Actividades y Controles</div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 55%;">Descripción de la Tarea</th>
+                <th style="width: 25%; text-align: center;">Estatus</th>
+                <th style="width: 20%; text-align: center;">Hora Ejecución</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filasActividades}
+            </tbody>
+          </table>
+        ` : ''}
+
+        ${c.observaciones || notasTurno.length > 0 || c.notes_consolidated ? `
+          <div class="section-title">Observaciones Especiales y Alertas</div>
+          
+          ${c.observaciones ? `
+            <div class="alert-box">
+              <div class="alert-title">🚨 Reporte de Anomalía o Alerta de Confort</div>
+              <p class="alert-desc">${c.observaciones}</p>
+            </div>
+          ` : ''}
+
+          ${notasTurno.length > 0 ? `
+            <div class="alert-box" style="background-color: #EEF3FC; border-left-color: #2D6BE4;">
+              <div class="alert-title" style="color: #2D6BE4;">📝 Notas de Evolución Clínicas</div>
+              <ul style="margin: 6px 0 0 0; padding-left: 20px; font-size: 13px; line-height: 1.6; color: #2C2820;">
+                ${notasTurno.map((n: any) => `<li>${String(n.descripcion || '').replace('📝 ', '')} (${formatHora(n.hora_completada)})</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+        ` : ''}
+
       </body>
       </html>
     `;
+
+    // 🎯 FIX: Se cierra correctamente la ejecución del PDF nativo
     try {
       const { uri } = await Print.printToFileAsync({ html });
       await Sharing.shareAsync(uri, { mimeType: 'application/pdf' });
     } catch (e) {
-      console.error(e);
+      console.error("❌ Error imprimiendo el archivo PDF:", e);
     }
   };
 
@@ -120,7 +218,7 @@ export default function HistorialScreen() {
       `Temp: ${c.temperatura ?? '—'}°C | Peso: ${c.peso_kg ?? '—'} kg\n\n` +
       (c.dolor_eva !== null && c.dolor_eva !== undefined ? `*Confort:*\nDolor: ${c.dolor_eva}/10 | Ánimo: ${c.estado_animo ?? '—'} | Hidratación: ${c.hidratacion_vasos ?? '—'} vasos\n\n` : '') +
       (c.observaciones ? `*Observaciones:* ${c.observaciones}\n` : '') +
-      (c.notas ? `*Notas:* ${c.notas}\n` : '');
+      (c.notas ? `*Notes:* ${c.notas}\n` : '');
     Linking.openURL(`whatsapp://send?text=${encodeURIComponent(texto)}`);
   };
 
@@ -132,10 +230,13 @@ export default function HistorialScreen() {
     );
   }
 
-  // Extracción controlada del registro activo bajo el índice asignado
+  // 🎯 VARIABLES GLOBALES DEL COMPONENTE: Única declaración limpia para el JSX
   const tieneRegistros = cierres.length > 0;
   const c = tieneRegistros ? cierres[indice] : null;
   const displayEstado = c ? (c.estado_paciente === 'bien' ? 'BIEN' : c.estado_paciente === 'preocupante' ? 'CRÍTICO' : 'REGULAR') : '';
+
+  const tareasTrabajoGlobal = c?.tareas ? (c.tareas as any[]).filter((t: any) => !(t.descripcion || '').startsWith('📝')) : [];
+  const notasTurnoGlobal = c?.tareas ? (c.tareas as any[]).filter((t: any) => (t.descripcion || '').startsWith('📝')) : [];
 
   // Filtrado controlado de subtareas de forma segura
   const tareasTrabajo = c?.tareas ? c.tareas.filter((t: any) => !(t.descripcion || '').startsWith('📝')) : [];
