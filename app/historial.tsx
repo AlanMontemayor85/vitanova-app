@@ -1,9 +1,11 @@
+import { Asset } from 'expo-asset';
 import * as Print from 'expo-print';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { loadStoredToken } from '../services/api';
+const { documentDirectory, moveAsync, readAsStringAsync } = require('expo-file-system/legacy');
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
@@ -81,7 +83,23 @@ export default function HistorialScreen() {
   }, [pacienteId]);
 
   const generarPDF = async (c: any) => {
-    // 🎯 VALIDACIÓN DE SEGURIDAD: Tipamos como arreglo dinámico para apagar el rojo del filter
+    // 🎯 1. LEER EL LOGO NATIVO AUTOMÁTICAMENTE Y PASARLO A BASE64
+    let logoBase64 = "";
+    try {
+      // Cargamos el módulo de la imagen desde tus carpetas de assets
+      const asset = Asset.fromModule(require('../assets/images/logo.png'));
+      await asset.downloadAsync(); // Aseguramos disponibilidad en el caché local
+      
+      if (asset.localUri) {
+        // Leemos el binario y lo transformamos en texto codificado Base64 en tiempo real
+        const base64Raw = await readAsStringAsync(asset.localUri, { encoding: 'base64' });
+        logoBase64 = `data:image/png;base64,${base64Raw}`;
+      }
+    } catch (err) {
+      console.error("⚠️ No se pudo procesar el logo para el PDF, se generará sin él:", err);
+    }
+
+    // 🎯 2. CLASIFICACIÓN DE TAREAS Y NOTAS (Mantiene tu validación existente)
     const tareasTrabajo = ((c?.tareas || []) as any[]).filter((t: any) => !(t.descripcion || '').startsWith('📝'));
     const notasTurno = ((c?.tareas || []) as any[]).filter((t: any) => (t.descripcion || '').startsWith('📝'));
 
@@ -100,6 +118,7 @@ export default function HistorialScreen() {
       </tr>
     `).join('');
 
+    // 🎯 3. ARQUITECTURA DEL HTML COMPLETO CON DISEÑO SIMÉTRICO Y CONDICIONALES
     const html = `
       <!DOCTYPE html>
       <html>
@@ -107,7 +126,21 @@ export default function HistorialScreen() {
         <meta charset="UTF-8">
         <style>
           body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 30px; color: #2C2820; background-color: #FAFAF7; }
-          .header-container { background-color: #4A4540; padding: 24px; border-radius: 14px; color: #FFFFFF; margin-bottom: 25px; }
+          
+          /* Contenedor Flexbox para alinear texto a la izquierda y el logotipo a la derecha */
+          .header-container { 
+            background-color: #4A4540; 
+            padding: 24px; 
+            border-radius: 14px; 
+            color: #FFFFFF; 
+            margin-bottom: 25px; 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          }
+          .header-text { flex: 1; }
+          .header-logo { width: 95px; height: auto; margin-left: 20px; object-fit: contain; }
+
           .brand-title { font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: #BF9A40; margin-bottom: 4px; }
           .main-title { font-size: 24px; font-weight: 800; margin: 0; padding-bottom: 4px; }
           .meta-info { font-size: 13px; color: #E0D8CC; margin-top: 8px; line-height: 1.6; }
@@ -130,14 +163,18 @@ export default function HistorialScreen() {
       <body>
 
         <div class="header-container">
-          <div class="brand-title">Vitanova Integralis — Telemetría Vital</div>
-          <h1 class="main-title">Reporte Clínico de Turno</h1>
-          <div class="meta-info">
-            <strong>Paciente:</strong> ${pacienteNombre}<br/>
-            <strong>Especialista/Cuidador:</strong> ${c.usuarios?.nombre_completo ?? 'Personal Vitanova'}<br/>
-            <strong>Fecha de Consolidación:</strong> ${formatFecha(c.created_at)}<br/>
-            <strong>Estado General Dictado:</strong> <span style="font-weight: 800; color: ${c.estado_paciente === 'bien' ? '#3DAA6A' : '#D94F4F'};">${c.estado_paciente?.toUpperCase()}</span>
+          <div class="header-text">
+            <div class="brand-title">Vitanova Integralis — Telemetría Vital</div>
+            <h1 class="main-title">Reporte Clínico de Turno</h1>
+            <div class="meta-info">
+              <strong>Paciente:</strong> ${pacienteNombre}<br/>
+              <strong>Especialista/Cuidador:</strong> ${c.usuarios?.nombre_completo ?? 'Personal Vitanova'}<br/>
+              <strong>Fecha de Consolidación:</strong> ${formatFecha(c.created_at)}<br/>
+              <strong>Estado General Dictado:</strong> <span style="font-weight: 800; color: ${c.estado_paciente === 'bien' ? '#3DAA6A' : '#D94F4F'};">${c.estado_paciente?.toUpperCase()}</span>
+            </div>
           </div>
+          
+          ${logoBase64 ? `<img class="header-logo" src="${logoBase64}" alt="Logo Vitanova" />` : ''}
         </div>
 
         <div class="section-title">Signos Vitales Consolidados</div>
@@ -160,7 +197,7 @@ export default function HistorialScreen() {
         ` : ''}
 
         ${tareasTrabajo.length > 0 ? `
-          <div class="section-title">Cronograma de Actividades y Controles</div>
+          <div class="section-title">Cronograma de Actividades and Controles</div>
           <table class="data-table">
             <thead>
               <tr>
@@ -199,12 +236,38 @@ export default function HistorialScreen() {
       </html>
     `;
 
-    // 🎯 FIX: Se cierra correctamente la ejecución del PDF nativo
+    // 🎯 4. PROCESO DE RENDERIZADO, RENOMBRADO FORMAL Y COMPARTIR
     try {
+      // Impresión a archivo temporal
       const { uri } = await Print.printToFileAsync({ html });
-      await Sharing.shareAsync(uri, { mimeType: 'application/pdf' });
+      
+      // Sanitizamos el nombre real de la paciente de forma estricta
+      const nombreSanitizado = (pacienteNombre || 'paciente')
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // Limpia acentos de español
+        .replace(/[^a-zA-Z0-9_]/g, '') // Elimina caracteres especiales
+        .replace(/\s+/g, '_'); // Reemplaza espacios por guiones bajos
+
+      // Creamos la ruta de destino nítida
+      const targetPath = `${documentDirectory}reporte_clinico_${nombreSanitizado}.pdf`;
+
+      // Mudamos el archivo al búnker final con su nombre correcto
+      await moveAsync({ 
+        from: uri, 
+        to: targetPath 
+      });
+
+      console.log("📥 PDF Clínico renombrado con éxito en:", targetPath);
+
+      // Lanzamos la ventana nativa de compartir
+      await Sharing.shareAsync(targetPath, { 
+        mimeType: 'application/pdf',
+        dialogTitle: `Reporte Clínico de Turno — ${pacienteNombre}`
+      });
+
     } catch (e) {
-      console.error("❌ Error imprimiendo el archivo PDF:", e);
+      console.error("❌ Error imprimiendo o renombrando el archivo PDF:", e);
+      Alert.alert("Error de Impresión", "Hubo un fallo al compilar el reporte clínico.");
     }
   };
 
