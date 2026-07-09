@@ -1,4 +1,4 @@
-const { documentDirectory, downloadAsync } = require('expo-file-system');
+const { documentDirectory, downloadAsync } = require('expo-file-system/legacy');
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useEffect, useState } from 'react';
@@ -151,7 +151,7 @@ export default function GraficaSignosScreen() {
     try {
       const url = `${BASE_URL}/pacientes/${pacienteId}/exportar-bitacora-analitica`;
       
-      // 🎯 Usamos el método directo que ya tienes en tu línea 6:
+      // Ahora se leen de la API de legado de Expo v54 de forma transparente
       const targetPath = `${documentDirectory}analitica_signos_${pacienteId}.csv`;
       const token = await loadStoredToken(); 
       
