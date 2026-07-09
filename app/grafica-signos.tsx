@@ -398,7 +398,7 @@ export default function GraficaSignosScreen() {
                 <Text style={styles.historialHeaderText}>Peso</Text>
               </View>
 
-              {/* Cuerpo de la Tabla Dinámica */}
+             {/* Cuerpo de la Tabla Dinámica */}
               <View style={{ marginTop: 4 }}>
                 {registrosBitacoraFiltrados.length === 0 ? (
                   <View style={{ paddingVertical: 20, alignItems: 'center' }}>
@@ -408,31 +408,63 @@ export default function GraficaSignosScreen() {
                   </View>
                 ) : (
                   registrosBitacoraFiltrados.map((r, i) => {
-                    const temp = leerTemperatura(r);
+                    const temp = r.temperatura !== null && r.temperatura !== undefined ? r.temperatura : null;
+                    
+                    // Flags de honestidad clínica del backend
+                    const esReloj = r.fuente === 'reloj';
+                    const spo2Heredado = esReloj && r.spo2_heredado;
+                    const presionHeredada = esReloj && r.presion_heredado;
+                    const fcHeredado = esReloj && r.fc_heredado;
+                    const tempHeredada = esReloj && r.temp_heredado;
+
                     return (
                       <View key={i} style={styles.historialRow}>
+                        {/* Fecha y Operador */}
                         <View style={{ flex: 1.5 }}>
                           <Text style={styles.historialFecha}>
                             {new Date(r.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                           </Text>
-                          <Text style={styles.historialCuidador}>
+                          <Text style={[styles.historialCuidador, !esReloj && { color: COLORS.green, fontWeight: '700' }]}>
                             {r.fuente === 'cuidador' 
-                              ? (r.usuarios?.nombre_completo?.split(' ')[0] ?? 'Cuidador')
+                              ? `👤 ${r.usuarios?.nombre_completo?.split(' ')[0] ?? 'Personal'}`
                               : '⌚ Reloj'}
                           </Text>
                         </View> 
-                        <Text style={styles.historialVal}>{r.spo2 ? `${r.spo2}%` : '—'}</Text>
-                        <Text style={styles.historialVal}>
-                          {r.presion_sistolica && r.presion_diastolica ? `${Math.round(r.presion_sistolica)}/${Math.round(r.presion_diastolica)}` : '—'}
+
+                        {/* SpO2 */}
+                        <Text style={[styles.historialVal, spo2Heredado ? { color: COLORS.textLight, opacity: 0.4, fontWeight: '400' } : null]}>
+                          {r.spo2 ? `${r.spo2}%${spo2Heredado ? '*' : ''}` : '—'}
                         </Text>
-                        <Text style={styles.historialVal}>{r.frecuencia_cardiaca ?? '—'}</Text>
-                        <Text style={styles.historialVal}>{temp !== null ? `${temp.toFixed(1)}°` : '—'}</Text>
+
+                        {/* Presión Arterial */}
+                        <Text style={[styles.historialVal, presionHeredada ? { color: COLORS.textLight, opacity: 0.4, fontWeight: '400' } : null]}>
+                          {r.presion_sistolica && r.presion_diastolica 
+                            ? `${Math.round(r.presion_sistolica)}/${Math.round(r.presion_diastolica)}${presionHeredada ? '*' : ''}` 
+                            : '—'}
+                        </Text>
+
+                        {/* Frecuencia Cardíaca */}
+                        <Text style={[styles.historialVal, fcHeredado ? { color: COLORS.textLight, opacity: 0.4, fontWeight: '400' } : null]}>
+                          {r.frecuencia_cardiaca ? `${r.frecuencia_cardiaca}${fcHeredado ? '*' : ''}` : '—'}
+                        </Text>
+
+                        {/* Temperatura */}
+                        <Text style={[styles.historialVal, tempHeredada ? { color: COLORS.textLight, opacity: 0.4, fontWeight: '400' } : null]}>
+                          {temp !== null ? `${temp.toFixed(1)}°${tempHeredada ? '*' : ''}` : '—'}
+                        </Text>
+
+                        {/* Peso */}
                         <Text style={styles.historialVal}>{r.peso_kg ? `${r.peso_kg}k` : '—'}</Text>
                       </View>
                     );
                   })
                 )}
               </View>
+
+              {/* Nota de Deslinde Regulativo y Metodología */}
+              <Text style={{ fontSize: 9, color: COLORS.textLight, fontStyle: 'italic', marginTop: 12, paddingHorizontal: 4, lineHeight: 12 }}>
+                * Los valores atenuados con asterisco (*) denotan arrastre del Último Valor Conocido (LOCF) para fines de continuidad hemodinámica.
+              </Text>
             </View>
           </>
         )}
@@ -442,6 +474,8 @@ export default function GraficaSignosScreen() {
     </View>
   );
 }
+
+// ── EL MAPA DE ESTILOS (styles = StyleSheet.create) SIGUE ABAJO EXACTAMENTE IGUAL...
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.cream },
