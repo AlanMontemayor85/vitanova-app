@@ -1,8 +1,9 @@
+const { documentDirectory, downloadAsync } = require('expo-file-system');
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Linking, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getSignosVitalesHistorico } from '../services/api';
-
+import { ActivityIndicator, Alert, Dimensions, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { getSignosVitalesHistorico, loadStoredToken } from '../services/api';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 const { width } = Dimensions.get('window');
@@ -148,20 +149,43 @@ export default function GraficaSignosScreen() {
   
   const handleExportarCSV = async () => {
     try {
-      // 🎯 Concatenación robusta usando tu BASE_URL real de Railway
       const url = `${BASE_URL}/pacientes/${pacienteId}/exportar-bitacora-analitica`;
       
-      console.log("🔗 Disparando descarga analítica a:", url);
+      // 🎯 Usamos el método directo que ya tienes en tu línea 6:
+      const targetPath = `${documentDirectory}analitica_signos_${pacienteId}.csv`;
+      const token = await loadStoredToken(); 
       
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert("Error", "No se pudo abrir la URL de descarga en el navegador.");
+      if (!token) {
+        Alert.alert("Sesión Expirada", "No se encontró un token válido. Por favor, inicia sesión nuevamente.");
+        return;
       }
+
+      console.log("📥 Descargando bitácora cifrada a:", targetPath);
+
+      const downloadResult = await downloadAsync(url, targetPath, {
+        headers: { 
+          'Authorization': `Bearer ${token}` 
+        },
+      });
+
+      if (downloadResult.status !== 200) {
+        throw new Error(`Error en servidor. Código: ${downloadResult.status}`);
+      }
+
+      const puedeCompartir = await Sharing.isAvailableAsync();
+      if (!puedeCompartir) {
+        Alert.alert("Error", "Compartir archivos no está habilitado en este dispositivo.");
+        return;
+      }
+
+      await Sharing.shareAsync(downloadResult.uri, { 
+        mimeType: 'text/csv', 
+        dialogTitle: 'Reporte de Auditoría Analítica — Vitanova' 
+      });
+
     } catch (error) {
-      console.error("❌ Error al exportar:", error);
-      Alert.alert("Error", "Hubo un problema al intentar conectarse al servidor de Railway.");
+      console.error("❌ Error en el proceso de exportación:", error);
+      Alert.alert("Falla de Descarga", "Hubo un problema al intentar conectarse al servidor de Railway.");
     }
   };
   useEffect(() => {
