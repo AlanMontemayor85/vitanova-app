@@ -152,7 +152,7 @@ export default function GraficaSignosScreen() {
       const url = `${BASE_URL}/pacientes/${pacienteId}/exportar-bitacora-analitica`;
       
       // Ahora se leen de la API de legado de Expo v54 de forma transparente
-      const targetPath = `${documentDirectory}analitica_signos_${pacienteId}.csv`;
+      const targetPath = `${documentDirectory}auditoria_clinica_${pacienteNombre || pacienteId}.csv`;
       const token = await loadStoredToken(); 
       
       if (!token) {
