@@ -1,8 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Dimensions, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Linking, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getSignosVitalesHistorico } from '../services/api';
 
+
+const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 const { width } = Dimensions.get('window');
 const CHART_WIDTH = width - 48;
 const CHART_HEIGHT = 120;
@@ -67,7 +69,9 @@ function MiniChart({
         </Text>
         <Text style={{ fontSize: 18, color: enAlerta ? COLORS.red : COLORS.textLight }}>{tendencia}</Text>
       </View>
-      <View style={{ height: CHART_HEIGHT, position: 'relative' }}>
+      
+      <View style={{ height: CHART_HEIGHT, position: 'relative', backgroundColor: 'rgba(0,0,0,0.01)', borderRadius: 6, overflow: 'hidden' }}>
+        {/* Línea de Alerta Médica */}
         {alerta && (
           <View style={{
             position: 'absolute',
@@ -75,12 +79,14 @@ function MiniChart({
             top: CHART_HEIGHT - ((alerta - min) / rango) * CHART_HEIGHT,
             height: 1,
             backgroundColor: COLORS.red,
-            opacity: 0.4,
+            opacity: 0.3,
             zIndex: 1
           }} />
         )}
+
         {puntos.map((p, i) => (
           <View key={i}>
+            {/* Renderizado de Línea Conectora */}
             {i > 0 && (() => {
               const prev = puntos[i - 1];
               const dx = p.x - prev.x;
@@ -93,29 +99,33 @@ function MiniChart({
                   left: prev.x,
                   top: prev.y,
                   width: len,
-                  height: 2,
+                  height: 1.5, // 👑 Línea más delgada y estilizada de grado ejecutivo
                   backgroundColor: color,
-                  opacity: 0.7,
+                  opacity: 0.8,
                   transform: [{ rotate: `${angle}deg` }],
                   transformOrigin: '0 0',
                 }} />
               );
             })()}
+
+            {/* 👑 NODOS MINIMALISTAS: Puntos ultra pequeños (4x4) para evitar plastas gruesas */}
             <View style={{
               position: 'absolute',
-              left: p.x - 4,
-              top: p.y - 4,
-              width: 8, height: 8,
-              borderRadius: 4,
+              left: p.x - 2,
+              top: p.y - 2,
+              width: 4, 
+              height: 4,
+              borderRadius: 2,
               backgroundColor: i === puntos.length - 1 ? color : COLORS.white,
-              borderWidth: 2,
+              borderWidth: 1,
               borderColor: color,
               zIndex: 2
             }} />
           </View>
         ))}
       </View>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+      
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
         <Text style={{ fontSize: 9, color: COLORS.textLight }}>{fechaInicialStr}</Text>
         <Text style={{ fontSize: 9, color: COLORS.textLight }}>Último registro</Text>
       </View>
@@ -129,26 +139,41 @@ export default function GraficaSignosScreen() {
   const pacienteId = params.pacienteId as string;
   const pacienteNombre = params.pacienteNombre as string;
 
-  // ── ESTADOS ── todos juntos arriba
   const [registros, setRegistros] = useState<any[]>([]);
   const [registrosTemp, setRegistrosTemp] = useState<any[]>([]);
   const [pesoData, setPesoData] = useState<number[]>([]);
   const [pesoFechas, setPesoFechas] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  // ── FILTROS DE LA BITÁCORA ──
   const [periodoFiltro, setPeriodoFiltro] = useState<'todos' | 'hoy' | 'semana'>('todos');
-
+  
+  const handleExportarCSV = async () => {
+    try {
+      // 🎯 Concatenación robusta usando tu BASE_URL real de Railway
+      const url = `${BASE_URL}/pacientes/${pacienteId}/exportar-bitacora-analitica`;
+      
+      console.log("🔗 Disparando descarga analítica a:", url);
+      
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert("Error", "No se pudo abrir la URL de descarga en el navegador.");
+      }
+    } catch (error) {
+      console.error("❌ Error al exportar:", error);
+      Alert.alert("Error", "Hubo un problema al intentar conectarse al servidor de Railway.");
+    }
+  };
   useEffect(() => {
     const cargar = async () => {
       try {
         const data = await getSignosVitalesHistorico(pacienteId, 14);
-        console.log("📊 RESPUESTA HISTORICO:", JSON.stringify(data));
         if (data.registros) setRegistros(data.registros);
-        if (data.registros_temperatura) setRegistrosTemp(data.registros_temperatura);  // ← nuevo
+        if (data.registros_temperatura) setRegistrosTemp(data.registros_temperatura);
         if (data.registros_peso) {
-        setPesoData(data.registros_peso.map((r: any) => r.peso_kg));
-        setPesoFechas(data.registros_peso.map((r: any) => r.created_at));
-}
+          setPesoData(data.registros_peso.map((r: any) => r.peso_kg));
+          setPesoFechas(data.registros_peso.map((r: any) => r.created_at));
+        }
       } catch (e) {
         console.error("Error cargando histórico clínico:", e);
       } finally {
@@ -158,7 +183,6 @@ export default function GraficaSignosScreen() {
     cargar();
   }, [pacienteId]);
 
-   // ── MAPEOS ──
   const registrosFiltrados = [...registros].reverse();
 
   const registrosSpo2 = registrosFiltrados.filter(r => r.spo2 !== null && r.spo2 !== undefined);
@@ -177,23 +201,16 @@ export default function GraficaSignosScreen() {
   const temperaturaData = registrosTemp.map(r => r.temperatura) as number[];
   const tempFechas = registrosTemp.map(r => r.created_at);
 
-  // ── FILTRADO DINÁMICO DE LA BITÁCORA ──
   const registrosBitacoraFiltrados = registros.filter(r => {
     if (periodoFiltro === 'todos') return true;
-    
     const fechaRegistro = new Date(r.created_at);
     const ahora = new Date();
-    
-    if (periodoFiltro === 'hoy') {
-      return fechaRegistro.toDateString() === ahora.toDateString();
-    }
-    
+    if (periodoFiltro === 'hoy') return fechaRegistro.toDateString() === ahora.toDateString();
     if (periodoFiltro === 'semana') {
       const haceUnaSemana = new Date();
       haceUnaSemana.setDate(ahora.getDate() - 7);
       return fechaRegistro >= haceUnaSemana;
     }
-    
     return true;
   });
   
@@ -231,23 +248,24 @@ export default function GraficaSignosScreen() {
           </View>
         ) : (
           <>
-            {/* GRÁFICA SPO2 */}
+            {/* GRÁFICA SPO2 (ZOOM PARA DETECTAR CAÍDAS SUTILES) */}
             {spo2Data.length > 0 && (
               <View style={styles.chartCard}>
                 <View style={styles.chartHeader}>
                   <Text style={styles.chartTitle}>Saturación de Oxígeno (SpO₂)</Text>
                   <View style={[styles.chartBadge, { backgroundColor: COLORS.goldPale }]}>
-                    <Text style={[styles.chartBadgeText, { color: COLORS.gold }]}>Línea de Alerta: 92%</Text>
+                    <Text style={[styles.chartBadgeText, { color: COLORS.gold }]}>Alerta: 92%</Text>
                   </View>
                 </View>
                 <MiniChart
-                datos={spo2Data}
-                fechas={spo2Fechas} // ✅ Fechas exclusivas de oxígeno
-                color={COLORS.gold}
-                min={85} max={100}
-                unidad="%"
-                alerta={92}
-              />
+                  datos={spo2Data}
+                  fechas={spo2Fechas}
+                  color={COLORS.gold}
+                  min={Math.min(...spo2Data) - 1 < 88 ? Math.min(...spo2Data) - 1 : 88} 
+                  max={100}
+                  unidad="%"
+                  alerta={92}
+                />
                 {spo2Data[spo2Data.length - 1] < 92 && (
                   <View style={[styles.alertaBanner, { backgroundColor: COLORS.redPale }]}>
                     <Text style={{ fontSize: 11, color: COLORS.red, fontWeight: '700' }}>
@@ -272,10 +290,10 @@ export default function GraficaSignosScreen() {
                     <Text style={styles.chartSubtitle}>Sistólica</Text>
                     <MiniChart
                       datos={sstolicaData}
-                      fechas={presionFechas} // ✅ Fechas exclusivas de PA
+                      fechas={presionFechas}
                       color={COLORS.red}
-                      min={Math.min(...sstolicaData) - 10}
-                      max={Math.max(...sstolicaData) + 10}
+                      min={Math.min(...sstolicaData) - 5}
+                      max={Math.max(...sstolicaData) + 5}
                       unidad=" mmHg"
                       alerta={140}
                     />
@@ -284,10 +302,10 @@ export default function GraficaSignosScreen() {
                     <Text style={styles.chartSubtitle}>Diastólica</Text>
                     <MiniChart
                       datos={dstolicaData}
-                      fechas={presionFechas} // ✅ Fechas exclusivas de PA (Mismo match temporal)
+                      fechas={presionFechas}
                       color={COLORS.amber}
-                      min={Math.min(...dstolicaData) - 10}
-                      max={Math.max(...dstolicaData) + 10}
+                      min={Math.min(...dstolicaData) - 5}
+                      max={Math.max(...dstolicaData) + 5}
                       unidad=" mmHg"
                       alerta={90}
                     />
@@ -302,46 +320,45 @@ export default function GraficaSignosScreen() {
                 <View style={styles.chartHeader}>
                   <Text style={styles.chartTitle}>Frecuencia Cardíaca (Pulso)</Text>
                   <View style={[styles.chartBadge, { backgroundColor: COLORS.redPale }]}>
-                    <Text style={[styles.chartBadgeText, { color: COLORS.red }]}>Umbral de Alerta: 100 bpm</Text>
+                    <Text style={[styles.chartBadgeText, { color: COLORS.red }]}>Alerta: 100 bpm</Text>
                   </View>
                 </View>
                 <MiniChart
-              datos={fcData}
-              fechas={fcFechas} // ✅ Fechas exclusivas de pulso
-              color={COLORS.red}
-              min={40} max={140}
-              unidad=" bpm"
-              alerta={100}
-            />
+                  datos={fcData}
+                  fechas={fcFechas}
+                  color={COLORS.red}
+                  min={Math.min(...fcData) - 10 < 50 ? Math.min(...fcData) - 10 : 50} 
+                  max={Math.max(...fcData) + 10 > 120 ? Math.max(...fcData) + 10 : 120}
+                  unidad=" bpm"
+                  alerta={100}
+                />
               </View>
             )}
 
-            {/* 🟢 GRÁFICA TEMPERATURA CORPORAL */}
-            <View style={styles.chartCard}>
-              <View style={styles.chartHeader}>
-                <Text style={styles.chartTitle}>Temperatura Corporal</Text>
-                <View style={[styles.chartBadge, { backgroundColor: COLORS.amberPale }]}>
-                  <Text style={[styles.chartBadgeText, { color: COLORS.amber }]}>Umbral Febril: 37.8°</Text>
+            {/* 👑 GRÁFICA TEMPERATURA CORPORAL RE-CALIBRADA DE GRADO CLÍNICO */}
+            {temperaturaData.length > 0 && (
+              <View style={styles.chartCard}>
+                <View style={styles.chartHeader}>
+                  <Text style={styles.chartTitle}>Temperatura Corporal</Text>
+                  <View style={[styles.chartBadge, { backgroundColor: COLORS.amberPale }]}>
+                    <Text style={[styles.chartBadgeText, { color: COLORS.amber }]}>Umbral Febril: 37.8°</Text>
+                  </View>
                 </View>
+                <MiniChart
+                  datos={temperaturaData}
+                  fechas={tempFechas}
+                  color={COLORS.amber}
+                  // 🎯 EL TRUCO DEL ZOOM: El eje Y se estira dinámicamente según las décimas reales del paciente
+                  min={Math.min(...temperaturaData) - 0.3}
+                  max={Math.max(...temperaturaData) + 0.3 > 38.5 ? Math.max(...temperaturaData) + 0.3 : 38.5}
+                  unidad="°C"
+                  alerta={37.8}
+                />
+                <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 8, fontStyle: 'italic' }}>
+                  ⏱️ Temperatura medida bajo demanda cada ~30 min. Los valores intermedios no son interpolados.
+                </Text>
               </View>
-              <MiniChart
-                datos={registrosTemp.map(r => r.temperatura)}
-                fechas={registrosTemp.map(r => r.created_at)}
-                color={COLORS.amber}
-                min={34} max={41}
-                unidad="°C"
-                alerta={37.8}
-              />
-              {/* Disclaimer */}
-              <Text style={{ 
-                fontSize: 9, 
-                color: COLORS.textLight, 
-                marginTop: 8,
-                fontStyle: 'italic'
-              }}>
-                ⏱️ Temperatura medida bajo demanda cada ~30 min. Los valores intermedios no son interpolados.
-              </Text>
-            </View>
+            )}
 
             {/* GRÁFICA PESO */}
             {pesoData.length > 0 && (
@@ -351,10 +368,10 @@ export default function GraficaSignosScreen() {
                 </View>
                 <MiniChart
                   datos={pesoData}
-                  fechas={pesoFechas} // ✅ Fechas exclusivas de peso
+                  fechas={pesoFechas}
                   color={COLORS.cacao}
-                  min={Math.min(...pesoData) - 4}
-                  max={Math.max(...pesoData) + 4}
+                  min={Math.min(...pesoData) - 2}
+                  max={Math.max(...pesoData) + 2}
                   unidad=" kg"
                 />
               </View>
@@ -386,6 +403,46 @@ export default function GraficaSignosScreen() {
                     </TouchableOpacity>
                   ))}
                 </View>
+              </View>
+
+              {/* Botón de Exportación Analítica */}
+              <TouchableOpacity 
+                onPress={handleExportarCSV}
+                style={{
+                  backgroundColor: COLORS.cream,
+                  borderWidth: 1,
+                  borderColor: COLORS.gold,
+                  paddingVertical: 6,
+                  paddingHorizontal: 12,
+                  borderRadius: 6,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  marginBottom: 16,
+                  width: '100%'
+                }}
+              >
+                <Text style={{ fontSize: 12 }}>📥</Text>
+                <Text style={{ color: COLORS.gold, fontSize: 11, fontWeight: '700' }}>
+                  Exportar Excel
+                </Text>
+              </TouchableOpacity>
+
+              {/* 👑 ENCABEZADOS DE COLUMNA */}
+              <View style={{ 
+                flexDirection: 'row', 
+                borderBottomWidth: 1, 
+                borderBottomColor: COLORS.border, 
+                paddingBottom: 6, 
+                marginBottom: 8 
+              }}>
+                <Text style={{ flex: 1.2, fontSize: 10, fontWeight: '700', color: COLORS.textLight }}>Fecha/Hora</Text>
+                <Text style={{ flex: 0.8, fontSize: 10, fontWeight: '700', color: COLORS.textLight, textAlign: 'center' }}>SpO₂</Text>
+                <Text style={{ flex: 1.1, fontSize: 10, fontWeight: '700', color: COLORS.textLight, textAlign: 'center' }}>Presión A.</Text>
+                <Text style={{ flex: 0.7, fontSize: 10, fontWeight: '700', color: COLORS.textLight, textAlign: 'center' }}>FC</Text>
+                <Text style={{ flex: 0.8, fontSize: 10, fontWeight: '700', color: COLORS.textLight, textAlign: 'center' }}>Temp</Text>
+                <Text style={{ flex: 0.8, fontSize: 10, fontWeight: '700', color: COLORS.textLight, textAlign: 'center' }}>Peso</Text>
               </View>
 
               {/* Cuerpo de la Tabla Dinámica */}
