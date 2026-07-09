@@ -139,7 +139,14 @@ export default function HistorialScreen() {
             align-items: center;
           }
           .header-text { flex: 1; }
-          .header-logo { width: 95px; height: auto; margin-left: 20px; object-fit: contain; }
+          /* 🎯 Incrementamos el tamaño del logo y ajustamos su centrado */
+          .header-logo { 
+            width: 140px;          /* Subimos de 95px a 140px para que destaque */
+            height: auto; 
+            margin-left: 20px; 
+            object-fit: contain; 
+            max-height: 120px;     /* Ponemos un tope para que no sature el contenedor */
+          }
 
           .brand-title { font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: #BF9A40; margin-bottom: 4px; }
           .main-title { font-size: 24px; font-weight: 800; margin: 0; padding-bottom: 4px; }
