@@ -388,17 +388,7 @@ export default function GraficaSignosScreen() {
                 </View>
               </View>
 
-              {/* Encabezados de la Tabla */}
-              <View style={styles.historialHeaders}>
-                <Text style={[styles.historialHeaderText, { flex: 1.5, textAlign: 'left' }]}>Fecha/Hora</Text>
-                <Text style={styles.historialHeaderText}>SpO₂</Text>
-                <Text style={styles.historialHeaderText}>P.A.</Text>
-                <Text style={styles.historialHeaderText}>FC</Text>
-                <Text style={styles.historialHeaderText}>Temp</Text>
-                <Text style={styles.historialHeaderText}>Peso</Text>
-              </View>
-
-             {/* Cuerpo de la Tabla Dinámica */}
+              {/* Cuerpo de la Tabla Dinámica */}
               <View style={{ marginTop: 4 }}>
                 {registrosBitacoraFiltrados.length === 0 ? (
                   <View style={{ paddingVertical: 20, alignItems: 'center' }}>
@@ -431,25 +421,25 @@ export default function GraficaSignosScreen() {
                           </Text>
                         </View> 
 
-                        {/* SpO2 */}
-                        <Text style={[styles.historialVal, spo2Heredado ? { color: COLORS.textLight, opacity: 0.4, fontWeight: '400' } : null]}>
+                        {/* SpO2 - Mismo estilo, solo añade el asterisco si es heredado */}
+                        <Text style={styles.historialVal}>
                           {r.spo2 ? `${r.spo2}%${spo2Heredado ? '*' : ''}` : '—'}
                         </Text>
 
                         {/* Presión Arterial */}
-                        <Text style={[styles.historialVal, presionHeredada ? { color: COLORS.textLight, opacity: 0.4, fontWeight: '400' } : null]}>
+                        <Text style={styles.historialVal}>
                           {r.presion_sistolica && r.presion_diastolica 
                             ? `${Math.round(r.presion_sistolica)}/${Math.round(r.presion_diastolica)}${presionHeredada ? '*' : ''}` 
                             : '—'}
                         </Text>
 
                         {/* Frecuencia Cardíaca */}
-                        <Text style={[styles.historialVal, fcHeredado ? { color: COLORS.textLight, opacity: 0.4, fontWeight: '400' } : null]}>
+                        <Text style={styles.historialVal}>
                           {r.frecuencia_cardiaca ? `${r.frecuencia_cardiaca}${fcHeredado ? '*' : ''}` : '—'}
                         </Text>
 
                         {/* Temperatura */}
-                        <Text style={[styles.historialVal, tempHeredada ? { color: COLORS.textLight, opacity: 0.4, fontWeight: '400' } : null]}>
+                        <Text style={styles.historialVal}>
                           {temp !== null ? `${temp.toFixed(1)}°${tempHeredada ? '*' : ''}` : '—'}
                         </Text>
 
@@ -463,7 +453,7 @@ export default function GraficaSignosScreen() {
 
               {/* Nota de Deslinde Regulativo y Metodología */}
               <Text style={{ fontSize: 9, color: COLORS.textLight, fontStyle: 'italic', marginTop: 12, paddingHorizontal: 4, lineHeight: 12 }}>
-                * Los valores atenuados con asterisco (*) denotan arrastre del Último Valor Conocido (LOCF) para fines de continuidad hemodinámica.
+                * Los valores con asterisco (*) denotan arrastre del Último Valor Conocido (LOCF) para fines de continuidad hemodinámica.
               </Text>
             </View>
           </>
