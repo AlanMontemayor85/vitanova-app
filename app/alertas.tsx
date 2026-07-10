@@ -83,8 +83,14 @@ export default function AlertasScreen() {
   // (Asegúrate de definir 'userRol' arriba mediante un estado o constante fija)
   
 
+  // 🎯 FILTRADO OPERATIVO: Ocultamos la auditoría (batería + 🔐) y turnos (retiro + ⏳) si es cuidador
   const alertasVisibles = userRol === 'cuidador' 
-    ? alertas.filter(a => a.tipo?.toLowerCase() !== 'turno' && a.tipo?.toLowerCase() !== 'dispositivo') 
+    ? alertas.filter(a => {
+        const tipoLower = a.tipo?.toLowerCase();
+        const esAudit = tipoLower === 'bateria' && a.descripcion?.includes('🔐');
+        const esTurno = tipoLower === 'retiro' && a.descripcion?.includes('⏳');
+        return !esAudit && !esTurno;
+      }) 
     : alertas;
 
   return (
@@ -102,21 +108,20 @@ export default function AlertasScreen() {
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
         {/* 🎯 2. CORRECCIÓN: Validamos usando el arreglo filtrado */}
-        {alertasVisibles.length === 0 ? (
+       {alertasVisibles.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyIcon}>✅</Text>
             <Text style={styles.emptyTitle}>Sin alertas</Text>
             <Text style={styles.emptyText}>Todo está en orden</Text>
           </View>
         ) : (
-          /* 🎯 3. CORRECCIÓN: Mapeamos 'alertasVisibles' */
           alertasVisibles.map((a) => {
             const tipoNormalizado = a.tipo?.toLowerCase();
             let config = TIPO_CONFIG[tipoNormalizado] ?? TIPO_CONFIG.otro;
 
-            /* 🎯 4. INTERCEPTOR VISUAL: Si viene disfrazada de 'dispositivo' pero trae el candado, 
-                    cambiamos los colores al estilo gris/cacao corporativo */
-            if (tipoNormalizado === 'dispositivo' && a.descripcion?.includes('🔐')) {
+            /* 🎯 INTERCEPTOR VISUAL: Si viene disfrazado de 'bateria' pero trae el candado, 
+                    le ponemos la identidad gráfica gris/cacao de Auditoría de Vitanova */
+            if (tipoNormalizado === 'bateria' && a.descripcion?.includes('🔐')) {
               config = { icon: '🔐', color: '#4A4540', bg: '#F2F1ED' };
             }
 
@@ -127,7 +132,7 @@ export default function AlertasScreen() {
                 </View>
                 <View style={styles.alertaContent}>
                   <View style={styles.alertaHeader}>
-                    {/* Si es el log de auditoría, mostramos un título limpio */}
+                    {/* Si es el log de auditoría forzamos el título limpio, sino el tipo original */}
                     <Text style={[styles.alertaTipo, { color: config.color }]}>
                       {a.descripcion?.includes('🔐') ? 'AUDITORÍA' : a.tipo.toUpperCase()}
                     </Text>
@@ -152,10 +157,6 @@ export default function AlertasScreen() {
                       hour: '2-digit', minute: '2-digit'
                     })}
                   </Text>
-                  
-                  {a.resuelta && (
-                    <Text style={styles.resueltaText}>✅ Resuelta</Text>
-                  )}
                 </View>
               </View>
             );
