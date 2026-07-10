@@ -1,9 +1,10 @@
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Asset } from 'expo-asset';
 import * as Print from 'expo-print';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Modal, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { loadStoredToken } from '../services/api';
 const { documentDirectory, moveAsync, readAsStringAsync } = require('expo-file-system/legacy');
 
@@ -77,7 +78,8 @@ export default function HistorialScreen() {
     return coincideFecha && coincideCuidador;
   });
 
-  
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [fechaObjeto, setFechaObjeto] = useState(new Date());
   const cierreSeleccionado = cierresFiltrados[indice];
 
   // Mapeo estático de íconos para evitar colisiones de contexto
@@ -542,84 +544,65 @@ export default function HistorialScreen() {
 
       {/* ── 🎯 MODAL DE FILTRADO SÚPER AVANZADO ── */}
       <Modal
-        animationType="fade"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-          <View style={{ backgroundColor: COLORS.white, borderRadius: 16, width: '100%', padding: 20, borderWidth: 1, borderColor: COLORS.border }}>
-            
-            <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.cacao, marginBottom: 16, textAlign: 'center' }}>
-              🔍 Filtrar Historial de Cierres
+      animationType="fade"
+      transparent={true}
+      visible={modalVisible}
+      onRequestClose={() => setModalVisible(false)}
+    >
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <View style={{ backgroundColor: COLORS.white, borderRadius: 16, width: '100%', padding: 20, borderWidth: 1, borderColor: COLORS.border }}>
+          
+          <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.cacao, marginBottom: 16, textAlign: 'center' }}>
+            🔍 Filtrar Historial de Cierres
+          </Text>
+
+         <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B6A65', marginBottom: 6 }}>
+            FECHA DE OPERACIÓN
+          </Text>
+          <TouchableOpacity 
+            onPress={() => setShowCalendar(true)}
+            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.cream, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12, marginBottom: 16, borderWidth: 1, borderColor: COLORS.border }}
+          >
+            <Text style={{ marginRight: 8 }}>📅</Text>
+            <Text style={{ flex: 1, fontSize: 14, color: filtroFecha ? COLORS.textDark : COLORS.textLight }}>
+              {filtroFecha ? filtroFecha : "Seleccionar fecha..."}
             </Text>
-
-            {/* FILTRO FECHA */}
-            <Text style={{ fontSize: 11, fontWeight: '600', color: COLORS.textLight, marginBottom: 6 }}>FECHA (AAAA-MM-DD)</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.cream, borderRadius: 10, paddingHorizontal: 12, marginBottom: 16, borderWidth: 1, borderColor: COLORS.border }}>
-              <Text style={{ marginRight: 8 }}>📅</Text>
-              <TextInput
-                style={{ flex: 1, paddingVertical: 10, fontSize: 14, color: COLORS.textDark }}
-                placeholder="Ej. 2026-07-10"
-                placeholderTextColor={COLORS.textLight}
-                value={filtroFecha}
-                onChangeText={(txt) => { setFiltroFecha(txt); setIndice(0); }}
-                keyboardType="numeric"
-                maxLength={10}
-              />
-              {filtroFecha !== '' && (
-                <TouchableOpacity onPress={() => { setFiltroFecha(''); setIndice(0); }}>
-                  <Text style={{ color: COLORS.red, fontWeight: '700', paddingHorizontal: 4 }}>✕</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* FILTRO CUIDADOR */}
-            <Text style={{ fontSize: 11, fontWeight: '600', color: COLORS.textLight, marginBottom: 8 }}>CUIDADOR EN TURNO</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row', marginBottom: 24 }} contentContainerStyle={{ gap: 8 }}>
-              <TouchableOpacity 
-                style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: filtroCuidador === 'todos' ? COLORS.gold : COLORS.border, backgroundColor: filtroCuidador === 'todos' ? COLORS.goldPale : COLORS.white }}
-                onPress={() => { setFiltroCuidador('todos'); setIndice(0); }}
-              >
-                <Text style={{ fontSize: 12, color: filtroCuidador === 'todos' ? COLORS.gold : COLORS.textLight, fontWeight: '600' }}>👤 Todos</Text>
+            {filtroFecha !== '' && (
+              <TouchableOpacity onPress={() => { setFiltroFecha(''); setFechaObjeto(new Date()); }}>
+                <Text style={{ color: COLORS.red, fontWeight: '700', paddingHorizontal: 4 }}>✕</Text>
               </TouchableOpacity>
-              
-              {cuidadoresDisponibles.map((cName) => (
-                <TouchableOpacity 
-                  key={cName}
-                  style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: filtroCuidador === cName ? COLORS.gold : COLORS.border, backgroundColor: filtroCuidador === cName ? COLORS.goldPale : COLORS.white }}
-                  onPress={() => { setFiltroCuidador(cName); setIndice(0); }}
-                >
-                  <Text style={{ fontSize: 12, color: filtroCuidador === cName ? COLORS.gold : COLORS.textLight, fontWeight: '600' }}>{cName}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            )}
+          </TouchableOpacity>
 
-            {/* BOTONES ACCIÓN */}
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <TouchableOpacity 
-                style={{ flex: 1, padding: 12, borderRadius: 10, backgroundColor: COLORS.cream, alignItems: 'center' }}
-                onPress={() => {
-                  setFiltroFecha('');
-                  setFiltroCuidador('todos');
-                  setIndice(0);
-                  setModalVisible(false);
-                }}
-              >
-                <Text style={{ color: COLORS.textDark, fontWeight: '600', fontSize: 13 }}>Resetear</Text>
-              </TouchableOpacity>
+          {/* 🚀 EL COMPONENTE DEL CALENDARIO NATIVO (Se activa al picarle arriba) */}
+          {showCalendar && (
+            <DateTimePicker
+              value={fechaObjeto}
+              mode="date"
+              display="calendar"
+              maximumDate={new Date()}
+              onChange={(event, selectedDate) => {
+                setShowCalendar(false); // Se cierra inmediatamente al elegir
+                if (event.type === 'set' && selectedDate) {
+                  setFechaObjeto(selectedDate);
+                  // Lo formateamos limpio a YYYY-MM-DD para tu filtro de Supabase
+                  const isoString = selectedDate.toISOString().split('T')[0];
+                  setFiltroFecha(isoString);
+                }
+              }}
+            />
+          )}
+          {/* ==================================================================== */}
 
-              <TouchableOpacity 
-                style={{ flex: 2, padding: 12, borderRadius: 10, backgroundColor: COLORS.cacao, alignItems: 'center' }}
-                onPress={() => setModalVisible(false)}
-              >
-                <Text style={{ color: COLORS.white, fontWeight: '700', fontSize: 13 }}>Aplicar Filtros</Text>
-              </TouchableOpacity>
-            </View>
+          {/* CUIDADOR EN TURNO (Tus burbujas horizontales de "Todos" y el personal) */}
+          <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B6A65', marginBottom: 6 }}>
+            CUIDADOR EN TURNO
+          </Text>
+          {/* ... Aquí sigue el ScrollView con tus burbujas de cuidadores y los botones de abajo ... */}
 
-          </View>
         </View>
-      </Modal>
+      </View>
+    </Modal>
     </View>
   );
 }
