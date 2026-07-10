@@ -3,7 +3,7 @@ import * as Print from 'expo-print';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { loadStoredToken } from '../services/api';
 const { documentDirectory, moveAsync, readAsStringAsync } = require('expo-file-system/legacy');
 
@@ -326,21 +326,19 @@ export default function HistorialScreen() {
     );
   }
 
-  // 🎯 VARIABLES GLOBALES DEL COMPONENTE: Única declaración limpia para el JSX
-  const tieneRegistros = cierres.length > 0;
-  const c = tieneRegistros ? cierres[indice] : null;
-  const displayEstado = c ? (c.estado_paciente === 'bien' ? 'BIEN' : c.estado_paciente === 'preocupante' ? 'CRÍTICO' : 'REGULAR') : '';
+  // Variable calculada rápida para el renderizado
+  const tieneRegistros = cierresFiltrados.length > 0;
+  const displayEstado = cierreSeleccionado?.estado_paciente === 'bien' ? 'ESTABLE' : 
+                        cierreSeleccionado?.estado_paciente === 'preocupante' ? 'CRÍTICO' : 'REGULAR';
 
-  const tareasTrabajoGlobal = c?.tareas ? (c.tareas as any[]).filter((t: any) => !(t.descripcion || '').startsWith('📝')) : [];
-  const notasTurnoGlobal = c?.tareas ? (c.tareas as any[]).filter((t: any) => (t.descripcion || '').startsWith('📝')) : [];
-
-  // Filtrado controlado de subtareas de forma segura
-  const tareasTrabajo = c?.tareas ? c.tareas.filter((t: any) => !(t.descripcion || '').startsWith('📝')) : [];
-  const notasTurno = c?.tareas ? c.tareas.filter((t: any) => (t.descripcion || '').startsWith('📝')) : [];
+  // Separación segura de tareas si tu objeto tiene un bloque relacional interno o plano
+  const tareasTrabajo = cierreSeleccionado?.tareas?.filter((t: any) => !t.es_incidental) || [];
+  const notasTurno = cierreSeleccionado?.tareas?.filter((t: any) => t.es_incidental) || [];
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
+      
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backIcon}>←</Text>
@@ -356,28 +354,34 @@ export default function HistorialScreen() {
           <View style={styles.emptyCard}>
             <Text style={{ fontSize: 40, marginBottom: 12 }}>📋</Text>
             <Text style={{ fontSize: 14, color: COLORS.textLight, textAlign: 'center' }}>
-              {'Sin registros de turnos anteriores'}
+              {filtroFecha || filtroCuidador !== 'todos' 
+                ? 'Ningún cierre coincide con los filtros aplicados' 
+                : 'Sin registros de turnos anteriores'}
             </Text>
           </View>
         ) : (
           <View>
-            {/* NAVEGADOR MULTI-TURNO */}
+            {/* 🎯 NAVEGADOR MULTI-TURNO INTERACTIVO (Picle a la fecha para abrir Modal) */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <TouchableOpacity
-                onPress={() => setIndice(Math.min(indice + 1, cierres.length - 1))}
-                disabled={indice >= cierres.length - 1}
+                onPress={() => setIndice(Math.min(indice + 1, cierresFiltrados.length - 1))}
+                disabled={indice >= cierresFiltrados.length - 1}
                 style={{ padding: 8 }}
               >
-                <Text style={{ fontSize: 28, color: indice >= cierres.length - 1 ? COLORS.border : COLORS.gold }}>{'‹'}</Text>
+                <Text style={{ fontSize: 28, color: indice >= cierresFiltrados.length - 1 ? COLORS.border : COLORS.gold }}>{'‹'}</Text>
               </TouchableOpacity>
-              <View style={{ alignItems: 'center' }}>
+              
+              <TouchableOpacity style={{ alignItems: 'center' }} onPress={() => setModalVisible(true)}>
                 <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textDark }}>
-                  {`Turno ${indice + 1} de ${cierres.length}`}
+                  {`Turno ${indice + 1} de ${cierresFiltrados.length}`}
                 </Text>
-                <Text style={{ fontSize: 10, color: COLORS.textLight }}>
-                  {new Date(c.created_at).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}
+                <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '600', textDecorationLine: 'underline' }}>
+                  {cierreSeleccionado?.fecha 
+                    ? new Date(cierreSeleccionado.fecha + 'T00:00:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' }) 
+                    : 'Filtrar Fecha 📅'}
                 </Text>
-              </View>
+              </TouchableOpacity>
+
               <TouchableOpacity
                 onPress={() => setIndice(Math.max(indice - 1, 0))}
                 disabled={indice <= 0}
@@ -391,13 +395,13 @@ export default function HistorialScreen() {
             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
               <TouchableOpacity
                 style={{ flex: 1, backgroundColor: COLORS.greenPale, borderRadius: 8, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.green }}
-                onPress={() => generarPDF(c)}
+                onPress={() => generarPDF(cierreSeleccionado)}
               >
                 <Text style={{ fontSize: 11, color: COLORS.green, fontWeight: '700' }}>{'📄 PDF'}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={{ flex: 1, backgroundColor: '#E8F5E9', borderRadius: 8, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: '#25D366' }}
-                onPress={() => compartirPorWhatsApp(c)}
+                onPress={() => compartirPorWhatsApp(cierreSeleccionado)}
               >
                 <Text style={{ fontSize: 11, color: '#25D366', fontWeight: '700' }}>{'📲 WhatsApp'}</Text>
               </TouchableOpacity>
@@ -407,66 +411,65 @@ export default function HistorialScreen() {
             <View style={styles.cierreCard}>
               <View style={styles.cierreHeader}>
                 <Text style={{ fontSize: 28 }}>
-                  {c.estado_paciente === 'bien' ? '😊' : c.estado_paciente === 'preocupante' ? '😟' : '😐'}
+                  {cierreSeleccionado?.estado_paciente === 'bien' ? '😊' : cierreSeleccionado?.estado_paciente === 'preocupante' ? '😟' : '😐'}
                 </Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.cierreNombreCuidador}>{c.usuarios?.nombre_completo ?? 'Personal Vitanova'}</Text>
-                  <Text style={styles.cierreFecha}>{formatFecha(c.created_at)}</Text>
+                  <Text style={styles.cierreNombreCuidador}>{cierreSeleccionado?.nombre_cuidador ?? 'Personal Vitanova'}</Text>
+                  <Text style={styles.cierreFecha}>{formatFecha(cierreSeleccionado?.created_at)}</Text>
                 </View>
                 <View style={[styles.estadoPill, {
-                  backgroundColor: c.estado_paciente === 'bien' ? COLORS.greenPale :
-                    c.estado_paciente === 'preocupante' ? COLORS.redPale : COLORS.amberPale
+                  backgroundColor: cierreSeleccionado?.estado_paciente === 'bien' ? COLORS.greenPale :
+                    cierreSeleccionado?.estado_paciente === 'preocupante' ? COLORS.redPale : COLORS.amberPale
                 }]}>
-                  {/* 🎯 FIX: 'displayEstado' ahora lee correctamente la variable calculada en el scope */}
                   <Text style={[styles.estadoPillText, {
-                    color: c.estado_paciente === 'bien' ? COLORS.green :
-                      c.estado_paciente === 'preocupante' ? COLORS.red : COLORS.amber
+                    color: cierreSeleccionado?.estado_paciente === 'bien' ? COLORS.green :
+                      cierreSeleccionado?.estado_paciente === 'preocupante' ? COLORS.red : COLORS.amber
                   }]}>{displayEstado}</Text>
                 </View>
               </View>
 
               {/* MATRIZ DE SIGNOS VITALES */}
               <View style={styles.signosRow}>
-                <View style={styles.signoItem}><Text style={styles.signoVal}>{c.spo2 ? `${c.spo2}%` : '—'}</Text><Text style={styles.signoLabel}>SpO₂</Text></View>
-                <View style={styles.signoItem}><Text style={styles.signoVal}>{c.presion_sistolica && c.presion_diastolica ? `${Math.round(c.presion_sistolica)}/${Math.round(c.presion_diastolica)}` : '—'}</Text><Text style={styles.signoLabel}>Presión</Text></View>
-                <View style={styles.signoItem}><Text style={styles.signoVal}>{c.frecuencia_cardiaca ? `${c.frecuencia_cardiaca}` : '—'}</Text><Text style={styles.signoLabel}>FC bpm</Text></View>
-                <View style={styles.signoItem}><Text style={styles.signoVal}>{c.temperatura ? `${c.temperatura}°C` : '—'}</Text><Text style={styles.signoLabel}>Temp</Text></View>
-                <View style={styles.signoItem}><Text style={styles.signoVal}>{c.peso_kg ? `${c.peso_kg} kg` : '—'}</Text><Text style={styles.signoLabel}>Peso</Text></View>
+                <View style={styles.signoItem}><Text style={styles.signoVal}>{cierreSeleccionado?.spo2 ? `${cierreSeleccionado.spo2}%` : '—'}</Text><Text style={styles.signoLabel}>SpO₂</Text></View>
+                <View style={styles.signoItem}><Text style={styles.signoVal}>{cierreSeleccionado?.presion_sistolica && cierreSeleccionado?.presion_diastolica ? `${Math.round(cierreSeleccionado.presion_sistolica)}/${Math.round(cierreSeleccionado.presion_diastolica)}` : '—'}</Text><Text style={styles.signoLabel}>Presión</Text></View>
+                <View style={styles.signoItem}><Text style={styles.signoVal}>{cierreSeleccionado?.frecuencia_cardiaca ? `${cierreSeleccionado.frecuencia_cardiaca}` : '—'}</Text><Text style={styles.signoLabel}>FC bpm</Text></View>
+                <View style={styles.signoItem}><Text style={styles.signoVal}>{cierreSeleccionado?.temperatura ? `${cierreSeleccionado.temperatura}°C` : '—'}</Text><Text style={styles.signoLabel}>Temp</Text></View>
+                <View style={styles.signoItem}><Text style={styles.signoVal}>{cierreSeleccionado?.peso_kg ? `${cierreSeleccionado.peso_kg} kg` : '—'}</Text><Text style={styles.signoLabel}>Peso</Text></View>
               </View>
 
               {/* PARÁMETROS DE CONFORT LOGÍSTICO */}
-              {(c.dolor_eva !== null && c.dolor_eva !== undefined || c.estado_animo || c.hidratacion_vasos || c.alimentacion || c.observaciones) && (
+              {(cierreSeleccionado?.dolor_eva !== null && cierreSeleccionado?.dolor_eva !== undefined || cierreSeleccionado?.estado_animo || cierreSeleccionado?.hidratacion_vasos || cierreSeleccionado?.alimentacion || cierreSeleccionado?.observaciones) && (
                 <View style={styles.tareasSection}>
                   <Text style={styles.tareasSectionTitle}>{'REGISTRO DE CONFORT'}</Text>
                   <View style={styles.signosRow}>
-                    {c.dolor_eva !== null && c.dolor_eva !== undefined && (
+                    {cierreSeleccionado?.dolor_eva !== null && cierreSeleccionado?.dolor_eva !== undefined && (
                       <View style={styles.signoItem}>
-                        <Text style={styles.signoVal}>{`${c.dolor_eva}/10`}</Text>
+                        <Text style={styles.signoVal}>{`${cierreSeleccionado.dolor_eva}/10`}</Text>
                         <Text style={styles.signoLabel}>Dolor EVA</Text>
                       </View>
                     )}
-                    {c.hidratacion_vasos !== null && c.hidratacion_vasos !== undefined && (
+                    {cierreSeleccionado?.hidratacion_vasos !== null && cierreSeleccionado?.hidratacion_vasos !== undefined && (
                       <View style={styles.signoItem}>
-                        <Text style={styles.signoVal}>{`${c.hidratacion_vasos} 💧`}</Text>
+                        <Text style={styles.signoVal}>{`${cierreSeleccionado.hidratacion_vasos} 💧`}</Text>
                         <Text style={styles.signoLabel}>Hidratación</Text>
                       </View>
                     )}
-                    {c.alimentacion && (
+                    {cierreSeleccionado?.alimentacion && (
                       <View style={styles.signoItem}>
-                        <Text style={styles.signoVal}>{c.alimentacion}</Text>
+                        <Text style={styles.signoVal}>{cierreSeleccionado.alimentacion}</Text>
                         <Text style={styles.signoLabel}>Alimentación</Text>
                       </View>
                     )}
-                    {c.estado_animo && (
+                    {cierreSeleccionado?.estado_animo && (
                       <View style={styles.signoItem}>
-                        <Text style={styles.signoVal}>{c.estado_animo}</Text>
+                        <Text style={styles.signoVal}>{cierreSeleccionado.estado_animo}</Text>
                         <Text style={styles.signoLabel}>Ánimo</Text>
                       </View>
                     )}
                   </View>
-                  {c.observaciones && (
+                  {cierreSeleccionado?.observaciones && (
                     <View style={styles.notaItem}>
-                      <Text style={{ fontSize: 11, color: COLORS.textDark }}>{c.observaciones}</Text>
+                      <Text style={{ fontSize: 11, color: COLORS.textDark }}>{cierreSeleccionado.observaciones}</Text>
                     </View>
                   )}
                 </View>
@@ -487,7 +490,6 @@ export default function HistorialScreen() {
                       <Text style={[styles.tareaItemText, t.completada && { textDecorationLine: 'line-through', color: COLORS.textLight }]}>
                         {t.descripcion}
                       </Text>
-                      {/* 🎯 FIX: 'formatHora' encapsula de forma segura los hilos de formateo */}
                       {t.hora_completada && <Text style={styles.tareaItemHora}>{formatHora(t.hora_completada)}</Text>}
                       {t.completada && <Text style={{ color: COLORS.green, fontSize: 16 }}>{'✅'}</Text>}
                     </View>
@@ -515,19 +517,19 @@ export default function HistorialScreen() {
               )}
 
               {/* EVALUACIONES DE ESCALAS MÉDICAS */}
-              {(c.barthel_total !== null || c.morse_total !== null) && (
+              {(cierreSeleccionado?.barthel_total !== null || cierreSeleccionado?.morse_total !== null) && (
                 <View style={[styles.tareasSection, { marginTop: 8 }]}>
                   <Text style={styles.tareasSectionTitle}>ESCALAS CLÍNICAS</Text>
-                  {c.barthel_total !== null && (
+                  {cierreSeleccionado?.barthel_total !== null && cierreSeleccionado?.barthel_total !== undefined && (
                     <View style={styles.escalaRow}>
                       <Text style={styles.escalaLabel}>Barthel:</Text>
-                      <Text style={styles.escalaVal}>{`${c.barthel_total}/100 — ${c.barthel_label}`}</Text>
+                      <Text style={styles.escalaVal}>{`${cierreSeleccionado.barthel_total}/100 — ${cierreSeleccionado.barthel_label}`}</Text>
                     </View>
                   )}
-                  {c.morse_total !== null && (
+                  {cierreSeleccionado?.morse_total !== null && cierreSeleccionado?.morse_total !== undefined && (
                     <View style={styles.escalaRow}>
                       <Text style={styles.escalaLabel}>Morse:</Text>
-                      <Text style={styles.escalaVal}>{`${c.morse_total} pts — ${c.morse_label}`}</Text>
+                      <Text style={styles.escalaVal}>{`${cierreSeleccionado.morse_total} pts — ${cierreSeleccionado.morse_label}`}</Text>
                     </View>
                   )}
                 </View>
@@ -537,6 +539,87 @@ export default function HistorialScreen() {
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* ── 🎯 MODAL DE FILTRADO SÚPER AVANZADO ── */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: COLORS.white, borderRadius: 16, width: '100%', padding: 20, borderWidth: 1, borderColor: COLORS.border }}>
+            
+            <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.cacao, marginBottom: 16, textAlign: 'center' }}>
+              🔍 Filtrar Historial de Cierres
+            </Text>
+
+            {/* FILTRO FECHA */}
+            <Text style={{ fontSize: 11, fontWeight: '600', color: COLORS.textLight, marginBottom: 6 }}>FECHA (AAAA-MM-DD)</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.cream, borderRadius: 10, paddingHorizontal: 12, marginBottom: 16, borderWidth: 1, borderColor: COLORS.border }}>
+              <Text style={{ marginRight: 8 }}>📅</Text>
+              <TextInput
+                style={{ flex: 1, paddingVertical: 10, fontSize: 14, color: COLORS.textDark }}
+                placeholder="Ej. 2026-07-10"
+                placeholderTextColor={COLORS.textLight}
+                value={filtroFecha}
+                onChangeText={(txt) => { setFiltroFecha(txt); setIndice(0); }}
+                keyboardType="numeric"
+                maxLength={10}
+              />
+              {filtroFecha !== '' && (
+                <TouchableOpacity onPress={() => { setFiltroFecha(''); setIndice(0); }}>
+                  <Text style={{ color: COLORS.red, fontWeight: '700', paddingHorizontal: 4 }}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* FILTRO CUIDADOR */}
+            <Text style={{ fontSize: 11, fontWeight: '600', color: COLORS.textLight, marginBottom: 8 }}>CUIDADOR EN TURNO</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row', marginBottom: 24 }} contentContainerStyle={{ gap: 8 }}>
+              <TouchableOpacity 
+                style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: filtroCuidador === 'todos' ? COLORS.gold : COLORS.border, backgroundColor: filtroCuidador === 'todos' ? COLORS.goldPale : COLORS.white }}
+                onPress={() => { setFiltroCuidador('todos'); setIndice(0); }}
+              >
+                <Text style={{ fontSize: 12, color: filtroCuidador === 'todos' ? COLORS.gold : COLORS.textLight, fontWeight: '600' }}>👤 Todos</Text>
+              </TouchableOpacity>
+              
+              {cuidadoresDisponibles.map((cName) => (
+                <TouchableOpacity 
+                  key={cName}
+                  style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: filtroCuidador === cName ? COLORS.gold : COLORS.border, backgroundColor: filtroCuidador === cName ? COLORS.goldPale : COLORS.white }}
+                  onPress={() => { setFiltroCuidador(cName); setIndice(0); }}
+                >
+                  <Text style={{ fontSize: 12, color: filtroCuidador === cName ? COLORS.gold : COLORS.textLight, fontWeight: '600' }}>{cName}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* BOTONES ACCIÓN */}
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity 
+                style={{ flex: 1, padding: 12, borderRadius: 10, backgroundColor: COLORS.cream, alignItems: 'center' }}
+                onPress={() => {
+                  setFiltroFecha('');
+                  setFiltroCuidador('todos');
+                  setIndice(0);
+                  setModalVisible(false);
+                }}
+              >
+                <Text style={{ color: COLORS.textDark, fontWeight: '600', fontSize: 13 }}>Resetear</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={{ flex: 2, padding: 12, borderRadius: 10, backgroundColor: COLORS.cacao, alignItems: 'center' }}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={{ color: COLORS.white, fontWeight: '700', fontSize: 13 }}>Aplicar Filtros</Text>
+              </TouchableOpacity>
+            </View>
+
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
