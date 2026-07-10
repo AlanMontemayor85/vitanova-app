@@ -827,7 +827,10 @@ export default function CuidadorScreen() {
               <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Cuidadores</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} onPress={() => router.push('/alertas' as any)}>
+            <TouchableOpacity 
+              style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
+              onPress={() => router.push({ pathname: '/alertas', params: { rol: 'cuidador' } })} // 🎯 Pasamos el rol aquí
+            >
               <Text style={{ fontSize: 20, marginBottom: 4 }}>⚠️</Text>
               <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Alertas</Text>
             </TouchableOpacity>

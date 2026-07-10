@@ -41,8 +41,8 @@ export default function AlertasScreen() {
   const [paciente, setPaciente] = useState<any>(null);
   const [alertas, setAlertas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userRol, setUserRol] = useState<string>('familiar');
-
+  
+  const userRol = (params.rol as string) || 'familiar';
   useEffect(() => {
   const cargar = async () => {
     try {
