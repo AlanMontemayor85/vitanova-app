@@ -84,14 +84,10 @@ export default function AlertasScreen() {
   
 
   // 🎯 FILTRADO OPERATIVO: Ocultamos la auditoría (batería + 🔐) y turnos (retiro + ⏳) si es cuidador
-  const alertasVisibles = userRol === 'cuidador' 
-    ? alertas.filter(a => {
-        const tipoLower = a.tipo?.toLowerCase();
-        const esAudit = tipoLower === 'bateria' && a.descripcion?.includes('🔐');
-        const esTurno = tipoLower === 'retiro' && a.descripcion?.includes('⏳');
-        return !esAudit && !esTurno;
-      }) 
-    : alertas;
+
+  const alertasVisibles = userRol === 'familiar'
+    ? alertas // El familiar ve la bitácora completa
+    : alertas.filter(a => !a.descripcion?.includes('🔐') && !a.descripcion?.includes('⏳')); // Cualquiera que no sea familiar queda bloqueado
 
   return (
     <View style={styles.container}>
