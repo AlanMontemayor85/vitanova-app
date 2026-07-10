@@ -41,14 +41,20 @@ export default function AlertasScreen() {
   const [paciente, setPaciente] = useState<any>(null);
   const [alertas, setAlertas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userRol, setUserRol] = useState<string>('familiar');
 
   useEffect(() => {
   const cargar = async () => {
     try {
       await loadStoredToken();
+      
+      // 🎯 Aquí obtenemos el rol. 
+      // Si tu función 'loadStoredToken' o algún servicio te da el usuario actual, haz algo como:
+      // const session = await getSessionData(); 
+      // setUserRol(session.rol); 
+      
       const data = await getPacientes();
       if (data.patients && data.patients.length > 0) {
-        // Usar el pacienteId del parámetro si existe, sino el primero
         const p = pacienteIdParam 
           ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
           : data.patients[0];
@@ -72,7 +78,11 @@ export default function AlertasScreen() {
       </View>
     );
   }
-
+  // 🎯 1. PASO CLAVE: Filtramos el arreglo antes de renderizarlo en el JSX.
+  // (Nota: Si no manejas la variable 'userRol' directamente aquí, puedes mapear si viene de params o del token)
+  const alertasVisibles = userRol === 'cuidador' 
+    ? alertas.filter(a => a.tipo?.toLowerCase() !== 'turno' && a.tipo?.toLowerCase() !== 'seguridad')
+    : alertas;
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
