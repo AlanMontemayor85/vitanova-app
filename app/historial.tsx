@@ -543,66 +543,126 @@ export default function HistorialScreen() {
       </ScrollView>
 
       {/* ── 🎯 MODAL DE FILTRADO SÚPER AVANZADO ── */}
-      <Modal
-      animationType="fade"
-      transparent={true}
-      visible={modalVisible}
-      onRequestClose={() => setModalVisible(false)}
-    >
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-        <View style={{ backgroundColor: COLORS.white, borderRadius: 16, width: '100%', padding: 20, borderWidth: 1, borderColor: COLORS.border }}>
-          
-          <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.cacao, marginBottom: 16, textAlign: 'center' }}>
-            🔍 Filtrar Historial de Cierres
-          </Text>
+      {/* ── BÚNKER DE FILTROS (MODAL COMPLETO) ── */}
+<Modal
+  animationType="fade"
+  transparent={true}
+  visible={modalVisible}
+  onRequestClose={() => setModalVisible(false)}
+>
+  {/* 1. Capa oscura de fondo */}
+  <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+    
+    {/* 2. Tarjeta blanca del contenedor */}
+    <View style={{ backgroundColor: COLORS.white, borderRadius: 16, width: '100%', padding: 20, borderWidth: 1, borderColor: COLORS.border }}>
+      
+      {/* TÍTULO PRINCIPAL */}
+      <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.cacao, marginBottom: 16, textAlign: 'center' }}>
+        🔍 Filtrar Historial de Cierres
+      </Text>
 
-         <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B6A65', marginBottom: 6 }}>
-            FECHA DE OPERACIÓN
-          </Text>
-          <TouchableOpacity 
-            onPress={() => setShowCalendar(true)}
-            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.cream, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12, marginBottom: 16, borderWidth: 1, borderColor: COLORS.border }}
-          >
-            <Text style={{ marginRight: 8 }}>📅</Text>
-            <Text style={{ flex: 1, fontSize: 14, color: filtroFecha ? COLORS.textDark : COLORS.textLight }}>
-              {filtroFecha ? filtroFecha : "Seleccionar fecha..."}
-            </Text>
-            {filtroFecha !== '' && (
-              <TouchableOpacity onPress={() => { setFiltroFecha(''); setFechaObjeto(new Date()); }}>
-                <Text style={{ color: COLORS.red, fontWeight: '700', paddingHorizontal: 4 }}>✕</Text>
-              </TouchableOpacity>
-            )}
+      {/* BLOQUE A: SELECCIÓN DE FECHA */}
+      <Text style={{ fontSize: 12, fontWeight: '600', color: '#8A8078', marginBottom: 6 }}>
+        FECHA DE OPERACIÓN
+      </Text>
+      
+      <TouchableOpacity 
+        onPress={() => setShowCalendar(true)}
+        style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.cream, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12, marginBottom: 16, borderWidth: 1, borderColor: COLORS.border }}
+      >
+        <Text style={{ marginRight: 8 }}>📅</Text>
+        <Text style={{ flex: 1, fontSize: 14, color: filtroFecha ? COLORS.textDark : COLORS.textLight }}>
+          {filtroFecha ? filtroFecha : "Seleccionar fecha..."}
+        </Text>
+        {filtroFecha !== '' && (
+          <TouchableOpacity onPress={() => { setFiltroFecha(''); setFechaObjeto(new Date()); }}>
+            <Text style={{ color: COLORS.red, fontWeight: '700', paddingHorizontal: 4 }}>✕</Text>
           </TouchableOpacity>
+        )}
+      </TouchableOpacity>
 
-          {/* 🚀 EL COMPONENTE DEL CALENDARIO NATIVO (Se activa al picarle arriba) */}
-          {showCalendar && (
-            <DateTimePicker
-              value={fechaObjeto}
-              mode="date"
-              display="calendar"
-              maximumDate={new Date()}
-              onChange={(event, selectedDate) => {
-                setShowCalendar(false); // Se cierra inmediatamente al elegir
-                if (event.type === 'set' && selectedDate) {
-                  setFechaObjeto(selectedDate);
-                  // Lo formateamos limpio a YYYY-MM-DD para tu filtro de Supabase
-                  const isoString = selectedDate.toISOString().split('T')[0];
-                  setFiltroFecha(isoString);
-                }
-              }}
-            />
-          )}
-          {/* ==================================================================== */}
+      {/* BLOQUE B: BURBUJAS DE CUIDADORES */}
+      <Text style={{ fontSize: 12, fontWeight: '600', color: '#8A8078', marginBottom: 8 }}>
+        CUIDADOR EN TURNO
+      </Text>
 
-          {/* CUIDADOR EN TURNO (Tus burbujas horizontales de "Todos" y el personal) */}
-          <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B6A65', marginBottom: 6 }}>
-            CUIDADOR EN TURNO
-          </Text>
-          {/* ... Aquí sigue el ScrollView con tus burbujas de cuidadores y los botones de abajo ... */}
+      <View style={{ marginBottom: 24 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={{ flexDirection: 'row', gap: 8, paddingBottom: 4 }}>
+            
+            {/* Píldora: Todos */}
+            <TouchableOpacity 
+              style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: filtroCuidador === 'todos' ? COLORS.gold : COLORS.border, backgroundColor: filtroCuidador === 'todos' ? COLORS.goldPale : COLORS.white }}
+              onPress={() => setFiltroCuidador('todos')}
+            >
+              <Text style={{ fontSize: 12, color: filtroCuidador === 'todos' ? COLORS.gold : '#8A8078', fontWeight: '600' }}>
+                👤 Todos
+              </Text>
+            </TouchableOpacity>
+            
+            {/* Píldoras: Cuidadores Dinámicos */}
+            {cuidadoresDisponibles.map((c) => (
+              <TouchableOpacity 
+                key={c}
+                style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: filtroCuidador === c ? COLORS.gold : COLORS.border, backgroundColor: filtroCuidador === c ? COLORS.goldPale : COLORS.white }}
+                onPress={() => setFiltroCuidador(c)}
+              >
+                <Text style={{ fontSize: 12, color: filtroCuidador === c ? COLORS.gold : '#8A8078', fontWeight: '600' }}>
+                  {c}
+                </Text>
+              </TouchableOpacity>
+            ))}
 
-        </View>
+          </View>
+        </ScrollView>
       </View>
-    </Modal>
+
+      {/* BLOQUE C: BOTONES DE ACCIÓN INFERIORES */}
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <TouchableOpacity 
+          style={{ flex: 1, padding: 12, borderRadius: 10, backgroundColor: COLORS.cream, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }}
+          onPress={() => {
+            setFiltroFecha('');
+            setFiltroCuidador('todos');
+            setIndice(0);
+            setModalVisible(false);
+          }}
+        >
+          <Text style={{ color: COLORS.textDark, fontWeight: '600', fontSize: 14 }}>Resetear</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={{ flex: 1.5, padding: 12, borderRadius: 10, backgroundColor: COLORS.cacao, alignItems: 'center' }}
+          onPress={() => {
+            setIndice(0);
+            setModalVisible(false);
+          }}
+        >
+          <Text style={{ color: COLORS.white, fontWeight: '700', fontSize: 14 }}>Aplicar Filtros</Text>
+        </TouchableOpacity>
+      </View>
+
+    </View> {/* Cierre Tarjeta Blanca */}
+  </View> {/* Cierre Capa Oscura */}
+</Modal>
+
+{/* 🚀 SELECTOR DE CALENDARIO NATIVO */}
+{showCalendar && (
+  <DateTimePicker
+    value={fechaObjeto}
+    mode="date"
+    display="calendar"
+    maximumDate={new Date()}
+    onChange={(event, selectedDate) => {
+      setShowCalendar(false);
+      if (event.type === 'set' && selectedDate) {
+        setFechaObjeto(selectedDate);
+        const isoString = selectedDate.toISOString().split('T')[0];
+        setFiltroFecha(isoString);
+      }
+    }}
+  />
+)}
     </View>
   );
 }
