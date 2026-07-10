@@ -50,9 +50,35 @@ export default function HistorialScreen() {
   const pacienteId = params.pacienteId as string;
   const pacienteNombre = params.pacienteNombre as string;
 
+  // ── 1. ESTADOS DE DATOS ──
   const [cierres, setCierres] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [indice, setIndice] = useState(0);
+
+  // ── 2. ESTADOS DEL MODAL DE FILTROS ──
+  const [modalVisible, setModalVisible] = useState(false);
+  const [filtroFecha, setFiltroFecha] = useState(''); // Formato YYYY-MM-DD
+  const [filtroCuidador, setFiltroCuidador] = useState('todos');
+
+  // ── 3. LÓGICA DE FILTRADO CORREGIDA (Usa 'cierres' e 'indice') ──
+  
+  const cuidadoresDisponibles = Array.from(
+    new Set(cierres.map(c => c.nombre_cuidador || c.cuidador_nombre || 'Desconocido'))
+  );
+
+  const cierresFiltrados = cierres.filter(c => {
+    // Si guardas la fecha completa en created_at o fecha, adaptamos el filtro
+    const fechaRegistro = c.fecha || c.created_at || '';
+    const coincideFecha = filtroFecha ? fechaRegistro.includes(filtroFecha) : true;
+    
+    const nombreC = c.nombre_cuidador || c.cuidador_nombre || 'Desconocido';
+    const coincideCuidador = filtroCuidador !== 'todos' ? nombreC === filtroCuidador : true;
+    
+    return coincideFecha && coincideCuidador;
+  });
+
+  
+  const cierreSeleccionado = cierresFiltrados[indice];
 
   // Mapeo estático de íconos para evitar colisiones de contexto
   const ICONOS_TIPO: Record<string, string> = {
@@ -61,6 +87,7 @@ export default function HistorialScreen() {
     control: '📋'
   };
 
+  // ── 4. EFFECT DE CARGA (IDÉNTICO) ──
   useEffect(() => {
     const cargar = async () => {
       try {
@@ -75,13 +102,12 @@ export default function HistorialScreen() {
       } catch (e) {
         console.error("❌ Error recuperando historial:", e);
       } finally {
-        
         setLoading(false);
       }
     };
     cargar();
   }, [pacienteId]);
-
+  
   const generarPDF = async (c: any) => {
     // 🎯 1. LEER EL LOGO NATIVO AUTOMÁTICAMENTE Y PASARLO A BASE64
     let logoBase64 = "";
