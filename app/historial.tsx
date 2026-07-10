@@ -69,20 +69,41 @@ export default function HistorialScreen() {
     new Set(cierres.map(c => c.nombre_cuidador || c.cuidador_nombre || '').filter(nombre => nombre !== ''))
   );
 
+  // ── 🎯 FILTRADO MAESTRO CON CONVERSIÓN DE FECHA LOCAL ──
   const cierresFiltrados = cierres.filter(c => {
-    // 1. Filtrado de fecha seguro
+    
+    // 1. Validar la fecha de forma segura
     let coincideFecha = true;
     if (filtroFecha !== '') {
-      const fechaRegistro = c.fecha || c.created_at || '';
-      coincideFecha = fechaRegistro.includes(filtroFecha);
+      // Tomamos la marca de tiempo disponible
+      const rawDateStr = c.fecha || c.created_at;
+      
+      if (rawDateStr) {
+        try {
+          // Creamos un objeto de fecha real y extraemos sus componentes locales (año-mes-día)
+          const d = new Date(rawDateStr);
+          const anio = d.getFullYear();
+          // Agregamos un cero a la izquierda si el mes o día son menores a 10
+          const mes = String(d.getMonth() + 1).padStart(2, '0');
+          const dia = String(d.getDate()).padStart(2, '0');
+          
+          const fechaLocalFormateada = `${anio}-${mes}-${dia}`;
+          
+          // Ahora comparamos "YYYY-MM-DD" local contra el "YYYY-MM-DD" del calendario
+          coincideFecha = (fechaLocalFormateada === filtroFecha);
+        } catch (err) {
+          coincideFecha = false;
+        }
+      } else {
+        coincideFecha = false;
+      }
     }
     
-    // 2. Filtrado de cuidador seguro
+    // 2. Validar el cuidador de forma segura
     let coincideCuidador = true;
-    // Solo filtramos por nombre si el filtro no es 'todos' Y si el registro tiene un nombre real
     if (filtroCuidador !== 'todos') {
-      const nombreReal = c.nombre_cuidador || c.cuidador_nombre || '';
-      coincideCuidador = (nombreReal === filtroCuidador);
+      const nombreC = c.nombre_cuidador || c.cuidador_nombre || '';
+      coincideCuidador = (nombreC === filtroCuidador);
     }
     
     return coincideFecha && coincideCuidador;
