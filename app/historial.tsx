@@ -68,12 +68,21 @@ export default function HistorialScreen() {
   );
 
   const cierresFiltrados = cierres.filter(c => {
-    // Si guardas la fecha completa en created_at o fecha, adaptamos el filtro
-    const fechaRegistro = c.fecha || c.created_at || '';
-    const coincideFecha = filtroFecha ? fechaRegistro.includes(filtroFecha) : true;
+    // 1. Validar la fecha de forma segura
+    // Si filtroFecha está vacío (''), pasa automático (true)
+    let coincideFecha = true;
+    if (filtroFecha !== '') {
+      const fechaRegistro = c.fecha || c.created_at || '';
+      coincideFecha = fechaRegistro.includes(filtroFecha);
+    }
     
-    const nombreC = c.nombre_cuidador || c.cuidador_nombre || 'Desconocido';
-    const coincideCuidador = filtroCuidador !== 'todos' ? nombreC === filtroCuidador : true;
+    // 2. Validar el cuidador de forma segura
+    // Si filtroCuidador es 'todos', pasa automático (true)
+    let coincideCuidador = true;
+    if (filtroCuidador !== 'todos') {
+      const nombreC = c.nombre_cuidador || 'Personal Vitanova';
+      coincideCuidador = (nombreC === filtroCuidador);
+    }
     
     return coincideFecha && coincideCuidador;
   });
