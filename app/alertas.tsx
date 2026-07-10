@@ -78,11 +78,15 @@ export default function AlertasScreen() {
       </View>
     );
   }
-  // 🎯 1. PASO CLAVE: Filtramos el arreglo antes de renderizarlo en el JSX.
-  // (Nota: Si no manejas la variable 'userRol' directamente aquí, puedes mapear si viene de params o del token)
+
+  // 🎯 1. FILTRADO: Excluimos los turnos del personal si entra un cuidador
+  // (Asegúrate de definir 'userRol' arriba mediante un estado o constante fija)
+  
+
   const alertasVisibles = userRol === 'cuidador' 
-    ? alertas.filter(a => a.tipo?.toLowerCase() !== 'turno' && a.tipo?.toLowerCase() !== 'seguridad')
+    ? alertas.filter(a => a.tipo?.toLowerCase() !== 'turno' && a.tipo?.toLowerCase() !== 'dispositivo') 
     : alertas;
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
@@ -97,16 +101,25 @@ export default function AlertasScreen() {
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-        {alertas.length === 0 ? (
+        {/* 🎯 2. CORRECCIÓN: Validamos usando el arreglo filtrado */}
+        {alertasVisibles.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyIcon}>✅</Text>
             <Text style={styles.emptyTitle}>Sin alertas</Text>
             <Text style={styles.emptyText}>Todo está en orden</Text>
           </View>
         ) : (
-          alertas.map((a) => {
-            // Convierte el tipo de la BD a minúsculas antes de buscar en la config
-            const config = TIPO_CONFIG[a.tipo?.toLowerCase()] ?? TIPO_CONFIG.otro;
+          /* 🎯 3. CORRECCIÓN: Mapeamos 'alertasVisibles' */
+          alertasVisibles.map((a) => {
+            const tipoNormalizado = a.tipo?.toLowerCase();
+            let config = TIPO_CONFIG[tipoNormalizado] ?? TIPO_CONFIG.otro;
+
+            /* 🎯 4. INTERCEPTOR VISUAL: Si viene disfrazada de 'dispositivo' pero trae el candado, 
+                    cambiamos los colores al estilo gris/cacao corporativo */
+            if (tipoNormalizado === 'dispositivo' && a.descripcion?.includes('🔐')) {
+              config = { icon: '🔐', color: '#4A4540', bg: '#F2F1ED' };
+            }
+
             return (
               <View key={a.id} style={[styles.alertaCard, { backgroundColor: config.bg, borderColor: config.color + '40' }]}>
                 <View style={[styles.alertaIconWrap, { backgroundColor: config.color + '20' }]}>
@@ -114,7 +127,10 @@ export default function AlertasScreen() {
                 </View>
                 <View style={styles.alertaContent}>
                   <View style={styles.alertaHeader}>
-                    <Text style={[styles.alertaTipo, { color: config.color }]}>{a.tipo.toUpperCase()}</Text>
+                    {/* Si es el log de auditoría, mostramos un título limpio */}
+                    <Text style={[styles.alertaTipo, { color: config.color }]}>
+                      {a.descripcion?.includes('🔐') ? 'AUDITORÍA' : a.tipo.toUpperCase()}
+                    </Text>
                     <View style={[styles.severidadPill, {
                       backgroundColor: a.severidad === 'alta' ? COLORS.redPale :
                         a.severidad === 'media' ? COLORS.amberPale : COLORS.greenPale
@@ -125,20 +141,18 @@ export default function AlertasScreen() {
                       }]}>{a.severidad}</Text>
                     </View>
                   </View>
+                  
                   {a.descripcion && (
                     <Text style={styles.alertaDesc}>{a.descripcion}</Text>
                   )}
+                  
                   <Text style={styles.alertaFecha}>
                     {new Date(a.created_at).toLocaleString('es-MX', {
                       day: 'numeric', month: 'short',
                       hour: '2-digit', minute: '2-digit'
                     })}
                   </Text>
-                  {!a.resuelta && (
-                    <TouchableOpacity style={styles.resolverBtn}>
-                      <Text style={styles.resolverBtnText}>Marcar como resuelta</Text>
-                    </TouchableOpacity>
-                  )}
+                  
                   {a.resuelta && (
                     <Text style={styles.resueltaText}>✅ Resuelta</Text>
                   )}
