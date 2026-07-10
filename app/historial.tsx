@@ -440,45 +440,45 @@ export default function HistorialScreen() {
               </View>
 
               {/* PARÁMETROS DE CONFORT LOGÍSTICO */}
-              {(cierreSeleccionado?.dolor_eva !== null && cierreSeleccionado?.dolor_eva !== undefined || cierreSeleccionado?.estado_animo || cierreSeleccionado?.hidratacion_vasos || cierreSeleccionado?.alimentacion || cierreSeleccionado?.observaciones) && (
+              {(cierreSeleccionado?.dolor_eva !== null && cierreSeleccionado?.dolor_eva !== undefined || cierreSeleccionado?.estado_animo || cierreSeleccionado?.hidratacion_vasos || cierreSeleccionado?.alimentacion || cierreSeleccionado?.observaciones) ? (
                 <View style={styles.tareasSection}>
                   <Text style={styles.tareasSectionTitle}>{'REGISTRO DE CONFORT'}</Text>
                   <View style={styles.signosRow}>
-                    {cierreSeleccionado?.dolor_eva !== null && cierreSeleccionado?.dolor_eva !== undefined && (
+                    {cierreSeleccionado?.dolor_eva !== null && cierreSeleccionado?.dolor_eva !== undefined ? (
                       <View style={styles.signoItem}>
                         <Text style={styles.signoVal}>{`${cierreSeleccionado.dolor_eva}/10`}</Text>
                         <Text style={styles.signoLabel}>Dolor EVA</Text>
                       </View>
-                    )}
-                    {cierreSeleccionado?.hidratacion_vasos !== null && cierreSeleccionado?.hidratacion_vasos !== undefined && (
+                    ) : null}
+                    {cierreSeleccionado?.hidratacion_vasos !== null && cierreSeleccionado?.hidratacion_vasos !== undefined ? (
                       <View style={styles.signoItem}>
                         <Text style={styles.signoVal}>{`${cierreSeleccionado.hidratacion_vasos} 💧`}</Text>
                         <Text style={styles.signoLabel}>Hidratación</Text>
                       </View>
-                    )}
-                    {cierreSeleccionado?.alimentacion && (
+                    ) : null}
+                    {cierreSeleccionado?.alimentacion ? (
                       <View style={styles.signoItem}>
                         <Text style={styles.signoVal}>{cierreSeleccionado.alimentacion}</Text>
                         <Text style={styles.signoLabel}>Alimentación</Text>
                       </View>
-                    )}
-                    {cierreSeleccionado?.estado_animo && (
+                    ) : null}
+                    {cierreSeleccionado?.estado_animo ? (
                       <View style={styles.signoItem}>
                         <Text style={styles.signoVal}>{cierreSeleccionado.estado_animo}</Text>
                         <Text style={styles.signoLabel}>Ánimo</Text>
                       </View>
-                    )}
+                    ) : null}
                   </View>
-                  {cierreSeleccionado?.observaciones && (
+                  {cierreSeleccionado?.observaciones ? (
                     <View style={styles.notaItem}>
                       <Text style={{ fontSize: 11, color: COLORS.textDark }}>{cierreSeleccionado.observaciones}</Text>
                     </View>
-                  )}
+                  ) : null}
                 </View>
-              )}
+              ) : null}
 
               {/* BLOQUE DE TAREAS PLANIFICADAS */}
-              {tareasTrabajo.length > 0 && (
+              {tareasTrabajo.length > 0 ? (
                 <View style={styles.tareasSection}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                     <Text style={styles.tareasSectionTitle}>ACTIVIDADES PLANIFICADAS</Text>
@@ -492,15 +492,15 @@ export default function HistorialScreen() {
                       <Text style={[styles.tareaItemText, t.completada && { textDecorationLine: 'line-through', color: COLORS.textLight }]}>
                         {t.descripcion}
                       </Text>
-                      {t.hora_completada && <Text style={styles.tareaItemHora}>{formatHora(t.hora_completada)}</Text>}
-                      {t.completada && <Text style={{ color: COLORS.green, fontSize: 16 }}>{'✅'}</Text>}
+                      {t.hora_completada ? <Text style={styles.tareaItemHora}>{formatHora(t.hora_completada)}</Text> : null}
+                      {t.completada ? <Text style={{ color: COLORS.green, fontSize: 16 }}>{'✅'}</Text> : null}
                     </View>
                   ))}
                 </View>
-              )}
+              ) : null}
 
               {/* SECCIÓN NOTAS EVOLUTIVAS */}
-              {notasTurno.length > 0 && (
+              {notasTurno.length > 0 ? (
                 <View style={styles.notasSection}>
                   <Text style={[styles.tareasSectionTitle, { color: COLORS.amber }]}>NOTAS DEL TURNO</Text>
                   {notasTurno.map((n: any, ni: number) => (
@@ -508,41 +508,40 @@ export default function HistorialScreen() {
                       <Text style={{ fontSize: 11, color: COLORS.textDark }}>
                         {String(n.descripcion || '').replace('📝 ', '')}
                       </Text>
-                      {n.hora_completada && (
+                      {n.hora_completada ? (
                         <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 4 }}>
                           {formatHora(n.hora_completada)}
                         </Text>
-                      )}
+                      ) : null}
                     </View>
                   ))}
                 </View>
-              )}
+              ) : null}
 
               {/* EVALUACIONES DE ESCALAS MÉDICAS */}
-              {(cierreSeleccionado?.barthel_total !== null || cierreSeleccionado?.morse_total !== null) && (
+              {(cierreSeleccionado?.barthel_total !== null || cierreSeleccionado?.morse_total !== null) ? (
                 <View style={[styles.tareasSection, { marginTop: 8 }]}>
                   <Text style={styles.tareasSectionTitle}>ESCALAS CLÍNICAS</Text>
-                  {cierreSeleccionado?.barthel_total !== null && cierreSeleccionado?.barthel_total !== undefined && (
+                  {cierreSeleccionado?.barthel_total !== null && cierreSeleccionado?.barthel_total !== undefined ? (
                     <View style={styles.escalaRow}>
                       <Text style={styles.escalaLabel}>Barthel:</Text>
                       <Text style={styles.escalaVal}>{`${cierreSeleccionado.barthel_total}/100 — ${cierreSeleccionado.barthel_label}`}</Text>
                     </View>
-                  )}
-                  {cierreSeleccionado?.morse_total !== null && cierreSeleccionado?.morse_total !== undefined && (
+                  ) : null}
+                  {cierreSeleccionado?.morse_total !== null && cierreSeleccionado?.morse_total !== undefined ? (
                     <View style={styles.escalaRow}>
                       <Text style={styles.escalaLabel}>Morse:</Text>
                       <Text style={styles.escalaVal}>{`${cierreSeleccionado.morse_total} pts — ${cierreSeleccionado.morse_label}`}</Text>
                     </View>
-                  )}
+                  ) : null}
                 </View>
-              )}
+              ) : null}
             </View>
           </View>
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
-
-      {/* ── 🎯 MODAL DE FILTRADO SÚPER AVANZADO ── */}
+     
       {/* ── BÚNKER DE FILTROS (MODAL COMPLETO) ── */}
 <Modal
   animationType="fade"
