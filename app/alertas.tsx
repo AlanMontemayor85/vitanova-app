@@ -79,15 +79,16 @@ export default function AlertasScreen() {
     );
   }
 
-  // 🎯 1. FILTRADO: Excluimos los turnos del personal si entra un cuidador
-  // (Asegúrate de definir 'userRol' arriba mediante un estado o constante fija)
+  // 🕵️‍♂️ 1. Esto nos va a decir en la terminal de VS Code qué rol está leyendo realmente la app
+  console.log("🎯 EL ROL DETECTADO EN ESTA PANTALLA ES:", userRol);
+
+  // 🎯 2. FILTRADO ULTRA ESTRICTO:
+  // Si el rol es 'cuidador' (en minúsculas o mayúsculas), o si quieres hacer la prueba de fuego 
+  // para bloquearlos en lo que corriges el estado, fuerza el filtrado quitando el "if".
   
-
-  // 🎯 FILTRADO OPERATIVO: Ocultamos la auditoría (batería + 🔐) y turnos (retiro + ⏳) si es cuidador
-
-  const alertasVisibles = userRol === 'familiar'
-    ? alertas // El familiar ve la bitácora completa
-    : alertas.filter(a => !a.descripcion?.includes('🔐') && !a.descripcion?.includes('⏳')); // Cualquiera que no sea familiar queda bloqueado
+  const alertasVisibles = (userRol?.toLowerCase() === 'cuidador')
+    ? alertas.filter(a => !a.descripcion?.includes('🔐') && !a.descripcion?.includes('⏳'))
+    : alertas;
 
   return (
     <View style={styles.container}>
