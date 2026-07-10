@@ -328,15 +328,15 @@ export default function HistorialScreen() {
     );
   }
 
-  // Variable calculada rápida para el renderizado
-  const tieneRegistros = cierresFiltrados.length > 0;
+  const tieneRegistrosBase = cierres.length > 0;
+  const tieneRegistrosFiltrados = cierresFiltrados.length > 0;
+
   const displayEstado = cierreSeleccionado?.estado_paciente === 'bien' ? 'ESTABLE' : 
                         cierreSeleccionado?.estado_paciente === 'preocupante' ? 'CRÍTICO' : 'REGULAR';
 
-  // Separación segura de tareas si tu objeto tiene un bloque relacional interno o plano
-  const tareasTrabajo = cierreSeleccionado?.tareas?.filter((t: any) => !t.es_incidental) || [];
-  const notasTurno = cierreSeleccionado?.tareas?.filter((t: any) => t.es_incidental) || [];
-
+  // Separación segura de tareas (protegida contra nulos si el turno viene vacío)
+  const tareasTrabajo = cierreSeleccionado?.tareas ? cierreSeleccionado.tareas.filter((t: any) => !t.es_incidental) : [];
+  const notasTurno = cierreSeleccionado?.tareas ? cierreSeleccionado.tareas.filter((t: any) => t.es_incidental) : [];
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
@@ -352,16 +352,34 @@ export default function HistorialScreen() {
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-        {!tieneRegistros ? (
+        {!tieneRegistrosBase ? (
+          /* CASO 1: Sin historial clínico registrado en la BD de Vitanova */
           <View style={styles.emptyCard}>
             <Text style={{ fontSize: 40, marginBottom: 12 }}>📋</Text>
             <Text style={{ fontSize: 14, color: COLORS.textLight, textAlign: 'center' }}>
-              {(filtroFecha || filtroCuidador !== 'todos') 
-                ? 'Ningún cierre coincide con los filtros aplicados' 
-                : 'Sin registros de turnos anteriores'}
+              Sin registros de turnos anteriores
             </Text>
           </View>
+        ) : !tieneRegistrosFiltrados ? (
+          /* CASO 2: Sí hay cierres, pero ninguno coincide con la fecha/cuidador seleccionados */
+          <View style={styles.emptyCard}>
+            <Text style={{ fontSize: 40, marginBottom: 12 }}>🔍</Text>
+            <Text style={{ fontSize: 14, color: COLORS.textLight, textAlign: 'center' }}>
+              Ningún cierre coincide con los filtros aplicados
+            </Text>
+            <TouchableOpacity 
+              onPress={() => {
+                setFiltroFecha('');
+                setFiltroCuidador('todos');
+                setIndice(0);
+              }}
+              style={{ marginTop: 12, backgroundColor: COLORS.cream, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border }}
+            >
+              <Text style={{ fontSize: 12, color: COLORS.textDark, fontWeight: '600' }}>Limpiar Filtros ✕</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
+          /* CASO 3: Todo perfecto, pintamos la tarjeta del reporte vital */
           <View>
             {/* 🎯 NAVEGADOR MULTI-TURNO INTERACTIVO */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
