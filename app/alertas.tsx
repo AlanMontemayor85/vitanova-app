@@ -116,10 +116,19 @@ export default function AlertasScreen() {
             const tipoNormalizado = a.tipo?.toLowerCase();
             let config = TIPO_CONFIG[tipoNormalizado] ?? TIPO_CONFIG.otro;
 
-            /* 🎯 INTERCEPTOR VISUAL: Si viene disfrazado de 'bateria' pero trae el candado, 
-                    le ponemos la identidad gráfica gris/cacao de Auditoría de Vitanova */
+            /* 🎯 1. INTERCEPTOR AUDITORÍA DE DATOS: (Batería + 🔐) */
             if (tipoNormalizado === 'bateria' && a.descripcion?.includes('🔐')) {
-              config = { icon: '🔐', color: '#4A4540', bg: '#F2F1ED' };
+              config = { icon: '🔐', color: '#4A4540', bg: '#F2F1ED' }; // Estilo gris/cacao ejecutivo
+            }
+
+            /* 🎯 2. INTERCEPTOR CIERRE DE TURNO: (Batería + 🏁) */
+            if (tipoNormalizado === 'bateria' && a.descripcion?.includes('🏁')) {
+              config = { icon: '⏳', color: COLORS.green, bg: COLORS.greenPale }; // Verde de operación completada
+            }
+
+            /* 🎯 3. INTERCEPTOR INICIO DE TURNO: (Retiro + ⏳) */
+            if (tipoNormalizado === 'retiro' && a.descripcion?.includes('⏳')) {
+              config = { icon: '⏳', color: COLORS.gold, bg: COLORS.goldPale }; // Oro de operación en progreso
             }
 
             return (
@@ -129,9 +138,11 @@ export default function AlertasScreen() {
                 </View>
                 <View style={styles.alertaContent}>
                   <View style={styles.alertaHeader}>
-                    {/* Si es el log de auditoría forzamos el título limpio, sino el tipo original */}
+                    {/* 🎯 TÍTULOS DINÁMICOS: Forzamos la etiqueta limpia según el emoji del búnker */}
                     <Text style={[styles.alertaTipo, { color: config.color }]}>
-                      {a.descripcion?.includes('🔐') ? 'AUDITORÍA' : a.tipo.toUpperCase()}
+                      {a.descripcion?.includes('🔐') ? 'AUDITORÍA' : 
+                       a.descripcion?.includes('🏁') ? 'TURNO CONCLUIDO' : 
+                       a.descripcion?.includes('⏳') ? 'INICIO TURNO' : a.tipo.toUpperCase()}
                     </Text>
                     <View style={[styles.severidadPill, {
                       backgroundColor: a.severidad === 'alta' ? COLORS.redPale :
