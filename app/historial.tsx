@@ -191,8 +191,26 @@ export default function HistorialScreen() {
       <head>
         <meta charset="UTF-8">
         <style>
-          body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 30px; color: #2C2820; background-color: #FAFAF7; }
+          /* 🚀 Configuramos los márgenes físicos de las páginas del PDF */
+          @page {
+            size: letter;
+            margin: 15mm 15mm 15mm 15mm;
+          }
+
+          body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 10px; color: #2C2820; background-color: #FAFAF7; }
           
+          /* 🚀 Evita de forma absoluta que las tarjetas o contenedores se fracturen entre hojas */
+          .no-split {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+
+          /* Asegura que las filas individuales de la tabla de cronogramas no se decapiten */
+          tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+
           /* Contenedor Flexbox para alinear texto a la izquierda y el logotipo a la derecha */
           .header-container { 
             background-color: #4A4540; 
@@ -235,7 +253,7 @@ export default function HistorialScreen() {
       </head>
       <body>
 
-        <div class="header-container">
+        <div class="header-container no-split">
           <div class="header-text">
             <div class="brand-title">Vitanova Integralis — Telemetría Vital</div>
             <h1 class="main-title">Reporte Clínico de Turno</h1>
@@ -250,59 +268,67 @@ export default function HistorialScreen() {
           ${logoBase64 ? `<img class="header-logo" src="${logoBase64}" alt="Logo Vitanova" />` : ''}
         </div>
 
-        <div class="section-title">Signos Vitales Consolidados</div>
-        <div class="grid-container">
-          <div class="metric-card"><div class="metric-val">${c.spo2 ? `${c.spo2}%` : '—'}</div><div class="metric-label">SpO₂</div></div>
-          <div class="metric-card"><div class="metric-val">${c.presion_sistolica && c.presion_diastolica ? `${Math.round(c.presion_sistolica)}/${Math.round(c.presion_diastolica)}` : '—'}</div><div class="metric-label">Presión (mmHg)</div></div>
-          <div class="metric-card"><div class="metric-val">${c.frecuencia_cardiaca ? `${c.frecuencia_cardiaca}` : '—'}</div><div class="metric-label">Pulso (bpm)</div></div>
-          <div class="metric-card"><div class="metric-val">${c.temperatura ? `${c.temperatura}°C` : '—'}</div><div class="metric-label">Temperatura</div></div>
-          <div class="metric-card"><div class="metric-val">${c.peso_kg ? `${c.peso_kg} kg` : '—'}</div><div class="metric-label">Peso</div></div>
+        <div class="no-split">
+          <div class="section-title">Signos Vitales Consolidados</div>
+          <div class="grid-container">
+            <div class="metric-card"><div class="metric-val">${c.spo2 ? `${c.spo2}%` : '—'}</div><div class="metric-label">SpO₂</div></div>
+            <div class="metric-card"><div class="metric-val">${c.presion_sistolica && c.presion_diastolica ? `${Math.round(c.presion_sistolica)}/${Math.round(c.presion_diastolica)}` : '—'}</div><div class="metric-label">Presión (mmHg)</div></div>
+            <div class="metric-card"><div class="metric-val">${c.frecuencia_cardiaca ? `${c.frecuencia_cardiaca}` : '—'}</div><div class="metric-label">Pulso (bpm)</div></div>
+            <div class="metric-card"><div class="metric-val">${c.temperatura ? `${c.temperatura}°C` : '—'}</div><div class="metric-label">Temperatura</div></div>
+            <div class="metric-card"><div class="metric-val">${c.peso_kg ? `${c.peso_kg} kg` : '—'}</div><div class="metric-label">Peso</div></div>
+          </div>
         </div>
 
         ${c.dolor_eva !== null && c.dolor_eva !== undefined ? `
-          <div class="section-title">Evaluación de Confort Diario</div>
-          <div class="grid-container">
-            <div class="metric-card" style="border-top: 3px solid ${c.dolor_eva > 4 ? '#D94F4F' : '#3DAA6A'};"><div class="metric-val">${c.dolor_eva}/10</div><div class="metric-label">Dolor (EVA)</div></div>
-            <div class="metric-card"><div class="metric-val" style="text-transform: capitalize;">${c.estado_animo ?? '—'}</div><div class="metric-label">Estado de Ánimo</div></div>
-            <div class="metric-card"><div class="metric-val">${c.hidratacion_vasos ?? '0'} 💧</div><div class="metric-label">Hidratación</div></div>
-            <div class="metric-card"><div class="metric-val" style="text-transform: capitalize;">${c.alimentacion ?? '—'}</div><div class="metric-label">Alimentación</div></div>
+          <div class="no-split">
+            <div class="section-title">Evaluación de Confort Diario</div>
+            <div class="grid-container">
+              <div class="metric-card" style="border-top: 3px solid ${c.dolor_eva > 4 ? '#D94F4F' : '#3DAA6A'};"><div class="metric-val">${c.dolor_eva}/10</div><div class="metric-label">Dolor (EVA)</div></div>
+              <div class="metric-card"><div class="metric-val" style="text-transform: capitalize;">${c.estado_animo ?? '—'}</div><div class="metric-label">Estado de Ánimo</div></div>
+              <div class="metric-card"><div class="metric-val">${c.hidratacion_vasos ?? '0'} 💧</div><div class="metric-label">Hidratación</div></div>
+              <div class="metric-card"><div class="metric-val" style="text-transform: capitalize;">${c.alimentacion ?? '—'}</div><div class="metric-label">Alimentación</div></div>
+            </div>
           </div>
         ` : ''}
 
         ${tareasTrabajo.length > 0 ? `
-          <div class="section-title">Cronograma de Actividades and Controles</div>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th style="width: 55%;">Descripción de la Tarea</th>
-                <th style="width: 25%; text-align: center;">Estatus</th>
-                <th style="width: 20%; text-align: center;">Hora Ejecución</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${filasActividades}
-            </tbody>
-          </table>
+          <div class="no-split">
+            <div class="section-title">Cronograma de Actividades and Controles</div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width: 55%;">Descripción de la Tarea</th>
+                  <th style="width: 25%; text-align: center;">Estatus</th>
+                  <th style="width: 20%; text-align: center;">Hora Ejecución</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filasActividades}
+              </tbody>
+            </table>
+          </div>
         ` : ''}
 
         ${c.observaciones || notasTurno.length > 0 || c.notes_consolidated ? `
-          <div class="section-title">Observaciones Especiales y Alertas</div>
-          
-          ${c.observaciones ? `
-            <div class="alert-box">
-              <div class="alert-title">🚨 Reporte de Anomalía o Alerta de Confort</div>
-              <p class="alert-desc">${c.observaciones}</p>
-            </div>
-          ` : ''}
+          <div class="no-split">
+            <div class="section-title">Observaciones Especiales y Alertas</div>
+            
+            ${c.observaciones ? `
+              <div class="alert-box">
+                <div class="alert-title">🚨 Reporte de Anomalía o Alerta de Confort</div>
+                <p class="alert-desc">${c.observaciones}</p>
+              </div>
+            ` : ''}
 
-          ${notasTurno.length > 0 ? `
-            <div class="alert-box" style="background-color: #EEF3FC; border-left-color: #2D6BE4;">
-              <div class="alert-title" style="color: #2D6BE4;">📝 Notas de Evolución Clínicas</div>
-              <ul style="margin: 6px 0 0 0; padding-left: 20px; font-size: 13px; line-height: 1.6; color: #2C2820;">
-                ${notasTurno.map((n: any) => `<li>${String(n.descripcion || '').replace('📝 ', '')} (${formatHora(n.hora_completada)})</li>`).join('')}
-              </ul>
-            </div>
-          ` : ''}
+            ${notasTurno.length > 0 ? `
+              <div class="alert-box" style="background-color: #EEF3FC; border-left-color: #2D6BE4;">
+                <div class="alert-title" style="color: #2D6BE4;">📝 Notas de Evolución Clínicas</div>
+                <ul style="margin: 6px 0 0 0; padding-left: 20px; font-size: 13px; line-height: 1.6; color: #2C2820;">
+                  ${notasTurno.map((n: any) => `<li>${String(n.descripcion || '').replace('📝 ', '')} (${formatHora(n.hora_completada)})</li>`).join('')}
+                </ul>
+              </div>
+            ` : ''}
+          </div>
         ` : ''}
 
       </body>
@@ -429,16 +455,40 @@ export default function HistorialScreen() {
                 <Text style={{ fontSize: 28, color: indice >= cierresFiltrados.length - 1 ? COLORS.border : COLORS.gold }}>{'‹'}</Text>
               </TouchableOpacity>
               
-              <TouchableOpacity style={{ alignItems: 'center' }} onPress={() => setModalVisible(true)}>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textDark }}>
-                  {`Turno ${indice + 1} de ${cierresFiltrados.length}`}
-                </Text>
-                <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '600', textDecorationLine: 'underline' }}>
+              <TouchableOpacity 
+              style={{ 
+                alignItems: 'center', 
+                marginVertical: 4,
+                paddingVertical: 4
+              }} 
+              onPress={() => setModalVisible(true)}
+            >
+              {/* Contador de turnos */}
+              <Text style={{ fontSize: 13, fontWeight: '700', color: COLORS.textDark, marginBottom: 2 }}>
+                {`Turno ${indice + 1} de ${cierresFiltrados.length}`}
+              </Text>
+              
+              {/* Badge táctil para la fecha */}
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: filtroFecha ? COLORS.goldPale : COLORS.cream,
+                paddingHorizontal: 12,
+                paddingVertical: 4,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: filtroFecha ? COLORS.gold : COLORS.border,
+                gap: 4,
+                marginTop: 2
+              }}>
+                <Text style={{ fontSize: 11, color: COLORS.gold, fontWeight: '700' }}>
                   {cierreSeleccionado?.fecha 
                     ? new Date(cierreSeleccionado.fecha + 'T00:00:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' }) 
-                    : 'Filtrar Fecha 📅'}
+                    : 'Filtrar Fecha'}
                 </Text>
-              </TouchableOpacity>
+                <Text style={{ fontSize: 10 }}>📅</Text>
+              </View>
+            </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={() => setIndice(Math.max(indice - 1, 0))}
