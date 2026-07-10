@@ -61,31 +61,34 @@ export default function HistorialScreen() {
   const [filtroFecha, setFiltroFecha] = useState(''); // Formato YYYY-MM-DD
   const [filtroCuidador, setFiltroCuidador] = useState('todos');
 
-  // ── 3. LÓGICA DE FILTRADO CORREGIDA (Usa 'cierres' e 'indice') ──
+ 
+  // ── 🎯 CONTROL DE FILTRADO SEGURO DE EMERGENCIA ──
   
+  // Extraemos los nombres reales. Si todos vienen vacíos, dejamos la lista vacía para no generar burbujas falsas
   const cuidadoresDisponibles = Array.from(
-    new Set(cierres.map(c => c.nombre_cuidador || c.cuidador_nombre || 'Desconocido'))
+    new Set(cierres.map(c => c.nombre_cuidador || c.cuidador_nombre || '').filter(nombre => nombre !== ''))
   );
 
   const cierresFiltrados = cierres.filter(c => {
-    // 1. Validar la fecha de forma segura
-    // Si filtroFecha está vacío (''), pasa automático (true)
+    // 1. Filtrado de fecha seguro
     let coincideFecha = true;
     if (filtroFecha !== '') {
       const fechaRegistro = c.fecha || c.created_at || '';
       coincideFecha = fechaRegistro.includes(filtroFecha);
     }
     
-    // 2. Validar el cuidador de forma segura
-    // Si filtroCuidador es 'todos', pasa automático (true)
+    // 2. Filtrado de cuidador seguro
     let coincideCuidador = true;
+    // Solo filtramos por nombre si el filtro no es 'todos' Y si el registro tiene un nombre real
     if (filtroCuidador !== 'todos') {
-      const nombreC = c.nombre_cuidador || 'Personal Vitanova';
-      coincideCuidador = (nombreC === filtroCuidador);
+      const nombreReal = c.nombre_cuidador || c.cuidador_nombre || '';
+      coincideCuidador = (nombreReal === filtroCuidador);
     }
     
     return coincideFecha && coincideCuidador;
   });
+
+  
 
   const [showCalendar, setShowCalendar] = useState(false);
   const [fechaObjeto, setFechaObjeto] = useState(new Date());
@@ -109,7 +112,12 @@ export default function HistorialScreen() {
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const data = await res.json();
-        if (data.cierres) setCierres(data.cierres);
+        if (data.cierres) {
+          // 🚨 ESTA LÍNEA ES PARA ESPIAR EL OBJETO EN LA TERMINAL:
+          console.log("🔍 JEFE, ASÍ SE VE UN REGISTRO REAL:", data.cierres[0]);
+          
+          setCierres(data.cierres);
+        }
       } catch (e) {
         console.error("❌ Error recuperando historial:", e);
       } finally {
