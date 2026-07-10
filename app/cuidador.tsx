@@ -1,8 +1,11 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, } from 'react';
 import {
-  ActivityIndicator, Alert, Linking,
+  ActivityIndicator, Alert,
+  KeyboardAvoidingView,
+  Linking,
   Modal,
+  Platform,
   ScrollView,
   StatusBar, StyleSheet, Text,
   TextInput,
@@ -1362,166 +1365,177 @@ if (vista === 'espontaneo' && pacienteActivo) {
     </View>
   );
 }
-  // ── 4. VISTA CIERRE DE TURNO ──
-if (vista === 'cierre' && pacienteActivo) {
-  return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => setVista('turno')} style={styles.backBtn}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.greeting}>Cierre de operaciones</Text>
-          <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
+// ── 4. VISTA CIERRE DE TURNO ──
+  if (vista === 'cierre' && pacienteActivo) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
+        
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => setVista('turno')} style={styles.backBtn}>
+            <Text style={styles.backIcon}>←</Text>
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.greeting}>Cierre de operaciones</Text>
+            <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
+          </View>
         </View>
+
+        {/* 🚀 COMPONENTE CLAVE: Evita que el teclado sepulte el input de observaciones */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+        >
+          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+
+            {/* CONDICIÓN DE ENTREGA */}
+            <Text style={styles.sectionTitle}>Condición de Entrega del Paciente</Text>
+            <View style={styles.estadoRow}>
+              {[{ val: 'bien', icon: '😊', label: 'Estable' }, { val: 'regular', icon: '😐', label: 'Regular' }].map((e) => (
+                <TouchableOpacity key={e.val} style={[styles.estadoCard, estadoPaciente === e.val && styles.estadoCardActive]} onPress={() => setEstadoPaciente(e.val)}>
+                  <Text style={{ fontSize: 26 }}>{e.icon}</Text>
+                  <Text style={[styles.estadoLabel, estadoPaciente === e.val && { color: COLORS.gold }]}>{e.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* PESO */}
+            <Text style={styles.sectionTitle}>Peso del paciente (kg)</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 16, marginBottom: 16 }}>
+              <Text style={{ fontSize: 20, marginRight: 8 }}>⚖️</Text>
+              <TextInput
+                style={{ flex: 1, fontSize: 16, color: COLORS.textDark, paddingVertical: 14 }}
+                placeholder="Ej. 70.5"
+                placeholderTextColor={COLORS.textLight}
+                keyboardType="numeric"
+                value={peso === 0 ? '' : peso.toString()}
+                onChangeText={(val) => {
+                  const textoLimpio = val.replace(',', '.');
+                  if (textoLimpio === '') { setPeso(0); return; }
+                  if (textoLimpio.endsWith('.')) { const num = parseFloat(textoLimpio); if (!isNaN(num)) setPeso(num); return; }
+                  const num = parseFloat(textoLimpio);
+                  if (!isNaN(num)) setPeso(num);
+                }}
+              />
+              <Text style={{ fontSize: 13, color: COLORS.textLight }}>{'kg'}</Text>
+            </View>
+
+            {/* DOLOR EVA */}
+            <Text style={styles.sectionTitle}>{`Intensidad del Dolor (EVA): ${dolorEva}/10`}</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+              {[0,1,2,3,4,5,6,7,8,9,10].map(n => (
+                <TouchableOpacity
+                  key={n}
+                  style={{
+                    width: 44, height: 44, borderRadius: 22,
+                    borderWidth: 2,
+                    borderColor: dolorEva === n ? COLORS.gold : COLORS.border,
+                    backgroundColor: dolorEva === n ? COLORS.goldPale : COLORS.white,
+                    justifyContent: 'center', alignItems: 'center'
+                  }}
+                  onPress={() => setDolorEva(n)}
+                >
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: dolorEva === n ? COLORS.gold : COLORS.textLight }}>{n}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* ESTADO DE ÁNIMO */}
+            <Text style={styles.sectionTitle}>Estado de ánimo</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+              {[
+                { val: 'tranquilo', icon: '😌' },
+                { val: 'ansioso', icon: '😰' },
+                { val: 'triste', icon: '😢' },
+                { val: 'agitado', icon: '😤' },
+                { val: 'confundido', icon: '😵' },
+                { val: 'alegre', icon: '😊' },
+              ].map(e => (
+                <TouchableOpacity
+                  key={e.val}
+                  style={{
+                    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
+                    borderWidth: 1,
+                    borderColor: estadoAnimo === e.val ? COLORS.gold : COLORS.border,
+                    backgroundColor: estadoAnimo === e.val ? COLORS.goldPale : COLORS.white,
+                  }}
+                  onPress={() => setEstadoAnimo(e.val)}
+                >
+                  <Text style={{ fontSize: 12, color: estadoAnimo === e.val ? COLORS.gold : COLORS.textLight }}>
+                    {`${e.icon} ${e.val}`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* HIDRATACIÓN */}
+            <Text style={styles.sectionTitle}>{`Hidratación: ${hidratacion} de 8 vasos`}</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+              {[1,2,3,4,5,6,7,8].map(n => (
+                <TouchableOpacity
+                  key={n}
+                  onPress={() => setHidratacion(hidratacion === n ? 0 : n)}
+                  style={{ alignItems: 'center' }}
+                >
+                  <Text style={{ fontSize: 28, opacity: hidratacion >= n ? 1 : 0.3 }}>💧</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* ALIMENTACIÓN */}
+            <Text style={styles.sectionTitle}>Alimentación</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+              {[
+                { val: 'completa', label: '🍽️ Completa' },
+                { val: 'parcial', label: '🥣 Parcial' },
+                { val: 'ninguna', label: '❌ Ninguna' },
+              ].map(a => (
+                <TouchableOpacity
+                  key={a.val}
+                  style={{
+                    flex: 1, padding: 10, borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: alimentacion === a.val ? COLORS.green : COLORS.border,
+                    backgroundColor: alimentacion === a.val ? COLORS.greenPale : COLORS.white,
+                    alignItems: 'center'
+                  }}
+                  onPress={() => setAlimentacion(a.val)}
+                >
+                  <Text style={{ fontSize: 11, color: alimentacion === a.val ? COLORS.green : COLORS.textLight, fontWeight: '700' }}>
+                    {a.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* OBSERVACIONES */}
+            <Text style={styles.sectionTitle}>Observaciones del turno</Text>
+            <View style={{ backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 16, marginBottom: 16 }}>
+              <TextInput
+                style={{ fontSize: 14, color: COLORS.textDark, paddingVertical: 14, minHeight: 80, textAlignVertical: 'top' }}
+                placeholder="Comportamiento, incidencias, notas importantes..."
+                placeholderTextColor={COLORS.textLight}
+                multiline
+                value={observaciones}
+                onChangeText={setObservaciones}
+              />
+            </View>
+
+            <TouchableOpacity style={[styles.confirmarBtn, { backgroundColor: '#25D366' }]} onPress={compartirWhatsApp}>
+              <Text style={styles.confirmarBtnText}>{'📲 Resumen por WhatsApp'}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.confirmarBtn} onPress={ejecutarCierre}>
+              <Text style={styles.confirmarBtnText}>{'Confirmar y Concluir Turno'}</Text>
+            </TouchableOpacity>
+            
+            <View style={{ height: 40 }} />
+          </ScrollView>
+        </KeyboardAvoidingView>
       </View>
-      <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-
-        {/* CONDICIÓN DE ENTREGA */}
-        <Text style={styles.sectionTitle}>Condición de Entrega del Paciente</Text>
-        <View style={styles.estadoRow}>
-          {[{ val: 'bien', icon: '😊', label: 'Estable' }, { val: 'regular', icon: '😐', label: 'Regular' }].map((e) => (
-            <TouchableOpacity key={e.val} style={[styles.estadoCard, estadoPaciente === e.val && styles.estadoCardActive]} onPress={() => setEstadoPaciente(e.val)}>
-              <Text style={{ fontSize: 26 }}>{e.icon}</Text>
-              <Text style={[styles.estadoLabel, estadoPaciente === e.val && { color: COLORS.gold }]}>{e.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* PESO */}
-        <Text style={styles.sectionTitle}>Peso del paciente (kg)</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 16, marginBottom: 16 }}>
-          <Text style={{ fontSize: 20, marginRight: 8 }}>⚖️</Text>
-          <TextInput
-            style={{ flex: 1, fontSize: 16, color: COLORS.textDark, paddingVertical: 14 }}
-            placeholder="Ej. 70.5"
-            placeholderTextColor={COLORS.textLight}
-            keyboardType="numeric"
-            value={peso === 0 ? '' : peso.toString()}
-            onChangeText={(val) => {
-              const textoLimpio = val.replace(',', '.');
-              if (textoLimpio === '') { setPeso(0); return; }
-              if (textoLimpio.endsWith('.')) { const num = parseFloat(textoLimpio); if (!isNaN(num)) setPeso(num); return; }
-              const num = parseFloat(textoLimpio);
-              if (!isNaN(num)) setPeso(num);
-            }}
-          />
-          <Text style={{ fontSize: 13, color: COLORS.textLight }}>{'kg'}</Text>
-        </View>
-
-        {/* DOLOR EVA */}
-        <Text style={styles.sectionTitle}>{`Intensidad del Dolor (EVA): ${dolorEva}/10`}</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-          {[0,1,2,3,4,5,6,7,8,9,10].map(n => (
-            <TouchableOpacity
-              key={n}
-              style={{
-                width: 44, height: 44, borderRadius: 22,
-                borderWidth: 2,
-                borderColor: dolorEva === n ? COLORS.gold : COLORS.border,
-                backgroundColor: dolorEva === n ? COLORS.goldPale : COLORS.white,
-                justifyContent: 'center', alignItems: 'center'
-              }}
-              onPress={() => setDolorEva(n)}
-            >
-              <Text style={{ fontSize: 14, fontWeight: '700', color: dolorEva === n ? COLORS.gold : COLORS.textLight }}>{n}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* ESTADO DE ÁNIMO */}
-        <Text style={styles.sectionTitle}>Estado de ánimo</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-          {[
-            { val: 'tranquilo', icon: '😌' },
-            { val: 'ansioso', icon: '😰' },
-            { val: 'triste', icon: '😢' },
-            { val: 'agitado', icon: '😤' },
-            { val: 'confundido', icon: '😵' },
-            { val: 'alegre', icon: '😊' },
-          ].map(e => (
-            <TouchableOpacity
-              key={e.val}
-              style={{
-                paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
-                borderWidth: 1,
-                borderColor: estadoAnimo === e.val ? COLORS.gold : COLORS.border,
-                backgroundColor: estadoAnimo === e.val ? COLORS.goldPale : COLORS.white,
-              }}
-              onPress={() => setEstadoAnimo(e.val)}
-            >
-              <Text style={{ fontSize: 12, color: estadoAnimo === e.val ? COLORS.gold : COLORS.textLight }}>
-                {`${e.icon} ${e.val}`}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* HIDRATACIÓN */}
-        <Text style={styles.sectionTitle}>{`Hidratación: ${hidratacion} de 8 vasos`}</Text>
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-          {[1,2,3,4,5,6,7,8].map(n => (
-            <TouchableOpacity
-              key={n}
-              onPress={() => setHidratacion(hidratacion === n ? 0 : n)}
-              style={{ alignItems: 'center' }}
-            >
-              <Text style={{ fontSize: 28, opacity: hidratacion >= n ? 1 : 0.3 }}>💧</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* ALIMENTACIÓN */}
-        <Text style={styles.sectionTitle}>Alimentación</Text>
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-          {[
-            { val: 'completa', label: '🍽️ Completa' },
-            { val: 'parcial', label: '🥣 Parcial' },
-            { val: 'ninguna', label: '❌ Ninguna' },
-          ].map(a => (
-            <TouchableOpacity
-              key={a.val}
-              style={{
-                flex: 1, padding: 10, borderRadius: 10,
-                borderWidth: 1,
-                borderColor: alimentacion === a.val ? COLORS.green : COLORS.border,
-                backgroundColor: alimentacion === a.val ? COLORS.greenPale : COLORS.white,
-                alignItems: 'center'
-              }}
-              onPress={() => setAlimentacion(a.val)}
-            >
-              <Text style={{ fontSize: 11, color: alimentacion === a.val ? COLORS.green : COLORS.textLight, fontWeight: '700' }}>
-                {a.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* OBSERVACIONES */}
-        <Text style={styles.sectionTitle}>Observaciones del turno</Text>
-        <View style={{ backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 16, marginBottom: 16 }}>
-          <TextInput
-            style={{ fontSize: 14, color: COLORS.textDark, paddingVertical: 14, minHeight: 80, textAlignVertical: 'top' }}
-            placeholder="Comportamiento, incidencias, notas importantes..."
-            placeholderTextColor={COLORS.textLight}
-            multiline
-            value={observaciones}
-            onChangeText={setObservaciones}
-          />
-        </View>
-
-        <TouchableOpacity style={[styles.confirmarBtn, { backgroundColor: '#25D366' }]} onPress={compartirWhatsApp}>
-          <Text style={styles.confirmarBtnText}>{'📲 Resumen por WhatsApp'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.confirmarBtn} onPress={ejecutarCierre}>
-          <Text style={styles.confirmarBtnText}>{'Confirmar y Concluir Turno'}</Text>
-        </TouchableOpacity>
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    </View>
-  );
-}
+    );
+  }
 
   return null;
 }
