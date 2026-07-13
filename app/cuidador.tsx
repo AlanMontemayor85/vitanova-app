@@ -79,7 +79,7 @@ type Vista = 'lista' | 'turno' | 'espontaneo' | 'cierre';
 export default function CuidadorScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-
+  const modoFamiliar = params.modoFamiliar === 'true';
   const [vista, setVista] = useState<Vista>('lista');
   const [loading, setLoading] = useState(true);
   const [pacientes, setPacientes] = useState<any[]>([]);
@@ -145,6 +145,7 @@ export default function CuidadorScreen() {
   const [tempManual, setTempManual] = useState('');
   const [glucosa, setGlucosa] = useState('');
   const [observaciones, setObservaciones] = useState('');
+  
   
 
   // Estado temporal para la sensibilidad de caídas recuperada del servidor
@@ -615,21 +616,40 @@ export default function CuidadorScreen() {
 
   // ── 1. VISTA LISTA DE PACIENTES ──
   if (vista === 'lista') {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
-        <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>Bienvenido</Text>
-            <Text style={styles.userName}>{getUserNombre() ?? 'Personal Vitanova'}</Text>
-          </View>
-          <TouchableOpacity style={[styles.notifBtn, { marginRight: 8 }]} onPress={() => router.push('/aceptar-invitacion' as any)}>
-            <Text style={styles.notifIcon}>🔗</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.notifBtn} onPress={async () => { await clearToken(); router.replace('/login'); }}>
-            <Text style={styles.notifIcon}>🚪</Text>
-          </TouchableOpacity>
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
+      <View style={styles.header}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.greeting}>
+            {modoFamiliar ? 'Modo Cuidador' : 'Bienvenido'}
+          </Text>
+          <Text style={styles.userName}>{getUserNombre() ?? 'Personal Vitanova'}</Text>
         </View>
+
+        {/* ← AGREGAR: Botón volver a vista familiar */}
+        {modoFamiliar && (
+          <TouchableOpacity 
+            style={[styles.notifBtn, { marginRight: 8 }]} 
+            onPress={() => router.replace('/')}
+          >
+            <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity 
+          style={[styles.notifBtn, { marginRight: 8 }]} 
+          onPress={() => router.push('/aceptar-invitacion' as any)}
+        >
+          <Text style={styles.notifIcon}>🔗</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.notifBtn} 
+          onPress={async () => { await clearToken(); router.replace('/login'); }}
+        >
+          <Text style={styles.notifIcon}>🚪</Text>
+        </TouchableOpacity>
+      </View>
 
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
           <Text style={styles.sectionTitle}>Tus pacientes hoy</Text>
@@ -720,6 +740,15 @@ export default function CuidadorScreen() {
             <Text style={styles.greeting}>Consola operativa</Text>
             <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
           </View>
+          {/* ← AGREGAR */}
+            {modoFamiliar && (
+              <TouchableOpacity 
+                style={[styles.notifBtn, { marginRight: 8 }]} 
+                onPress={() => router.replace('/')}
+              >
+                <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
+              </TouchableOpacity>
+            )}
           <View style={styles.turnoActivoPill}><View style={styles.activoDot} /><Text style={styles.activoText}>Monitoreo</Text></View>
         </View>
 
