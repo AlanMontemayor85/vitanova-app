@@ -382,16 +382,10 @@ export const agregarTareaManual = async (tarea: object) => {
   });
   return res.json();
 };
-export const getTareasHoyAutocuidador = async (pacienteId: string) => {
-  const token = getToken();
-  const res = await fetch(`${BASE_URL}/autocuidador/tareas-hoy/${pacienteId}`, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
-  return res.json();
-};
+
 export const getTareasHoy = async (pacienteId: string) => {
   const token = getToken();
-  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/tareas-hoy`, {
+  const res = await fetch(`${BASE_URL}/autocuidador/tareas-hoy/${pacienteId}`, {
     headers: { 'Authorization': `Bearer ${token}` }
   });
   return res.json();
