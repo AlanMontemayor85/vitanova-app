@@ -296,7 +296,51 @@ export default function PerfilPacienteScreen() {
           placeholder="Ej. María Luisa Guevara"
           placeholderTextColor={COLORS.textLight}
         />
-
+        <Text style={styles.label}>Talla (cm)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="165"
+          placeholderTextColor={COLORS.textLight}
+          value={talla}
+          onChangeText={setTalla}
+          keyboardType="numeric"
+        />
+        {/* ⚖️ Input de Peso Clínico Unificado */}
+        <View style={{ marginBottom: 16, width: '100%' }}>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: '#4A4540', marginBottom: 6 }}>
+            Peso Actual (kg)
+          </Text>
+          <TextInput
+            style={{
+              borderWidth: 1,
+              borderColor: '#E0D8CC',
+              borderRadius: 8,
+              padding: 12,
+              fontSize: 16,
+              color: '#2C2820',
+              backgroundColor: '#FAFAF7'
+            }}
+            placeholder="Ej: 74.5"
+            placeholderTextColor="#8A8078"
+            keyboardType="numeric"
+            value={pesoInput}
+            onChangeText={setPesoInput}
+          />
+        </View>
+        <Text style={styles.label}>Condiciones médicas</Text>
+        <View style={styles.condicionesGrid}>
+          {CONDICIONES.map(c => (
+            <TouchableOpacity
+              key={c}
+              style={[styles.condicionBtn, condiciones.includes(c) && styles.condicionBtnActive]}
+              onPress={() => toggleCondicion(c)}
+            >
+              <Text style={[styles.condicionBtnText, condiciones.includes(c) && styles.condicionBtnTextActive]}>
+                {c}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
         {/* 📡 SECCIÓN TÁCTICA: CONFIGURACIÓN DE DISPOSITIVO VITANOVA (RELOJ GPS) */}
         <View style={styles.seccionReloj}>
           <Text style={styles.relojTitulo}>⌚ Enlace y Configuración del Reloj Vitanova</Text>
@@ -466,52 +510,6 @@ export default function PerfilPacienteScreen() {
           value={medico}
           onChangeText={setMedico}
         />
-
-        <Text style={styles.label}>Talla (cm)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="165"
-          placeholderTextColor={COLORS.textLight}
-          value={talla}
-          onChangeText={setTalla}
-          keyboardType="numeric"
-        />
-        {/* ⚖️ Input de Peso Clínico Unificado */}
-        <View style={{ marginBottom: 16, width: '100%' }}>
-          <Text style={{ fontSize: 14, fontWeight: '700', color: '#4A4540', marginBottom: 6 }}>
-            Peso Actual (kg)
-          </Text>
-          <TextInput
-            style={{
-              borderWidth: 1,
-              borderColor: '#E0D8CC',
-              borderRadius: 8,
-              padding: 12,
-              fontSize: 16,
-              color: '#2C2820',
-              backgroundColor: '#FAFAF7'
-            }}
-            placeholder="Ej: 74.5"
-            placeholderTextColor="#8A8078"
-            keyboardType="numeric"
-            value={pesoInput}
-            onChangeText={setPesoInput}
-          />
-        </View>
-        <Text style={styles.label}>Condiciones médicas</Text>
-        <View style={styles.condicionesGrid}>
-          {CONDICIONES.map(c => (
-            <TouchableOpacity
-              key={c}
-              style={[styles.condicionBtn, condiciones.includes(c) && styles.condicionBtnActive]}
-              onPress={() => toggleCondicion(c)}
-            >
-              <Text style={[styles.condicionBtnText, condiciones.includes(c) && styles.condicionBtnTextActive]}>
-                {c}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
 
         {/* SECCIÓN EMERGENCIAS */}
         <View style={styles.seccionEmergencia}>
