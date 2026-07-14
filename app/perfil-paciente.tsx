@@ -397,17 +397,17 @@ export default function PerfilPacienteScreen() {
         </View>
 
         <Text style={styles.label}>Sensibilidad del detector de caídas</Text>
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
           {[
             { val: '1', label: '🔴 Alta', desc: 'Detecta mínimo movimiento' },
             { val: '2', label: '🟠 Media', desc: 'Para adultos muy frágiles' },
             { val: '3', label: '🟡 Estándar', desc: 'Uso normal' },
-            { val: '4', label: '🟢 Baja', desc: 'Recomendada' },
+            { val: '4', label: '🟢 Baja', desc: 'Recomendada ✓' },
           ].map((op) => (
             <TouchableOpacity
               key={op.val}
               style={{
-                flex: 1,
+                width: '48%',
                 padding: 10,
                 borderRadius: 10,
                 borderWidth: 2,
@@ -424,22 +424,31 @@ export default function PerfilPacienteScreen() {
                 {op.desc}
               </Text>
             </TouchableOpacity>
-
-            
           ))}
-          
         </View>
-        {/* 🚀 BOTÓN DE FORZADO MANUAL DE REDIS (Mantiene tu funcionalidad previa para edición) */}
+
+        {/* Sincronización discreta */}
         {paciente?.id && imei.trim() ? (
           <TouchableOpacity
-            style={[styles.btnSincronizar, (guardando || sincronizandoHardware) && { opacity: 0.7 }]}
+            style={{ 
+              alignSelf: 'center',
+              paddingHorizontal: 16, 
+              paddingVertical: 8,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              marginBottom: 16,
+              opacity: (guardando || sincronizandoHardware) ? 0.5 : 1
+            }}
             onPress={() => ejecutarSincronizacionReloj(paciente.id)}
             disabled={guardando || sincronizandoHardware}
           >
             {sincronizandoHardware ? (
-              <ActivityIndicator color={COLORS.white} />
+              <ActivityIndicator size="small" color={COLORS.textLight} />
             ) : (
-              <Text style={styles.btnSincronizarText}>📡 Forzar Sincronización Remota (Redis)</Text>
+              <Text style={{ fontSize: 11, color: COLORS.textLight }}>
+                {'⚙️ Sincronizar configuración con reloj'}
+              </Text>
             )}
           </TouchableOpacity>
         ) : null}
