@@ -1032,7 +1032,21 @@ export default function CuidadorScreen() {
           </Text>
         </TouchableOpacity>
       )}
-
+       {/* Médico tratante */}
+        {pacienteActivo?.telefono_medico && (
+          <TouchableOpacity 
+            style={{ backgroundColor: '#F0F8FF', borderWidth: 1, borderColor: '#4A90D9', padding: 14, borderRadius: 10 }} 
+            onPress={() => { 
+              registrarIncidente("Médico tratante", "consulta"); 
+              setIncidenteOpen(false); 
+              Linking.openURL(`tel:${pacienteActivo.telefono_medico}`); 
+            }}
+          >
+            <Text style={{ fontWeight: '700', color: '#4A90D9', textAlign: 'center' }}>
+              {`👨‍⚕️ ${pacienteActivo.medico_tratante ?? 'Médico'} (${pacienteActivo.telefono_medico})`}
+            </Text>
+          </TouchableOpacity>
+        )}
       {/* Ambulancia aseguradora */}
       {pacienteActivo?.telefono_ambulancia && (
         <TouchableOpacity 

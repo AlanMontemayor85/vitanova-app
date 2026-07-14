@@ -37,7 +37,7 @@ export default function PerfilPacienteScreen() {
   const [sincronizandoHardware, setSincronizandoHardware] = useState(false);
   const [error, setError] = useState('');
   const [exito, setExito] = useState(false);
-
+  const [telefonoMedico, setTelefonoMedico] = useState(paciente?.telefono_medico ?? '');
   // Estados Base Existentes
   const [nombre, setNombre] = useState(paciente?.nombre_completo ?? '');
   const [medico, setMedico] = useState(paciente?.medico_tratante ?? '');
@@ -168,6 +168,7 @@ export default function PerfilPacienteScreen() {
         nombre_aseguradora: nombreAseguradora.trim() || null,
         telefono_aseguradora: telefonoAseguradora.trim() || null, // Valida si en tu API es telefono_aseguradora o telefono_ura
         telefono_ambulancia: telefonoAmbulancia.trim() || null,
+        telefono_medico: telefonoMedico.trim() || null,
         reloj_imei: imei.trim() || null,
         reloj_sos1: sos1.trim() || null,
         reloj_sos2: sos2.trim() || null,
@@ -384,62 +385,61 @@ export default function PerfilPacienteScreen() {
           onChangeText={setSos3}
           keyboardType="phone-pad"
         />
-       {/* TOGGLE DETECTOR DE CAÍDAS */}
-<View style={{
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  backgroundColor: COLORS.white,
-  borderRadius: 12,
-  borderWidth: 1,
-  borderColor: COLORS.border,
-  padding: 16,
-  marginBottom: 16
-}}>
-  <View style={{ flex: 1 }}>
-    <Text style={{ fontSize: 13, fontWeight: '800', color: COLORS.textDark }}>
-      {'🛡️ Detector de caídas'}
-    </Text>
-    <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 2 }}>
-      {caidaActiva ? 'Activo — el reloj detecta caídas' : 'Desactivado — sin alertas de caída'}
-    </Text>
-  </View>
-  <TouchableOpacity
-    onPress={async () => {
-      const nuevoEstado = !caidaActiva;
-      setCaidaActiva(nuevoEstado); // cambia visualmente de inmediato
-      try {
-        const arg = nuevoEstado ? '1,1' : '0,0';
-        await configurarReloj(paciente.id, undefined, 'FALLDOWN', arg);
-        // No revertimos aunque falle — se aplicará en la próxima sincronización al guardar
-      } catch {
-        console.log('⚠️ Toggle guardado localmente, se aplicará al sincronizar');
-      }
-    }}
-    style={{
-      width: 50,
-      height: 28,
-      borderRadius: 14,
-      backgroundColor: caidaActiva ? COLORS.green : COLORS.border,
-      justifyContent: 'center',
-      paddingHorizontal: 3,
-    }}
-  >
-    <View style={{
-      width: 22,
-      height: 22,
-      borderRadius: 11,
-      backgroundColor: COLORS.white,
-      alignSelf: caidaActiva ? 'flex-end' : 'flex-start',
-    }} />
-  </TouchableOpacity>
-</View>
-
+      
         {/* CONFIGURACIÓN AVANZADA DEL RELOJ */}
         <View style={[styles.seccionReloj, { marginTop: 16 }]}>
           <Text style={styles.relojTitulo}>⚙️ Parámetros del Sensor de Caídas</Text>
         </View>
-
+        {/* TOGGLE DETECTOR DE CAÍDAS */}
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          backgroundColor: COLORS.white,
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: COLORS.border,
+          padding: 16,
+          marginBottom: 16
+        }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 13, fontWeight: '800', color: COLORS.textDark }}>
+              {'🛡️ Detector de caídas'}
+            </Text>
+            <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 2 }}>
+              {caidaActiva ? 'Activo — el reloj detecta caídas' : 'Desactivado — sin alertas de caída'}
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={async () => {
+              const nuevoEstado = !caidaActiva;
+              setCaidaActiva(nuevoEstado); // cambia visualmente de inmediato
+              try {
+                const arg = nuevoEstado ? '1,1' : '0,0';
+                await configurarReloj(paciente.id, undefined, 'FALLDOWN', arg);
+                // No revertimos aunque falle — se aplicará en la próxima sincronización al guardar
+              } catch {
+                console.log('⚠️ Toggle guardado localmente, se aplicará al sincronizar');
+              }
+            }}
+            style={{
+              width: 50,
+              height: 28,
+              borderRadius: 14,
+              backgroundColor: caidaActiva ? COLORS.green : COLORS.border,
+              justifyContent: 'center',
+              paddingHorizontal: 3,
+            }}
+          >
+            <View style={{
+              width: 22,
+              height: 22,
+              borderRadius: 11,
+              backgroundColor: COLORS.white,
+              alignSelf: caidaActiva ? 'flex-end' : 'flex-start',
+            }} />
+          </TouchableOpacity>
+        </View>
         <Text style={styles.label}>Sensibilidad del detector de caídas</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
           {[
@@ -510,7 +510,15 @@ export default function PerfilPacienteScreen() {
           value={medico}
           onChangeText={setMedico}
         />
-
+        <Text style={styles.label}>Teléfono del médico</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ej. 8112345678"
+          placeholderTextColor={COLORS.textLight}
+          value={telefonoMedico}
+          onChangeText={setTelefonoMedico}
+          keyboardType="phone-pad"
+        />
         {/* SECCIÓN EMERGENCIAS */}
         <View style={styles.seccionEmergencia}>
           <Text style={styles.seccionTitulo}>🚨 Contactos de asistencia / Ambulancia</Text>
