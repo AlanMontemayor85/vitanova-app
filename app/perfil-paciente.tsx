@@ -80,6 +80,9 @@ export default function PerfilPacienteScreen() {
           console.log("⚖️ Peso real recuperado de la BD:", pFresco.peso_kg);
           setPesoInput(pFresco.peso_kg.toString());
         }
+        if (pFresco.telefono_medico !== undefined) {
+          setTelefonoMedico(pFresco.telefono_medico ?? '');
+        }
       }
     
       // ← Cargar sensibilidad real del dispositivo
@@ -156,7 +159,7 @@ export default function PerfilPacienteScreen() {
 
     try {
       console.log("📡 Enviando datos clínicos y de hardware a Railway...");
-      
+      console.log("📱 Guardando telefono_medico:", telefonoMedico);
       // 1. Guardamos o actualizamos la entidad en Supabase mediante Railway
       const dataPac = await actualizarPaciente(paciente?.id || 'nuevo', {
         nombre_completo: nombre.trim(),
@@ -225,6 +228,7 @@ export default function PerfilPacienteScreen() {
   };
  console.log("🔄 [RENDER] caidaActiva:", caidaActiva);
  console.log("🔍 sensibilidadCaidas:", sensibilidadCaidas, typeof sensibilidadCaidas);
+ console.log("📱 paciente completo:", JSON.stringify(paciente));
  return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
@@ -510,13 +514,16 @@ export default function PerfilPacienteScreen() {
           value={medico}
           onChangeText={setMedico}
         />
-        <Text style={styles.label}>Teléfono del médico</Text>
+       <Text style={styles.label}>Teléfono del médico</Text>
         <TextInput
           style={styles.input}
           placeholder="Ej. 8112345678"
           placeholderTextColor={COLORS.textLight}
           value={telefonoMedico}
-          onChangeText={setTelefonoMedico}
+          onChangeText={(text) => {
+            console.log("📱 telefonoMedico cambiando a:", text);
+            setTelefonoMedico(text);
+          }}
           keyboardType="phone-pad"
         />
         {/* SECCIÓN EMERGENCIAS */}
