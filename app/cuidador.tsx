@@ -145,7 +145,8 @@ export default function CuidadorScreen() {
   const [tempManual, setTempManual] = useState('');
   const [glucosa, setGlucosa] = useState('');
   const [observaciones, setObservaciones] = useState('');
-  
+ 
+  const modoFamiliar = params.modoFamiliar === 'true';
 
   // Estado temporal para la sensibilidad de caídas recuperada del servidor
   const [sensibilidadCaidas, setSensibilidadCaidas] = useState('');
@@ -629,6 +630,14 @@ export default function CuidadorScreen() {
           <TouchableOpacity style={styles.notifBtn} onPress={async () => { await clearToken(); router.replace('/login'); }}>
             <Text style={styles.notifIcon}>🚪</Text>
           </TouchableOpacity>
+          {modoFamiliar && (
+            <TouchableOpacity 
+              style={[styles.notifBtn, { marginRight: 8 }]} 
+              onPress={() => router.replace('/')}
+            >
+              <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
@@ -722,7 +731,14 @@ export default function CuidadorScreen() {
           </View>
           <View style={styles.turnoActivoPill}><View style={styles.activoDot} /><Text style={styles.activoText}>Monitoreo</Text></View>
         </View>
-
+                {modoFamiliar && (
+          <TouchableOpacity 
+            style={[styles.notifBtn, { marginRight: 8 }]} 
+            onPress={() => router.replace('/')}
+          >
+            <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
+          </TouchableOpacity>
+        )}
         {!signosDispositivo?.dispositivoPuesto && (
           <View style={{
             backgroundColor: '#FFFBEB',
