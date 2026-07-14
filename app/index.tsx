@@ -481,7 +481,8 @@ useEffect(() => {
           const config = signosDispositivo.reloj_config;
           if (!config.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
           if (config.sensibilidad === 1) return 'Detector de caídas: 🔴 Alta';
-          if (config.sensibilidad === 2) return 'Detector de caídas: 🟡 Estándar';
+          if (config.sensibilidad === 2) return 'Detector de caídas: 🟠 Media';
+          if (config.sensibilidad === 3) return 'Detector de caídas: 🟡 Estándar';  // ← agregar
           return 'Detector de caídas: 🟢 Baja (recomendada)';
         })()}
       </Text>
