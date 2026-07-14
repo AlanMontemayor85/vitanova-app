@@ -301,21 +301,6 @@ useEffect(() => {
         >
           <Text style={{ color: COLORS.gold, fontSize: 22, fontWeight: '800' }}>+</Text>
         </TouchableOpacity>
-
-        {/* ← AGREGAR: Botón modo cuidador */}
-        <TouchableOpacity 
-          style={[styles.notifBtn, { marginRight: 8 }]}
-          onPress={() => router.push({
-            pathname: '/cuidador' as any,
-            params: { 
-              pacienteId: paciente?.id,
-              modoFamiliar: 'true'
-            }
-          })}
-        >
-          <Text style={{ fontSize: 16 }}>🧑‍⚕️</Text>
-        </TouchableOpacity>
-
         <TouchableOpacity 
           style={styles.notifBtn}
           onPress={async () => {
