@@ -382,14 +382,6 @@ export const agregarTareaManual = async (tarea: object) => {
   });
   return res.json();
 };
-
-export const getTareasHoy = async (pacienteId: string) => {
-  const token = getToken();
-  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/tareas-hoy`, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
-  return res.json();
-};
 export const getTareasHoyAutocuidador = async (pacienteId: string) => {
   const token = getToken();
   const res = await fetch(`${BASE_URL}/autocuidador/tareas-hoy/${pacienteId}`, {
@@ -397,6 +389,14 @@ export const getTareasHoyAutocuidador = async (pacienteId: string) => {
   });
   return res.json();
 };
+export const getTareasHoy = async (pacienteId: string) => {
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/tareas-hoy`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  return res.json();
+};
+
 
 export const completarActividad = async (actividadId: string, pacienteId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/actividades/completar`, {
