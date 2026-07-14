@@ -223,6 +223,7 @@ export default function PerfilPacienteScreen() {
     }
   };
  console.log("🔄 [RENDER] caidaActiva:", caidaActiva);
+ console.log("🔍 sensibilidadCaidas:", sensibilidadCaidas, typeof sensibilidadCaidas);
  return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
