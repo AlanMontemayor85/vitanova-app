@@ -583,6 +583,29 @@ export default function PerfilPacienteScreen() {
             : <Text style={styles.btnText}>{paciente ? 'Guardar cambios' : 'Finalizar Registro Vitanova'}</Text>
           }
         </TouchableOpacity>
+        {/* ← AGREGAR botón cancelar */}
+        <TouchableOpacity
+          style={{ 
+            padding: 14, 
+            alignItems: 'center', 
+            marginTop: 8,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            borderRadius: 10,
+            backgroundColor: COLORS.white
+          }}
+          onPress={() => {
+            if (paciente) {
+              router.back(); // tiene registro → regresar al index
+            } else {
+              router.replace('/login'); // registro nuevo → ir al login
+            }
+          }}
+        >
+          <Text style={{ color: COLORS.textLight, fontWeight: '600', fontSize: 14 }}>
+            Cancelar
+          </Text>
+        </TouchableOpacity>
 
         {paciente && (
           <TouchableOpacity
