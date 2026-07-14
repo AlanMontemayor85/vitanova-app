@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, Modal, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getNotasTurno, getPacientes, getSignosRecientes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 
@@ -45,6 +45,7 @@ export default function HomeScreen() {
   const [signosDispositivo, setSignosDispositivo] = useState<any>(null);
   const [midiendo, setMidiendo] = useState<boolean>(false);
   const [nombreUsuario, setNombreUsuario] = useState<string>('Familiar');
+  const [vistaModo, setVistaModo] = useState<'familiar' | 'cuidador'>('familiar');
   const pacienteId = paciente?.id;
 
 // 📡 1. Función para jalar la telemetría más reciente del reloj
@@ -295,6 +296,20 @@ useEffect(() => {
           </Text>
           <Text style={styles.userName}>{getUserNombre() ?? 'Familiar'}</Text>
         </View>
+
+        {/* SWITCH MODO */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12, gap: 4 }}>
+          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>
+            {vistaModo === 'familiar' ? '👨‍👩‍👧' : '🩺'}
+          </Text>
+          <Switch
+            trackColor={{ false: 'rgba(255,255,255,0.2)', true: COLORS.gold }}
+            thumbColor={COLORS.white}
+            value={vistaModo === 'cuidador'}
+            onValueChange={(val) => setVistaModo(val ? 'cuidador' : 'familiar')}
+          />
+        </View>
+
         <TouchableOpacity 
           style={[styles.notifBtn, { marginRight: 8 }]}
           onPress={() => router.push('/nuevo-paciente' as any)}

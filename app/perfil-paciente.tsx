@@ -399,8 +399,9 @@ export default function PerfilPacienteScreen() {
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
           {[
             { val: '1', label: '🔴 Alta', desc: 'Detecta mínimo movimiento' },
-            { val: '2', label: '🟡 Estándar', desc: 'Uso normal recomendado' },
-            { val: '3', label: '🟢 Baja', desc: 'Solo caídas bruscas' },
+            { val: '2', label: '🟠 Media', desc: 'Para adultos muy frágiles' },
+            { val: '3', label: '🟡 Estándar', desc: 'Uso normal' },
+            { val: '4', label: '🟢 Baja', desc: 'Recomendada' },
           ].map((op) => (
             <TouchableOpacity
               key={op.val}
