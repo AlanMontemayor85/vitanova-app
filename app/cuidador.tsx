@@ -147,13 +147,19 @@ export default function CuidadorScreen() {
   const [observaciones, setObservaciones] = useState('');
  
   // ── ESTADO PERSISTENTE PARA BLINDAR EL MODO FAMILIAR ──
+  // ── ESTADO PERSISTENTE CORREGIDO PARA EL FAMILIAR ──
+ // ── ESTADO PERSISTENTE CORREGIDO CON FILTRO DE INICIO DE SESIÓN ──
   const [esModoFamiliarPersistente, setEsModoFamiliarPersistente] = useState(false);
 
   useEffect(() => {
-    if (params.modoFamiliar === 'true' || params.vistaInicial === 'turno') {
+    // 🛡️ Solo permitimos el modo familiar si viene el flag en la URL Y NO hay un turno activo real en curso
+    if (params.modoFamiliar === 'true' && !turnoActivo?.id?.includes('turno-virtual-familiar') && turnoActivo !== null) {
       setEsModoFamiliarPersistente(true);
+    } else if (params.modoFamiliar !== 'true') {
+      // Si explícitamente no viene como familiar, apagamos la persistencia de inmediato
+      setEsModoFamiliarPersistente(false);
     }
-  }, [params.modoFamiliar, params.vistaInicial]);
+  }, [params.modoFamiliar, turnoActivo]);
 
   const salirAModoFamiliar = () => {
     resetEstados();
@@ -286,22 +292,42 @@ export default function CuidadorScreen() {
     cargar();
   }, []);
 
-  // ── EFECTO: CAPTURA DE NAVEGACIÓN SIMPLIFICADA ──
+  // ── EFECTO: CAPTURA DE NAVEGACIÓN SIMPLIFICADA Y SEGURA CONTRA RESIDUOS ──
   useEffect(() => {
     if (params.vistaInicial === 'turno' && params.paciente) {
       try {
         const p = JSON.parse(params.paciente as string);
         setPacienteActivo(p); 
 
-        // Limpiamos los parámetros de la URL de inmediato para evitar reentradas
+        // Evaluamos de forma estricta si es familiar usando la persistencia real
+        const esFamiliarReal = params.modoFamiliar === 'true' || esModoFamiliarPersistente;
+
+        // Limpiamos parámetros de la URL inmediatamente para evitar reentradas concurrentes
         router.setParams({ vistaInicial: undefined, momento: undefined });
 
-        // Cargamos los datos del turno (cargarTurno se encargará de inyectar el virtual si falta)
-        cargarTurno(p.id).then(() => {
-          setVista('turno');
-        }).catch(err => {
-          console.error("Error al inicializar el panel:", err);
-          setVista('turno'); // Pasamos siempre para asegurar la UI
+        // 🛡️ 1. Si el servidor responde con un turno real, es un cuidador legítimo: fulminamos cualquier estado familiar
+        getTurnoActivo(p.id).then((turnoData) => {
+          if (turnoData && turnoData.turno) {
+            console.log("🩺 Cuidador operativo legítimo detectado. Limpiando flags de familiar.");
+            setEsModoFamiliarPersistente(false);
+            router.setParams({ modoFamiliar: undefined });
+            
+            cargarTurno(p.id).then(() => setVista('turno'));
+          } 
+          // 🛡️ 2. Si no hay turno obrero pero está autorizado como familiar principal
+          else if (esFamiliarReal) {
+            console.log("🛡️ Acceso de Familiar Principal. Cargando turno virtual...");
+            cargarTurno(p.id).then(() => setVista('turno'));
+          } 
+          // 🛡️ 3. Caso de seguridad: Cuidador externo sin turno activo
+          else {
+            resetEstados();
+            setVista('lista');
+            router.setParams({ paciente: undefined });
+          }
+        }).catch((err) => {
+          console.error("Error validando turno en el servidor:", err);
+          setVista('lista');
         });
 
         getPacientes().then(data => {
