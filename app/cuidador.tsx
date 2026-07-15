@@ -452,6 +452,8 @@ export default function CuidadorScreen() {
   const guardarNota = async () => {
     if (!notaTexto.trim()) return;
     setGuardandoNota(true);
+    
+    // 🛡️ Seguro de rescate: si no hay turno activo por estar en modo familiar, asignamos null de forma limpia
     const idTurnoActivo = turnoActivoRef.current?.id || turnoActivo?.id || null;
     const textoCapturado = notaTexto.trim();
 
@@ -464,11 +466,10 @@ export default function CuidadorScreen() {
         },
         body: JSON.stringify({ 
           paciente_id: pacienteActivo.id, 
-          turno_id: idTurnoActivo, 
+          turno_id: idTurnoActivo, // 👈 Se envía null de forma segura
           texto: textoCapturado
         })
       });
-
       if (!response.ok) throw new Error('Error en el servidor al guardar nota');
 
       const nuevaNotaSimulada = {
@@ -656,7 +657,10 @@ export default function CuidadorScreen() {
     Alert.alert('⚠️ Error', 'Ocurrió un problema al procesar el cierre del turno.');
   }
 };
+// ── FILTRO PREVENSOR DE NOTAS DUPLICADAS ──
+  const esNotaClinica = (t: any) => t.tipo === 'otro' || (t.descripcion || '').includes('📝') || t.es_incidental === true;
 
+  const tareasTrabajo = pacienteActivo && tareas ? tareas.filter((t: any) => !esNotaClinica(t)) : [];
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
@@ -779,9 +783,10 @@ export default function CuidadorScreen() {
     );
   }
 
-  // ── 2. VISTA CONSOLA DE TURNO ACTIVA ──
+  
+  // ── 2. VISTA CONSOLA DE TURNO ACTIVA BLINDADA ──
   if (vista === 'turno' && pacienteActivo) {
-    const tareasPendientes = tareas.filter(t => !t.completada);
+    const tareasPendientes = Array.isArray(tareas) ? tareas.filter(t => !t.completada) : [];
 
     return (
       <View style={styles.container}>
