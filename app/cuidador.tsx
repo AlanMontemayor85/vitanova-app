@@ -7,7 +7,7 @@ import {
   Modal,
   Platform,
   ScrollView,
-  StatusBar, StyleSheet, Switch, Text,
+  StatusBar, StyleSheet, Text,
   TextInput,
   TouchableOpacity, View
 } from 'react-native';
@@ -146,38 +146,8 @@ export default function CuidadorScreen() {
   const [glucosa, setGlucosa] = useState('');
   const [observaciones, setObservaciones] = useState('');
  
-  // ── ESTADO PERSISTENTE PARA BLINDAR EL MODO FAMILIAR ──
-  // ── ESTADO PERSISTENTE CORREGIDO PARA EL FAMILIAR ──
- // ── ESTADO PERSISTENTE CORREGIDO CON FILTRO DE INICIO DE SESIÓN ──
-  const [esModoFamiliarPersistente, setEsModoFamiliarPersistente] = useState(false);
+  const modoFamiliar = params.modoFamiliar === 'true';
 
-  useEffect(() => {
-    // 🛡️ Solo permitimos el modo familiar si viene el flag en la URL Y NO hay un turno activo real en curso
-    if (params.modoFamiliar === 'true' && !turnoActivo?.id?.includes('turno-virtual-familiar') && turnoActivo !== null) {
-      setEsModoFamiliarPersistente(true);
-    } else if (params.modoFamiliar !== 'true') {
-      // Si explícitamente no viene como familiar, apagamos la persistencia de inmediato
-      setEsModoFamiliarPersistente(false);
-    }
-  }, [params.modoFamiliar, turnoActivo]);
-
-  const salirAModoFamiliar = () => {
-    resetEstados();
-    setVista('lista');
-    setEsModoFamiliarPersistente(false);
-    
-    // Limpiamos los parámetros locales
-    router.setParams({ 
-      vistaInicial: undefined, 
-      paciente: undefined, 
-      modoFamiliar: undefined,
-      refresh: undefined,
-      momento: undefined
-    });
-    
-    // Redirección limpia a la raíz del ecosistema Vitanova
-    router.replace('/');
-  };
   // Estado temporal para la sensibilidad de caídas recuperada del servidor
   const [sensibilidadCaidas, setSensibilidadCaidas] = useState('');
 
@@ -296,49 +266,28 @@ export default function CuidadorScreen() {
     cargar();
   }, []);
 
-  // ── EFECTO: CAPTURA DE NAVEGACIÓN SIMPLIFICADA Y SEGURA CONTRA RESIDUOS ──
+  // ── NAVEGACIÓN DESDE OTRAS PANTALLAS ──
   useEffect(() => {
     if (params.vistaInicial === 'turno' && params.paciente) {
       try {
         const p = JSON.parse(params.paciente as string);
-        setPacienteActivo(p); 
-
-        // Evaluamos de forma estricta si es familiar usando la persistencia real
-        const esFamiliarReal = params.modoFamiliar === 'true' || esModoFamiliarPersistente;
-
-        // Limpiamos parámetros de la URL inmediatamente para evitar reentradas concurrentes
-        router.setParams({ vistaInicial: undefined, momento: undefined });
-
-        // 🛡️ 1. Si el servidor responde con un turno real, es un cuidador legítimo: fulminamos cualquier estado familiar
         getTurnoActivo(p.id).then((turnoData) => {
           if (turnoData && turnoData.turno) {
-            console.log("🩺 Cuidador operativo legítimo detectado. Limpiando flags de familiar.");
-            setEsModoFamiliarPersistente(false);
-            router.setParams({ modoFamiliar: undefined });
-            
-            cargarTurno(p.id).then(() => setVista('turno'));
-          } 
-          // 🛡️ 2. Si no hay turno obrero pero está autorizado como familiar principal
-          else if (esFamiliarReal) {
-            console.log("🛡️ Acceso de Familiar Principal. Cargando turno virtual...");
-            cargarTurno(p.id).then(() => setVista('turno'));
-          } 
-          // 🛡️ 3. Caso de seguridad: Cuidador externo sin turno activo
-          else {
+            setPacienteActivo(p);
+            cargarTurno(p.id);
+            setVista('turno');
+          } else {
             resetEstados();
             setVista('lista');
-            router.setParams({ paciente: undefined });
+            router.setParams({ vistaInicial: undefined, paciente: undefined });
           }
-        }).catch((err) => {
-          console.error("Error validando turno en el servidor:", err);
-          setVista('lista');
         });
 
         getPacientes().then(data => {
           if (data.patients) setPacientes(data.patients);
         });
       } catch (e) {
-        console.error('Error crítico parseando paciente:', e);
+        console.error('Error parseando paciente o validando turno:', e);
         setVista('lista');
       }
     }
@@ -353,35 +302,14 @@ export default function CuidadorScreen() {
       getAlertaPeso(pacienteId)
     ]);
 
-    // Omitimos validaciones de horarios externos si estamos en modo familiar
-    const esFamiliar = params.modoFamiliar === 'true' || esModoFamiliarPersistente;
-
-    if (tareasData.sin_horario && !esFamiliar) {
-       Alert.alert('Sin horario asignado', 'Pídele al familiar que configure tu horario.', 
-            [{ text: 'Entendido', onPress: () => setVista('lista') }]);
-        return; }
-
-    if (turnoData && turnoData.turno) {
-      // Caso normal: Hay un turno real en Supabase
+    if (tareasData.sin_horario) {
+      Alert.alert('Sin horario asignado', 'Pídele al familiar que configure tu horario.', [{ text: 'Entendido', onPress: () => setVista('lista') }]);
+      return;
+    }
+    if (turnoData.turno) {
       setTurnoActivo(turnoData.turno);
       turnoActivoRef.current = turnoData.turno;
-    } else if (esFamiliar) {
-      // 🎯 SOLUCIÓN MAESTRA: Si no hay turno pero eres el familiar, te creamos uno virtual estable
-      const turnoVirtual = {
-        id: 'turno-virtual-familiar',
-        paciente_id: pacienteId,
-        es_familiar: true,
-        created_at: new Date().toISOString(),
-        nombre_cuidador: 'Familiar Principal'
-      };
-      console.log("🚀 Turno Virtual de Familiar inyectado con éxito.");
-      setTurnoActivo(turnoVirtual);
-      turnoActivoRef.current = turnoVirtual;
-    } else {
-      setTurnoActivo(null);
-      turnoActivoRef.current = null;
     }
-
     if (tareasData.tareas) setTareas(tareasData.tareas);
     
     if (notasData && notasData.notas) {
@@ -487,8 +415,6 @@ export default function CuidadorScreen() {
   const guardarNota = async () => {
     if (!notaTexto.trim()) return;
     setGuardandoNota(true);
-    
-    // 🛡️ Seguro de rescate: si no hay turno activo por estar en modo familiar, asignamos null de forma limpia
     const idTurnoActivo = turnoActivoRef.current?.id || turnoActivo?.id || null;
     const textoCapturado = notaTexto.trim();
 
@@ -501,10 +427,11 @@ export default function CuidadorScreen() {
         },
         body: JSON.stringify({ 
           paciente_id: pacienteActivo.id, 
-          turno_id: idTurnoActivo, // 👈 Se envía null de forma segura
+          turno_id: idTurnoActivo, 
           texto: textoCapturado
         })
       });
+
       if (!response.ok) throw new Error('Error en el servidor al guardar nota');
 
       const nuevaNotaSimulada = {
@@ -597,25 +524,11 @@ export default function CuidadorScreen() {
 
   const ejecutarCierre = async () => {
   try {
-    const resNotas = await fetch(`${BASE_URL}/notas?paciente_id=${pacienteActivo.id}`, {
+    const notasRes = await fetch(`${BASE_URL}/notas?paciente_id=${pacienteActivo.id}`, {
       headers: { Authorization: `Bearer ${getToken()}` }
     });
-    
-    // 🔥 VALIDACIÓN DE TIPO DE CONTENIDO
-    const contentType = resNotas.headers.get("content-type");
-    let datasetNotas;
-    
-    if (contentType && contentType.includes("application/json")) {
-      datasetNotas = await resNotas.json();
-    } else {
-      const textoError = await resNotas.text();
-      console.error("🚨 RESPUESTA CRUDA DE ERROR (Inicia con I):", textoError);
-      Alert.alert("⚠️ Error del Servidor", `El backend respondió: ${textoError}`);
-      return; // Detiene la ejecución para evitar el crash del JSON Parse
-    }
-
+    const datasetNotas = await notasRes.json();
     const notasActualizadas = datasetNotas?.notas || datasetNotas?.registros || [];
-    // ... (El resto de tu lógica de consolidación de notas continúa igual)
     setNotas(Array.isArray(notasActualizadas) ? notasActualizadas.slice(0, 3) : []);
     
     let notasConsolidadas = "Sin notas incidentales en el turno.";
@@ -692,10 +605,7 @@ export default function CuidadorScreen() {
     Alert.alert('⚠️ Error', 'Ocurrió un problema al procesar el cierre del turno.');
   }
 };
-// ── FILTRO PREVENSOR DE NOTAS DUPLICADAS ──
-  const esNotaClinica = (t: any) => t.tipo === 'otro' || (t.descripcion || '').includes('📝') || t.es_incidental === true;
 
-  const tareasTrabajo = pacienteActivo && tareas ? tareas.filter((t: any) => !esNotaClinica(t)) : [];
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
@@ -717,25 +627,17 @@ export default function CuidadorScreen() {
           <TouchableOpacity style={[styles.notifBtn, { marginRight: 8 }]} onPress={() => router.push('/aceptar-invitacion' as any)}>
             <Text style={styles.notifIcon}>🔗</Text>
           </TouchableOpacity>
-          
-          
-          {/* ── SWITCH NATIVO MODO CUIDADOR ACTIVO PROTEGIDO ── */}
-          {(esModoFamiliarPersistente || params.modoFamiliar === 'true') && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12, gap: 4 }}>
-              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>🩺</Text>
-              <Switch
-                trackColor={{ false: 'rgba(255,255,255,0.2)', true: COLORS.gold }}
-                thumbColor={COLORS.white}
-                value={true}
-                onValueChange={(val) => {
-                  if (!val) salirAModoFamiliar();
-                }}
-              />
-            </View>
-          )}
           <TouchableOpacity style={styles.notifBtn} onPress={async () => { await clearToken(); router.replace('/login'); }}>
             <Text style={styles.notifIcon}>🚪</Text>
           </TouchableOpacity>
+          {modoFamiliar && (
+            <TouchableOpacity 
+              style={[styles.notifBtn, { marginRight: 8 }]} 
+              onPress={() => router.replace('/')}
+            >
+              <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
@@ -814,10 +716,9 @@ export default function CuidadorScreen() {
     );
   }
 
-  
-  // ── 2. VISTA CONSOLA DE TURNO ACTIVA BLINDADA ──
+  // ── 2. VISTA CONSOLA DE TURNO ACTIVA ──
   if (vista === 'turno' && pacienteActivo) {
-    const tareasPendientes = Array.isArray(tareas) ? tareas.filter(t => !t.completada) : [];
+    const tareasPendientes = tareas.filter(t => !t.completada);
 
     return (
       <View style={styles.container}>
@@ -829,25 +730,16 @@ export default function CuidadorScreen() {
             <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
           </View>
           <View style={styles.turnoActivoPill}><View style={styles.activoDot} /><Text style={styles.activoText}>Monitoreo</Text></View>
-          
-          {/* ── SWITCH NATIVO MODO CUIDADOR ACTIVO PROTEGIDO ── */}
-          {(esModoFamiliarPersistente || params.modoFamiliar === 'true') && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12, gap: 4 }}>
-              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>🩺</Text>
-              <Switch
-                trackColor={{ false: 'rgba(255,255,255,0.2)', true: COLORS.gold }}
-                thumbColor={COLORS.white}
-                value={true}
-                onValueChange={(val) => {
-                  if (!val) salirAModoFamiliar();
-                }}
-              />
-            </View>
-          )}
         </View>
-        
-        {/* ── ALERTA DE DESCONEXIÓN BLINDADA CONTRA NULOS ── */}
-        {signosDispositivo && !signosDispositivo.dispositivoPuesto && (
+                {modoFamiliar && (
+          <TouchableOpacity 
+            style={[styles.notifBtn, { marginRight: 8 }]} 
+            onPress={() => router.replace('/')}
+          >
+            <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
+          </TouchableOpacity>
+        )}
+        {!signosDispositivo?.dispositivoPuesto && (
           <View style={{
             backgroundColor: '#FFFBEB',
             borderLeftWidth: 4,
@@ -867,21 +759,13 @@ export default function CuidadorScreen() {
 
         <View style={[styles.monitorCard, { marginHorizontal: 16, marginTop: 16, backgroundColor: COLORS.white, borderColor: COLORS.border }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <Text style={{ fontSize: 9, fontWeight: '800', color: COLORS.textLight }}>📡 TELEMETRÍA EN VIVO</Text>
-            
-            {/* ── BOTÓN ULTRA COMPACTO Y REFINADO ── */}
+            <Text style={{ fontSize: 9, fontWeight: '800', color: COLORS.textLight }}>📡 TELEMETRÍA DE HARDWARE EN VIVO</Text>
             <TouchableOpacity 
               onPress={() => sincronizarSignosReloj(pacienteActivo.id, true)} 
               disabled={cargandoSignos}
-              style={[
-                styles.iniciarBtn, 
-                { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }, 
-                cargandoSignos && { backgroundColor: COLORS.border, borderColor: COLORS.border }
-              ]}
+              style={[styles.iniciarBtn, { paddingHorizontal: 10, paddingVertical: 4 }, cargandoSignos && { backgroundColor: COLORS.border }]}
             >
-              <Text style={[styles.iniciarBtnText, { fontSize: 10 }]}>
-                {cargandoSignos ? "🔄 Sincronizando..." : "⚡ Sensar"}
-              </Text>
+              <Text style={styles.iniciarBtnText}>{cargandoSignos ? "Inyectando Comando..." : "⚡ Sensa Ahora (TCP)"}</Text>
             </TouchableOpacity>
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 4 }}>
@@ -905,8 +789,8 @@ export default function CuidadorScreen() {
             </View>
           </View>
         </View>
-        {/* ⚙️ TARJETA CONFIG RELOJ — VISTA OPERATIVA SINCRONIZADA */}
-        {signosDispositivo && signosDispositivo.reloj_config ? (
+        {/* TARJETA CONFIG RELOJ — Vista Cuidador (solo lectura) */}
+        {signosDispositivo?.reloj_config && (
           <View style={{
             backgroundColor: COLORS.white,
             borderRadius: 12,
@@ -928,21 +812,15 @@ export default function CuidadorScreen() {
               <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
                 {(() => {
                   const config = signosDispositivo.reloj_config;
-                  
-                  // Seguro de emergencia por si el objeto viene incompleto
-                  if (!config) return 'Detector de caídas: 🔍 Cargando...';
                   if (!config.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
-                  
-                  // 🎯 Mapeo idéntico al de tu index actualizado
                   if (config.sensibilidad === 1) return 'Detector de caídas: 🔴 Alta';
-                  if (config.sensibilidad === 2) return 'Detector de caídas: 🟠 Media';
-                  if (config.sensibilidad === 3) return 'Detector de caídas: 🟡 Estándar';
+                  if (config.sensibilidad === 2) return 'Detector de caídas: 🟡 Estándar';
                   return 'Detector de caídas: 🟢 Baja (recomendada)';
                 })()}
               </Text>
               <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 2 }}>
                 {(() => {
-                  const uc = signosDispositivo.reloj_config?.ultima_configuracion;
+                  const uc = signosDispositivo.reloj_config.ultima_configuracion;
                   if (!uc) return 'Última sincronización: Sin registro aún';
                   return `Última sincronización: ${new Date(uc).toLocaleDateString('es-MX', { 
                     day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
@@ -951,7 +829,7 @@ export default function CuidadorScreen() {
               </Text>
             </View>
           </View>
-        ) : null}
+        )}
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
           <Text style={styles.sectionTitle}>Accesos rápidos de control</Text>
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
@@ -1273,21 +1151,6 @@ if (vista === 'espontaneo' && pacienteActivo) {
           <Text style={styles.greeting}>Evaluación de Bienestar</Text>
           <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
         </View>
-        
-        {/* ── SWITCH NATIVO MODO CUIDADOR ACTIVO PROTEGIDO ── */}
-        {(esModoFamiliarPersistente || params.modoFamiliar === 'true') && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12, gap: 4 }}>
-            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>🩺</Text>
-            <Switch
-              trackColor={{ false: 'rgba(255,255,255,0.2)', true: COLORS.gold }}
-              thumbColor={COLORS.white}
-              value={true}
-              onValueChange={(val) => {
-                if (!val) salirAModoFamiliar();
-              }}
-            />
-          </View>
-        )}
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>

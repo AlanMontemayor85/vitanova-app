@@ -117,27 +117,17 @@ const handleCalibrarReloj = async () => {
 };
 useEffect(() => {
   console.log("🔄 vistaModo cambió a:", vistaModo, "paciente?.id:", paciente?.id);
-  
   if (vistaModo === 'cuidador' && paciente?.id) {
-    // 🎯 Capturamos los datos necesarios antes de limpiar
-    const pacienteIdEnvio = paciente.id;
-    const pString = JSON.stringify(paciente);
-
-    // 🛡️ CORTAFUEGOS: Reseteamos el estado del index INMEDIATAMENTE 
-    // para evitar que el renderizado concurrente genere un loop
-    setVistaModo('familiar'); 
-
-    // Navegamos pasando explícitamente la vista inicial operativa
     router.push({
       pathname: '/cuidador' as any,
       params: { 
-        vistaInicial: 'turno',
-        paciente: pString,
-        modoFamiliar: 'true' // 👈 Este parámetro solo se envía aquí porque este es el switch exclusivo del familiar
+        modoFamiliar: 'true',
+        pacienteId: paciente?.id
       }
     });
+    setVistaModo('familiar');
   }
-}, [vistaModo, paciente?.id]);
+}, [vistaModo]);
 // 🔄 Carga inicial y Enrutador Inteligente Relacional
 useEffect(() => {
   const init = async () => {
