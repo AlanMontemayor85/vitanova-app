@@ -165,8 +165,8 @@ export default function HistorialScreen() {
       console.error("⚠️ No se pudo procesar el logo para el PDF, se generará sin él:", err);
     }
 
-    // Separación basada en el emoji de texto para hacer match exacto con el PDF y el backend
-  const esNotaClinica = (t: any) => (t.descripcion || '').startsWith('📝');
+   // ── FILTRO BLINDADO DE NOTAS CLÍNICAS ──
+  const esNotaClinica = (t: any) => t.tipo === 'otro' || (t.descripcion || '').includes('📝');
 
   const tareasTrabajo = cierreSeleccionado?.tareas ? cierreSeleccionado.tareas.filter((t: any) => !esNotaClinica(t)) : [];
   const notasTurno = cierreSeleccionado?.tareas ? cierreSeleccionado.tareas.filter((t: any) => esNotaClinica(t)) : [];
