@@ -147,6 +147,8 @@ export default function CuidadorScreen() {
   const [observaciones, setObservaciones] = useState('');
  
   const modoFamiliar = params.modoFamiliar === 'true';
+
+  // ── INSERCIÓN 1: FUNCIÓN DE ESCAPE DEFINITIVA ──
   const salirAModoFamiliar = () => {
     resetEstados();
     setVista('lista');
@@ -655,12 +657,14 @@ export default function CuidadorScreen() {
           <TouchableOpacity style={styles.notifBtn} onPress={async () => { await clearToken(); router.replace('/login'); }}>
             <Text style={styles.notifIcon}>🚪</Text>
           </TouchableOpacity>
+          
+          {/* ── INSERCIÓN 2: REEMPLAZO BOTÓN EN VISTA LISTA ── */}
           {modoFamiliar && (
             <TouchableOpacity 
-              style={[styles.notifBtn, { marginRight: 8 }]} 
-              onPress={() => router.replace('/')}
+              style={[styles.notifBtn, { marginRight: 8, backgroundColor: COLORS.gold, width: 85 }]} 
+              onPress={salirAModoFamiliar}
             >
-              <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
+              <Text style={{ fontSize: 11, color: COLORS.white, fontWeight: 'bold' }}>↩️ Familiar</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -756,7 +760,7 @@ export default function CuidadorScreen() {
           </View>
           <View style={styles.turnoActivoPill}><View style={styles.activoDot} /><Text style={styles.activoText}>Monitoreo</Text></View>
           
-          {/* ── INSERCIÓN 3: BOTÓN EN HEADER DE CONSOLA OPERATIVA ── */}
+          {/* ── INSERCIÓN 3: BOTÓN EN CONSOLA OPERATIVA ── */}
           {modoFamiliar && (
             <TouchableOpacity 
               style={[styles.notifBtn, { marginLeft: 8, backgroundColor: COLORS.gold, width: 75 }]} 
@@ -766,6 +770,7 @@ export default function CuidadorScreen() {
             </TouchableOpacity>
           )}
         </View>
+        
         {!signosDispositivo?.dispositivoPuesto && (
           <View style={{
             backgroundColor: '#FFFBEB',
@@ -1178,6 +1183,16 @@ if (vista === 'espontaneo' && pacienteActivo) {
           <Text style={styles.greeting}>Evaluación de Bienestar</Text>
           <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
         </View>
+        
+        {/* ── INSERCIÓN 4: BOTÓN EN REGISTRO DE BIENESTAR ── */}
+        {modoFamiliar && (
+          <TouchableOpacity 
+            style={[styles.notifBtn, { marginLeft: 8, backgroundColor: COLORS.gold, width: 75 }]} 
+            onPress={salirAModoFamiliar}
+          >
+            <Text style={{ fontSize: 11, color: COLORS.white, fontWeight: 'bold' }}>↩️ Panel</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
