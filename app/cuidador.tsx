@@ -293,22 +293,22 @@ export default function CuidadorScreen() {
         const p = JSON.parse(params.paciente as string);
         setPacienteActivo(p); 
 
+        // 🎯 Desactivamos el detonador de inmediato en la URL para congelar la pila
+        router.setParams({ vistaInicial: undefined });
+
         getTurnoActivo(p.id).then((turnoData) => {
           if (turnoData && turnoData.turno) {
-            // Caso A: Existe una jornada laboral activa en el servidor
             cargarTurno(p.id);
             setVista('turno');
           } 
-          // Evaluamos directamente el parámetro de la URL para evitar escuchar el estado local
           else if (params.modoFamiliar === 'true' || esModoFamiliarPersistente) {
-            // Caso B: Es Familiar Principal rescatando el flujo (Sin turno obrero)
+            // Panel de control familiar autorizado (Rescate sin ponchar tarjeta)
             cargarTurno(p.id);
             setVista('turno');
           } else {
-            // Caso C: Cuidador externo real sin turno iniciado
             resetEstados();
             setVista('lista');
-            router.setParams({ vistaInicial: undefined, paciente: undefined });
+            router.setParams({ paciente: undefined });
           }
         });
 
@@ -320,10 +320,9 @@ export default function CuidadorScreen() {
         setVista('lista');
       }
     }
-    // 🎯 REGLA DE ORO: Solo escuchamos los parámetros iniciales de Expo Router. 
-    // Quitamos 'esModoFamiliarPersistente' de aquí para romper el loop de raíz.
   }, [params.vistaInicial, params.paciente]);
 
+  // ── MODIFICACIÓN 1: CARGAR TURNO PERMISIVO PARA EL FAMILIAR ──
   const cargarTurno = async (pacienteId: string) => {
     const [turnoData, tareasData, notasData, cierreData, alertaPesoData] = await Promise.all([
       getTurnoActivo(pacienteId),
@@ -333,14 +332,21 @@ export default function CuidadorScreen() {
       getAlertaPeso(pacienteId)
     ]);
 
-    if (tareasData.sin_horario) {
+    // 🛡️ Solo bloqueamos por falta de horario si NO es el familiar principal en su panel
+    if (tareasData.sin_horario && !esModoFamiliarPersistente && params.modoFamiliar !== 'true') {
       Alert.alert('Sin horario asignado', 'Pídele al familiar que configure tu horario.', [{ text: 'Entendido', onPress: () => setVista('lista') }]);
       return;
     }
-    if (turnoData.turno) {
+
+    if (turnoData && turnoData.turno) {
       setTurnoActivo(turnoData.turno);
       turnoActivoRef.current = turnoData.turno;
+    } else {
+      // Si eres familiar, permitimos trabajar con turno en null de forma segura
+      setTurnoActivo(null);
+      turnoActivoRef.current = null;
     }
+    
     if (tareasData.tareas) setTareas(tareasData.tareas);
     
     if (notasData && notasData.notas) {
