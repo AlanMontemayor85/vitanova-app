@@ -115,6 +115,19 @@ const handleCalibrarReloj = async () => {
     alert("Error de red al conectar con el servidor.");
   }
 };
+useEffect(() => {
+  console.log("🔄 vistaModo cambió a:", vistaModo, "paciente?.id:", paciente?.id);
+  if (vistaModo === 'cuidador' && paciente?.id) {
+    router.push({
+      pathname: '/cuidador' as any,
+      params: { 
+        modoFamiliar: 'true',
+        pacienteId: paciente?.id
+      }
+    });
+    setVistaModo('familiar');
+  }
+}, [vistaModo]);
 // 🔄 Carga inicial y Enrutador Inteligente Relacional
 useEffect(() => {
   const init = async () => {
