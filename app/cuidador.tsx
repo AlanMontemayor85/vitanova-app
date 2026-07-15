@@ -286,7 +286,7 @@ export default function CuidadorScreen() {
     cargar();
   }, []);
 
-  // ── EFECTO: CAPTURA DE NAVEGACIÓN CORREGIDA SIN LOOP ──
+  // ── EFECTO: CAPTURA DE NAVEGACIÓN BLINDADO DE RAÍZ CONTRA BUCLES ──
   useEffect(() => {
     if (params.vistaInicial === 'turno' && params.paciente) {
       try {
@@ -295,17 +295,17 @@ export default function CuidadorScreen() {
 
         getTurnoActivo(p.id).then((turnoData) => {
           if (turnoData && turnoData.turno) {
-            // Caso A: Hay un turno laboral activo de cuidador
+            // Caso A: Existe una jornada laboral activa en el servidor
             cargarTurno(p.id);
             setVista('turno');
           } 
-          // ── MODIFICACIÓN AQUÍ: Cambiamos 'modoFamiliar' por tu nuevo estado o el param directo ──
-          else if (esModoFamiliarPersistente || params.modoFamiliar === 'true') {
-            // Caso B: Es Familiar Principal y no hay turno abierto (¡RESCATE!)
+          // Evaluamos directamente el parámetro de la URL para evitar escuchar el estado local
+          else if (params.modoFamiliar === 'true' || esModoFamiliarPersistente) {
+            // Caso B: Es Familiar Principal rescatando el flujo (Sin turno obrero)
             cargarTurno(p.id);
             setVista('turno');
           } else {
-            // Caso C: Es un cuidador externo real sin turno (Seguridad)
+            // Caso C: Cuidador externo real sin turno iniciado
             resetEstados();
             setVista('lista');
             router.setParams({ vistaInicial: undefined, paciente: undefined });
@@ -316,11 +316,13 @@ export default function CuidadorScreen() {
           if (data.patients) setPacientes(data.patients);
         });
       } catch (e) {
-        console.error('Error parseando paciente o validando turno:', e);
+        console.error('Error en captura de navegación:', e);
         setVista('lista');
       }
     }
-  }, [params.vistaInicial, params.paciente, esModoFamiliarPersistente]); // Añadimos la dependencia al arreglo
+    // 🎯 REGLA DE ORO: Solo escuchamos los parámetros iniciales de Expo Router. 
+    // Quitamos 'esModoFamiliarPersistente' de aquí para romper el loop de raíz.
+  }, [params.vistaInicial, params.paciente]);
 
   const cargarTurno = async (pacienteId: string) => {
     const [turnoData, tareasData, notasData, cierreData, alertaPesoData] = await Promise.all([
