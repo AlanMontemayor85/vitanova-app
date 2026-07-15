@@ -524,11 +524,25 @@ export default function CuidadorScreen() {
 
   const ejecutarCierre = async () => {
   try {
-    const notasRes = await fetch(`${BASE_URL}/notas?paciente_id=${pacienteActivo.id}`, {
+    const resNotas = await fetch(`${BASE_URL}/notas?paciente_id=${pacienteActivo.id}`, {
       headers: { Authorization: `Bearer ${getToken()}` }
     });
-    const datasetNotas = await notasRes.json();
+    
+    // 🔥 VALIDACIÓN DE TIPO DE CONTENIDO
+    const contentType = resNotas.headers.get("content-type");
+    let datasetNotas;
+    
+    if (contentType && contentType.includes("application/json")) {
+      datasetNotas = await resNotas.json();
+    } else {
+      const textoError = await resNotas.text();
+      console.error("🚨 RESPUESTA CRUDA DE ERROR (Inicia con I):", textoError);
+      Alert.alert("⚠️ Error del Servidor", `El backend respondió: ${textoError}`);
+      return; // Detiene la ejecución para evitar el crash del JSON Parse
+    }
+
     const notasActualizadas = datasetNotas?.notas || datasetNotas?.registros || [];
+    // ... (El resto de tu lógica de consolidación de notas continúa igual)
     setNotas(Array.isArray(notasActualizadas) ? notasActualizadas.slice(0, 3) : []);
     
     let notasConsolidadas = "Sin notas incidentales en el turno.";
