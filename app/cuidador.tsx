@@ -286,43 +286,34 @@ export default function CuidadorScreen() {
     cargar();
   }, []);
 
-  // ── EFECTO: CAPTURA DE NAVEGACIÓN BLINDADO DE RAÍZ CONTRA BUCLES ──
+  // ── EFECTO: CAPTURA DE NAVEGACIÓN SIMPLIFICADA ──
   useEffect(() => {
     if (params.vistaInicial === 'turno' && params.paciente) {
       try {
         const p = JSON.parse(params.paciente as string);
         setPacienteActivo(p); 
 
-        // 🎯 Desactivamos el detonador de inmediato en la URL para congelar la pila
-        router.setParams({ vistaInicial: undefined });
+        // Limpiamos los parámetros de la URL de inmediato para evitar reentradas
+        router.setParams({ vistaInicial: undefined, momento: undefined });
 
-        getTurnoActivo(p.id).then((turnoData) => {
-          if (turnoData && turnoData.turno) {
-            cargarTurno(p.id);
-            setVista('turno');
-          } 
-          else if (params.modoFamiliar === 'true' || esModoFamiliarPersistente) {
-            // Panel de control familiar autorizado (Rescate sin ponchar tarjeta)
-            cargarTurno(p.id);
-            setVista('turno');
-          } else {
-            resetEstados();
-            setVista('lista');
-            router.setParams({ paciente: undefined });
-          }
+        // Cargamos los datos del turno (cargarTurno se encargará de inyectar el virtual si falta)
+        cargarTurno(p.id).then(() => {
+          setVista('turno');
+        }).catch(err => {
+          console.error("Error al inicializar el panel:", err);
+          setVista('turno'); // Pasamos siempre para asegurar la UI
         });
 
         getPacientes().then(data => {
           if (data.patients) setPacientes(data.patients);
         });
       } catch (e) {
-        console.error('Error en captura de navegación:', e);
+        console.error('Error crítico parseando paciente:', e);
         setVista('lista');
       }
     }
   }, [params.vistaInicial, params.paciente]);
 
-  // ── MODIFICACIÓN 1: CARGAR TURNO PERMISIVO PARA EL FAMILIAR ──
   const cargarTurno = async (pacienteId: string) => {
     const [turnoData, tareasData, notasData, cierreData, alertaPesoData] = await Promise.all([
       getTurnoActivo(pacienteId),
@@ -332,21 +323,35 @@ export default function CuidadorScreen() {
       getAlertaPeso(pacienteId)
     ]);
 
-    // 🛡️ Solo bloqueamos por falta de horario si NO es el familiar principal en su panel
-    if (tareasData.sin_horario && !esModoFamiliarPersistente && params.modoFamiliar !== 'true') {
+    // Omitimos validaciones de horarios externos si estamos en modo familiar
+    const esFamiliar = params.modoFamiliar === 'true' || esModoFamiliarPersistente;
+
+    if (tareasData.sin_horario && !esFamiliar) {
       Alert.alert('Sin horario asignado', 'Pídele al familiar que configure tu horario.', [{ text: 'Entendido', onPress: () => setVista('lista') }]);
       return;
     }
 
     if (turnoData && turnoData.turno) {
+      // Caso normal: Hay un turno real en Supabase
       setTurnoActivo(turnoData.turno);
       turnoActivoRef.current = turnoData.turno;
+    } else if (esFamiliar) {
+      // 🎯 SOLUCIÓN MAESTRA: Si no hay turno pero eres el familiar, te creamos uno virtual estable
+      const turnoVirtual = {
+        id: 'turno-virtual-familiar',
+        paciente_id: pacienteId,
+        es_familiar: true,
+        created_at: new Date().toISOString(),
+        nombre_cuidador: 'Familiar Principal'
+      };
+      console.log("🚀 Turno Virtual de Familiar inyectado con éxito.");
+      setTurnoActivo(turnoVirtual);
+      turnoActivoRef.current = turnoVirtual;
     } else {
-      // Si eres familiar, permitimos trabajar con turno en null de forma segura
       setTurnoActivo(null);
       turnoActivoRef.current = null;
     }
-    
+
     if (tareasData.tareas) setTareas(tareasData.tareas);
     
     if (notasData && notasData.notas) {
