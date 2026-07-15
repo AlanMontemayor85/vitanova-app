@@ -286,17 +286,26 @@ export default function CuidadorScreen() {
     cargar();
   }, []);
 
-  // ── NAVEGACIÓN DESDE OTRAS PANTALLAS ──
+  // ── EFECTO: CAPTURA DE NAVEGACIÓN CORREGIDA SIN LOOP ──
   useEffect(() => {
     if (params.vistaInicial === 'turno' && params.paciente) {
       try {
         const p = JSON.parse(params.paciente as string);
+        setPacienteActivo(p); 
+
         getTurnoActivo(p.id).then((turnoData) => {
           if (turnoData && turnoData.turno) {
-            setPacienteActivo(p);
+            // Caso A: Hay un turno laboral activo de cuidador
+            cargarTurno(p.id);
+            setVista('turno');
+          } 
+          // ── MODIFICACIÓN AQUÍ: Cambiamos 'modoFamiliar' por tu nuevo estado o el param directo ──
+          else if (esModoFamiliarPersistente || params.modoFamiliar === 'true') {
+            // Caso B: Es Familiar Principal y no hay turno abierto (¡RESCATE!)
             cargarTurno(p.id);
             setVista('turno');
           } else {
+            // Caso C: Es un cuidador externo real sin turno (Seguridad)
             resetEstados();
             setVista('lista');
             router.setParams({ vistaInicial: undefined, paciente: undefined });
@@ -311,7 +320,7 @@ export default function CuidadorScreen() {
         setVista('lista');
       }
     }
-  }, [params.vistaInicial, params.paciente]);
+  }, [params.vistaInicial, params.paciente, esModoFamiliarPersistente]); // Añadimos la dependencia al arreglo
 
   const cargarTurno = async (pacienteId: string) => {
     const [turnoData, tareasData, notasData, cierreData, alertaPesoData] = await Promise.all([
