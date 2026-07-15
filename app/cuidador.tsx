@@ -689,20 +689,16 @@ export default function CuidadorScreen() {
           </TouchableOpacity>
           
           
-          {/* ── SWITCH NATIVO MODO CUIDADOR ACTIVO ── */}
-          {esModoFamiliarPersistente && (
+          {/* ── SWITCH NATIVO MODO CUIDADOR ACTIVO PROTEGIDO ── */}
+          {(esModoFamiliarPersistente || params.modoFamiliar === 'true') && (
             <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12, gap: 4 }}>
-              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>
-                🩺
-              </Text>
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>🩺</Text>
               <Switch
                 trackColor={{ false: 'rgba(255,255,255,0.2)', true: COLORS.gold }}
                 thumbColor={COLORS.white}
-                value={true} // Como está en esta pantalla, el modo cuidador está activo (ON)
+                value={true}
                 onValueChange={(val) => {
-                  if (!val) {
-                    salirAModoFamiliar(); // Al apagarlo, ejecuta el escape completo
-                  }
+                  if (!val) salirAModoFamiliar();
                 }}
               />
             </View>
@@ -804,20 +800,16 @@ export default function CuidadorScreen() {
           </View>
           <View style={styles.turnoActivoPill}><View style={styles.activoDot} /><Text style={styles.activoText}>Monitoreo</Text></View>
           
-          {/* ── SWITCH NATIVO MODO CUIDADOR ACTIVO ── */}
-          {esModoFamiliarPersistente && (
+          {/* ── SWITCH NATIVO MODO CUIDADOR ACTIVO PROTEGIDO ── */}
+          {(esModoFamiliarPersistente || params.modoFamiliar === 'true') && (
             <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12, gap: 4 }}>
-              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>
-                🩺
-              </Text>
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>🩺</Text>
               <Switch
                 trackColor={{ false: 'rgba(255,255,255,0.2)', true: COLORS.gold }}
                 thumbColor={COLORS.white}
-                value={true} // Como está en esta pantalla, el modo cuidador está activo (ON)
+                value={true}
                 onValueChange={(val) => {
-                  if (!val) {
-                    salirAModoFamiliar(); // Al apagarlo, ejecuta el escape completo
-                  }
+                  if (!val) salirAModoFamiliar();
                 }}
               />
             </View>
@@ -1252,24 +1244,20 @@ if (vista === 'espontaneo' && pacienteActivo) {
           <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
         </View>
         
-        {/* ── SWITCH NATIVO MODO CUIDADOR ACTIVO ── */}
-          {esModoFamiliarPersistente && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12, gap: 4 }}>
-              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>
-                🩺
-              </Text>
-              <Switch
-                trackColor={{ false: 'rgba(255,255,255,0.2)', true: COLORS.gold }}
-                thumbColor={COLORS.white}
-                value={true} // Como está en esta pantalla, el modo cuidador está activo (ON)
-                onValueChange={(val) => {
-                  if (!val) {
-                    salirAModoFamiliar(); // Al apagarlo, ejecuta el escape completo
-                  }
-                }}
-              />
-            </View>
-          )}
+        {/* ── SWITCH NATIVO MODO CUIDADOR ACTIVO PROTEGIDO ── */}
+        {(esModoFamiliarPersistente || params.modoFamiliar === 'true') && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12, gap: 4 }}>
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>🩺</Text>
+            <Switch
+              trackColor={{ false: 'rgba(255,255,255,0.2)', true: COLORS.gold }}
+              thumbColor={COLORS.white}
+              value={true}
+              onValueChange={(val) => {
+                if (!val) salirAModoFamiliar();
+              }}
+            />
+          </View>
+        )}
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
