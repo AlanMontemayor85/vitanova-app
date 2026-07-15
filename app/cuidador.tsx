@@ -7,7 +7,7 @@ import {
   Modal,
   Platform,
   ScrollView,
-  StatusBar, StyleSheet, Text,
+  StatusBar, StyleSheet, Switch, Text,
   TextInput,
   TouchableOpacity, View
 } from 'react-native';
@@ -150,17 +150,15 @@ export default function CuidadorScreen() {
   const [esModoFamiliarPersistente, setEsModoFamiliarPersistente] = useState(false);
 
   useEffect(() => {
-    // Si detectamos la bandera del familiar en los parámetros iniciales de entrada, la congelamos en el estado
     if (params.modoFamiliar === 'true' || params.vistaInicial === 'turno') {
       setEsModoFamiliarPersistente(true);
     }
   }, [params.modoFamiliar, params.vistaInicial]);
 
-  // Modificamos la función de escape para que también limpie este nuevo estado
   const salirAModoFamiliar = () => {
     resetEstados();
     setVista('lista');
-    setEsModoFamiliarPersistente(false); // 👈 Limpiamos el seguro
+    setEsModoFamiliarPersistente(false);
     router.setParams({ 
       vistaInicial: undefined, 
       paciente: undefined, 
@@ -663,19 +661,29 @@ export default function CuidadorScreen() {
           <TouchableOpacity style={[styles.notifBtn, { marginRight: 8 }]} onPress={() => router.push('/aceptar-invitacion' as any)}>
             <Text style={styles.notifIcon}>🔗</Text>
           </TouchableOpacity>
+          
+          
+          {/* ── SWITCH NATIVO MODO CUIDADOR ACTIVO ── */}
+          {esModoFamiliarPersistente && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12, gap: 4 }}>
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>
+                🩺
+              </Text>
+              <Switch
+                trackColor={{ false: 'rgba(255,255,255,0.2)', true: COLORS.gold }}
+                thumbColor={COLORS.white}
+                value={true} // Como está en esta pantalla, el modo cuidador está activo (ON)
+                onValueChange={(val) => {
+                  if (!val) {
+                    salirAModoFamiliar(); // Al apagarlo, ejecuta el escape completo
+                  }
+                }}
+              />
+            </View>
+          )}
           <TouchableOpacity style={styles.notifBtn} onPress={async () => { await clearToken(); router.replace('/login'); }}>
             <Text style={styles.notifIcon}>🚪</Text>
           </TouchableOpacity>
-          
-          {/* ── BOTÓN EN VISTA LISTA ACTUALIZADO ── */}
-          {esModoFamiliarPersistente && (
-            <TouchableOpacity 
-              style={[styles.notifBtn, { marginRight: 8, backgroundColor: COLORS.gold, width: 85 }]} 
-              onPress={salirAModoFamiliar}
-            >
-              <Text style={{ fontSize: 11, color: COLORS.white, fontWeight: 'bold' }}>↩️ Familiar</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
@@ -769,14 +777,23 @@ export default function CuidadorScreen() {
           </View>
           <View style={styles.turnoActivoPill}><View style={styles.activoDot} /><Text style={styles.activoText}>Monitoreo</Text></View>
           
-          {/* ── BOTÓN EN VISTA LISTA ACTUALIZADO ── */}
+          {/* ── SWITCH NATIVO MODO CUIDADOR ACTIVO ── */}
           {esModoFamiliarPersistente && (
-            <TouchableOpacity 
-              style={[styles.notifBtn, { marginRight: 8, backgroundColor: COLORS.gold, width: 85 }]} 
-              onPress={salirAModoFamiliar}
-            >
-              <Text style={{ fontSize: 11, color: COLORS.white, fontWeight: 'bold' }}>↩️ Familiar</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12, gap: 4 }}>
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>
+                🩺
+              </Text>
+              <Switch
+                trackColor={{ false: 'rgba(255,255,255,0.2)', true: COLORS.gold }}
+                thumbColor={COLORS.white}
+                value={true} // Como está en esta pantalla, el modo cuidador está activo (ON)
+                onValueChange={(val) => {
+                  if (!val) {
+                    salirAModoFamiliar(); // Al apagarlo, ejecuta el escape completo
+                  }
+                }}
+              />
+            </View>
           )}
         </View>
         
@@ -800,13 +817,21 @@ export default function CuidadorScreen() {
 
         <View style={[styles.monitorCard, { marginHorizontal: 16, marginTop: 16, backgroundColor: COLORS.white, borderColor: COLORS.border }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <Text style={{ fontSize: 9, fontWeight: '800', color: COLORS.textLight }}>📡 TELEMETRÍA DE HARDWARE EN VIVO</Text>
+            <Text style={{ fontSize: 9, fontWeight: '800', color: COLORS.textLight }}>📡 TELEMETRÍA EN VIVO</Text>
+            
+            {/* ── BOTÓN ULTRA COMPACTO Y REFINADO ── */}
             <TouchableOpacity 
               onPress={() => sincronizarSignosReloj(pacienteActivo.id, true)} 
               disabled={cargandoSignos}
-              style={[styles.iniciarBtn, { paddingHorizontal: 10, paddingVertical: 4 }, cargandoSignos && { backgroundColor: COLORS.border }]}
+              style={[
+                styles.iniciarBtn, 
+                { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }, 
+                cargandoSignos && { backgroundColor: COLORS.border, borderColor: COLORS.border }
+              ]}
             >
-              <Text style={styles.iniciarBtnText}>{cargandoSignos ? "Inyectando Comando..." : "⚡ Sensa Ahora (TCP)"}</Text>
+              <Text style={[styles.iniciarBtnText, { fontSize: 10 }]}>
+                {cargandoSignos ? "🔄 Sincronizando..." : "⚡ Sensar"}
+              </Text>
             </TouchableOpacity>
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 4 }}>
@@ -1193,14 +1218,23 @@ if (vista === 'espontaneo' && pacienteActivo) {
           <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
         </View>
         
-        {/* ── BOTÓN EN VISTA LISTA ACTUALIZADO ── */}
+        {/* ── SWITCH NATIVO MODO CUIDADOR ACTIVO ── */}
           {esModoFamiliarPersistente && (
-            <TouchableOpacity 
-              style={[styles.notifBtn, { marginRight: 8, backgroundColor: COLORS.gold, width: 85 }]} 
-              onPress={salirAModoFamiliar}
-            >
-              <Text style={{ fontSize: 11, color: COLORS.white, fontWeight: 'bold' }}>↩️ Familiar</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12, gap: 4 }}>
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>
+                🩺
+              </Text>
+              <Switch
+                trackColor={{ false: 'rgba(255,255,255,0.2)', true: COLORS.gold }}
+                thumbColor={COLORS.white}
+                value={true} // Como está en esta pantalla, el modo cuidador está activo (ON)
+                onValueChange={(val) => {
+                  if (!val) {
+                    salirAModoFamiliar(); // Al apagarlo, ejecuta el escape completo
+                  }
+                }}
+              />
+            </View>
           )}
       </View>
 
