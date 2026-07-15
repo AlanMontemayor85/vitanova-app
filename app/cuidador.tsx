@@ -808,7 +808,8 @@ export default function CuidadorScreen() {
           )}
         </View>
         
-        {!signosDispositivo?.dispositivoPuesto && (
+        {/* ── ALERTA DE DESCONEXIÓN BLINDADA CONTRA NULOS ── */}
+        {signosDispositivo && !signosDispositivo.dispositivoPuesto && (
           <View style={{
             backgroundColor: '#FFFBEB',
             borderLeftWidth: 4,
@@ -866,8 +867,8 @@ export default function CuidadorScreen() {
             </View>
           </View>
         </View>
-        {/* TARJETA CONFIG RELOJ — Vista Cuidador (solo lectura) */}
-        {signosDispositivo?.reloj_config && (
+        {/* ⚙️ TARJETA CONFIG RELOJ — VISTA OPERATIVA SINCRONIZADA */}
+        {signosDispositivo && signosDispositivo.reloj_config ? (
           <View style={{
             backgroundColor: COLORS.white,
             borderRadius: 12,
@@ -889,15 +890,21 @@ export default function CuidadorScreen() {
               <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
                 {(() => {
                   const config = signosDispositivo.reloj_config;
+                  
+                  // Seguro de emergencia por si el objeto viene incompleto
+                  if (!config) return 'Detector de caídas: 🔍 Cargando...';
                   if (!config.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
+                  
+                  // 🎯 Mapeo idéntico al de tu index actualizado
                   if (config.sensibilidad === 1) return 'Detector de caídas: 🔴 Alta';
-                  if (config.sensibilidad === 2) return 'Detector de caídas: 🟡 Estándar';
+                  if (config.sensibilidad === 2) return 'Detector de caídas: 🟠 Media';
+                  if (config.sensibilidad === 3) return 'Detector de caídas: 🟡 Estándar';
                   return 'Detector de caídas: 🟢 Baja (recomendada)';
                 })()}
               </Text>
               <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 2 }}>
                 {(() => {
-                  const uc = signosDispositivo.reloj_config.ultima_configuracion;
+                  const uc = signosDispositivo.reloj_config?.ultima_configuracion;
                   if (!uc) return 'Última sincronización: Sin registro aún';
                   return `Última sincronización: ${new Date(uc).toLocaleDateString('es-MX', { 
                     day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
@@ -906,7 +913,7 @@ export default function CuidadorScreen() {
               </Text>
             </View>
           </View>
-        )}
+        ) : null}
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
           <Text style={styles.sectionTitle}>Accesos rápidos de control</Text>
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
