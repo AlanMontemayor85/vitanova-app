@@ -165,11 +165,9 @@ export default function HistorialScreen() {
       console.error("⚠️ No se pudo procesar el logo para el PDF, se generará sin él:", err);
     }
 
-   // ── FILTRO BLINDADO DE NOTAS CLÍNICAS ──
-  const esNotaClinica = (t: any) => t.tipo === 'otro' || (t.descripcion || '').includes('📝');
-
-  const tareasTrabajo = cierreSeleccionado?.tareas ? cierreSeleccionado.tareas.filter((t: any) => !esNotaClinica(t)) : [];
-  const notasTurno = cierreSeleccionado?.tareas ? cierreSeleccionado.tareas.filter((t: any) => esNotaClinica(t)) : [];
+    // 🎯 2. CLASIFICACIÓN DE TAREAS Y NOTAS (Mantiene tu validación existente)
+    const tareasTrabajo = ((c?.tareas || []) as any[]).filter((t: any) => !(t.descripcion || '').startsWith('📝'));
+    const notasTurno = ((c?.tareas || []) as any[]).filter((t: any) => (t.descripcion || '').startsWith('📝'));
 
     // Generamos las filas de la tabla de actividades planificadas de forma dinámica
     const filasActividades = tareasTrabajo.map((t: any) => `
