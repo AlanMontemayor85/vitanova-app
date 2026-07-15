@@ -165,6 +165,8 @@ export default function CuidadorScreen() {
     resetEstados();
     setVista('lista');
     setEsModoFamiliarPersistente(false);
+    
+    // Limpiamos los parámetros locales
     router.setParams({ 
       vistaInicial: undefined, 
       paciente: undefined, 
@@ -172,6 +174,8 @@ export default function CuidadorScreen() {
       refresh: undefined,
       momento: undefined
     });
+    
+    // Redirección limpia a la raíz del ecosistema Vitanova
     router.replace('/');
   };
   // Estado temporal para la sensibilidad de caídas recuperada del servidor
@@ -353,9 +357,9 @@ export default function CuidadorScreen() {
     const esFamiliar = params.modoFamiliar === 'true' || esModoFamiliarPersistente;
 
     if (tareasData.sin_horario && !esFamiliar) {
-      Alert.alert('Sin horario asignado', 'Pídele al familiar que configure tu horario.', [{ text: 'Entendido', onPress: () => setVista('lista') }]);
-      return;
-    }
+       Alert.alert('Sin horario asignado', 'Pídele al familiar que configure tu horario.', 
+            [{ text: 'Entendido', onPress: () => setVista('lista') }]);
+        return; }
 
     if (turnoData && turnoData.turno) {
       // Caso normal: Hay un turno real en Supabase
