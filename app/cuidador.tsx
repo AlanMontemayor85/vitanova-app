@@ -76,7 +76,7 @@ const ICONOS_TIPO: Record<string, string> = {
 
 type Vista = 'lista' | 'turno' | 'espontaneo' | 'cierre';
 
-export default function CuidadorScreen() {
+export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
   const router = useRouter();
   const params = useLocalSearchParams();
 

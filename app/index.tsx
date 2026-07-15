@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Modal, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getNotasTurno, getPacientes, getSignosRecientes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
-
+import CuidadorScreen from './cuidador';
   
 const COLORS = {
   gold: '#BF9A40',
@@ -115,19 +115,10 @@ const handleCalibrarReloj = async () => {
     alert("Error de red al conectar con el servidor.");
   }
 };
+// Borramos el router.push y lo dejamos como un log pasivo de estado
 useEffect(() => {
-  console.log("🔄 vistaModo cambió a:", vistaModo, "paciente?.id:", paciente?.id);
-  if (vistaModo === 'cuidador' && paciente?.id) {
-    router.push({
-      pathname: '/cuidador' as any,
-      params: { 
-        modoFamiliar: 'true',
-        pacienteId: paciente?.id
-      }
-    });
-    setVistaModo('familiar');
-  }
-}, [vistaModo]);
+  console.log("🔄 [INDEX] Modo de visualización cambiado a:", vistaModo, "| Paciente:", paciente?.id);
+}, [vistaModo, paciente?.id]);
 // 🔄 Carga inicial y Enrutador Inteligente Relacional
 useEffect(() => {
   const init = async () => {
@@ -297,7 +288,7 @@ useEffect(() => {
   const condiciones = paciente?.condiciones_medicas?.join(' · ') ?? '—';
   const iniciales = paciente?.nombre_completo?.split(' ').map((n: string) => n[0]).slice(0, 2).join('') ?? 'VN';
 
-  return (
+ return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
       
@@ -340,550 +331,561 @@ useEffect(() => {
         </TouchableOpacity>
       </View>
 
-      {/* PATIENT CARD */}
-      <View style={styles.patientCard}>
-        {pacientes.length > 1 && (
-          <TouchableOpacity onPress={() => {
-            const newIndex = (pacienteIndex - 1 + pacientes.length) % pacientes.length;
-            setPacienteIndex(newIndex);
-            setPaciente(pacientes[newIndex]);
-          }}>
-            <Text style={{ color: COLORS.gold, fontSize: 20, marginRight: 4 }}>‹</Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity 
-          onPress={() => router.push({
-            pathname: '/perfil-paciente' as any,
-            params: { paciente: JSON.stringify(paciente) }
-          })}
-          style={styles.patientAvatar}
-        >
-          <Text style={styles.patientAvatarText}>{iniciales}</Text>
-        </TouchableOpacity>
-        <View style={styles.patientInfo}>
-          <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 }}>
-            Persona a tu cuidado
-          </Text>
-          <Text style={styles.patientName}>{nombre}</Text>
-          <Text style={styles.patientAge}>{condiciones}</Text>
-          {pacientes.length > 1 && (
-            <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>{pacienteIndex + 1} de {pacientes.length}</Text>
-          )}
-        </View>
-        <View style={styles.statusPill}>
-          <View style={styles.statusDot} />
-          <Text style={styles.statusText}>Bien</Text>
-        </View>
-        {pacientes.length > 1 && (
-          <TouchableOpacity onPress={() => {
-            const newIndex = (pacienteIndex + 1) % pacientes.length;
-            setPacienteIndex(newIndex);
-            setPaciente(pacientes[newIndex]);
-          }}>
-            <Text style={{ color: COLORS.gold, fontSize: 20, marginLeft: 4 }}>›</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-
-        {/* VITALS CON TELEMETRÍA EN VIVO */}
-        <View style={styles.vitalsContainer}>
-          <View style={styles.vitalsHeaderRow}>
-            <Text style={styles.sectionTitle}>Estatus y Parámetros</Text>
+      {/* ── INTERRUPTOR DINÁMICO DE CONSOLA ── */}
+      {vistaModo === 'cuidador' && paciente?.id ? (
+        /* 🩺 MODO OPERATIVO (Cargamos tu pantalla de cuidador directamente) */
+        <CuidadorScreen 
+          pacienteProp={paciente} 
+          onRegresar={() => setVistaModo('familiar')}
+        />
+      ) : (
+        /* 👨‍👩‍👧 MODO FAMILIAR (Tu interfaz normal con tarjeta de paciente, scroll, bottomNav y modal) */
+        <>
+          {/* PATIENT CARD */}
+          <View style={styles.patientCard}>
+            {pacientes.length > 1 && (
+              <TouchableOpacity onPress={() => {
+                const newIndex = (pacienteIndex - 1 + pacientes.length) % pacientes.length;
+                setPacienteIndex(newIndex);
+                setPaciente(pacientes[newIndex]);
+              }}>
+                <Text style={{ color: COLORS.gold, fontSize: 20, marginRight: 4 }}>‹</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity 
-              style={[styles.btnMedir, midiendo && styles.btnMedirDesactivado]} 
-              onPress={ejecutarMedicionRemota}
-              disabled={midiendo}
+              onPress={() => router.push({
+                pathname: '/perfil-paciente' as any,
+                params: { paciente: JSON.stringify(paciente) }
+              })}
+              style={styles.patientAvatar}
             >
-              <Text style={styles.btnMedirText}>
-                {midiendo ? "Leyendo... ⏳" : "🔄 Sensa Reloj"}
-              </Text>
+              <Text style={styles.patientAvatarText}>{iniciales}</Text>
             </TouchableOpacity>
+            <View style={styles.patientInfo}>
+              <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 }}>
+                Persona a tu cuidado
+              </Text>
+              <Text style={styles.patientName}>{nombre}</Text>
+              <Text style={styles.patientAge}>{condiciones}</Text>
+              {pacientes.length > 1 && (
+                <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>{pacienteIndex + 1} de {pacientes.length}</Text>
+              )}
+            </View>
+            <View style={styles.statusPill}>
+              <View style={styles.statusDot} />
+              <Text style={styles.statusText}>Bien</Text>
+            </View>
+            {pacientes.length > 1 && (
+              <TouchableOpacity onPress={() => {
+                const newIndex = (pacienteIndex + 1) % pacientes.length;
+                setPacienteIndex(newIndex);
+                setPaciente(pacientes[newIndex]);
+              }}>
+                <Text style={{ color: COLORS.gold, fontSize: 20, marginLeft: 4 }}>›</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
-          {/* FILA 1: ESTADO GENERAL DE BIENESTAR, TEMPERATURA Y PESO */}
-          <View style={[styles.vitalsRow, { marginBottom: 8 }]}>
-            <View style={styles.vitalCard}>
-              <Text style={[styles.vitalVal, { fontSize: 22, lineHeight: 26,
-                color: signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'critica' ? COLORS.red 
-                  : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'regular' ? COLORS.amber 
-                  : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'buena' ? COLORS.green
-                  : '#8E8E93'
-              }]}>
-                {signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'critica' ? '😟' 
-                  : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'regular' ? '😐' 
-                  : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'buena' ? '😊' 
-                  : '—'} 
-              </Text>
-              <Text style={styles.vitalLabel}>Condición</Text>
-            </View>
+          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
 
-            <View style={styles.vitalCard}>
-              <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.bphrt ? COLORS.green : COLORS.textLight }]}>
-                {signosDispositivo?.frescura?.bphrt && signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
-                  ? `${signosDispositivo.temperatura}°` : '—'}
-              </Text>
-              <Text style={styles.vitalLabel}>Temp. Corp.</Text>
-            </View>
-
-            <View style={styles.vitalCard}>
-              <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
-                {signosDispositivo?.peso && signosDispositivo?.peso !== "—"
-                  ? signosDispositivo.peso.replace(" kg", "") 
-                  : (ultimoCierre?.peso_kg ? `${ultimoCierre.peso_kg}` : '—')}
-              </Text>
-              <Text style={styles.vitalLabel}>Peso</Text>
-            </View>
-          </View>
-
-          {/* FILA 2: TELEMETRÍA PURA DEL HARDWARE */}
-          <View style={styles.vitalsRow}>
-            <View style={styles.vitalCard}>
-              <Text style={styles.vitalVal}>
-                {signosDispositivo?.frescura?.spo2 && signosDispositivo?.spo2 !== "—" 
-                  ? signosDispositivo?.spo2 : '—'}
-              </Text>
-              <Text style={styles.vitalUnit}>%</Text>
-              <Text style={styles.vitalLabel}>SpO₂</Text>
-            </View>
-
-            <View style={styles.vitalCard}>
-              <Text style={styles.vitalVal}>
-                {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
-                  ? signosDispositivo?.presion.split('/')[0] : '—'}
-                <Text style={styles.vitalValSmall}>
-                  {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
-                    ? `/${signosDispositivo?.presion.split('/')[1]}` : ''}
-                </Text>
-              </Text>
-              <Text style={styles.vitalLabel}>Presión</Text>
-            </View>
-
-            <View style={styles.vitalCard}>
-              <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.bphrt ? COLORS.red : COLORS.textLight }]}>
-                {signosDispositivo?.frescura?.bphrt && signosDispositivo?.fc !== "—" 
-                  ? signosDispositivo?.fc : '—'}
-              </Text>
-              <Text style={styles.vitalUnit}>bpm</Text>
-              <Text style={styles.vitalLabel}>F. Card.</Text>
-            </View>
-          </View>
-        </View>
-{/* TARJETA CONFIG RELOJ */}
-{signosDispositivo?.reloj_config && (
-  <View style={{
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 8,
-    marginBottom: 4,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12
-  }}>
-    <Text style={{ fontSize: 24 }}>{'⚙️'}</Text>
-    <View style={{ flex: 1 }}>
-      <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textDark }}>
-        {'Configuración del reloj'}
-      </Text>
-      <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
-        {(() => {
-          const config = signosDispositivo.reloj_config;
-          if (!config.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
-          if (config.sensibilidad === 1) return 'Detector de caídas: 🔴 Alta';
-          if (config.sensibilidad === 2) return 'Detector de caídas: 🟠 Media';
-          if (config.sensibilidad === 3) return 'Detector de caídas: 🟡 Estándar';  // ← agregar
-          return 'Detector de caídas: 🟢 Baja (recomendada)';
-        })()}
-      </Text>
-      <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 2 }}>
-        {(() => {
-          const uc = signosDispositivo.reloj_config.ultima_configuracion;
-          if (!uc) return 'Última sincronización: Sin registro aún';
-          return `Última sincronización: ${new Date(uc).toLocaleDateString('es-MX', { 
-            day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
-          })}`;
-        })()}
-      </Text>
-    </View>
-    <TouchableOpacity
-      onPress={() => router.push({
-        pathname: '/perfil-paciente' as any,
-        params: { paciente: JSON.stringify(paciente) }
-      })}
-      style={{
-        backgroundColor: COLORS.goldPale,
-        borderRadius: 8,
-        padding: 8,
-        borderWidth: 1,
-        borderColor: COLORS.gold
-      }}
-    >
-      <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '700' }}>{'Ajustar'}</Text>
-    </TouchableOpacity>
-  </View>
-)}
-
-        {/* ======================================================== */}
-        {/* ⚡ SECCIÓN 1: TURNO ACTIVO DE CUIDADO                   */}
-        {/* ======================================================== */}
-        <View style={[styles.sectionHeader, { marginTop: 12 }]}>
-          <Text style={styles.sectionTitle}>Turno activo</Text>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <TouchableOpacity onPress={() => router.push({
-              pathname: '/grafica-signos' as any,
-              params: { pacienteId: paciente?.id, pacienteNombre: paciente?.nombre_completo }
-            })}>
-              <Text style={styles.sectionLink}>Ver gráficas</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push({
-              pathname: '/historial' as any,
-              params: { pacienteId: paciente?.id, pacienteNombre: paciente?.nombre_completo }
-            })}>
-              <Text style={styles.sectionLink}>Ver historial</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {turnoResumen ? (
-          <View style={[styles.turnoCard, { marginTop: 8 }]}>
-            <View style={styles.turnoLeft}>
-              <View style={styles.turnoAvatar}>
-                <Text style={styles.turnoAvatarText}>
-                  {turnoResumen.cuidador_nombre?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
-                </Text>
+            {/* VITALS CON TELEMETRÍA EN VIVO */}
+            <View style={styles.vitalsContainer}>
+              <View style={styles.vitalsHeaderRow}>
+                <Text style={styles.sectionTitle}>Estatus y Parámetros</Text>
+                <TouchableOpacity 
+                  style={[styles.btnMedir, midiendo && styles.btnMedirDesactivado]} 
+                  onPress={ejecutarMedicionRemota}
+                  disabled={midiendo}
+                >
+                  <Text style={styles.btnMedirText}>
+                    {midiendo ? "Leyendo... ⏳" : "🔄 Sensa Reloj"}
+                  </Text>
+                </TouchableOpacity>
               </View>
-              <View>
-                <Text style={styles.turnoName}>{turnoResumen.cuidador_nombre}</Text>
-                <Text style={styles.turnoHora}>{turnoResumen.horario}</Text>
-              </View>
-            </View>
-            <View style={styles.turnoProgress}>
-              <Text style={styles.turnoProgressText}>{`${turnoResumen.completadas}/${turnoResumen.total}`}</Text>
-              <Text style={styles.turnoProgressLabel}>tareas</Text>
-            </View>
-          </View>
-        ) : (
-          <View style={[styles.turnoCard, { justifyContent: 'center', marginTop: 8 }]}>
-            <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
-              Sin turno activo en este momento
-            </Text>
-          </View>
-        )}
 
-        {/* ======================================================== */}
-        {/* 🎛️ SECCIÓN 2: ACCESOS RÁPIDOS OPERATIVOS                */}
-        {/* ======================================================== */}
-        <Text style={[styles.sectionTitle, { marginTop: 16, marginBottom: 12 }]}>Accesos rápidos</Text>
-        <View style={styles.quickActions}>
-          {[
-            { icon: '📍', label: 'Ubicación', ruta: '/mapa' },
-            { icon: '💊', label: 'Medicam.', ruta: '/medicamentos' },
-            { icon: '🔔', label: 'Alertas', ruta: '/alertas' },
-            { icon: '💬', label: 'Cuidadores', ruta: null },
-          ].map((item) => (
-            <TouchableOpacity
-              key={item.label}
-              style={styles.qaBtn}
-              onPress={() => {
-                if (item.label === 'Cuidadores') {
-                  router.push({
-                    pathname: '/red-cuidadores' as any,
-                    params: {
-                      pacienteId: paciente?.id,
-                      pacienteNombre: paciente?.nombre_completo,
-                    }
-                  });
-                } else if (item.label === 'Medicam.') {
-                  router.push({
-                    pathname: '/medicamentos' as any,
-                    params: {
-                      pacienteId: paciente?.id,
-                      pacienteNombre: paciente?.nombre_completo,
-                    }
-                  });
-                } else if (item.label === 'Alertas') {
-                  router.push({
-                    pathname: '/alertas' as any,
-                    params: {
-                      pacienteId: paciente?.id,
-                    }
-                  });
-                } else if (item.label === 'Ubicación') {
-                  router.push({
-                    pathname: '/mapa' as any,
-                    params: {
-                      pacienteId: paciente?.id,
-                    }
-                  });
-                }
-              }}
-            >
-              <Text style={styles.qaIcon}>{item.icon}</Text>
-              <Text style={styles.qaLabel}>{item.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+              {/* FILA 1: ESTADO GENERAL DE BIENESTAR, TEMPERATURA Y PESO */}
+              <View style={[styles.vitalsRow, { marginBottom: 8 }]}>
+                <View style={styles.vitalCard}>
+                  <Text style={[styles.vitalVal, { fontSize: 22, lineHeight: 26,
+                    color: signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'critica' ? COLORS.red 
+                      : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'regular' ? COLORS.amber 
+                      : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'buena' ? COLORS.green
+                      : '#8E8E93'
+                  }]}>
+                    {signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'critica' ? '😟' 
+                      : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'regular' ? '😐' 
+                      : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'buena' ? '😊' 
+                      : '—'} 
+                  </Text>
+                  <Text style={styles.vitalLabel}>Condición</Text>
+                </View>
 
-        {/* ======================================================== */}
-        {/* 👑 SECCIÓN 3: SERVICIOS VITANOVA INTEGRALIS              */}
-        {/* ======================================================== */}
-        <Text style={[styles.sectionTitle, { marginTop: 20, marginBottom: 12 }]}>Servicios Vitanova Integralis</Text>
-        <View style={[styles.quickActions, { justifyContent: 'flex-start', gap: 12 }]}>
-          {[
-            { icon: '🏠', label: 'Evaluación de Entorno', ruta: '/evaluacion-hogar' },
-            { icon: '🛏️', label: 'Solicitar Equipamiento', ruta: null },       
-          ].map((item) => (
-            <TouchableOpacity
-              key={item.label}
-              style={[styles.qaBtn, { width: '48%', maxWidth: '48%' }]}
-              onPress={() => {
-                if (item.label === 'Solicitar Equipamiento') {
-                  setSolicitudOpen(true);
-                } else if (item.ruta) {
-                  // 🎯 CORRECCIÓN DEFINITIVA: Estructura correcta de envío en expo-router
-                  router.push({
-                    pathname: item.ruta as any,
-                    params: { pacienteId: paciente?.id,ts: Date.now().toString() }
-                    
-                  });
-                }
-              }}
-            >
-              <Text style={styles.qaIcon}>{item.icon}</Text>
-              <Text style={styles.qaLabel} numberOfLines={2}>{item.label}</Text> 
-            </TouchableOpacity>
-          ))}
-        </View>
+                <View style={styles.vitalCard}>
+                  <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.bphrt ? COLORS.green : COLORS.textLight }]}>
+                    {signosDispositivo?.frescura?.bphrt && signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
+                      ? `${signosDispositivo.temperatura}°` : '—'}
+                  </Text>
+                  <Text style={styles.vitalLabel}>Temp. Corp.</Text>
+                </View>
 
-        {/* ======================================================== */}
-        {/* 📜 SECCIÓN 4: BITÁCORA DE RESUMEN (ÚLTIMO TURNO CERRADO) */}
-        {/* ======================================================== */}
-        <Text style={[styles.sectionTitle, { marginTop: 20, marginBottom: 12 }]}>Último turno</Text>
-
-        {ultimoCierre ? (
-          <>
-            <View style={[styles.alertCard, { backgroundColor: COLORS.greenPale, borderColor: '#C5E8D4', flexDirection: 'row', alignItems: 'center' }]}>
-              <Text style={styles.alertIcon}>👤</Text>
-              <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
-                <Text style={styles.alertTitle}>
-                  {ultimoCierre.usuarios?.nombre_completo ?? 'Cuidador'}
-                </Text>
-                <Text style={styles.alertSub}>
-                  {`Estado: ${ultimoCierre.estado_paciente} · ${new Date(ultimoCierre.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`}
-                </Text>
-              </View>
-            </View>
-
-            {ultimoCierre.barthel_total !== null && (
-              <View style={[styles.alertCard, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, marginTop: 8, flexDirection: 'row', alignItems: 'center' }]}>
-                <Text style={styles.alertIcon}>📋</Text>
-                <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
-                  <Text style={styles.alertTitle}>Índice de Barthel: {ultimoCierre.barthel_total}/100</Text>
-                  <Text style={styles.alertSub}>{ultimoCierre.barthel_label}</Text>
+                <View style={styles.vitalCard}>
+                  <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
+                    {signosDispositivo?.peso && signosDispositivo?.peso !== "—"
+                      ? signosDispositivo.peso.replace(" kg", "") 
+                      : (ultimoCierre?.peso_kg ? `${ultimoCierre.peso_kg}` : '—')}
+                  </Text>
+                  <Text style={styles.vitalLabel}>Peso</Text>
                 </View>
               </View>
-            )}
 
-            {ultimoCierre.morse_total !== null && ultimoCierre.morse_total >= 25 && (
-              <View style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0', marginTop: 8, flexDirection: 'row', alignItems: 'center' }]}>
-                <Text style={styles.alertIcon}>⚠️</Text>
-                <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
-                  <Text style={styles.alertTitle}>Riesgo de caída: {ultimoCierre.morse_total} pts</Text>
-                  <Text style={styles.alertSub}>{ultimoCierre.morse_label}</Text>
+              {/* FILA 2: TELEMETRÍA PURA DEL HARDWARE */}
+              <View style={styles.vitalsRow}>
+                <View style={styles.vitalCard}>
+                  <Text style={styles.vitalVal}>
+                    {signosDispositivo?.frescura?.spo2 && signosDispositivo?.spo2 !== "—" 
+                      ? signosDispositivo?.spo2 : '—'}
+                  </Text>
+                  <Text style={styles.vitalUnit}>%</Text>
+                  <Text style={styles.vitalLabel}>SpO₂</Text>
+                </View>
+
+                <View style={styles.vitalCard}>
+                  <Text style={styles.vitalVal}>
+                    {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
+                      ? signosDispositivo?.presion.split('/')[0] : '—'}
+                    <Text style={styles.vitalValSmall}>
+                      {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
+                        ? `/${signosDispositivo?.presion.split('/')[1]}` : ''}
+                    </Text>
+                  </Text>
+                  <Text style={styles.vitalLabel}>Presión</Text>
+                </View>
+
+                <View style={styles.vitalCard}>
+                  <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.bphrt ? COLORS.red : COLORS.textLight }]}>
+                    {signosDispositivo?.frescura?.bphrt && signosDispositivo?.fc !== "—" 
+                      ? signosDispositivo?.fc : '—'}
+                  </Text>
+                  <Text style={styles.vitalUnit}>bpm</Text>
+                  <Text style={styles.vitalLabel}>F. Card.</Text>
                 </View>
               </View>
-            )}
-          </>
-        ) : (
-          <View style={[styles.alertCard, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, flexDirection: 'row', alignItems: 'center' }]}>
-            <Text style={styles.alertIcon}>ℹ️</Text>
-            <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
-              <Text style={styles.alertTitle}>Sin registros aún</Text>
-              <Text style={styles.alertSub}>El cuidador no ha cerrado ningún turno todavía</Text>
             </View>
-          </View>
-        )}
 
-        {alertaPeso && (
-          <View style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0', marginTop: 8, flexDirection: 'row', alignItems: 'center' }]}>
-            <Text style={styles.alertIcon}>⚖️</Text>
-            <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
-              <Text style={styles.alertTitle}>Recordatorio de peso</Text>
-              <Text style={styles.alertSub}>{alertaPeso.mensaje}</Text>
-            </View>
-          </View>
-        )}
-
-        {/* NOTAS RECIENTES DEL CUIDADOR */}
-        {notas && notas.length > 0 && (
-          <>
-            <Text style={[styles.sectionTitle, { marginTop: 24, marginBottom: 12 }]}>
-              Notas del cuidador
-            </Text>
-            {notas.slice(0, 3).map((n, i) => (
-              <View key={n?.id || i} style={[styles.alertCard, { 
-                backgroundColor: COLORS.amberPale, 
-                borderColor: '#F5DBA0', 
-                marginBottom: 8,
+            {/* TARJETA CONFIG RELOJ */}
+            {signosDispositivo?.reloj_config && (
+              <View style={{
+                backgroundColor: COLORS.white,
+                borderRadius: 12,
+                padding: 14,
+                marginTop: 8,
+                marginBottom: 4,
+                borderWidth: 1,
+                borderColor: COLORS.border,
                 flexDirection: 'row',
-                alignItems: 'center'
-              }]}>
-                <Text style={styles.alertIcon}>📝</Text>
-                <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
-                  <Text style={styles.alertTitle}>
-                    {String(n?.descripcion || n?.texto || "Nota de relevo").replace('📝 ', '')}
+                alignItems: 'center',
+                gap: 12
+              }}>
+                <Text style={{ fontSize: 24 }}>{'⚙️'}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textDark }}>
+                    {'Configuración del reloj'}
                   </Text>
-                  <Text style={styles.alertSub}>
-                    {`${n?.usuarios?.nombre_completo ?? 'Personal Vitanova'} · ${
-                    n?.created_at 
-                      ? new Date(n.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-                      : ''
-                  }`}
+                  <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
+                    {(() => {
+                      const config = signosDispositivo.reloj_config;
+                      if (!config.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
+                      if (config.sensibilidad === 1) return 'Detector de caídas: 🔴 Alta';
+                      if (config.sensibilidad === 2) return 'Detector de caídas: 🟠 Media';
+                      if (config.sensibilidad === 3) return 'Detector de caídas: 🟡 Estándar';
+                      return 'Detector de caídas: 🟢 Baja (recomendada)';
+                    })()}
+                  </Text>
+                  <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 2 }}>
+                    {(() => {
+                      const uc = signosDispositivo.reloj_config.ultima_configuracion;
+                      if (!uc) return 'Última sincronización: Sin registro aún';
+                      return `Última sincronización: ${new Date(uc).toLocaleDateString('es-MX', { 
+                        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
+                      })}`;
+                    })()}
                   </Text>
                 </View>
+                <TouchableOpacity
+                  onPress={() => router.push({
+                    pathname: '/perfil-paciente' as any,
+                    params: { paciente: JSON.stringify(paciente) }
+                  })}
+                  style={{
+                    backgroundColor: COLORS.goldPale,
+                    borderRadius: 8,
+                    padding: 8,
+                    borderWidth: 1,
+                    borderColor: COLORS.gold
+                  }}
+                >
+                  <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '700' }}>{'Ajustar'}</Text>
+                </TouchableOpacity>
               </View>
-            ))}
-          </>
-        )}
+            )}
 
-        {/* Espaciador final correcto al fondo del ScrollView */}
-        <View style={{ height: 60 }} />
-      </ScrollView>
-      
-      {/* BOTTOM NAV */}
-      <View style={styles.bottomNav}>
-        {[
-          { icon: '📋', label: 'Inicio', ruta: '/', active: true },
-          { icon: '📍', label: 'Mapa', ruta: '/mapa', active: false },
-          { icon: '🔔', label: 'Alertas', ruta: '/alertas', active: false },
-          { icon: '💊', label: 'Medicam.', ruta: '/medicamentos', active: false },
-        ].map((item) => (
-          <TouchableOpacity
-            key={item.label}
-            style={styles.navItem}
-            onPress={() => {
-              if (item.ruta === '/') {
-                router.push('/');
-              } else {
-                router.push({
-                  pathname: item.ruta as any,
-                  params: {
-                    pacienteId: paciente?.id,
-                    pacienteNombre: paciente?.nombre_completo,
-                  }
-                });
-              }
-            }}
-          >
-            <Text style={styles.navIcon}>{item.icon}</Text>
-            <Text style={[styles.navLabel, item.active && { color: COLORS.gold }]}>
-              {item.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+            {/* ======================================================== */}
+            {/* ⚡ SECCIÓN 1: TURNO ACTIVO DE CUIDADO                    */}
+            {/* ======================================================== */}
+            <View style={[styles.sectionHeader, { marginTop: 12 }]}>
+              <Text style={styles.sectionTitle}>Turno activo</Text>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <TouchableOpacity onPress={() => router.push({
+                  pathname: '/grafica-signos' as any,
+                  params: { pacienteId: paciente?.id, pacienteNombre: paciente?.nombre_completo }
+                })}>
+                  <Text style={styles.sectionLink}>Ver gráficas</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push({
+                  pathname: '/historial' as any,
+                  params: { pacienteId: paciente?.id, pacienteNombre: paciente?.nombre_completo }
+                })}>
+                  <Text style={styles.sectionLink}>Ver historial</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
 
-      <Modal visible={solicitudOpen} transparent animationType="slide">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: COLORS.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, maxHeight: '85%' }}>
-            <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.textDark, marginBottom: 4 }}>
-              🛏️ Solicitar equipo médico
-            </Text>
-            <Text style={{ fontSize: 11, color: COLORS.textLight, marginBottom: 16 }}>
-              Selecciona el equipo para {paciente?.nombre_completo?.split(' ')[0] ?? 'el paciente'}
-            </Text>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            {turnoResumen ? (
+              <View style={[styles.turnoCard, { marginTop: 8 }]}>
+                <View style={styles.turnoLeft}>
+                  <View style={styles.turnoAvatar}>
+                    <Text style={styles.turnoAvatarText}>
+                      {turnoResumen.cuidador_nombre?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View>
+                    <Text style={styles.turnoName}>{turnoResumen.cuidador_nombre}</Text>
+                    <Text style={styles.turnoHora}>{turnoResumen.horario}</Text>
+                  </View>
+                </View>
+                <View style={styles.turnoProgress}>
+                  <Text style={styles.turnoProgressText}>{`${turnoResumen.completadas}/${turnoResumen.total}`}</Text>
+                  <Text style={styles.turnoProgressLabel}>tareas</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={[styles.turnoCard, { justifyContent: 'center', marginTop: 8 }]}>
+                <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
+                  Sin turno activo en este momento
+                </Text>
+              </View>
+            )}
+
+            {/* ======================================================== */}
+            {/* 🎛️ SECCIÓN 2: ACCESOS RÁPIDOS OPERATIVOS                */}
+            {/* ======================================================== */}
+            <Text style={[styles.sectionTitle, { marginTop: 16, marginBottom: 12 }]}>Accesos rápidos</Text>
+            <View style={styles.quickActions}>
               {[
-                { icon: '🛏️', label: 'Cama hospitalaria' },
-                { icon: '🪑', label: 'Silla de ruedas' },
-                { icon: '🚶', label: 'Andadera' },
-                { icon: '💨', label: 'Concentrador de oxígeno' },
-                { icon: '🫁', label: 'Oxígeno medicinal' },
-                { icon: '📡', label: 'Monitor de signos vitales' },
-                { icon: '🚿', label: 'Banco de baño' },
-                { icon: '🔒', label: 'Barras de seguridad' },
-                { icon: '🩺', label: 'Oxímetro' },
-                { icon: '🛌', label: 'Colchón antiescaras' },
-                { icon: '💊', label: 'Nebulizador' },
-                { icon: '🧴', label: 'Pañales' },
-              ].map((eq) => {
-                const seleccionado = solicitudItems.includes(eq.label);
-                return (
-                  <TouchableOpacity
-                    key={eq.label}
+                { icon: '📍', label: 'Ubicación', ruta: '/mapa' },
+                { icon: '💊', label: 'Medicam.', ruta: '/medicamentos' },
+                { icon: '🔔', label: 'Alertas', ruta: '/alertas' },
+                { icon: '💬', label: 'Cuidadores', ruta: null },
+              ].map((item) => (
+                <TouchableOpacity
+                  key={item.label}
+                  style={styles.qaBtn}
+                  onPress={() => {
+                    if (item.label === 'Cuidadores') {
+                      router.push({
+                        pathname: '/red-cuidadores' as any,
+                        params: {
+                          pacienteId: paciente?.id,
+                          pacienteNombre: paciente?.nombre_completo,
+                        }
+                      });
+                    } else if (item.label === 'Medicam.') {
+                      router.push({
+                        pathname: '/medicamentos' as any,
+                        params: {
+                          pacienteId: paciente?.id,
+                          pacienteNombre: paciente?.nombre_completo,
+                        }
+                      });
+                    } else if (item.label === 'Alertas') {
+                      router.push({
+                        pathname: '/alertas' as any,
+                        params: {
+                          pacienteId: paciente?.id,
+                        }
+                      });
+                    } else if (item.label === 'Ubicación') {
+                      router.push({
+                        pathname: '/mapa' as any,
+                        params: {
+                          pacienteId: paciente?.id,
+                        }
+                      });
+                    }
+                  }}
+                >
+                  <Text style={styles.qaIcon}>{item.icon}</Text>
+                  <Text style={styles.qaLabel}>{item.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* ======================================================== */}
+            {/* 👑 SECCIÓN 3: SERVICIOS VITANOVA INTEGRALIS              */}
+            {/* ======================================================== */}
+            <Text style={[styles.sectionTitle, { marginTop: 20, marginBottom: 12 }]}>Servicios Vitanova Integralis</Text>
+            <View style={[styles.quickActions, { justifyContent: 'flex-start', gap: 12 }]}>
+              {[
+                { icon: '🏠', label: 'Evaluación de Entorno', ruta: '/evaluacion-hogar' },
+                { icon: '🛏️', label: 'Solicitar Equipamiento', ruta: null },       
+              ].map((item) => (
+                <TouchableOpacity
+                  key={item.label}
+                  style={[styles.qaBtn, { width: '48%', maxWidth: '48%' }]}
+                  onPress={() => {
+                    if (item.label === 'Solicitar Equipamiento') {
+                      setSolicitudOpen(true);
+                    } else if (item.ruta) {
+                      router.push({
+                        pathname: item.ruta as any,
+                        params: { pacienteId: paciente?.id, ts: Date.now().toString() }
+                      });
+                    }
+                  }}
+                >
+                  <Text style={styles.qaIcon}>{item.icon}</Text>
+                  <Text style={styles.qaLabel} numberOfLines={2}>{item.label}</Text> 
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* ======================================================== */}
+            {/* 📜 SECCIÓN 4: BITÁCORA DE RESUMEN (ÚLTIMO TURNO CERRADO) */}
+            {/* ======================================================== */}
+            <Text style={[styles.sectionTitle, { marginTop: 20, marginBottom: 12 }]}>Último turno</Text>
+
+            {ultimoCierre ? (
+              <>
+                <View style={[styles.alertCard, { backgroundColor: COLORS.greenPale, borderColor: '#C5E8D4', flexDirection: 'row', alignItems: 'center' }]}>
+                  <Text style={styles.alertIcon}>👤</Text>
+                  <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
+                    <Text style={styles.alertTitle}>
+                      {ultimoCierre.usuarios?.nombre_completo ?? 'Cuidador'}
+                    </Text>
+                    <Text style={styles.alertSub}>
+                      {`Estado: ${ultimoCierre.estado_paciente} · ${new Date(ultimoCierre.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`}
+                    </Text>
+                  </View>
+                </View>
+
+                {ultimoCierre.barthel_total !== null && (
+                  <View style={[styles.alertCard, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, marginTop: 8, flexDirection: 'row', alignItems: 'center' }]}>
+                    <Text style={styles.alertIcon}>📋</Text>
+                    <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
+                      <Text style={styles.alertTitle}>Índice de Barthel: {ultimoCierre.barthel_total}/100</Text>
+                      <Text style={styles.alertSub}>{ultimoCierre.barthel_label}</Text>
+                    </View>
+                  </View>
+                )}
+
+                {ultimoCierre.morse_total !== null && ultimoCierre.morse_total >= 25 && (
+                  <View style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0', marginTop: 8, flexDirection: 'row', alignItems: 'center' }]}>
+                    <Text style={styles.alertIcon}>⚠️</Text>
+                    <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
+                      <Text style={styles.alertTitle}>Riesgo de caída: {ultimoCierre.morse_total} pts</Text>
+                      <Text style={styles.alertSub}>{ultimoCierre.morse_label}</Text>
+                    </View>
+                  </View>
+                )}
+              </>
+            ) : (
+              <View style={[styles.alertCard, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, flexDirection: 'row', alignItems: 'center' }]}>
+                <Text style={styles.alertIcon}>ℹ️</Text>
+                <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
+                  <Text style={styles.alertTitle}>Sin registros aún</Text>
+                  <Text style={styles.alertSub}>El cuidador no ha cerrado ningún turno todavía</Text>
+                </View>
+              </View>
+            )}
+
+            {alertaPeso && (
+              <View style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0', marginTop: 8, flexDirection: 'row', alignItems: 'center' }]}>
+                <Text style={styles.alertIcon}>⚖️</Text>
+                <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
+                  <Text style={styles.alertTitle}>Recordatorio de peso</Text>
+                  <Text style={styles.alertSub}>{alertaPeso.mensaje}</Text>
+                </View>
+              </View>
+            )}
+
+            {/* NOTAS RECIENTES DEL CUIDADOR */}
+            {notas && notas.length > 0 && (
+              <>
+                <Text style={[styles.sectionTitle, { marginTop: 24, marginBottom: 12 }]}>
+                  Notas del cuidador
+                </Text>
+                {notas.slice(0, 3).map((n, i) => (
+                  <View key={n?.id || i} style={[styles.alertCard, { 
+                    backgroundColor: COLORS.amberPale, 
+                    borderColor: '#F5DBA0', 
+                    marginBottom: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center'
+                  }]}>
+                    <Text style={styles.alertIcon}>📝</Text>
+                    <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
+                      <Text style={styles.alertTitle}>
+                        {String(n?.descripcion || n?.texto || "Nota de relevo").replace('📝 ', '')}
+                      </Text>
+                      <Text style={styles.alertSub}>
+                        {`${n?.usuarios?.nombre_completo ?? 'Personal Vitanova'} · ${
+                        n?.created_at 
+                          ? new Date(n.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                          : ''
+                      }`}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
+
+            {/* Espaciador final correcto al fondo del ScrollView */}
+            <View style={{ height: 60 }} />
+          </ScrollView>
+          
+          {/* BOTTOM NAV */}
+          <View style={styles.bottomNav}>
+            {[
+              { icon: '📋', label: 'Inicio', ruta: '/', active: true },
+              { icon: '📍', label: 'Mapa', ruta: '/mapa', active: false },
+              { icon: '🔔', label: 'Alertas', ruta: '/alertas', active: false },
+              { icon: '💊', label: 'Medicam.', ruta: '/medicamentos', active: false },
+            ].map((item) => (
+              <TouchableOpacity
+                key={item.label}
+                style={styles.navItem}
+                onPress={() => {
+                  if (item.ruta === '/') {
+                    router.push('/');
+                  } else {
+                    router.push({
+                      pathname: item.ruta as any,
+                      params: {
+                        pacienteId: paciente?.id,
+                        pacienteNombre: paciente?.nombre_completo,
+                      }
+                    });
+                  }
+                }}
+              >
+                <Text style={styles.navIcon}>{item.icon}</Text>
+                <Text style={[styles.navLabel, item.active && { color: COLORS.gold }]}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* MODAL DE SOLICITUD */}
+          <Modal visible={solicitudOpen} transparent animationType="slide">
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+              <View style={{ backgroundColor: COLORS.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, maxHeight: '85%' }}>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.textDark, marginBottom: 4 }}>
+                  🛏️ Solicitar equipo médico
+                </Text>
+                <Text style={{ fontSize: 11, color: COLORS.textLight, marginBottom: 16 }}>
+                  Selecciona el equipo para {paciente?.nombre_completo?.split(' ')[0] ?? 'el paciente'}
+                </Text>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  {[
+                    { icon: '🛏️', label: 'Cama hospitalaria' },
+                    { icon: '🪑', label: 'Silla de ruedas' },
+                    { icon: '🚶', label: 'Andadera' },
+                    { icon: '💨', label: 'Concentrador de oxígeno' },
+                    { icon: '🫁', label: 'Oxígeno medicinal' },
+                    { icon: '📡', label: 'Monitor de signos vitales' },
+                    { icon: '🚿', label: 'Banco de baño' },
+                    { icon: '🔒', label: 'Barras de seguridad' },
+                    { icon: '🩺', label: 'Oxímetro' },
+                    { icon: '🛌', label: 'Colchón antiescaras' },
+                    { icon: '💊', label: 'Nebulizador' },
+                    { icon: '🧴', label: 'Pañales' },
+                  ].map((eq) => {
+                    const seleccionado = solicitudItems.includes(eq.label);
+                    return (
+                      <TouchableOpacity
+                        key={eq.label}
+                        style={{
+                          flexDirection: 'row', alignItems: 'center', gap: 12,
+                          padding: 12, borderRadius: 10, marginBottom: 6,
+                          backgroundColor: seleccionado ? COLORS.goldPale : COLORS.cream,
+                          borderWidth: 1, borderColor: seleccionado ? COLORS.gold : COLORS.border,
+                        }}
+                        onPress={() => {
+                          setSolicitudItems(prev =>
+                            prev.includes(eq.label)
+                              ? prev.filter(i => i !== eq.label)
+                              : [...prev, eq.label]
+                          );
+                        }}
+                      >
+                        <Text style={{ fontSize: 20 }}>{eq.icon}</Text>
+                        <Text style={{ fontSize: 13, fontWeight: seleccionado ? '700' : '500', color: seleccionado ? COLORS.gold : COLORS.textDark, flex: 1 }}>
+                          {eq.label}
+                        </Text>
+                        {seleccionado && <Text style={{ fontSize: 14, color: COLORS.gold, fontWeight: '800' }}>✓</Text>}
+                      </TouchableOpacity>
+                    );
+                  })}
+                  <TextInput
                     style={{
-                      flexDirection: 'row', alignItems: 'center', gap: 12,
-                      padding: 12, borderRadius: 10, marginBottom: 6,
-                      backgroundColor: seleccionado ? COLORS.goldPale : COLORS.cream,
-                      borderWidth: 1, borderColor: seleccionado ? COLORS.gold : COLORS.border,
+                      backgroundColor: COLORS.cream, borderRadius: 10, padding: 12,
+                      borderWidth: 1, borderColor: COLORS.border, fontSize: 13,
+                      color: COLORS.textDark, minHeight: 60, textAlignVertical: 'top',
+                      marginTop: 8, marginBottom: 16,
                     }}
+                    placeholder="Notas adicionales (urgencia, talla, detalles...)"
+                    placeholderTextColor={COLORS.textLight}
+                    multiline
+                    value={solicitudNota}
+                    onChangeText={setSolicitudNota}
+                  />
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: solicitudItems.length > 0 ? '#25D366' : COLORS.border,
+                      borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 8,
+                    }}
+                    disabled={solicitudItems.length === 0}
                     onPress={() => {
-                      setSolicitudItems(prev =>
-                        prev.includes(eq.label)
-                          ? prev.filter(i => i !== eq.label)
-                          : [...prev, eq.label]
+                      const nombrePaciente = paciente?.nombre_completo ?? 'el paciente';
+                      const listaEquipo = solicitudItems.map(i => `• ${i}`).join('\n');
+                      const mensaje = encodeURIComponent(
+                        `Hola Vitanova 👋\n\nSoy *${getUserNombre() ?? 'un familiar'}* y necesito equipo médico para *${nombrePaciente}*.\n\n*Equipo solicitado:*\n${listaEquipo}${solicitudNota ? `\n\n*Notas:* ${solicitudNota}` : ''}\n\n_Enviado desde la app Vitanova Integralis_`
                       );
+                      Linking.openURL(`https://wa.me/528140078129?text=${mensaje}`);
+                      setSolicitudOpen(false);
+                      setSolicitudItems([]);
+                      setSolicitudNota('');
                     }}
                   >
-                    <Text style={{ fontSize: 20 }}>{eq.icon}</Text>
-                    <Text style={{ fontSize: 13, fontWeight: seleccionado ? '700' : '500', color: seleccionado ? COLORS.gold : COLORS.textDark, flex: 1 }}>
-                      {eq.label}
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.white }}>
+                      {solicitudItems.length > 0 ? `📲 Enviar solicitud (${solicitudItems.length})` : 'Selecciona al menos un equipo'}
                     </Text>
-                    {seleccionado && <Text style={{ fontSize: 14, color: COLORS.gold, fontWeight: '800' }}>✓</Text>}
                   </TouchableOpacity>
-                );
-              })}
-              <TextInput
-                style={{
-                  backgroundColor: COLORS.cream, borderRadius: 10, padding: 12,
-                  borderWidth: 1, borderColor: COLORS.border, fontSize: 13,
-                  color: COLORS.textDark, minHeight: 60, textAlignVertical: 'top',
-                  marginTop: 8, marginBottom: 16,
-                }}
-                placeholder="Notas adicionales (urgencia, talla, detalles...)"
-                placeholderTextColor={COLORS.textLight}
-                multiline
-                value={solicitudNota}
-                onChangeText={setSolicitudNota}
-              />
-              <TouchableOpacity
-                style={{
-                  backgroundColor: solicitudItems.length > 0 ? '#25D366' : COLORS.border,
-                  borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 8,
-                }}
-                disabled={solicitudItems.length === 0}
-                onPress={() => {
-                  const nombrePaciente = paciente?.nombre_completo ?? 'el paciente';
-                  const listaEquipo = solicitudItems.map(i => `• ${i}`).join('\n');
-                  const mensaje = encodeURIComponent(
-                    `Hola Vitanova 👋\n\nSoy *${getUserNombre() ?? 'un familiar'}* y necesito equipo médico para *${nombrePaciente}*.\n\n*Equipo solicitado:*\n${listaEquipo}${solicitudNota ? `\n\n*Notas:* ${solicitudNota}` : ''}\n\n_Enviado desde la app Vitanova Integralis_`
-                  );
-                  Linking.openURL(`https://wa.me/528140078129?text=${mensaje}`);
-                  setSolicitudOpen(false);
-                  setSolicitudItems([]);
-                  setSolicitudNota('');
-                }}
-              >
-                <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.white }}>
-                  {solicitudItems.length > 0 ? `📲 Enviar solicitud (${solicitudItems.length})` : 'Selecciona al menos un equipo'}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={{ borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}
-                onPress={() => { setSolicitudOpen(false); setSolicitudItems([]); setSolicitudNota(''); }}
-              >
-                <Text style={{ fontSize: 13, color: COLORS.textLight, fontWeight: '600' }}>Cancelar</Text>
-              </TouchableOpacity>
-              <View style={{ height: 20 }} />
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
+                  <TouchableOpacity
+                    style={{ borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}
+                    onPress={() => { setSolicitudOpen(false); setSolicitudItems([]); setSolicitudNota(''); }}
+                  >
+                    <Text style={{ fontSize: 13, color: COLORS.textLight, fontWeight: '600' }}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <View style={{ height: 20 }} />
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
+        </>
+      )}
     </View>
   );
 }
