@@ -147,7 +147,18 @@ export default function CuidadorScreen() {
   const [observaciones, setObservaciones] = useState('');
  
   const modoFamiliar = params.modoFamiliar === 'true';
-
+  const salirAModoFamiliar = () => {
+    resetEstados();
+    setVista('lista');
+    router.setParams({ 
+      vistaInicial: undefined, 
+      paciente: undefined, 
+      modoFamiliar: undefined,
+      refresh: undefined,
+      momento: undefined
+    });
+    router.replace('/');
+  };
   // Estado temporal para la sensibilidad de caídas recuperada del servidor
   const [sensibilidadCaidas, setSensibilidadCaidas] = useState('');
 
@@ -744,15 +755,17 @@ export default function CuidadorScreen() {
             <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
           </View>
           <View style={styles.turnoActivoPill}><View style={styles.activoDot} /><Text style={styles.activoText}>Monitoreo</Text></View>
+          
+          {/* ── INSERCIÓN 3: BOTÓN EN HEADER DE CONSOLA OPERATIVA ── */}
+          {modoFamiliar && (
+            <TouchableOpacity 
+              style={[styles.notifBtn, { marginLeft: 8, backgroundColor: COLORS.gold, width: 75 }]} 
+              onPress={salirAModoFamiliar}
+            >
+              <Text style={{ fontSize: 11, color: COLORS.white, fontWeight: 'bold' }}>↩️ Panel</Text>
+            </TouchableOpacity>
+          )}
         </View>
-                {modoFamiliar && (
-          <TouchableOpacity 
-            style={[styles.notifBtn, { marginRight: 8 }]} 
-            onPress={() => router.replace('/')}
-          >
-            <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
-          </TouchableOpacity>
-        )}
         {!signosDispositivo?.dispositivoPuesto && (
           <View style={{
             backgroundColor: '#FFFBEB',
