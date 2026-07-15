@@ -146,12 +146,21 @@ export default function CuidadorScreen() {
   const [glucosa, setGlucosa] = useState('');
   const [observaciones, setObservaciones] = useState('');
  
-  const modoFamiliar = params.modoFamiliar === 'true';
+  // ── ESTADO PERSISTENTE PARA BLINDAR EL MODO FAMILIAR ──
+  const [esModoFamiliarPersistente, setEsModoFamiliarPersistente] = useState(false);
 
-  // ── INSERCIÓN 1: FUNCIÓN DE ESCAPE DEFINITIVA ──
+  useEffect(() => {
+    // Si detectamos la bandera del familiar en los parámetros iniciales de entrada, la congelamos en el estado
+    if (params.modoFamiliar === 'true' || params.vistaInicial === 'turno') {
+      setEsModoFamiliarPersistente(true);
+    }
+  }, [params.modoFamiliar, params.vistaInicial]);
+
+  // Modificamos la función de escape para que también limpie este nuevo estado
   const salirAModoFamiliar = () => {
     resetEstados();
     setVista('lista');
+    setEsModoFamiliarPersistente(false); // 👈 Limpiamos el seguro
     router.setParams({ 
       vistaInicial: undefined, 
       paciente: undefined, 
@@ -658,8 +667,8 @@ export default function CuidadorScreen() {
             <Text style={styles.notifIcon}>🚪</Text>
           </TouchableOpacity>
           
-          {/* ── INSERCIÓN 2: REEMPLAZO BOTÓN EN VISTA LISTA ── */}
-          {modoFamiliar && (
+          {/* ── BOTÓN EN VISTA LISTA ACTUALIZADO ── */}
+          {esModoFamiliarPersistente && (
             <TouchableOpacity 
               style={[styles.notifBtn, { marginRight: 8, backgroundColor: COLORS.gold, width: 85 }]} 
               onPress={salirAModoFamiliar}
@@ -760,13 +769,13 @@ export default function CuidadorScreen() {
           </View>
           <View style={styles.turnoActivoPill}><View style={styles.activoDot} /><Text style={styles.activoText}>Monitoreo</Text></View>
           
-          {/* ── INSERCIÓN 3: BOTÓN EN CONSOLA OPERATIVA ── */}
-          {modoFamiliar && (
+          {/* ── BOTÓN EN VISTA LISTA ACTUALIZADO ── */}
+          {esModoFamiliarPersistente && (
             <TouchableOpacity 
-              style={[styles.notifBtn, { marginLeft: 8, backgroundColor: COLORS.gold, width: 75 }]} 
+              style={[styles.notifBtn, { marginRight: 8, backgroundColor: COLORS.gold, width: 85 }]} 
               onPress={salirAModoFamiliar}
             >
-              <Text style={{ fontSize: 11, color: COLORS.white, fontWeight: 'bold' }}>↩️ Panel</Text>
+              <Text style={{ fontSize: 11, color: COLORS.white, fontWeight: 'bold' }}>↩️ Familiar</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -1184,15 +1193,15 @@ if (vista === 'espontaneo' && pacienteActivo) {
           <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
         </View>
         
-        {/* ── INSERCIÓN 4: BOTÓN EN REGISTRO DE BIENESTAR ── */}
-        {modoFamiliar && (
-          <TouchableOpacity 
-            style={[styles.notifBtn, { marginLeft: 8, backgroundColor: COLORS.gold, width: 75 }]} 
-            onPress={salirAModoFamiliar}
-          >
-            <Text style={{ fontSize: 11, color: COLORS.white, fontWeight: 'bold' }}>↩️ Panel</Text>
-          </TouchableOpacity>
-        )}
+        {/* ── BOTÓN EN VISTA LISTA ACTUALIZADO ── */}
+          {esModoFamiliarPersistente && (
+            <TouchableOpacity 
+              style={[styles.notifBtn, { marginRight: 8, backgroundColor: COLORS.gold, width: 85 }]} 
+              onPress={salirAModoFamiliar}
+            >
+              <Text style={{ fontSize: 11, color: COLORS.white, fontWeight: 'bold' }}>↩️ Familiar</Text>
+            </TouchableOpacity>
+          )}
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
