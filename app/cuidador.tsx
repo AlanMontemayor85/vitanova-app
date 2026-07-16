@@ -146,9 +146,9 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
   const [tempManual, setTempManual] = useState('');
   const [glucosa, setGlucosa] = useState('');
   const [observaciones, setObservaciones] = useState('');
- 
+  const yaTransicionadoRef = useRef(false);
   const modoFamiliar = params.modoFamiliar === 'true';
-
+  const vistaRef = useRef(vista);
   // Estado temporal para la sensibilidad de caídas recuperada del servidor
   const [sensibilidadCaidas, setSensibilidadCaidas] = useState('');
 
@@ -333,24 +333,38 @@ useEffect(() => {
     }
   }, [params.vistaInicial, params.paciente]);
   // ── EFECTO: DETECTAR REGRESO DE REGISTRO-SALUD Y LEVANTAR CONSOLA ──
-  useFocusEffect(
-    useCallback(() => {
-      // Si ya hay un paciente activo en el estado local, validamos si se activó el turno al volver
-      if (pacienteActivo?.id) {
-        console.log("🔍 [FOCUS CHECK] Validando estatus de turno para:", pacienteActivo.nombre_completo);
-        
-        getTurnoActivo(pacienteActivo.id).then((turnoData) => {
-          if (turnoData && turnoData.turno) {
-            console.log("🎯 Turno activo confirmado en backend al recuperar el foco. Levantando vista...");
-            setTurnoActivo(turnoData.turno);
-            turnoActivoRef.current = turnoData.turno;
-            cargarTurno(pacienteActivo.id);
-            setVista('turno');
-          }
-        }).catch(err => console.log("Error pasivo en focus check:", err));
-      }
-    }, [pacienteActivo?.id, vista])
-  );
+  
+  useEffect(() => { vistaRef.current = vista; }, [vista]);
+
+  useEffect(() => {
+  yaTransicionadoRef.current = false;
+}, [pacienteActivo?.id]);
+
+useFocusEffect(
+  useCallback(() => {
+    if (yaTransicionadoRef.current) return;
+
+    if (pacienteActivo?.id && vistaRef.current !== 'turno') {
+      console.log("🔍 [FOCUS CHECK] Validando estatus de turno para:", pacienteActivo.nombre_completo);
+
+      getTurnoActivo(pacienteActivo.id).then((turnoData) => {
+        if (turnoData?.turno && vistaRef.current !== 'turno') {
+          console.log("🎯 Turno activo confirmado. Transicionando a consola...");
+          yaTransicionadoRef.current = true;
+          setVista('turno');
+          setTurnoActivo(turnoData.turno);
+          turnoActivoRef.current = turnoData.turno;
+          cargarTurno(pacienteActivo.id).catch(err =>
+            console.log("⚠️ Carga de telemetría secundaria interrumpida:", err)
+          );
+        }
+      }).catch(err => console.log("Error pasivo en focus check:", err));
+    }
+    // 👇 SOLO depende del id del paciente — así el callback no cambia de referencia
+    // cada vez que cambias de vista internamente, y useFocusEffect solo se
+    // re-dispara en eventos de foco reales (navegación), no en cada setState local.
+  }, [pacienteActivo?.id])
+);
   const cargarTurno = async (pacienteId: string) => {
     const [turnoData, tareasData, notasData, cierreData, alertaPesoData] = await Promise.all([
       getTurnoActivo(pacienteId),
@@ -381,6 +395,7 @@ useEffect(() => {
   };
 
   const resetEstados = () => {
+    yaTransicionadoRef.current = false;
     setPacienteActivo(null);
     setTurnoActivo(null);
     turnoActivoRef.current = null;
