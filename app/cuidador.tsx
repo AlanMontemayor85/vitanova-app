@@ -8,7 +8,6 @@ import {
   Platform,
   ScrollView,
   StatusBar, StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity, View
@@ -730,77 +729,59 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
     );
   }
 
-  // VISTA 2: CONSOLA DE TURNO ACTIVA
+  // 2. VISTA CONSOLA DE TURNO ACTIVA
     if (vista === 'turno' && pacienteActivo) {
       const tareasPendientes = tareas.filter(t => !t.completada);
 
       return (
         <>
-          <View style={styles.header}>
-            <TouchableOpacity 
-              onPress={() => {
-                if (pacienteProp && onRegresar) {
-                  onRegresar();
-                } else {
-                  setVista('lista');
-                }
-              }} 
-              style={styles.backBtn}
-            >
-              <Text style={styles.backIcon}>←</Text>
-            </TouchableOpacity>
-            
-            <View style={{ flex: 1 }}>
-              <Text style={styles.greeting}>Consola operativa</Text>
-              <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
-            </View>
+          {/* HEADER TURNO: Solo lo pintamos si la app de cuidador corre de forma independiente.
+              Si está embebida (pacienteProp), el switch de "Familiar" de arriba ya controla el modo, 
+              así que no duplicamos cabeceras. */}
+          {!pacienteProp && (
+            <View style={styles.header}>
+              <TouchableOpacity 
+                onPress={() => setVista('lista')} 
+                style={styles.backBtn}
+              >
+                <Text style={styles.backIcon}>←</Text>
+              </TouchableOpacity>
+              
+              <View style={{ flex: 1 }}>
+                <Text style={styles.greeting}>Consola operativa</Text>
+                <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
+              </View>
 
-            {pacienteProp && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 8, gap: 4 }}>
-                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>🩺</Text>
-                <Switch
-                  trackColor={{ false: 'rgba(255,255,255,0.2)', true: COLORS.gold }}
-                  thumbColor={COLORS.white}
-                  value={true}
-                  onValueChange={(val) => {
-                    if (!val && onRegresar) {
+              <View style={styles.turnoActivoPill}>
+                <View style={styles.activoDot} />
+                <Text style={styles.activoText}>Monitoreo</Text>
+              </View>
+              
+              {modoFamiliar && (
+                <TouchableOpacity 
+                  style={[styles.notifBtn, { marginLeft: 8 }]} 
+                  onPress={() => {
+                    if (onRegresar) {
                       onRegresar();
+                    } else {
+                      router.replace('/');
                     }
                   }}
-                />
-              </View>
-            )}
-
-            <View style={styles.turnoActivoPill}>
-              <View style={styles.activoDot} />
-              <Text style={styles.activoText}>Monitoreo</Text>
+                >
+                  <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
+                </TouchableOpacity>
+              )}
             </View>
-            
-           {modoFamiliar && (
-              <TouchableOpacity 
-                style={[styles.notifBtn, { marginLeft: 8 }]} 
-                onPress={() => {
-                  if (onRegresar) {
-                    onRegresar();
-                  } else {
-                    router.replace('/');
-                  }
-                }}
-              >
-                <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
+          )}
         <View style={[styles.monitorCard, { marginHorizontal: 16, marginTop: 16, backgroundColor: COLORS.white, borderColor: COLORS.border }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <Text style={{ fontSize: 9, fontWeight: '800', color: COLORS.textLight }}>📡 TELEMETRÍA DE HARDWARE EN VIVO</Text>
+            <Text style={{ fontSize: 9, fontWeight: '800', color: COLORS.textLight }}>📡 TELEMETRÍA EN VIVO</Text>
             <TouchableOpacity 
               onPress={() => sincronizarSignosReloj(pacienteActivo.id, true)} 
               disabled={cargandoSignos}
               style={[styles.iniciarBtn, { paddingHorizontal: 10, paddingVertical: 4 }, cargandoSignos && { backgroundColor: COLORS.border }]}
             >
-              <Text style={styles.iniciarBtnText}>{cargandoSignos ? "Inyectando Comando..." : "⚡ Sensa Ahora (TCP)"}</Text>
+              <Text style={styles.iniciarBtnText}>{cargandoSignos ? "Inyectando Comando..." : "⚡ Sensa Ahora "}</Text>
             </TouchableOpacity>
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 4 }}>
@@ -849,7 +830,8 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
                   const config = signosDispositivo.reloj_config;
                   if (!config.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
                   if (config.sensibilidad === 1) return 'Detector de caídas: 🔴 Alta';
-                  if (config.sensibilidad === 2) return 'Detector de caídas: 🟡 Estándar';
+                  if (config.sensibilidad === 2) return 'Detector de caídas: 🟠 Media';
+                  if (config.sensibilidad === 3) return 'Detector de caídas: 🟡 Estándar';
                   return 'Detector de caídas: 🟢 Baja (recomendada)';
                 })()}
               </Text>
@@ -866,48 +848,72 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
           </View>
         )}
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-          <Text style={styles.sectionTitle}>Accesos rápidos de control</Text>
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
-            <TouchableOpacity 
-              style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }}
-              onPress={() => {
-                router.push({
-                  pathname: '/red-cuidadores' as any,
-                  params: { pacienteId: pacienteActivo.id, pacienteNombre: pacienteActivo.nombre_completo, isCuidador: 'true' }
-                });
-              }}
-            >
-              <Text style={{ fontSize: 20, marginBottom: 4 }}>💬</Text>
-              <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Cuidadores</Text>
-            </TouchableOpacity>
+         {/* 🎯 ACCESOS RÁPIDOS DE CONTROL (Condicionados por UX) */}
+            <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Accesos rápidos de control</Text>
+            
+            {pacienteProp ? (
+              /* 💡 Mensaje amigable para el Familiar Principal cuando está en modo lectura */
+              <View style={{
+                backgroundColor: COLORS.cream,
+                borderRadius: 12,
+                padding: 16,
+                marginBottom: 14,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                alignItems: 'center'
+              }}>
+                <Text style={{ fontSize: 18, marginBottom: 6 }}>👨‍👩‍👧</Text>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textDark, textAlign: 'center' }}>
+                  Modo de Monitoreo Activo
+                </Text>
+                <Text style={{ fontSize: 10, color: COLORS.textLight, textAlign: 'center', marginTop: 2, lineHeight: 14 }}>
+                  Para visualizar las gráficas, el mapa de ubicación o la red de cuidadores, por favor regrese al modo familiar usando el interruptor de arriba.
+                </Text>
+              </View>
+            ) : (
+              /* 🛠️ Botones operativos completos para el Personal de Cuidado (Modo Independiente) */
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+                <TouchableOpacity 
+                  style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }}
+                  onPress={() => {
+                    router.push({
+                      pathname: '/red-cuidadores' as any,
+                      params: { pacienteId: pacienteActivo.id, pacienteNombre: pacienteActivo.nombre_completo, isCuidador: 'true' }
+                    });
+                  }}
+                >
+                  <Text style={{ fontSize: 20, marginBottom: 4 }}>💬</Text>
+                  <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Cuidadores</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
-              onPress={() => router.push({ pathname: '/alertas', params: { rol: 'cuidador' } })} // 🎯 Pasamos el rol aquí
-            >
-              <Text style={{ fontSize: 20, marginBottom: 4 }}>⚠️</Text>
-              <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Alertas</Text>
-            </TouchableOpacity>
+                <TouchableOpacity 
+                  style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
+                  onPress={() => router.push({ pathname: '/alertas', params: { rol: 'cuidador' } })}
+                >
+                  <Text style={{ fontSize: 20, marginBottom: 4 }}>⚠️</Text>
+                  <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Alertas</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} onPress={() => router.push('/mapa' as any)}>
-              <Text style={{ fontSize: 20, marginBottom: 4 }}>📍</Text>
-              <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Ubicación</Text>
-            </TouchableOpacity>
+                <TouchableOpacity style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} onPress={() => router.push('/mapa' as any)}>
+                  <Text style={{ fontSize: 20, marginBottom: 4 }}>📍</Text>
+                  <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Ubicación</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
-              onPress={() => router.push({
-                pathname: '/grafica-signos' as any,
-                params: { 
-                  pacienteId: pacienteActivo.id, 
-                  pacienteNombre: pacienteActivo.nombre_completo 
-                }
-              })}
-            >
-              <Text style={{ fontSize: 20, marginBottom: 4 }}>📊</Text>
-              <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Gráficas</Text>
-            </TouchableOpacity>
-          </View>
+                <TouchableOpacity 
+                  style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
+                  onPress={() => router.push({
+                    pathname: '/grafica-signos' as any,
+                    params: { 
+                      pacienteId: pacienteActivo.id, 
+                      pacienteNombre: pacienteActivo.nombre_completo 
+                    }
+                  })}
+                >
+                  <Text style={{ fontSize: 20, marginBottom: 4 }}>📊</Text>
+                  <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Gráficas</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           
           {/* 📝 SECCIÓN: NOTAS DEL CUIDADOR */}
           <View style={{ 

@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Modal, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getNotasTurno, getPacientes, getSignosRecientes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 import CuidadorScreen from './cuidador';
@@ -1120,4 +1120,17 @@ btnMedirText: {
   fontSize: 12,
   fontWeight: '700',
 },
+tabBarContainer: { // O como se llame el contenedor de tus iconos de abajo
+  flexDirection: 'row',
+  backgroundColor: COLORS.white,
+  borderTopWidth: 1,
+  borderTopColor: COLORS.border,
+  
+  // 🎯 El truco de magia para Android:
+  paddingBottom: Platform.OS === 'android' ? 24 : 16, 
+  height: Platform.OS === 'android' ? 84 : 76,
+  
+  alignItems: 'center',
+  justifyContent: 'space-around',
+}
 });
