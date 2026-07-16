@@ -107,11 +107,18 @@ export default function RegistroSaludScreen() {
       if (momento === 'inicio_turno') {
         await iniciarTurno(paciente.id);
       }
+      
+      console.log("🔒 Conservando credenciales del Switch Familiar. Transicionando a Consola...");
+
       router.replace({
         pathname: '/cuidador' as any,
         params: { 
           vistaInicial: 'turno', 
-          paciente: typeof params.paciente === 'string' ? params.paciente : JSON.stringify(paciente) 
+          paciente: typeof params.paciente === 'string' ? params.paciente : JSON.stringify(paciente),
+          // 🎯 EL ESCUDO DE NAVEGACIÓN: Arrastramos los flags para que el index no destruya el entorno
+          modoSwitch: 'cuidador_familiar',
+          usuarioRol: 'familiar_principal',
+          refresh: String(Date.now())
         }
       });
     } catch (err) {

@@ -169,39 +169,34 @@ useEffect(() => {
       // 🎯 CANDADO DEFENSIVO SUPREMO:
       // Leemos directamente si en los parámetros globales de la URL existe el flag del Switch.
       // Si está activo, congelamos cualquier redirección física para quedarnos en el index.
+      // 🎛️ SEGMENTACIÓN DE RUTAS BASADA EN ROLES DE PRODUCCIÓN
+      
+      // 🎯 CANDADO DEFENSIVO SUPREMO REFORZADO:
+      // Validamos que TANTO la URL como el estado local estén de acuerdo en que seguimos en modo switch.
       const esModoSwitchActivo = 
-        params.modoSwitch === 'cuidador_familiar' || 
-        params.usuarioRol === 'familiar_principal';
-        
+        vistaModo === 'cuidador' && 
+        (params.modoSwitch === 'cuidador_familiar' || params.usuarioRol === 'familiar_principal');
 
       if (esModoSwitchActivo) {
         console.log("🛡️ [INIT] Url protegida por Switch Familiar. Bloqueando expulsión del enrutador.");
-        // Ojo: NO ponemos 'return' aquí. 
-        // Dejamos que el código continúe hacia abajo para que cargue la telemetría del paciente.
       } 
-      // 🧑‍⚕️ RUTA A: Cuidador Tradicional Independiente
+      // 2. Si el switch está apagado localmente, se evalúan los roles normales de producción:
       else if (data.usuario_tipo === 'cuidador' || data.usuario_tipo === 'cuidador_contratado') {
         console.log("🧑‍⚕️ Acceso concedido como Cuidador operativo. Redirigiendo...");
         router.replace('/cuidador');
-        return; // 🛑 Frenamos ejecución para evitar fugas
-      } 
-      // 🧓 RUTA B: Autocuidador Independiente
-      else if (data.usuario_tipo === 'autonomo') {
+        return;
+      } else if (data.usuario_tipo === 'autonomo') {
         console.log("🧓 Acceso concedido como Autocuidador. Redirigiendo...");
         router.replace({
           pathname: '/autocuidador' as any,
           params: { pacienteId: data.patients?.[0]?.id }
         });
-        return; // 🛑 Frenamos ejecución
-      } 
-      // 🩺 RUTA C: Supervisor Médico
-      else if (data.usuario_tipo === 'medico') {
+        return;
+      } else if (data.usuario_tipo === 'medico') {
         console.log("🩺 Acceso concedido como Supervisor Médico. Redirigiendo...");
         router.replace('/medico');
-        return; // 🛑 Frenamos ejecución
-      } 
-      // 👨‍👩‍👧 RUTA D: Flujo Familiar Base de Lectura
-      else {
+        return;
+      } else {
         console.log("👨‍👩‍👧 Acceso familiar confirmado estándar.");
       }
 

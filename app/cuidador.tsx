@@ -746,7 +746,7 @@ useEffect(() => {
             </View>
           )}
 
-        {/* Agregamos un pequeño margen superior estético si el header del index está presente */}
+       {/* Agregamos un pequeño margen superior estético si el header del index está presente */}
         <ScrollView style={[styles.body, pacienteProp && { marginTop: 16 }]} showsVerticalScrollIndicator={false}>
           <Text style={styles.sectionTitle}>Tus pacientes hoy</Text>
           {pacientes.map((p) => {
@@ -761,10 +761,27 @@ useEffect(() => {
                   </View>
                   {estadoTurno === 'activo' && <View style={styles.badgeActivo}><View style={styles.activoDot} /><Text style={styles.badgeActivoText}>En Turno</Text></View>}
                 </View>
+
+                {/* 1. BOTÓN CUANDO EL TURNO NO ESTÁ ACTIVO */}
                 {estadoTurno !== 'activo' && (
                   <TouchableOpacity 
                     style={[styles.iniciarBtn, { marginTop: 10 }]} 
-                    onPress={() => manejarInicioTurno(p)} 
+                    onPress={async () => {
+                      console.log("🩺 Iniciando verificación de turno para:", p.nombre_completo);
+                      try {
+                        // 1. Ejecutamos tu lógica nativa para abrir el turno en el backend
+                        await manejarInicioTurno(p);
+                        
+                        // 2. Una vez creado el turno con éxito, forzamos de golpe los estados visuales
+                        setPacienteActivo(p);
+                        if (typeof cargarTurno === 'function') {
+                          await cargarTurno(p.id);
+                        }
+                        setVista('turno');
+                      } catch (error) {
+                        console.error("❌ Error al transicionar el turno:", error);
+                      }
+                    }} 
                     disabled={iniciando}
                   >
                     <Text style={styles.iniciarBtnText}>
@@ -773,10 +790,18 @@ useEffect(() => {
                   </TouchableOpacity>
                 )}
                 
+                {/* 2. BOTÓN CUANDO EL TURNO YA ESTÁ ACTIVO */}
                 {estadoTurno === 'activo' && (
                   <TouchableOpacity 
                     style={[styles.iniciarBtn, { backgroundColor: COLORS.greenPale, borderColor: COLORS.green, marginTop: 10 }]} 
-                    onPress={() => { setPacienteActivo(p); cargarTurno(p.id); setVista('turno'); }}
+                    onPress={() => {
+                      console.log("🩺 Abriendo Consola. Asegurando sincronización a modo operativo...");
+                      
+                      // Forzamos síncronamente los estados locales para levantar el render
+                      setPacienteActivo(p); 
+                      cargarTurno(p.id); 
+                      setVista('turno'); 
+                    }}
                   >
                     <Text style={[styles.iniciarBtnText, { color: COLORS.green }]}>Abrir Consola de Control →</Text>
                   </TouchableOpacity>
