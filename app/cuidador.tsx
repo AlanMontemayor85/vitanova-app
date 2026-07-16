@@ -346,6 +346,53 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
   const manejarInicioTurno = async (p: any) => {
     if (iniciando) return;
     setIniciando(true);
+    
+    // 1. 🔍 MONITOREO EN CONSOLA: Revisa tu terminal para ver qué campos trae el objeto del paciente
+    console.log("Datos del paciente seleccionado en Turno:", p);
+
+    // 2. 🧼 LIMPIEZA INICIAL: Evitamos que se cruce la caché clínica
+    setSignosDispositivo(null);
+
+    // 3. 🛡️ CONTROL DE HARDWARE ROBUSTO:
+    // Agregamos comprobaciones comunes. Si tu propiedad se llama diferente, 
+    // la agregamos aquí (ej. p.dispositivo, p.reloj, etc.)
+    const tieneHardware = 
+      p.dispositivo_id || 
+      p.tiene_reloj || 
+      p.mac_dispositivo || 
+      p.dispositivo || // Por si viene como objeto anidado
+      p.id_dispositivo; // Variante común de nombrado
+
+    if (!tieneHardware) {
+      setIniciando(false);
+      Alert.alert(
+        'Sin Dispositivo Vinculado',
+        `${p.nombre_completo} no tiene un reloj inteligente configurado para telemetría pasiva TCP. ¿Deseas iniciar el turno y proceder con captura manual de parámetros?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { 
+            text: 'Iniciar Turno', 
+            onPress: async () => {
+              try {
+                const tareasCheck = await getTareasHoy(p.id);
+                if (tareasCheck.sin_horario) {
+                  Alert.alert('Sin horario', 'El familiar no ha configurado tu horario de entrada.');
+                  return;
+                }
+                setPacienteActivo(p);
+                cargarTurno(p.id);
+                setVista('turno'); 
+              } catch (err) {
+                console.error(err);
+              }
+            } 
+          }
+        ]
+      );
+      return;
+    }
+
+    // 4. 🟢 FLUJO CON TELEMETRÍA (Si tiene el hardware detectado)
     try {
       const tareasCheck = await getTareasHoy(p.id);
       if (tareasCheck.sin_horario) {
@@ -354,7 +401,6 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
         return;
       }
       
-      // 🎯 CORREGIDO: Eliminamos "Sidebar." para llamar directamente a la función importada
       const cambiosData = await detectarCambiosTurno(p.id);
       if (cambiosData.cambios && cambiosData.cambios.length > 0) {
         setPacienteActivo(p);
