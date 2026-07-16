@@ -108,17 +108,20 @@ export default function RegistroSaludScreen() {
         await iniciarTurno(paciente.id);
       }
       
-      console.log("🔒 Conservando credenciales del Switch Familiar. Transicionando a Consola...");
-
+      // 🎯 FIX SUPREMO: Si venimos del switch embebido, regresamos al stack existente
+      // Esto evita crear una instancia standalone nueva y preserva 'pacienteProp'
+      if (params.modoSwitch === 'cuidador_familiar' || params.usuarioRol === 'familiar_principal') {
+        console.log("🔙 Regresando al CuidadorScreen embebido (Preservando layout familiar)");
+        router.back();
+        return;
+      }
+      
+      // Flujo tradicional para cuidadores contratados directos (ruta independiente)
       router.replace({
         pathname: '/cuidador' as any,
         params: { 
           vistaInicial: 'turno', 
-          paciente: typeof params.paciente === 'string' ? params.paciente : JSON.stringify(paciente),
-          // 🎯 EL ESCUDO DE NAVEGACIÓN: Arrastramos los flags para que el index no destruya el entorno
-          modoSwitch: 'cuidador_familiar',
-          usuarioRol: 'familiar_principal',
-          refresh: String(Date.now())
+          paciente: typeof params.paciente === 'string' ? params.paciente : JSON.stringify(paciente) 
         }
       });
     } catch (err) {

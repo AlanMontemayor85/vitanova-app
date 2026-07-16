@@ -1,5 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState, } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert,
   KeyboardAvoidingView,
@@ -332,7 +332,25 @@ useEffect(() => {
       }
     }
   }, [params.vistaInicial, params.paciente]);
-
+  // ── EFECTO: DETECTAR REGRESO DE REGISTRO-SALUD Y LEVANTAR CONSOLA ──
+  useFocusEffect(
+    useCallback(() => {
+      // Si ya hay un paciente activo en el estado local, validamos si se activó el turno al volver
+      if (pacienteActivo?.id) {
+        console.log("🔍 [FOCUS CHECK] Validando estatus de turno para:", pacienteActivo.nombre_completo);
+        
+        getTurnoActivo(pacienteActivo.id).then((turnoData) => {
+          if (turnoData && turnoData.turno) {
+            console.log("🎯 Turno activo confirmado en backend al recuperar el foco. Levantando vista...");
+            setTurnoActivo(turnoData.turno);
+            turnoActivoRef.current = turnoData.turno;
+            cargarTurno(pacienteActivo.id);
+            setVista('turno');
+          }
+        }).catch(err => console.log("Error pasivo en focus check:", err));
+      }
+    }, [pacienteActivo?.id, vista])
+  );
   const cargarTurno = async (pacienteId: string) => {
     const [turnoData, tareasData, notasData, cierreData, alertaPesoData] = await Promise.all([
       getTurnoActivo(pacienteId),
@@ -457,10 +475,14 @@ useEffect(() => {
   const irARegistroSalud = (p: any) => {
     router.push({
       pathname: '/registro-salud' as any,
-      params: { paciente: JSON.stringify(p), momento: 'inicio_turno' },
+      params: { 
+        paciente: JSON.stringify(p), 
+        momento: 'inicio_turno',
+        // 🎯 LE PASAMOS LA IDENTIDAD DEL SWITCH PARA QUE LA OTRA PANTALLA SEPA DE DÓNDE VIENE
+        modoSwitch: 'cuidador_familiar' 
+      },
     });
   };
-
   const guardarRegistroEspontaneo = async () => {
   setGuardandoEspontaneo(true);
   try {
