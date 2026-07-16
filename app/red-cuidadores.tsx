@@ -189,7 +189,8 @@ export default function RedCuidadoresScreen() {
           </View>
         </View>
 
-        {m.rol === 'cuidador_contratado' && !esCuidador && (
+        {/* Habilitamos la edición de horarios para el Cuidador Contratado y el Familiar Principal */}
+        {(m.rol === 'cuidador_contratado' || m.rol === 'familiar_principal') && !esCuidador && (
           <TouchableOpacity
             style={styles.editarBtn}
             onPress={() => {
@@ -199,7 +200,9 @@ export default function RedCuidadoresScreen() {
               setDiasSeleccionados(m.dias_semana ?? []);
             }}
           >
-            <Text style={styles.editarBtnText}>✏️ Editar horario de turno</Text>
+            <Text style={styles.editarBtnText}>
+              ✏️ {m.rol === 'familiar_principal' ? 'Editar mi horario de apoyo' : 'Editar horario de turno'}
+            </Text>
           </TouchableOpacity>
         )}
 

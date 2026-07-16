@@ -532,22 +532,8 @@ useEffect(() => {
             {/* ======================================================== */}
             {/* ⚡ SECCIÓN 1: TURNO ACTIVO DE CUIDADO                    */}
             {/* ======================================================== */}
-            <View style={[styles.sectionHeader, { marginTop: 12 }]}>
+            <View style={[styles.sectionHeader, { marginTop: 12, marginBottom: 8 }]}>
               <Text style={styles.sectionTitle}>Turno activo</Text>
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <TouchableOpacity onPress={() => router.push({
-                  pathname: '/grafica-signos' as any,
-                  params: { pacienteId: paciente?.id, pacienteNombre: paciente?.nombre_completo }
-                })}>
-                  <Text style={styles.sectionLink}>Ver gráficas</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => router.push({
-                  pathname: '/historial' as any,
-                  params: { pacienteId: paciente?.id, pacienteNombre: paciente?.nombre_completo }
-                })}>
-                  <Text style={styles.sectionLink}>Ver historial</Text>
-                </TouchableOpacity>
-              </View>
             </View>
 
             {turnoResumen ? (
@@ -576,20 +562,35 @@ useEffect(() => {
               </View>
             )}
 
-            {/* ======================================================== */}
+           {/* ======================================================== */}
             {/* 🎛️ SECCIÓN 2: ACCESOS RÁPIDOS OPERATIVOS                */}
             {/* ======================================================== */}
             <Text style={[styles.sectionTitle, { marginTop: 16, marginBottom: 12 }]}>Accesos rápidos</Text>
-            <View style={styles.quickActions}>
+            
+            <View style={{ 
+              flexDirection: 'row', 
+              flexWrap: 'wrap', 
+              gap: 8, 
+              marginBottom: 20 
+            }}>
               {[
-                { icon: '📍', label: 'Ubicación', ruta: '/mapa' },
-                { icon: '💊', label: 'Medicam.', ruta: '/medicamentos' },
-                { icon: '🔔', label: 'Alertas', ruta: '/alertas' },
-                { icon: '💬', label: 'Cuidadores', ruta: null },
+                
+                { icon: '💊', label: 'Medicam.', ruta: '/medicamentos' },                
+                { icon: '💬', label: 'Cuidadores', ruta: '/red-cuidadores' },
+                { icon: '📊', label: 'Gráficas', ruta: '/grafica-signos' },
+                { icon: '📜', label: 'Historial', ruta: '/historial' },
               ].map((item) => (
                 <TouchableOpacity
                   key={item.label}
-                  style={styles.qaBtn}
+                  style={[
+                    styles.qaBtn, 
+                    { 
+                      // 🎯 Calcula el ancho para que quepan exactamente 3 columnas restando el gap
+                      width: '31.8%', 
+                      marginBottom: 4,
+                      paddingVertical: 12
+                    }
+                  ]}
                   onPress={() => {
                     if (item.label === 'Cuidadores') {
                       router.push({
@@ -619,6 +620,22 @@ useEffect(() => {
                         pathname: '/mapa' as any,
                         params: {
                           pacienteId: paciente?.id,
+                        }
+                      });
+                    } else if (item.label === 'Gráficas') {
+                      router.push({
+                        pathname: '/grafica-signos' as any,
+                        params: {
+                          pacienteId: paciente?.id,
+                          pacienteNombre: paciente?.nombre_completo
+                        }
+                      });
+                    } else if (item.label === 'Historial') {
+                      router.push({
+                        pathname: '/historial' as any,
+                        params: {
+                          pacienteId: paciente?.id,
+                          pacienteNombre: paciente?.nombre_completo
                         }
                       });
                     }
@@ -755,12 +772,19 @@ useEffect(() => {
           </ScrollView>
           
           {/* BOTTOM NAV */}
-          <View style={styles.bottomNav}>
+          <View style={[
+            styles.bottomNav, 
+            { 
+              paddingBottom: Platform.OS === 'android' ? 48 : 20, 
+              height: Platform.OS === 'android' ? 98 : 72,
+              alignItems: 'center', 
+            }
+          ]}>
             {[
-              { icon: '📋', label: 'Inicio', ruta: '/', active: true },
               { icon: '📍', label: 'Mapa', ruta: '/mapa', active: false },
+              { icon: '💊', label: 'Medicam.', ruta: '/medicamentos', active: false },                          
               { icon: '🔔', label: 'Alertas', ruta: '/alertas', active: false },
-              { icon: '💊', label: 'Medicam.', ruta: '/medicamentos', active: false },
+              { icon: '📋', label: 'Inicio', ruta: '/', active: true },
             ].map((item) => (
               <TouchableOpacity
                 key={item.label}
@@ -1086,8 +1110,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
-    paddingBottom: 24,
+    
+    // 🎯 Aplicamos la elevación aquí que es el estilo activo
+    paddingBottom: Platform.OS === 'android' ? 32 : 24, 
     paddingTop: 10,
+    height: Platform.OS === 'android' ? 80 : 68,
   },
   navItem: {
     flex: 1, alignItems: 'center', gap: 3,
@@ -1120,17 +1147,5 @@ btnMedirText: {
   fontSize: 12,
   fontWeight: '700',
 },
-tabBarContainer: { // O como se llame el contenedor de tus iconos de abajo
-  flexDirection: 'row',
-  backgroundColor: COLORS.white,
-  borderTopWidth: 1,
-  borderTopColor: COLORS.border,
-  
-  // 🎯 El truco de magia para Android:
-  paddingBottom: Platform.OS === 'android' ? 24 : 16, 
-  height: Platform.OS === 'android' ? 84 : 76,
-  
-  alignItems: 'center',
-  justifyContent: 'space-around',
-}
+
 });
