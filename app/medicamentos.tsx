@@ -1,4 +1,5 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -59,6 +60,9 @@ export default function MedicamentosScreen() {
   const [showRutinaTimePicker, setShowRutinaTimePicker] = useState(false);
   const [rutinaEditando, setRutinaEditando] = useState<any>(null);
   const [confirmDelete, setConfirmDelete] = useState<{tipo: 'med' | 'rutina', id: string, nombre: string} | null>(null);
+  const XLSX = require('xlsx');
+  const [importando, setImportando] = useState(false);
+
   useEffect(() => {
     const cargar = async () => {
       try {
@@ -154,6 +158,89 @@ export default function MedicamentosScreen() {
     setGuardandoRutina(false);
   }
 };
+
+const importarDesdeExcel = async () => {
+    if (!paciente?.id) return;
+    
+    try {
+      // 1. Abrimos el selector de archivos del dispositivo filtrando por hojas de cálculo
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+          'application/vnd.ms-excel', // .xls
+          'text/csv' // .csv
+        ],
+        copyToCacheDirectory: true
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) return;
+
+      setImportando(true);
+      const fileUri = result.assets[0].uri;
+
+      // 2. Leer el archivo binario desde la caché local del dispositivo
+      const response = await fetch(fileUri);
+      const arrayBuffer = await response.arrayBuffer();
+      const dataBuffer = new Uint8Array(arrayBuffer);
+      
+      // 3. Parsear el libro de trabajo con SheetJS
+      const workbook = XLSX.read(dataBuffer, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      
+      // Convertimos la hoja actual a un array de objetos JSON crudos
+      const filas: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+      if (filas.length === 0) {
+        alert('El archivo Excel está vacío o no tiene el formato correcto.');
+        setImportando(false);
+        return;
+      }
+
+      console.log(`📊 [EXCEL] Detectadas ${filas.length} filas para procesar.`);
+
+      // 4. Mapeo y Sincronización masiva con tu API existente
+      for (const fila of filas) {
+        const tipo = String(fila.Tipo || '').toLowerCase().trim();
+        
+        if (tipo === 'medicina' || tipo === 'medicamento') {
+          // Sanitizamos horarios: Soporta un solo string ("08:00") o lista separada por comas ("08:00, 20:00")
+          const horariosRaw = fila.Horarios ? String(fila.Horarios) : '08:00';
+          const horariosArr = horariosRaw.split(',').map(h => h.trim());
+
+          await crearMedicamento(paciente.id, {
+            nombre: String(fila.Nombre || 'Medicamento Sin Nombre').trim(),
+            dosis: String(fila.Dosis || '1 tableta').trim(),
+            frecuencia: String(fila.Frecuencia || 'cada 12 horas').trim(),
+            via_administracion: String(fila.Via || 'oral').toLowerCase().trim(),
+            horarios: horariosArr,
+            indicaciones: fila.Indicaciones ? String(fila.Indicaciones).trim() : null,
+          });
+        } 
+        else if (tipo === 'rutina' || tipo === 'actividad') {
+          await crearTareaRecurrente(paciente.id, {
+            descripcion: String(fila.Descripcion || 'Rutina sin descripción').trim(),
+            tipo: String(fila.Categoria || 'otro').toLowerCase().trim(),
+            hora: String(fila.Hora || '09:00').trim(),
+          });
+        }
+      }
+
+      // 5. Refrescar la UI local tirando de tu API
+      const meds = await getMedicamentos(paciente.id);
+      if (meds.medicamentos) setMedicamentos(meds.medicamentos);
+      const rutinas = await getTareasRecurrentes(paciente.id);
+      if (rutinas.tareas) setTareasRec(rutinas.tareas);
+
+      alert('📊 ¡Itinerario importado y consolidado con éxito en Supabase!');
+
+    } catch (error) {
+      console.error('❌ Error parseando o subiendo el Excel:', error);
+      alert('Ocurrió un error al procesar el archivo Excel. Revisa el formato.');
+    } finally {
+      setImportando(false);
+    }
+  };
   const abrirEdicionMedicamento = (med: any) => {
     setMedicamentoEditando(med);
     setNombre(med.nombre);
@@ -253,6 +340,30 @@ const abrirEdicionRutina = (t: any) => {
         </TouchableOpacity>
         <TouchableOpacity style={[styles.tab, tab === 'rutinas' && styles.tabActive]} onPress={() => setTab('rutinas')}>
           <Text style={[styles.tabText, tab === 'rutinas' && styles.tabTextActive]}>📋 Rutinas</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 📊 ACCESO EXCEL MASIVO */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 0 }}>
+        <TouchableOpacity 
+          style={{ 
+            flexDirection: 'row', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            backgroundColor: COLORS.greenPale, 
+            borderWidth: 1, 
+            borderColor: COLORS.green, 
+            borderRadius: 8, 
+            padding: 10,
+            gap: 8
+          }}
+          onPress={importarDesdeExcel}
+          disabled={importando}
+        >
+          <Text style={{ fontSize: 16 }}>{importando ? '⏳' : '📥'}</Text>
+          <Text style={{ color: COLORS.green, fontWeight: '700', fontSize: 13 }}>
+            {importando ? 'Procesando archivo...' : 'Cargar Itinerario desde Excel (.xlsx)'}
+          </Text>
         </TouchableOpacity>
       </View>
 
