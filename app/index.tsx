@@ -169,17 +169,27 @@ useEffect(() => {
 
       // 🎛️ SEGMENTACIÓN DE RUTAS BASADA EN ROLES DE PRODUCCIÓN
       if (data.usuario_tipo === 'cuidador' || data.usuario_tipo === 'cuidador_contratado') {
-        console.log("🧑‍⚕️ Acceso concedido como Cuidador operativo. Redirigiendo...");
-        router.replace('/cuidador');
+        console.log("🧑‍⚕️ Acceso detectado como Cuidador operativo.");
+        
+        // 🎯 EL CANDADO MAESTRO: Si Alan activó el Switch embebido, bloqueamos la expulsión por Router
+        if (typeof vistaModo !== 'undefined' && vistaModo === 'cuidador') {
+          console.log("🛡️ [INIT] Modo switch familiar activo. Cancelando redirección forzada a /cuidador.");
+          // Permitimos que continúe la ejecución sin saltar de pantalla para refrescar la telemetría
+        } else {
+          // Si es un inicio limpio desde el login, redirige de forma normal
+          console.log("Redirigiendo a pantalla independiente de cuidador...");
+          router.replace('/cuidador');
+          return; // Metemos el return necesario para frenar el flujo aquí
+        }
       } else if (data.usuario_tipo === 'autonomo') {
         console.log("🧓 Acceso concedido como Autocuidador. Redirigiendo...");
         router.replace({
           pathname: '/autocuidador' as any,
           params: { pacienteId: data.patients?.[0]?.id }
         });
+        return;
       } else {
         console.log("👨‍👩‍👧 Acceso familiar confirmado. Cargando panel principal...");
-        
       }
       
       if (data.usuario_tipo === 'medico') {

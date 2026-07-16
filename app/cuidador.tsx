@@ -455,30 +455,10 @@ useEffect(() => {
   };
 
   const irARegistroSalud = (p: any) => {
-    if (pacienteProp) {
-      // 👑 MODO SWITCH: Mandamos a la pantalla externa pero inyectando el rol en los params
-      router.push({
-        pathname: '/registro-salud' as any,
-        params: { 
-          paciente: JSON.stringify({
-            ...p,
-            usuarioRol: 'familiar_principal',
-            rol_en_equipo: 'familiar_principal'
-          }), 
-          momento: 'inicio_turno',
-          modoSwitch: 'true' // Flag extra para control visual en la otra pantalla si lo necesitas
-        },
-      });
-    } else {
-      // 🧑‍⚕️ MODO CUIDADOR INDEPENDIENTE TRADICIONAL
-      router.push({
-        pathname: '/registro-salud' as any,
-        params: { 
-          paciente: JSON.stringify(p), 
-          momento: 'inicio_turno' 
-        },
-      });
-    }
+    router.push({
+      pathname: '/registro-salud' as any,
+      params: { paciente: JSON.stringify(p), momento: 'inicio_turno' },
+    });
   };
 
   const guardarRegistroEspontaneo = async () => {
