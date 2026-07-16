@@ -335,6 +335,7 @@ useEffect(() => {
       {vistaModo === 'cuidador' && paciente?.id ? (
         /* 🩺 MODO OPERATIVO (Cargamos tu pantalla de cuidador directamente) */
         <CuidadorScreen 
+          key={paciente.id} // 👑 🎯 EL TRUCO MAESTRO: Forza a React a destruir la memoria vieja y abrir un turno limpio
           pacienteProp={paciente} 
           onRegresar={() => setVistaModo('familiar')}
         />

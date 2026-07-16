@@ -10,7 +10,7 @@ import {
   StatusBar, StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity, View
+  TouchableOpacity, View,
 } from 'react-native';
 import {
   agregarTareaManual, clearToken, completarActividad, completarMedicamento,
@@ -738,6 +738,7 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
           {/* HEADER TURNO: Solo lo pintamos si la app de cuidador corre de forma independiente.
               Si está embebida (pacienteProp), el switch de "Familiar" de arriba ya controla el modo, 
               así que no duplicamos cabeceras. */}
+        <View key={pacienteActivo.id} style={{ flex: 1, backgroundColor: COLORS.cream }}></View>
           {!pacienteProp && (
             <View style={styles.header}>
               <TouchableOpacity 
