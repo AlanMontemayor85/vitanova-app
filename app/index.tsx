@@ -140,7 +140,7 @@ useEffect(() => {
         router.replace('/login');
         return;
       }
-
+       
       // 3. 🚨 ADUANA BIOMÉDICA: Preguntamos a Railway/Supabase quién es este usuario
       const data = await getPacientes();
       
@@ -166,7 +166,11 @@ useEffect(() => {
         router.replace('/completar-perfil');
         return;
       }
-
+      // 🎛️ SEGMENTACIÓN DE RUTAS BASADA EN ROLES DE PRODUCCIÓN
+      console.log("🔍 [DIAGNÓSTICO INIT] Estado en el frame actual:");
+      console.log("👉 vistaModo actual en closure:", vistaModo);
+      console.log("👉 data.patients devueltos por API:", data?.patients?.length);
+      console.log("👉 pacienteIndex actual:", typeof pacienteIndex !== 'undefined' ? pacienteIndex : 'undefined');
       // 🎛️ SEGMENTACIÓN DE RUTAS BASADA EN ROLES DE PRODUCCIÓN
       if (data.usuario_tipo === 'cuidador' || data.usuario_tipo === 'cuidador_contratado') {
         console.log("🧑‍⚕️ Acceso detectado como Cuidador operativo.");
