@@ -23,7 +23,7 @@ import {
   getTareasHoy, getToken,
   getTurnoActivo,
   getUltimoCierre,
-  getUserNombre, loadStoredToken,
+  loadStoredToken,
   verificarEscalas
 } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
@@ -200,12 +200,25 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
     }
   };
 
-  useEffect(() => {
+useEffect(() => {
     if (vista === 'turno' && pacienteActivo?.id) {
+      
+      // 🧼 LIMPIEZA INMEDIATA: Evita que Jorge herede el tablero pasivo de Blanca
+      setSignosDispositivo({
+        success: true,
+        spo2: "—",
+        presion: "—",
+        fc: "—",
+        temperatura: "—",
+        dispositivoPuesto: false
+      });
+
       sincronizarSignosReloj(pacienteActivo.id);
+      
       const interval = setInterval(() => {
         sincronizarSignosReloj(pacienteActivo.id);
       }, 30000);
+      
       return () => clearInterval(interval);
     }
   }, [vista, pacienteActivo?.id]);
@@ -214,6 +227,7 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
   useEffect(() => {
     const refrescarDatosAlEntrar = async () => {
       if (!pacienteActivo?.id) return;
+      
       try { 
         console.log("🔍 Rompiendo caché de navegación. Solicitando datos frescos al servidor...");
         
@@ -232,9 +246,13 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const dataDisp = await resDisp.json();
-        if (dataDisp?.sensibilidad_caidas) {
+        
+        // Asignamos el valor si viene del servidor, si no, se queda en limpio
+        if (dataDisp && dataDisp.sensibilidad_caidas !== undefined && dataDisp.sensibilidad_caidas !== null) {
           setSensibilidadCaidas(dataDisp.sensibilidad_caidas.toString());
           console.log("⚙️ Sensibilidad cargada:", dataDisp.sensibilidad_caidas);
+        } else {
+          setSensibilidadCaidas(''); // 🧼 Reset si este paciente no tiene reloj configurado
         }
 
       } catch (err) {
@@ -242,19 +260,40 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
       }
     };
 
+    // 🧼 LIMPIEZA INMEDIATA ANTES DE LA PETICIÓN:
+    // Evita el parpadeo de 3 segundos limpiando el peso y la sensibilidad vieja
+    setSensibilidadCaidas(''); 
+    setPeso(0); // O setPeso(0) / setPeso(null) según cómo inicialices tu estado de peso
+
     refrescarDatosAlEntrar();
   }, [pacienteActivo?.id, params?.refresh]);
 
-  // ── CARGA INICIAL ──
   
+  
+ // ── CARGA INICIAL ──
   useEffect(() => {
     const cargar = async () => {
       try {
         await loadStoredToken();
         const data = await getPacientes();
-        if (data.patients) setPacientes(data.patients);
         
-        // ← AGREGAR: Registrar notificaciones push para el cuidador
+        if (data.patients) {
+          // 🎯 Mantenemos el rol de familiar_principal si entramos desde el modo switch
+          const pacientesMapeados = data.patients.map((p: any) => {
+            // Si el paciente que llegó coincide con el embebido actual, le inyectamos su rol real
+            if (pacienteProp && p.id === pacienteProp.id) {
+              return { 
+                ...p, 
+                rol_en_equipo: pacienteProp.rol_en_equipo || 'familiar_principal',
+                usuarioRol: 'familiar_principal'
+              };
+            }
+            return p;
+          });
+          
+          setPacientes(pacientesMapeados);
+        }
+        
         await registrarNotificaciones().catch(err => 
           console.log("Push omitido en cuidador:", err)
         );
@@ -347,21 +386,12 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
     if (iniciando) return;
     setIniciando(true);
     
-    // 1. 🔍 MONITOREO EN CONSOLA: Revisa tu terminal para ver qué campos trae el objeto del paciente
-    console.log("Datos del paciente seleccionado en Turno:", p);
-
-    // 2. 🧼 LIMPIEZA INICIAL: Evitamos que se cruce la caché clínica
+    // 1. 🧼 LIMPIEZA INICIAL: Borramos la caché clínica residual
     setSignosDispositivo(null);
 
-    // 3. 🛡️ CONTROL DE HARDWARE ROBUSTO:
-    // Agregamos comprobaciones comunes. Si tu propiedad se llama diferente, 
-    // la agregamos aquí (ej. p.dispositivo, p.reloj, etc.)
-    const tieneHardware = 
-      p.dispositivo_id || 
-      p.tiene_reloj || 
-      p.mac_dispositivo || 
-      p.dispositivo || // Por si viene como objeto anidado
-      p.id_dispositivo; // Variante común de nombrado
+    // 2. 🛡️ CONTROL DE HARDWARE CON IMEI REAL:
+    // Ahora le pegamos exactamente al campo de tu backend: 'reloj_imei'
+    const tieneHardware = p.reloj_imei && p.reloj_imei.trim() !== "";
 
     if (!tieneHardware) {
       setIniciando(false);
@@ -379,7 +409,15 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
                   Alert.alert('Sin horario', 'El familiar no ha configurado tu horario de entrada.');
                   return;
                 }
-                setPacienteActivo(p);
+                
+                // 🎯 PASAMOS EL PACIENTE ACTIVO CON SU ROL ACTUAL
+                // Si 'p' ya trae el rol de la lista (como vimos en el log: "rol_en_equipo": "familiar_principal")
+                // nos aseguramos de que la consola lo reciba para aplicar los candados visuales.
+                setPacienteActivo({
+                  ...p,
+                  usuarioRol: p.rol_en_equipo // O la variable global que uses para tu sesión de Alan
+                });
+                
                 cargarTurno(p.id);
                 setVista('turno'); 
               } catch (err) {
@@ -392,7 +430,7 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
       return;
     }
 
-    // 4. 🟢 FLUJO CON TELEMETRÍA (Si tiene el hardware detectado)
+    // 3. 🟢 FLUJO CON TELEMETRÍA (Para Blanca que sí cuenta con reloj_imei)
     try {
       const tareasCheck = await getTareasHoy(p.id);
       if (tareasCheck.sin_horario) {
@@ -402,9 +440,9 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
       }
       
       const cambiosData = await detectarCambiosTurno(p.id);
-      if (cambiosData.cambios && cambiosData.cambios.length > 0) {
+      if (cambiosData.changes && cambiosData.changes.length > 0) {
         setPacienteActivo(p);
-        setCambiosPendientes(cambiosData.cambios);
+        setCambiosPendientes(cambiosData.changes);
         setCambiosModal(true);
       } else {
         irARegistroSalud(p);
@@ -673,7 +711,9 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
           <View style={styles.header}>
             <View style={{ flex: 1 }}>
               <Text style={styles.greeting}>Bienvenido</Text>
-              <Text style={styles.userName}>{getUserNombre() ?? 'Personal Vitanova'}</Text>
+              <Text style={styles.userName}>
+                {pacienteProp ? "Monitoreo Familiar" : "Personal Vitanova"}
+              </Text>
             </View>
             <TouchableOpacity style={[styles.notifBtn, { marginRight: 8 }]} onPress={() => router.push('/aceptar-invitacion' as any)}>
               <Text style={styles.notifIcon}>🔗</Text>
@@ -897,28 +937,28 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
         )}
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
          {/* 🎯 ACCESOS RÁPIDOS DE CONTROL (Condicionados por UX) */}
-            <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Accesos rápidos de control</Text>
-            
-            {pacienteProp ? (
-              /* 💡 Mensaje amigable para el Familiar Principal cuando está en modo lectura */
-              <View style={{
-                backgroundColor: COLORS.cream,
-                borderRadius: 12,
-                padding: 16,
-                marginBottom: 14,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                alignItems: 'center'
-              }}>
-                <Text style={{ fontSize: 18, marginBottom: 6 }}>👨‍👩‍👧</Text>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textDark, textAlign: 'center' }}>
-                  Modo de Monitoreo Activo
-                </Text>
-                <Text style={{ fontSize: 10, color: COLORS.textLight, textAlign: 'center', marginTop: 2, lineHeight: 14 }}>
-                  Para visualizar las gráficas, el mapa de ubicación o la red de cuidadores, por favor regrese al modo familiar usando el interruptor de arriba.
-                </Text>
-              </View>
-            ) : (
+        <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Accesos rápidos de control</Text>
+
+        {pacienteProp || pacienteActivo?.rol_en_equipo === 'familiar_principal' || pacienteActivo?.usuarioRol === 'familiar_principal' ? (
+          /* 💡 Mensaje amigable para el Familiar Principal cuando está en modo lectura */
+          <View style={{
+            backgroundColor: COLORS.cream,
+            borderRadius: 12,
+            padding: 16,
+            marginBottom: 14,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            alignItems: 'center'
+          }}>
+            <Text style={{ fontSize: 18, marginBottom: 6 }}>👨‍👩‍👧</Text>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textDark, textAlign: 'center' }}>
+              Modo de Monitoreo Activo
+            </Text>
+            <Text style={{ fontSize: 10, color: COLORS.textLight, textAlign: 'center', marginTop: 2, lineHeight: 14 }}>
+              Para visualizar las gráficas, el mapa de ubicación o la red de cuidadores, por favor regrese al modo familiar usando el interruptor de arriba.
+            </Text>
+          </View>
+        ) : (
               /* 🛠️ Botones operativos completos para el Personal de Cuidado (Modo Independiente) */
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
                 <TouchableOpacity 
