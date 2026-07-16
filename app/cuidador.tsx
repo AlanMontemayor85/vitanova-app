@@ -7,7 +7,9 @@ import {
   Modal,
   Platform,
   ScrollView,
-  StatusBar, StyleSheet, Text,
+  StatusBar, StyleSheet,
+  Switch,
+  Text,
   TextInput,
   TouchableOpacity, View
 } from 'react-native';
@@ -619,28 +621,40 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
-        <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>Bienvenido</Text>
-            <Text style={styles.userName}>{getUserNombre() ?? 'Personal Vitanova'}</Text>
-          </View>
-          <TouchableOpacity style={[styles.notifBtn, { marginRight: 8 }]} onPress={() => router.push('/aceptar-invitacion' as any)}>
-            <Text style={styles.notifIcon}>🔗</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.notifBtn} onPress={async () => { await clearToken(); router.replace('/login'); }}>
-            <Text style={styles.notifIcon}>🚪</Text>
-          </TouchableOpacity>
-          {modoFamiliar && (
-            <TouchableOpacity 
-              style={[styles.notifBtn, { marginRight: 8 }]} 
-              onPress={() => router.replace('/')}
-            >
-              <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
+        
+        {/* HEADER PROPIO DEL CUIDADOR */}
+        {/* 🎯 Solo lo pintamos si NO está embebido en el index familiar */}
+        {!pacienteProp && (
+          <View style={styles.header}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.greeting}>Bienvenido</Text>
+              <Text style={styles.userName}>{getUserNombre() ?? 'Personal Vitanova'}</Text>
+            </View>
+            <TouchableOpacity style={[styles.notifBtn, { marginRight: 8 }]} onPress={() => router.push('/aceptar-invitacion' as any)}>
+              <Text style={styles.notifIcon}>🔗</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={styles.notifBtn} onPress={async () => { await clearToken(); router.replace('/login'); }}>
+              <Text style={styles.notifIcon}>🚪</Text>
+            </TouchableOpacity>
+            {modoFamiliar && (
+              <TouchableOpacity 
+                style={[styles.notifBtn, { marginRight: 8 }]} 
+                onPress={() => {
+                  if (onRegresar) {
+                    onRegresar(); // Retorna al index familiar en memoria sin navegar por URL
+                  } else {
+                    router.replace('/');
+                  }
+                }}
+              >
+                <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
+              </TouchableOpacity>
+              )}
+            </View>
           )}
-        </View>
 
-        <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+        {/* Agregamos un pequeño margen superior estético si el header del index está presente */}
+        <ScrollView style={[styles.body, pacienteProp && { marginTop: 16 }]} showsVerticalScrollIndicator={false}>
           <Text style={styles.sectionTitle}>Tus pacientes hoy</Text>
           {pacientes.map((p) => {
             const estadoTurno = p.estado_turno ?? 'no_iniciado';
@@ -716,46 +730,67 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
     );
   }
 
-  // ── 2. VISTA CONSOLA DE TURNO ACTIVA ──
-  if (vista === 'turno' && pacienteActivo) {
-    const tareasPendientes = tareas.filter(t => !t.completada);
+  // VISTA 2: CONSOLA DE TURNO ACTIVA
+    if (vista === 'turno' && pacienteActivo) {
+      const tareasPendientes = tareas.filter(t => !t.completada);
 
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => setVista('lista')} style={styles.backBtn}><Text style={styles.backIcon}>←</Text></TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>Consola operativa</Text>
-            <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
+      return (
+        <>
+          <View style={styles.header}>
+            <TouchableOpacity 
+              onPress={() => {
+                if (pacienteProp && onRegresar) {
+                  onRegresar();
+                } else {
+                  setVista('lista');
+                }
+              }} 
+              style={styles.backBtn}
+            >
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+            
+            <View style={{ flex: 1 }}>
+              <Text style={styles.greeting}>Consola operativa</Text>
+              <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
+            </View>
+
+            {pacienteProp && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 8, gap: 4 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>🩺</Text>
+                <Switch
+                  trackColor={{ false: 'rgba(255,255,255,0.2)', true: COLORS.gold }}
+                  thumbColor={COLORS.white}
+                  value={true}
+                  onValueChange={(val) => {
+                    if (!val && onRegresar) {
+                      onRegresar();
+                    }
+                  }}
+                />
+              </View>
+            )}
+
+            <View style={styles.turnoActivoPill}>
+              <View style={styles.activoDot} />
+              <Text style={styles.activoText}>Monitoreo</Text>
+            </View>
+            
+           {modoFamiliar && (
+              <TouchableOpacity 
+                style={[styles.notifBtn, { marginLeft: 8 }]} 
+                onPress={() => {
+                  if (onRegresar) {
+                    onRegresar();
+                  } else {
+                    router.replace('/');
+                  }
+                }}
+              >
+                <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
+              </TouchableOpacity>
+            )}
           </View>
-          <View style={styles.turnoActivoPill}><View style={styles.activoDot} /><Text style={styles.activoText}>Monitoreo</Text></View>
-        </View>
-                {modoFamiliar && (
-          <TouchableOpacity 
-            style={[styles.notifBtn, { marginRight: 8 }]} 
-            onPress={() => router.replace('/')}
-          >
-            <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
-          </TouchableOpacity>
-        )}
-        {!signosDispositivo?.dispositivoPuesto && (
-          <View style={{
-            backgroundColor: '#FFFBEB',
-            borderLeftWidth: 4,
-            borderLeftColor: '#F59E0B',
-            padding: 12,
-            borderRadius: 6,
-            marginHorizontal: 16,
-            marginTop: 16,
-            flexDirection: 'row',
-            alignItems: 'center'
-          }}>
-            <Text style={{ color: '#B45309', fontSize: 12, fontWeight: '600', flex: 1 }}>
-              ⚠️ <Text style={{ fontWeight: '800' }}>Situación Detectada:</Text> El paciente se ha retirado el reloj inteligente o el dispositivo se encuentra apagado.
-            </Text>
-          </View>
-        )}
 
         <View style={[styles.monitorCard, { marginHorizontal: 16, marginTop: 16, backgroundColor: COLORS.white, borderColor: COLORS.border }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -1126,9 +1161,9 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
             </View>
           </View>
         </Modal>
-      </View>
+      </>
     );
-  }
+}
 
   // ── 3. VISTA MONITOREO ESPONTÁNEO (DISEÑO PREMIUM) ──
 if (vista === 'espontaneo' && pacienteActivo) {
