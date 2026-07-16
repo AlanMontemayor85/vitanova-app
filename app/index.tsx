@@ -115,10 +115,7 @@ const handleCalibrarReloj = async () => {
     alert("Error de red al conectar con el servidor.");
   }
 };
-// Borramos el router.push y lo dejamos como un log pasivo de estado
-useEffect(() => {
-  console.log("🔄 [INDEX] Modo de visualización cambiado a:", vistaModo, "| Paciente:", paciente?.id);
-}, [vistaModo, paciente?.id]);
+
 // 🔄 Carga inicial y Enrutador Inteligente Relacional
 useEffect(() => {
   const init = async () => {
@@ -140,7 +137,7 @@ useEffect(() => {
         router.replace('/login');
         return;
       }
-       
+
       // 3. 🚨 ADUANA BIOMÉDICA: Preguntamos a Railway/Supabase quién es este usuario
       const data = await getPacientes();
       
@@ -166,40 +163,46 @@ useEffect(() => {
         router.replace('/completar-perfil');
         return;
       }
+
       // 🎛️ SEGMENTACIÓN DE RUTAS BASADA EN ROLES DE PRODUCCIÓN
-      console.log("🔍 [DIAGNÓSTICO INIT] Estado en el frame actual:");
-      console.log("👉 vistaModo actual en closure:", vistaModo);
-      console.log("👉 data.patients devueltos por API:", data?.patients?.length);
-      console.log("👉 pacienteIndex actual:", typeof pacienteIndex !== 'undefined' ? pacienteIndex : 'undefined');
-      // 🎛️ SEGMENTACIÓN DE RUTAS BASADA EN ROLES DE PRODUCCIÓN
-      if (data.usuario_tipo === 'cuidador' || data.usuario_tipo === 'cuidador_contratado') {
-        console.log("🧑‍⚕️ Acceso detectado como Cuidador operativo.");
+      
+      // 🎯 CANDADO DEFENSIVO SUPREMO:
+      // Leemos directamente si en los parámetros globales de la URL existe el flag del Switch.
+      // Si está activo, congelamos cualquier redirección física para quedarnos en el index.
+      const esModoSwitchActivo = 
+        params.modoSwitch === 'cuidador_familiar' || 
+        params.usuarioRol === 'familiar_principal';
         
-        // 🎯 EL CANDADO MAESTRO: Si Alan activó el Switch embebido, bloqueamos la expulsión por Router
-        if (typeof vistaModo !== 'undefined' && vistaModo === 'cuidador') {
-          console.log("🛡️ [INIT] Modo switch familiar activo. Cancelando redirección forzada a /cuidador.");
-          // Permitimos que continúe la ejecución sin saltar de pantalla para refrescar la telemetría
-        } else {
-          // Si es un inicio limpio desde el login, redirige de forma normal
-          console.log("Redirigiendo a pantalla independiente de cuidador...");
-          router.replace('/cuidador');
-          return; // Metemos el return necesario para frenar el flujo aquí
-        }
-      } else if (data.usuario_tipo === 'autonomo') {
+
+      if (esModoSwitchActivo) {
+        console.log("🛡️ [INIT] Url protegida por Switch Familiar. Bloqueando expulsión del enrutador.");
+        // Ojo: NO ponemos 'return' aquí. 
+        // Dejamos que el código continúe hacia abajo para que cargue la telemetría del paciente.
+      } 
+      // 🧑‍⚕️ RUTA A: Cuidador Tradicional Independiente
+      else if (data.usuario_tipo === 'cuidador' || data.usuario_tipo === 'cuidador_contratado') {
+        console.log("🧑‍⚕️ Acceso concedido como Cuidador operativo. Redirigiendo...");
+        router.replace('/cuidador');
+        return; // 🛑 Frenamos ejecución para evitar fugas
+      } 
+      // 🧓 RUTA B: Autocuidador Independiente
+      else if (data.usuario_tipo === 'autonomo') {
         console.log("🧓 Acceso concedido como Autocuidador. Redirigiendo...");
         router.replace({
           pathname: '/autocuidador' as any,
           params: { pacienteId: data.patients?.[0]?.id }
         });
-        return;
-      } else {
-        console.log("👨‍👩‍👧 Acceso familiar confirmado. Cargando panel principal...");
-      }
-      
-      if (data.usuario_tipo === 'medico') {
+        return; // 🛑 Frenamos ejecución
+      } 
+      // 🩺 RUTA C: Supervisor Médico
+      else if (data.usuario_tipo === 'medico') {
         console.log("🩺 Acceso concedido como Supervisor Médico. Redirigiendo...");
         router.replace('/medico');
-        return;
+        return; // 🛑 Frenamos ejecución
+      } 
+      // 👨‍👩‍👧 RUTA D: Flujo Familiar Base de Lectura
+      else {
+        console.log("👨‍👩‍👧 Acceso familiar confirmado estándar.");
       }
 
       // 👑 CONTROL C: Si eres un Familiar/Admin válido, te damos luz verde para continuar abajo
@@ -248,7 +251,12 @@ useEffect(() => {
   };
 
   init();
-}, [params.refresh]);
+}, [params.refresh, params.modoSwitch, params.usuarioRol]);
+// Borramos el router.push y lo dejamos como un log pasivo de estado
+useEffect(() => {
+  console.log("🔄 [INDEX] Modo de visualización cambiado a:", vistaModo, "| Paciente:", paciente?.id);
+}, [vistaModo, paciente?.id]);
+
 useEffect(() => {
   if (pacientes.length === 0) return;
   const p = pacientes[pacienteIndex];
@@ -324,7 +332,24 @@ useEffect(() => {
             trackColor={{ false: 'rgba(255,255,255,0.2)', true: COLORS.gold }}
             thumbColor={COLORS.white}
             value={vistaModo === 'cuidador'}
-            onValueChange={(val) => setVistaModo(val ? 'cuidador' : 'familiar')}
+            onValueChange={(val) => {
+              // 1. Cambiamos el estado local de siempre
+              setVistaModo(val ? 'cuidador' : 'familiar');
+
+              // 2. 🎯 INYECTAMOS O LIMPIAMOS EL ESCUDO EN LA URL SEGÚN EL CASO
+              if (val) {
+                router.setParams({
+                  refresh: String(Date.now()),
+                  modoSwitch: 'cuidador_familiar',
+                  usuarioRol: 'familiar_principal'
+                });
+              } else {
+                router.setParams({
+                  modoSwitch: undefined,
+                  usuarioRol: undefined
+                });
+              }
+            }}
           />
         </View>
 
@@ -349,7 +374,6 @@ useEffect(() => {
       {vistaModo === 'cuidador' && paciente?.id ? (
         /* 🩺 MODO OPERATIVO (Cargamos tu pantalla de cuidador directamente) */
         <CuidadorScreen 
-          key={paciente.id} // 👑 🎯 EL TRUCO MAESTRO: Forza a React a destruir la memoria vieja y abrir un turno limpio
           pacienteProp={paciente} 
           onRegresar={() => setVistaModo('familiar')}
         />

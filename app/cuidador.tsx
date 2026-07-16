@@ -662,6 +662,7 @@ useEffect(() => {
         barthel_scores: barthelTocado ? barthelScores : null, 
         barthel_total: barthelTocado ? barthelTotal : null, 
         barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
+        // ← AGREGAR campos de confort:
         dolor_eva: dolorEva,
         estado_animo: estadoAnimo || null,
         hidratacion_vasos: hidratacion || null,
@@ -672,41 +673,25 @@ useEffect(() => {
 
     const data = await res.json();
     if (data.status === 'ok') {
-      // 1. 🔄 Sincronizar pacientes del backend inyectando el blindaje del rol
       const pData = await getPacientes();
-      if (pData && pData.patients) {
-        const pacientesMapeados = pData.patients.map((p: any) => {
-          if (typeof pacienteProp !== 'undefined' && pacienteProp && p.id === pacienteProp.id) {
-            return { 
-              ...p, 
-              rol_en_equipo: 'familiar_principal',
-              usuarioRol: 'familiar_principal'
-            };
-          }
-          return p;
-        });
-        setPacientes(pacientesMapeados);
-      }
-
-      // 2. 🧼 Reset completo del formulario incidental
+      if (pData.patients) setPacientes(pData.patients);
+      // Reset campos de confort
       setDolorEva(0);
       setEstadoAnimo('');
       setHidratacion(0);
       setAlimentacion('');
       setObservaciones('');
       resetEstados(); 
-
-      // 🎯 3. VIA DE RETORNO AL MODO FAMILIAR:
-      // Ejecutamos la prop callback nativa de salida que desactiva la vista operativa
-      if (typeof onRegresar === 'function') {
-        console.log("🧼 Cierre completado: regresando al panel familiar principal...");
-        onRegresar();
-      }
-
-      // 4. Restaurar vista local del listado
       setVista('lista');
-      
       Alert.alert('✅ Turno Cerrado', 'La bitácora del día se ha consolidado con éxito.');
+      router.replace({
+        pathname: '/' as any,
+        params: { 
+          refresh: String(Date.now()),
+          modoSwitch: undefined,
+          usuarioRol: undefined
+        }
+      });
     }
   } catch (e) { 
     console.error("❌ Error en ejecutarCierre:", e); 
@@ -843,55 +828,27 @@ useEffect(() => {
     const tareasPendientes = tareas.filter(t => !t.completada);
 
     return (
-      // 🎯 El View con la key de aislamiento DEBE abrir aquí y envolver TODO el retorno
       <View key={pacienteActivo.id} style={{ display: 'flex', flex: 1 }}>
         
-        {/* HEADER TURNO: Solo lo pintamos si la app de cuidador corre de forma independiente.
-            Si está embebida (pacienteProp), el switch de "Familiar" de arriba ya controla el modo, 
-            así que no duplicamos cabeceras. */}
-        {!pacienteProp && (
-          <View style={styles.header}>
-            <TouchableOpacity 
-              onPress={() => {
-                // Si vienes de modo switch familiar, que te saque usando onRegresar
-                if (pacienteActivo?.usuarioRol === 'familiar_principal' || pacienteActivo?.rol_en_equipo === 'familiar_principal') {
-                  onRegresar ? onRegresar() : setVista('lista');
-                } else {
-                  setVista('lista');
-                }
-              }} 
-              style={styles.backBtn}
-            >
-              <Text style={styles.backIcon}>←</Text>
-            </TouchableOpacity>
-            
-            <View style={{ flex: 1 }}>
-              <Text style={styles.greeting}>Consola operativa</Text>
-              <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
-            </View>
-
-            <View style={styles.turnoActivoPill}>
-              <View style={styles.activoDot} />
-              <Text style={styles.activoText}>Monitoreo</Text>
-            </View>
-            
-            {/* 🎯 BOTÓN PARA FORZAR REGRESO SI ALGO FALLA CON EL SWITCH */}
-            {(modoFamiliar || pacienteProp || pacienteActivo?.usuarioRol === 'familiar_principal') && (
-              <TouchableOpacity 
-                style={[styles.notifBtn, { marginLeft: 8, backgroundColor: COLORS.goldPale, padding: 6, borderRadius: 8 }]} 
-                onPress={() => {
-                  if (onRegresar) {
-                    onRegresar();
-                  } else {
-                    router.replace('/');
-                  }
-                }}
-              >
-                <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
-              </TouchableOpacity>
-            )}
+        {/* Renderizamos la barra operativa normal sin el botón extra del emoji familiar */}
+        <View style={styles.header}>
+          <TouchableOpacity 
+            onPress={() => setVista('lista')} 
+            style={styles.backBtn}
+          >
+            <Text style={styles.backIcon}>←</Text>
+          </TouchableOpacity>
+          
+          <View style={{ flex: 1 }}>
+            <Text style={styles.greeting}>Consola operativa</Text>
+            <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
           </View>
-        )}
+
+          <View style={styles.turnoActivoPill}>
+            <View style={styles.activoDot} />
+            <Text style={styles.activoText}>Monitoreo</Text>
+          </View>
+        </View>
 
         
         <View style={[styles.monitorCard, { marginHorizontal: 16, marginTop: 16, backgroundColor: COLORS.white, borderColor: COLORS.border }]}>
