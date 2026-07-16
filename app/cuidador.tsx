@@ -816,51 +816,61 @@ useEffect(() => {
   }
 
   // 2. VISTA CONSOLA DE TURNO ACTIVA
-    if (vista === 'turno' && pacienteActivo) {
-      const tareasPendientes = tareas.filter(t => !t.completada);
+  if (vista === 'turno' && pacienteActivo) {
+    const tareasPendientes = tareas.filter(t => !t.completada);
 
-      return (
-        <>
-          {/* HEADER TURNO: Solo lo pintamos si la app de cuidador corre de forma independiente.
-              Si está embebida (pacienteProp), el switch de "Familiar" de arriba ya controla el modo, 
-              así que no duplicamos cabeceras. */}
+    return (
+      // 🎯 El View con la key de aislamiento DEBE abrir aquí y envolver TODO el retorno
+      <View key={pacienteActivo.id} style={{ display: 'flex', flex: 1 }}>
         
-        <View key={pacienteActivo.id} style={{ display: 'flex' }}></View>
-          {!pacienteProp && (
-            <View style={styles.header}>
-              <TouchableOpacity 
-                onPress={() => setVista('lista')} 
-                style={styles.backBtn}
-              >
-                <Text style={styles.backIcon}>←</Text>
-              </TouchableOpacity>
-              
-              <View style={{ flex: 1 }}>
-                <Text style={styles.greeting}>Consola operativa</Text>
-                <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
-              </View>
-
-              <View style={styles.turnoActivoPill}>
-                <View style={styles.activoDot} />
-                <Text style={styles.activoText}>Monitoreo</Text>
-              </View>
-              
-              {modoFamiliar && (
-                <TouchableOpacity 
-                  style={[styles.notifBtn, { marginLeft: 8 }]} 
-                  onPress={() => {
-                    if (onRegresar) {
-                      onRegresar();
-                    } else {
-                      router.replace('/');
-                    }
-                  }}
-                >
-                  <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
-                </TouchableOpacity>
-              )}
+        {/* HEADER TURNO: Solo lo pintamos si la app de cuidador corre de forma independiente.
+            Si está embebida (pacienteProp), el switch de "Familiar" de arriba ya controla el modo, 
+            así que no duplicamos cabeceras. */}
+        {!pacienteProp && (
+          <View style={styles.header}>
+            <TouchableOpacity 
+              onPress={() => {
+                // Si vienes de modo switch familiar, que te saque usando onRegresar
+                if (pacienteActivo?.usuarioRol === 'familiar_principal' || pacienteActivo?.rol_en_equipo === 'familiar_principal') {
+                  onRegresar ? onRegresar() : setVista('lista');
+                } else {
+                  setVista('lista');
+                }
+              }} 
+              style={styles.backBtn}
+            >
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+            
+            <View style={{ flex: 1 }}>
+              <Text style={styles.greeting}>Consola operativa</Text>
+              <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
             </View>
-          )}
+
+            <View style={styles.turnoActivoPill}>
+              <View style={styles.activoDot} />
+              <Text style={styles.activoText}>Monitoreo</Text>
+            </View>
+            
+            {/* 🎯 BOTÓN PARA FORZAR REGRESO SI ALGO FALLA CON EL SWITCH */}
+            {(modoFamiliar || pacienteProp || pacienteActivo?.usuarioRol === 'familiar_principal') && (
+              <TouchableOpacity 
+                style={[styles.notifBtn, { marginLeft: 8, backgroundColor: COLORS.goldPale, padding: 6, borderRadius: 8 }]} 
+                onPress={() => {
+                  if (onRegresar) {
+                    onRegresar();
+                  } else {
+                    router.replace('/');
+                  }
+                }}
+              >
+                <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        
         <View style={[styles.monitorCard, { marginHorizontal: 16, marginTop: 16, backgroundColor: COLORS.white, borderColor: COLORS.border }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <Text style={{ fontSize: 9, fontWeight: '800', color: COLORS.textLight }}>📡 TELEMETRÍA EN VIVO</Text>
@@ -1255,7 +1265,7 @@ useEffect(() => {
             </View>
           </View>
         </Modal>
-      </>
+      </View>
     );
 }
 
