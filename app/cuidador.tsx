@@ -662,7 +662,6 @@ useEffect(() => {
         barthel_scores: barthelTocado ? barthelScores : null, 
         barthel_total: barthelTocado ? barthelTotal : null, 
         barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
-        // ← AGREGAR campos de confort:
         dolor_eva: dolorEva,
         estado_animo: estadoAnimo || null,
         hidratacion_vasos: hidratacion || null,
@@ -673,16 +672,40 @@ useEffect(() => {
 
     const data = await res.json();
     if (data.status === 'ok') {
+      // 1. 🔄 Sincronizar pacientes del backend inyectando el blindaje del rol
       const pData = await getPacientes();
-      if (pData.patients) setPacientes(pData.patients);
-      // Reset campos de confort
+      if (pData && pData.patients) {
+        const pacientesMapeados = pData.patients.map((p: any) => {
+          if (typeof pacienteProp !== 'undefined' && pacienteProp && p.id === pacienteProp.id) {
+            return { 
+              ...p, 
+              rol_en_equipo: 'familiar_principal',
+              usuarioRol: 'familiar_principal'
+            };
+          }
+          return p;
+        });
+        setPacientes(pacientesMapeados);
+      }
+
+      // 2. 🧼 Reset completo del formulario incidental
       setDolorEva(0);
       setEstadoAnimo('');
       setHidratacion(0);
       setAlimentacion('');
       setObservaciones('');
       resetEstados(); 
+
+      // 🎯 3. VIA DE RETORNO AL MODO FAMILIAR:
+      // Ejecutamos la prop callback nativa de salida que desactiva la vista operativa
+      if (typeof onRegresar === 'function') {
+        console.log("🧼 Cierre completado: regresando al panel familiar principal...");
+        onRegresar();
+      }
+
+      // 4. Restaurar vista local del listado
       setVista('lista');
+      
       Alert.alert('✅ Turno Cerrado', 'La bitácora del día se ha consolidado con éxito.');
     }
   } catch (e) { 
