@@ -1,10 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
+import { Bell, Calendar, MapPin, Pill } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getNotasTurno, getPacientes, getSignosRecientes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 import CuidadorScreen from './cuidador';
+
 const COLORS = {
   gold: '#BF9A40',
   goldLight: '#D4B060',
@@ -815,31 +817,57 @@ useEffect(() => {
           }
         ]}>
           {[
-            { icon: '📍', label: 'Mapa', ruta: '/mapa', active: pathname === '/mapa' },
-            { icon: '💊', label: 'Medicam.', ruta: '/medicamentos', active: pathname === '/medicamentos' },                          
-            { icon: '🔔', label: 'Alertas', ruta: '/alertas', active: pathname === '/alertas' },
-            // 🎯 Inicio eliminado limpiamente del mapeo visual
-            { icon: '📅', label: 'Calendario', ruta: '/calendario', active: pathname === '/calendario' },
-          ].map((item) => (
-            <TouchableOpacity
-              key={item.label}
-              style={styles.navItem}
-              onPress={() => {
-                router.push({
-                  pathname: item.ruta as any,
-                  params: {
-                    pacienteId: paciente?.id,
-                    pacienteNombre: paciente?.nombre_completo,
-                  }
-                });
-              }}
-            >
-              <Text style={styles.navIcon}>{item.icon}</Text>
-              <Text style={[styles.navLabel, item.active && { color: COLORS.gold }]}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+            { 
+              Icon: MapPin, 
+              label: 'Mapa', 
+              ruta: '/mapa', 
+              active: pathname === '/mapa' 
+            },
+            { 
+              Icon: Pill, 
+              label: 'Medicam.', 
+              ruta: '/medicamentos', 
+              active: pathname === '/medicamentos' 
+            },                          
+            { 
+              Icon: Bell, 
+              label: 'Alertas', 
+              ruta: '/alertas', 
+              active: pathname === '/alertas' 
+            },
+            { 
+              Icon: Calendar, 
+              label: 'Calendario', 
+              ruta: '/calendario', 
+              active: pathname === '/calendario' 
+            },
+          ].map((item) => {
+            const IconComponent = item.Icon;
+            const activeColor = item.active ? COLORS.gold : '#777777'; // Cambia el color del icono si está seleccionado
+
+            return (
+              <TouchableOpacity
+                key={item.label}
+                style={styles.navItem}
+                onPress={() => {
+                  router.push({
+                    pathname: item.ruta as any,
+                    params: {
+                      pacienteId: paciente?.id,
+                      pacienteNombre: paciente?.nombre_completo,
+                    }
+                  });
+                }}
+              >
+                {/* Renderiza el componente de Lucide con el color dinámico correcto */}
+                <IconComponent size={22} color={activeColor} style={{ marginBottom: 4 }} />
+                
+                <Text style={[styles.navLabel, item.active && { color: COLORS.gold }]}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
           {/* MODAL DE SOLICITUD */}
