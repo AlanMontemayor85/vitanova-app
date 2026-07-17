@@ -66,42 +66,49 @@ export default function CalendarioScreen() {
   }, [diaSeleccionado, pacienteId]);
 
   const cargarPlanDelDia = async () => {
-    setLoading(true);
-    try {
-      await loadStoredToken(); // Asegurar sesión
-      console.log(`🛰️ Consultando plan para fecha: ${diaSeleccionado} y paciente: ${pacienteId}`);
-      
-      const response = await getTareasDia(pacienteId, diaSeleccionado);
-      console.log("📥 Respuesta de tareas-dia:", response);
+  setLoading(true);
+  try {
+    await loadStoredToken(); // Asegurar sesión
+    console.log(`🛰️ Consultando plan para fecha: ${diaSeleccionado} y paciente: ${pacienteId}`);
+    
+    const response = await getTareasDia(pacienteId, diaSeleccionado);
+    console.log("📥 Respuesta de tareas-dia:", response);
 
-      if (Array.isArray(response)) {
-        // Mapeamos los datos para homogeneizarlos en nuestro estado local
-        const formatoTareas = response.map((t: any) => ({
-          id: t.id || String(Math.random()),
-          descripcion: t.descripcion || t.nombre || 'Sin descripción',
-          hora: t.hora || 'Incidental',
-          tipo: t.tipo || 'rutina',
-          completada: !!t.completada
-        }));
+    // 🎯 FIX: Extraemos el arreglo de tareas desde response.tareas si viene dentro de un objeto
+    const arregloTareas = response && Array.isArray(response.tareas) 
+      ? response.tareas 
+      : Array.isArray(response) 
+        ? response 
+        : [];
 
-        // Ordenar cronológicamente (las incidentales o sin hora al final)
-        formatoTareas.sort((a, b) => {
-          if (a.hora === 'Incidental') return 1;
-          if (b.hora === 'Incidental') return -1;
-          return a.hora.localeCompare(b.hora);
-        });
+    if (arregloTareas.length > 0) {
+      // Mapeamos los datos para homogeneizarlos en nuestro estado local
+      const formatoTareas = arregloTareas.map((t: any) => ({
+        id: t.id || String(Math.random()),
+        descripcion: t.descripcion || t.nombre || 'Sin descripción',
+        hora: t.hora || 'Incidental',
+        tipo: t.tipo || 'rutina',
+        completada: !!t.completada
+      }));
 
-        setTareas(formatoTareas);
-      } else {
-        setTareas([]);
-      }
-    } catch (error) {
-      console.error('❌ Error cargando plan de cuidados:', error);
+      // Ordenar cronológicamente (las incidentales o sin hora al final)
+      formatoTareas.sort((a: TareaPlan, b: TareaPlan) => {
+        if (a.hora === 'Incidental') return 1;
+        if (b.hora === 'Incidental') return -1;
+        return a.hora.localeCompare(b.hora);
+      });
+
+      setTareas(formatoTareas);
+    } else {
       setTareas([]);
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (error) {
+    console.error('❌ Error cargando plan de cuidados:', error);
+    setTareas([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <SafeAreaProvider>
