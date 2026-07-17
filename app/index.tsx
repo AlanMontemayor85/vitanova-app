@@ -818,23 +818,20 @@ useEffect(() => {
             { icon: '📍', label: 'Mapa', ruta: '/mapa', active: pathname === '/mapa' },
             { icon: '💊', label: 'Medicam.', ruta: '/medicamentos', active: pathname === '/medicamentos' },                          
             { icon: '🔔', label: 'Alertas', ruta: '/alertas', active: pathname === '/alertas' },
+            // 🎯 Inicio eliminado limpiamente del mapeo visual
             { icon: '📅', label: 'Calendario', ruta: '/calendario', active: pathname === '/calendario' },
           ].map((item) => (
             <TouchableOpacity
               key={item.label}
               style={styles.navItem}
               onPress={() => {
-                if (item.ruta === '/') {
-                  router.push('/');
-                } else {
-                  router.push({
-                    pathname: item.ruta as any,
-                    params: {
-                      pacienteId: paciente?.id,
-                      pacienteNombre: paciente?.nombre_completo,
-                    }
-                  });
-                }
+                router.push({
+                  pathname: item.ruta as any,
+                  params: {
+                    pacienteId: paciente?.id,
+                    pacienteNombre: paciente?.nombre_completo,
+                  }
+                });
               }}
             >
               <Text style={styles.navIcon}>{item.icon}</Text>
