@@ -108,7 +108,7 @@ export default function RegistroSaludScreen() {
         await iniciarTurno(paciente.id);
       }
       
-      // 🎯 FIX SUPREMO: Si venimos del switch embebido, regresamos al stack existente
+      
       // Esto evita crear una instancia standalone nueva y preserva 'pacienteProp'
       if (params.modoSwitch === 'cuidador_familiar' || params.usuarioRol === 'familiar_principal') {
         console.log("🔙 Regresando al CuidadorScreen embebido (Preservando layout familiar)");

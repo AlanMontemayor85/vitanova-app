@@ -7,6 +7,7 @@ import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaP
 import { registrarNotificaciones } from '../services/notifications';
 import CuidadorScreen from './cuidador';
 
+
 const COLORS = {
   gold: '#BF9A40',
   goldLight: '#D4B060',
