@@ -1,11 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getNotasTurno, getPacientes, getSignosRecientes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 import CuidadorScreen from './cuidador';
-  
 const COLORS = {
   gold: '#BF9A40',
   goldLight: '#D4B060',
@@ -46,8 +45,9 @@ export default function HomeScreen() {
   const [midiendo, setMidiendo] = useState<boolean>(false);
   const [nombreUsuario, setNombreUsuario] = useState<string>('Familiar');
   const [vistaModo, setVistaModo] = useState<'familiar' | 'cuidador'>('familiar');
+  const pathname = usePathname();
   const pacienteId = paciente?.id;
-
+  
 // 📡 1. Función para jalar la telemetría más reciente del reloj
 const cargarSignosDispositivo = async (idToLoad?: string) => {
   const targetId = idToLoad || pacienteId;
@@ -805,45 +805,45 @@ useEffect(() => {
             <View style={{ height: 60 }} />
           </ScrollView>
           
-          {/* BOTTOM NAV */}
-          <View style={[
-            styles.bottomNav, 
-            { 
-              paddingBottom: Platform.OS === 'android' ? 48 : 20, 
-              height: Platform.OS === 'android' ? 98 : 72,
-              alignItems: 'center', 
-            }
-          ]}>
-            {[
-              { icon: '📍', label: 'Mapa', ruta: '/mapa', active: false },
-              { icon: '💊', label: 'Medicam.', ruta: '/medicamentos', active: false },                          
-              { icon: '🔔', label: 'Alertas', ruta: '/alertas', active: false },
-              { icon: '📋', label: 'Inicio', ruta: '/', active: true },
-            ].map((item) => (
-              <TouchableOpacity
-                key={item.label}
-                style={styles.navItem}
-                onPress={() => {
-                  if (item.ruta === '/') {
-                    router.push('/');
-                  } else {
-                    router.push({
-                      pathname: item.ruta as any,
-                      params: {
-                        pacienteId: paciente?.id,
-                        pacienteNombre: paciente?.nombre_completo,
-                      }
-                    });
-                  }
-                }}
-              >
-                <Text style={styles.navIcon}>{item.icon}</Text>
-                <Text style={[styles.navLabel, item.active && { color: COLORS.gold }]}>
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+        {/* BOTTOM NAV */}
+        <View style={[
+          styles.bottomNav, 
+          { 
+            paddingBottom: Platform.OS === 'android' ? 48 : 20, 
+            height: Platform.OS === 'android' ? 98 : 72,
+            alignItems: 'center', 
+          }
+        ]}>
+          {[
+            { icon: '📍', label: 'Mapa', ruta: '/mapa', active: pathname === '/mapa' },
+            { icon: '💊', label: 'Medicam.', ruta: '/medicamentos', active: pathname === '/medicamentos' },                          
+            { icon: '🔔', label: 'Alertas', ruta: '/alertas', active: pathname === '/alertas' },
+            { icon: '📅', label: 'Calendario', ruta: '/calendario', active: pathname === '/calendario' },
+          ].map((item) => (
+            <TouchableOpacity
+              key={item.label}
+              style={styles.navItem}
+              onPress={() => {
+                if (item.ruta === '/') {
+                  router.push('/');
+                } else {
+                  router.push({
+                    pathname: item.ruta as any,
+                    params: {
+                      pacienteId: paciente?.id,
+                      pacienteNombre: paciente?.nombre_completo,
+                    }
+                  });
+                }
+              }}
+            >
+              <Text style={styles.navIcon}>{item.icon}</Text>
+              <Text style={[styles.navLabel, item.active && { color: COLORS.gold }]}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
           {/* MODAL DE SOLICITUD */}
           <Modal visible={solicitudOpen} transparent animationType="slide">
