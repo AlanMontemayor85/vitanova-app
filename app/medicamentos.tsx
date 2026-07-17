@@ -626,8 +626,12 @@ const importarDesdeExcel = async () => {
                     onPress={() => {
                       setTipoDuracion('periodo');
                       setEsPermanente(false);
-                      if (fechaInicio === fechaFin) {
-                        setFechaFin(''); 
+                      
+                      // 🎯 FIX: Si las fechas son iguales (venías de Cita), le sumamos 7 días por defecto para que no vaya vacía
+                      if (fechaInicio === fechaFin || fechaFin === '') {
+                        const baseDate = new Date(fechaInicio + 'T12:00:00');
+                        baseDate.setDate(baseDate.getDate() + 7); // Añade una semana como sugerencia inicial
+                        setFechaFin(baseDate.toLocaleDateString('en-CA'));
                       }
                     }}
                   >
@@ -808,17 +812,21 @@ const importarDesdeExcel = async () => {
                   </TouchableOpacity>
 
                   <TouchableOpacity 
-                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, tipoDuracion === 'periodo' && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
-                    onPress={() => {
-                      setTipoDuracion('periodo');
-                      setEsPermanente(false);
-                      if (fechaInicio === fechaFin) {
-                        setFechaFin(''); 
-                      }
-                    }}
-                  >
-                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, tipoDuracion === 'periodo' && { color: '#FFF' }]}>📅 Por Periodo</Text>
-                  </TouchableOpacity>
+                  style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, tipoDuracion === 'periodo' && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
+                  onPress={() => {
+                    setTipoDuracion('periodo');
+                    setEsPermanente(false);
+                    
+                    // 🎯 FIX: Si las fechas son iguales (venías de Cita), le sumamos 7 días por defecto para que no vaya vacía
+                    if (fechaInicio === fechaFin || fechaFin === '') {
+                      const baseDate = new Date(fechaInicio + 'T12:00:00');
+                      baseDate.setDate(baseDate.getDate() + 7); // Añade una semana como sugerencia inicial
+                      setFechaFin(baseDate.toLocaleDateString('en-CA'));
+                    }
+                  }}
+                >
+                  <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, tipoDuracion === 'periodo' && { color: '#FFF' }]}>📅 Por Periodo</Text>
+                </TouchableOpacity>
 
                   <TouchableOpacity 
                     style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, tipoDuracion === 'especifica' && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
@@ -930,7 +938,9 @@ const importarDesdeExcel = async () => {
             </View>
           </ScrollView>
         </View>
-      )}{/* MODAL MEDICAMENTO */}
+      )}
+      
+      {/* MODAL MEDICAMENTO */}
       {modalOpen && (
         <View style={styles.modalOverlay}>
           <ScrollView showsVerticalScrollIndicator={false}>
@@ -1028,8 +1038,11 @@ const importarDesdeExcel = async () => {
                     onPress={() => {
                       setTipoDuracion('periodo');
                       setEsPermanente(false);
-                      if (fechaInicio === fechaFin) {
-                        setFechaFin(''); 
+                      // 🎯 FIX: Si venías de cita única, le sumamos 7 días para evitar el string vacío que rompía el guardado
+                      if (fechaInicio === fechaFin || fechaFin === '') {
+                        const baseDate = new Date(fechaInicio + 'T12:00:00');
+                        baseDate.setDate(baseDate.getDate() + 7);
+                        setFechaFin(baseDate.toLocaleDateString('en-CA'));
                       }
                     }}
                   >
@@ -1214,8 +1227,11 @@ const importarDesdeExcel = async () => {
                     onPress={() => {
                       setTipoDuracion('periodo');
                       setEsPermanente(false);
-                      if (fechaInicio === fechaFin) {
-                        setFechaFin(''); 
+                      // 🎯 FIX: Si venías de cita única, le sumamos 7 días para evitar el string vacío que rompía el guardado
+                      if (fechaInicio === fechaFin || fechaFin === '') {
+                        const baseDate = new Date(fechaInicio + 'T12:00:00');
+                        baseDate.setDate(baseDate.getDate() + 7);
+                        setFechaFin(baseDate.toLocaleDateString('en-CA'));
                       }
                     }}
                   >
