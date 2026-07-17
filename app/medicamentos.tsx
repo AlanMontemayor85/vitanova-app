@@ -435,38 +435,56 @@ const importarDesdeExcel = async () => {
               <Text style={styles.emptyText}>Sin medicamentos registrados</Text>
             </View>
           ) : (
-            medicamentos.map((med, i) => (
-              <View key={med.id || i} style={styles.card}>
-                <View style={styles.cardLeft}>
-                  <Text style={styles.medIcon}>💊</Text>
-                </View>
-                <View style={styles.cardBody}>
-                  <Text style={styles.cardTitle}>{med.nombre} {med.dosis}</Text>
-                  <Text style={styles.cardSub}>{med.frecuencia} · {med.via_administracion}</Text>
-                  {med.horarios && med.horarios.length > 0 && (
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-                      {med.horarios.map((h: string, hi: number) => (
-                        <View key={hi} style={styles.horarioBadge}>
-                          <Text style={styles.horarioBadgeText}>{'⏰ ' + h}</Text>
-                        </View>
-                      ))}
+            medicamentos.map((med, i) => {
+              // 🧠 Función helper local para formatear el texto de temporalidad
+              const renderTemporalidad = () => {
+                if (!med.fecha_fin) {
+                  return <Text style={{ fontSize: 11, color: COLORS.gold, fontWeight: '600' }}>♾️ Permanente</Text>;
+                }
+                if (med.fecha_inicio === med.fecha_fin) {
+                  return <Text style={{ fontSize: 11, color: '#777', fontWeight: '600' }}>📍 Programado: {med.fecha_inicio}</Text>;
+                }
+                return <Text style={{ fontSize: 11, color: '#555', fontWeight: '600' }}>📅 {med.fecha_inicio} al {med.fecha_fin}</Text>;
+              };
+
+              return (
+                <View key={med.id || i} style={styles.card}>
+                  <View style={styles.cardLeft}>
+                    <Text style={styles.medIcon}>💊</Text>
+                  </View>
+                  <View style={styles.cardBody}>
+                    <Text style={styles.cardTitle}>{med.nombre} {med.dosis}</Text>
+                    <Text style={styles.cardSub}>{med.frecuencia} · {med.via_administracion}</Text>
+                    
+                    {/* Contenedor de Badges con Horario y Temporalidad */}
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                      {med.horarios && med.horarios.length > 0 && (
+                        med.horarios.map((h: string, hi: number) => (
+                          <View key={hi} style={styles.horarioBadge}>
+                            <Text style={styles.horarioBadgeText}>{'⏰ ' + h}</Text>
+                          </View>
+                        ))
+                      )}
+                      <View style={{ backgroundColor: '#F0F0F0', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: '#EAEAEA' }}>
+                        {renderTemporalidad()}
+                      </View>
                     </View>
-                  )}
+                  </View>
+                  <TouchableOpacity 
+                    onPress={() => abrirEdicionMedicamento(med)} 
+                    style={[styles.deleteBtn, { marginRight: 8 }]}
+                  >
+                    <Text style={{ color: COLORS.gold, fontSize: 16 }}>✏️</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    onPress={() => setConfirmDelete({ tipo: 'med', id: med.id, nombre: `${med.nombre} ${med.dosis}` })}
+                    style={styles.deleteBtn}
+                  >
+                    <Text style={styles.deleteBtnText}>✕</Text>
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity 
-                  onPress={() => abrirEdicionMedicamento(med)} 
-                  style={[styles.deleteBtn, { marginRight: 8 }]}
-                >
-                  <Text style={{ color: COLORS.gold, fontSize: 16 }}>✏️</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={() => setConfirmDelete({ tipo: 'med', id: med.id, nombre: `${med.nombre} ${med.dosis}` })}
-                  style={styles.deleteBtn}
-                >
-                  <Text style={styles.deleteBtnText}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            ))
+              );
+            })
           )
         ) : (
           tareasRec.length === 0 ? (
@@ -475,32 +493,52 @@ const importarDesdeExcel = async () => {
               <Text style={styles.emptyText}>Sin rutinas registradas</Text>
             </View>
           ) : (
-            tareasRec.map((t, i) => (
-              <View key={t.id || i} style={styles.card}>
-                <View style={styles.cardLeft}>
-                  <Text style={styles.medIcon}>{ICONOS_RUTINA[t.tipo] ?? '📝'}</Text>
-                </View>
-                <View style={styles.cardBody}>
-                  <Text style={styles.cardTitle}>{t.descripcion}</Text>
-                  <Text style={styles.cardSub}>{t.tipo}</Text>
-                  <View style={[styles.horarioBadge, { alignSelf: 'flex-start', marginTop: 4 }]}>
-                    <Text style={styles.horarioBadgeText}>{'⏰ ' + t.hora}</Text>
+            tareasRec.map((t, i) => {
+              // 🧠 Función helper local para formatear el texto de temporalidad
+              const renderTemporalidadRutina = () => {
+                if (!t.fecha_fin) {
+                  return <Text style={{ fontSize: 11, color: COLORS.gold, fontWeight: '600' }}>♾️ Permanente</Text>;
+                }
+                if (t.fecha_inicio === t.fecha_fin) {
+                  return <Text style={{ fontSize: 11, color: '#777', fontWeight: '600' }}>📍 Programado: {t.fecha_inicio}</Text>;
+                }
+                return <Text style={{ fontSize: 11, color: '#555', fontWeight: '600' }}>📅 {t.fecha_inicio} al {t.fecha_fin}</Text>;
+              };
+
+              return (
+                <View key={t.id || i} style={styles.card}>
+                  <View style={styles.cardLeft}>
+                    <Text style={styles.medIcon}>{ICONOS_RUTINA[t.tipo] ?? '📝'}</Text>
                   </View>
+                  <View style={styles.cardBody}>
+                    <Text style={styles.cardTitle}>{t.descripcion}</Text>
+                    <Text style={styles.cardSub}>{t.tipo}</Text>
+                    
+                    {/* Contenedor de Badges con Horario y Temporalidad */}
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                      <View style={styles.horarioBadge}>
+                        <Text style={styles.horarioBadgeText}>{'⏰ ' + t.hora}</Text>
+                      </View>
+                      <View style={{ backgroundColor: '#F0F0F0', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: '#EAEAEA' }}>
+                        {renderTemporalidadRutina()}
+                      </View>
+                    </View>
+                  </View>
+                  <TouchableOpacity 
+                    onPress={() => abrirEdicionRutina(t)} 
+                    style={[styles.deleteBtn, { marginRight: 8 }]}
+                  >
+                    <Text style={{ color: COLORS.gold, fontSize: 16 }}>✏️</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    onPress={() => setConfirmDelete({ tipo: 'rutina', id: t.id, nombre: t.descripcion })}
+                    style={styles.deleteBtn}
+                  >
+                    <Text style={styles.deleteBtnText}>✕</Text>
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity 
-                  onPress={() => abrirEdicionRutina(t)} 
-                  style={[styles.deleteBtn, { marginRight: 8 }]}
-                >
-                  <Text style={{ color: COLORS.gold, fontSize: 16 }}>✏️</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={() => setConfirmDelete({ tipo: 'rutina', id: t.id, nombre: t.descripcion })}
-                  style={styles.deleteBtn}
-                >
-                  <Text style={styles.deleteBtnText}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            ))
+              );
+            })
           )
         )}
         <View style={{ height: 40 }} />
