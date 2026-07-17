@@ -1020,7 +1020,7 @@ const importarDesdeExcel = async () => {
               <View style={{ marginVertical: 12, padding: 12, backgroundColor: '#F9F9F9', borderRadius: 8, borderWidth: 1, borderColor: '#EAEAEA' }}>
                 <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao, marginBottom: 8 }}>🗓️ Duración del Plan</Text>
                 
-                {/* Selector de Duración de Plan Corregido */}
+                {/* Selector de Duración de Plan */}
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
                   <TouchableOpacity 
                     style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, tipoDuracion === 'permanente' && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
@@ -1038,12 +1038,6 @@ const importarDesdeExcel = async () => {
                     onPress={() => {
                       setTipoDuracion('periodo');
                       setEsPermanente(false);
-                      // 🎯 FIX: Si venías de cita única, le sumamos 7 días para evitar el string vacío que rompía el guardado
-                      if (fechaInicio === fechaFin || fechaFin === '') {
-                        const baseDate = new Date(fechaInicio + 'T12:00:00');
-                        baseDate.setDate(baseDate.getDate() + 7);
-                        setFechaFin(baseDate.toLocaleDateString('en-CA'));
-                      }
                     }}
                   >
                     <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, tipoDuracion === 'periodo' && { color: '#FFF' }]}>📅 Por Periodo</Text>
@@ -1054,7 +1048,7 @@ const importarDesdeExcel = async () => {
                     onPress={() => {
                       setTipoDuracion('especifica');
                       setEsPermanente(false);
-                      setFechaFin(fechaInicio);
+                      setFechaFin(fechaInicio); // Mantiene sincronizada la cita única
                     }}
                   >
                     <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, tipoDuracion === 'especifica' && { color: '#FFF' }]}>📍 Fecha Específica</Text>
@@ -1209,7 +1203,7 @@ const importarDesdeExcel = async () => {
               <View style={{ marginVertical: 12, padding: 12, backgroundColor: '#F9F9F9', borderRadius: 8, borderWidth: 1, borderColor: '#EAEAEA' }}>
                 <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao, marginBottom: 8 }}>🗓️ Duración del Plan</Text>
                 
-                {/* Selector de Duración de Plan Corregido */}
+                {/* Selector de Duración de Plan */}
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
                   <TouchableOpacity 
                     style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, tipoDuracion === 'permanente' && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
@@ -1227,12 +1221,6 @@ const importarDesdeExcel = async () => {
                     onPress={() => {
                       setTipoDuracion('periodo');
                       setEsPermanente(false);
-                      // 🎯 FIX: Si venías de cita única, le sumamos 7 días para evitar el string vacío que rompía el guardado
-                      if (fechaInicio === fechaFin || fechaFin === '') {
-                        const baseDate = new Date(fechaInicio + 'T12:00:00');
-                        baseDate.setDate(baseDate.getDate() + 7);
-                        setFechaFin(baseDate.toLocaleDateString('en-CA'));
-                      }
                     }}
                   >
                     <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, tipoDuracion === 'periodo' && { color: '#FFF' }]}>📅 Por Periodo</Text>
@@ -1243,7 +1231,7 @@ const importarDesdeExcel = async () => {
                     onPress={() => {
                       setTipoDuracion('especifica');
                       setEsPermanente(false);
-                      setFechaFin(fechaInicio);
+                      setFechaFin(fechaInicio); // Mantiene sincronizada la cita única
                     }}
                   >
                     <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, tipoDuracion === 'especifica' && { color: '#FFF' }]}>📍 Fecha Específica</Text>
