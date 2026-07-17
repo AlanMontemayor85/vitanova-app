@@ -102,9 +102,9 @@ export default function MedicamentosScreen() {
   const guardarMedicamento = async () => {
     if (!nombre.trim() || !dosis.trim()) return;
     setGuardando(true);
-    
-    // Preparar el payload con el esquema temporal inteligente
-    const payloadTemporal = {
+
+    // 📦 Armamos el payload incluyendo las nuevas propiedades del calendario
+    const payload = {
       nombre: nombre.trim(),
       dosis: dosis.trim(),
       frecuencia,
@@ -118,21 +118,21 @@ export default function MedicamentosScreen() {
 
     try {
       if (medicamentoEditando) {
-        await actualizarMedicamento(medicamentoEditando.id, payloadTemporal);
+        await actualizarMedicamento(medicamentoEditando.id, payload);
       } else {
-        await crearMedicamento(paciente.id, payloadTemporal);
+        await crearMedicamento(paciente.id, payload);
       }
       const meds = await getMedicamentos(paciente.id);
       if (meds.medicamentos) setMedicamentos(meds.medicamentos);
       
-      // Resetear estados limpios
+      // Limpieza de estados
       setModalOpen(false);
       setMedicamentoEditando(null);
       setNombre(''); setDosis(''); setFrecuencia('cada 12 horas');
       setVia('oral'); setIndicaciones(''); setHorariosArray(['08:00']);
       resetControlesTiempo();
     } catch (e) {
-      console.error(e);
+      console.error("Error al guardar medicamento:", e);
     } finally {
       setGuardando(false);
     }
@@ -142,7 +142,8 @@ export default function MedicamentosScreen() {
     if (!rutinaDesc.trim()) return;
     setGuardandoRutina(true);
 
-    const payloadTemporal = {
+    // 📦 Armamos el payload de la rutina con los días y rango seleccionados
+    const payload = {
       descripcion: rutinaDesc.trim(),
       tipo: rutinaTipo,
       hora: rutinaHora,
@@ -153,9 +154,9 @@ export default function MedicamentosScreen() {
 
     try {
       if (rutinaEditando) {
-        await actualizarTareaRecurrente(rutinaEditando.id, payloadTemporal);
+        await actualizarTareaRecurrente(rutinaEditando.id, payload);
       } else {
-        await crearTareaRecurrente(paciente.id, payloadTemporal);
+        await crearTareaRecurrente(paciente.id, payload);
       }
       const rutinas = await getTareasRecurrentes(paciente.id);
       if (rutinas.tareas) setTareasRec(rutinas.tareas);
@@ -165,7 +166,7 @@ export default function MedicamentosScreen() {
       setRutinaDesc(''); setRutinaTipo('higiene'); setRutinaHora('09:00');
       resetControlesTiempo();
     } catch (e) {
-      console.error(e);
+      console.error("Error al guardar rutina:", e);
     } finally {
       setGuardandoRutina(false);
     }

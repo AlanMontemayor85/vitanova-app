@@ -187,17 +187,12 @@ export const getMedicamentos = async (pacienteId: string) => {
 };
 
 export const crearMedicamento = async (pacienteId: string, data: any) => {
-  // 🎯 FIX: Migrado a fetchWithAuth para evitar fugas de tokens manuales
+  // 🎯 FIX: Se propaga el objeto completo (data) para incluir los campos de tiempo y recurrencia
   const res = await fetchWithAuth(`${BASE_URL}/medicamentos`, {
     method: 'POST',
     body: JSON.stringify({
       paciente_id: pacienteId,
-      nombre: data.nombre,
-      dosis: data.dosis,
-      frecuencia: data.frecuencia,
-      via_administracion: data.via_administracion,
-      horarios: data.horarios,
-      indicaciones: data.indicaciones,
+      ...data,
       activo: true,
     }),
   });
@@ -214,18 +209,15 @@ export const getTareasRecurrentes = async (pacienteId: string) => {
   return res.json();
 };
 
-// 🎯 FIX: Firma polimórfica adaptada para soportar tanto pasarle (objeto unificado) como (id, objeto)
-export const crearTareaRecurrente = async (arg1: any, arg2?: any) => {
-  let bodyPayload = {};
-  if (arg2) {
-    bodyPayload = { paciente_id: arg1, ...arg2 };
-  } else {
-    bodyPayload = arg1;
-  }
-  
+export const crearTareaRecurrente = async (pacienteId: string, data: any) => {
+  // 🎯 FIX: Estructura unificada y directa usando fetchWithAuth
   const res = await fetchWithAuth(`${BASE_URL}/tareas-recurrentes`, {
     method: 'POST',
-    body: JSON.stringify(bodyPayload),
+    body: JSON.stringify({
+      paciente_id: pacienteId,
+      ...data,
+      activo: true,
+    }),
   });
   return res.json();
 };
@@ -522,20 +514,18 @@ export const configurarReloj = async (
   return res.json();
 };
 export const actualizarMedicamento = async (medicamentoId: string, data: any) => {
-  const token = getToken();
-  const res = await fetch(`${BASE_URL}/medicamentos/${medicamentoId}`, {
+  // 🪐 Integrado al Guardián fetchWithAuth
+  const res = await fetchWithAuth(`${BASE_URL}/medicamentos/${medicamentoId}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(data),
   });
   return res.json();
 };
 
 export const actualizarTareaRecurrente = async (tareaId: string, data: any) => {
-  const token = getToken();
-  const res = await fetch(`${BASE_URL}/tareas-recurrentes/${tareaId}`, {
+  // 🪐 Integrado al Guardián fetchWithAuth
+  const res = await fetchWithAuth(`${BASE_URL}/tareas-recurrentes/${tareaId}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(data),
   });
   return res.json();
