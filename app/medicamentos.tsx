@@ -47,6 +47,7 @@ export default function MedicamentosScreen() {
   const [indicaciones, setIndicaciones] = useState('');
   // --- Estados de Temporalidad y Recurrencia Compartidos ---
   const [esPermanente, setEsPermanente] = useState<boolean>(true);
+  const [tipoDuracion, setTipoDuracion] = useState<'permanente' | 'periodo' | 'especifica'>('permanente');
   const [fechaInicio, setFechaInicio] = useState<string>(new Date().toLocaleDateString('en-CA')); // YYYY-MM-DD
   const [fechaFin, setFechaFin] = useState<string>('');
   const [diasSemana, setDiasSemana] = useState<number[]>([]); // Array [0=Dom, 1=Lun, etc.]
@@ -263,13 +264,24 @@ const importarDesdeExcel = async () => {
     setHorariosArray(med.horarios || ['08:00']);
     setIndicaciones(med.indicaciones || '');
     
-    // 🎯 FIX EXPLÍCITO: Evaluamos correctamente la existencia de fecha_fin
-    const tieneFechaFin = med.fecha_fin && med.fecha_fin !== '' && med.fecha_fin !== null;
     setFechaInicio(med.fecha_inicio || new Date().toLocaleDateString('en-CA'));
-    setFechaFin(tieneFechaFin ? med.fecha_fin : '');
-    setEsPermanente(!tieneFechaFin);
-    setDiasSemana(med.dias_semana || []);
     
+    if (med.fecha_fin) {
+      setFechaFin(med.fecha_fin);
+      setEsPermanente(false);
+      // Si las fechas son idénticas, asumimos que se guardó como cita única
+      if (med.fecha_inicio === med.fecha_fin) {
+        setTipoDuracion('especifica');
+      } else {
+        setTipoDuracion('periodo');
+      }
+    } else {
+      setFechaFin('');
+      setEsPermanente(true);
+      setTipoDuracion('permanente');
+    }
+    
+    setDiasSemana(med.dias_semana || []);
     setModalOpen(true);
   };
 
@@ -279,18 +291,29 @@ const importarDesdeExcel = async () => {
     setRutinaTipo(t.tipo);
     setRutinaHora(t.hora || '09:00');
     
-    // 🎯 FIX EXPLÍCITO: Evaluamos correctamente la existencia de fecha_fin
-    const tieneFechaFin = t.fecha_fin && t.fecha_fin !== '' && t.fecha_fin !== null;
     setFechaInicio(t.fecha_inicio || new Date().toLocaleDateString('en-CA'));
-    setFechaFin(tieneFechaFin ? t.fecha_fin : '');
-    setEsPermanente(!tieneFechaFin);
-    setDiasSemana(t.dias_semana || []);
     
+    if (t.fecha_fin) {
+      setFechaFin(t.fecha_fin);
+      setEsPermanente(false);
+      if (t.fecha_inicio === t.fecha_fin) {
+        setTipoDuracion('especifica');
+      } else {
+        setTipoDuracion('periodo');
+      }
+    } else {
+      setFechaFin('');
+      setEsPermanente(true);
+      setTipoDuracion('permanente');
+    }
+    
+    setDiasSemana(t.dias_semana || []);
     setModalRutinaOpen(true);
   };
 
   const resetControlesTiempo = () => {
     setEsPermanente(true);
+    setTipoDuracion('permanente');
     setFechaInicio(new Date().toLocaleDateString('en-CA'));
     setFechaFin('');
     setDiasSemana([]);
@@ -585,30 +608,41 @@ const importarDesdeExcel = async () => {
               <View style={{ marginVertical: 12, padding: 12, backgroundColor: '#F9F9F9', borderRadius: 8, borderWidth: 1, borderColor: '#EAEAEA' }}>
                 <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao, marginBottom: 8 }}>🗓️ Duración del Plan</Text>
                 
-                {/* Selector de Duración de Plan Expandido */}
+                {/* Selector de Duración de Plan Corregido */}
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
                   <TouchableOpacity 
-                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, esPermanente && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
-                    onPress={() => { setEsPermanente(true); setFechaFin(''); }}
-                  >
-                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, esPermanente && { color: '#FFF' }]}>♾️ Permanente</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, (!esPermanente && fechaInicio !== fechaFin) && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
-                    onPress={() => setEsPermanente(false)}
-                  >
-                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, (!esPermanente && fechaInicio !== fechaFin) && { color: '#FFF' }]}>📅 Por Periodo</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, (!esPermanente && fechaInicio === fechaFin && fechaFin !== '') && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
-                    onPress={() => {
-                      setEsPermanente(false);
-                      setFechaFin(fechaInicio); // 🎯 Fuerza que termines el mismo día
+                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, tipoDuracion === 'permanente' && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
+                    onPress={() => { 
+                      setTipoDuracion('permanente');
+                      setEsPermanente(true); 
+                      setFechaFin(''); 
                     }}
                   >
-                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, (!esPermanente && fechaInicio === fechaFin && fechaFin !== '') && { color: '#FFF' }]}>📍 Fecha Específica</Text>
+                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, tipoDuracion === 'permanente' && { color: '#FFF' }]}>♾️ Permanente</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, tipoDuracion === 'periodo' && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
+                    onPress={() => {
+                      setTipoDuracion('periodo');
+                      setEsPermanente(false);
+                      if (fechaInicio === fechaFin) {
+                        setFechaFin(''); 
+                      }
+                    }}
+                  >
+                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, tipoDuracion === 'periodo' && { color: '#FFF' }]}>📅 Por Periodo</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, tipoDuracion === 'especifica' && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
+                    onPress={() => {
+                      setTipoDuracion('especifica');
+                      setEsPermanente(false);
+                      setFechaFin(fechaInicio);
+                    }}
+                  >
+                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, tipoDuracion === 'especifica' && { color: '#FFF' }]}>📍 Fecha Específica</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -628,14 +662,13 @@ const importarDesdeExcel = async () => {
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 11, color: '#777', marginBottom: 4 }}>Fecha Término</Text>
                       <TouchableOpacity 
-                        style={[{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }, fechaInicio === fechaFin && { backgroundColor: '#EAEAEA' }]}
+                        style={[{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }, tipoDuracion === 'especifica' && { backgroundColor: '#EAEAEA' }]}
                         onPress={() => {
-                          // Bloqueamos la edición manual de fecha de fin si está configurada como cita única
-                          if (fechaInicio !== fechaFin || fechaFin === '') {
+                          if (tipoDuracion !== 'especifica') {
                             setShowFinPicker(true);
                           }
                         }}
-                        disabled={fechaInicio === fechaFin && fechaFin !== ''}
+                        disabled={tipoDuracion === 'especifica'}
                       >
                         <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>{fechaFin || 'Seleccionar'}</Text>
                       </TouchableOpacity>
@@ -654,8 +687,7 @@ const importarDesdeExcel = async () => {
                       if (date) {
                         const nuevaFecha = date.toLocaleDateString('en-CA');
                         setFechaInicio(nuevaFecha);
-                        // 🎯 Si estamos en modo Fecha Específica, arrastra de forma automática la fecha de fin
-                        if (!esPermanente && fechaFin !== '' && fechaFin === fechaInicio) {
+                        if (tipoDuracion === 'especifica') {
                           setFechaFin(nuevaFecha);
                         }
                       }
@@ -762,30 +794,41 @@ const importarDesdeExcel = async () => {
               <View style={{ marginVertical: 12, padding: 12, backgroundColor: '#F9F9F9', borderRadius: 8, borderWidth: 1, borderColor: '#EAEAEA' }}>
                 <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao, marginBottom: 8 }}>🗓️ Duración del Plan</Text>
                 
-                {/* Selector de Duración de Plan Expandido */}
+                {/* Selector de Duración de Plan Corregido */}
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
                   <TouchableOpacity 
-                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, esPermanente && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
-                    onPress={() => { setEsPermanente(true); setFechaFin(''); }}
-                  >
-                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, esPermanente && { color: '#FFF' }]}>♾️ Permanente</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, (!esPermanente && fechaInicio !== fechaFin) && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
-                    onPress={() => setEsPermanente(false)}
-                  >
-                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, (!esPermanente && fechaInicio !== fechaFin) && { color: '#FFF' }]}>📅 Por Periodo</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, (!esPermanente && fechaInicio === fechaFin && fechaFin !== '') && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
-                    onPress={() => {
-                      setEsPermanente(false);
-                      setFechaFin(fechaInicio); // 🎯 Fuerza que termines el mismo día
+                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, tipoDuracion === 'permanente' && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
+                    onPress={() => { 
+                      setTipoDuracion('permanente');
+                      setEsPermanente(true); 
+                      setFechaFin(''); 
                     }}
                   >
-                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, (!esPermanente && fechaInicio === fechaFin && fechaFin !== '') && { color: '#FFF' }]}>📍 Fecha Específica</Text>
+                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, tipoDuracion === 'permanente' && { color: '#FFF' }]}>♾️ Permanente</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, tipoDuracion === 'periodo' && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
+                    onPress={() => {
+                      setTipoDuracion('periodo');
+                      setEsPermanente(false);
+                      if (fechaInicio === fechaFin) {
+                        setFechaFin(''); 
+                      }
+                    }}
+                  >
+                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, tipoDuracion === 'periodo' && { color: '#FFF' }]}>📅 Por Periodo</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, tipoDuracion === 'especifica' && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
+                    onPress={() => {
+                      setTipoDuracion('especifica');
+                      setEsPermanente(false);
+                      setFechaFin(fechaInicio);
+                    }}
+                  >
+                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, tipoDuracion === 'especifica' && { color: '#FFF' }]}>📍 Fecha Específica</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -805,13 +848,13 @@ const importarDesdeExcel = async () => {
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 11, color: '#777', marginBottom: 4 }}>Fecha Término</Text>
                       <TouchableOpacity 
-                        style={[{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }, fechaInicio === fechaFin && { backgroundColor: '#EAEAEA' }]}
+                        style={[{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }, tipoDuracion === 'especifica' && { backgroundColor: '#EAEAEA' }]}
                         onPress={() => {
-                          if (fechaInicio !== fechaFin || fechaFin === '') {
+                          if (tipoDuracion !== 'especifica') {
                             setShowFinPicker(true);
                           }
                         }}
-                        disabled={fechaInicio === fechaFin && fechaFin !== ''}
+                        disabled={tipoDuracion === 'especifica'}
                       >
                         <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>{fechaFin || 'Seleccionar'}</Text>
                       </TouchableOpacity>
@@ -830,7 +873,409 @@ const importarDesdeExcel = async () => {
                       if (date) {
                         const nuevaFecha = date.toLocaleDateString('en-CA');
                         setFechaInicio(nuevaFecha);
-                        if (!esPermanente && fechaFin !== '' && fechaFin === fechaInicio) {
+                        if (tipoDuracion === 'especifica') {
+                          setFechaFin(nuevaFecha);
+                        }
+                      }
+                    }}
+                  />
+                )}
+                {showFinPicker && (
+                  <DateTimePicker
+                    value={fechaFin ? new Date(fechaFin + 'T12:00:00') : new Date()}
+                    mode="date"
+                    display="default"
+                    onChange={(event, date) => {
+                      setShowFinPicker(false);
+                      if (date) setFechaFin(date.toLocaleDateString('en-CA'));
+                    }}
+                  />
+                )}
+
+                {/* 📆 Días de la semana */}
+                <Text style={{ fontSize: 11, color: '#777', marginBottom: 6 }}>Días de ejecución (Vacío aplica diario)</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 2 }}>
+                  {[
+                    { id: 0, label: 'D' }, { id: 1, label: 'L' }, { id: 2, label: 'M' },
+                    { id: 3, label: 'M' }, { id: 4, label: 'J' }, { id: 5, label: 'V' }, { id: 6, label: 'S' }
+                  ].map(d => {
+                    const seleccionado = diasSemana.includes(d.id);
+                    return (
+                      <TouchableOpacity
+                        key={d.id}
+                        style={{
+                          width: 32, height: 32, borderRadius: 16, borderWidth: 1,
+                          borderColor: seleccionado ? COLORS.cacao : COLORS.border,
+                          backgroundColor: seleccionado ? COLORS.cacao : '#FFF',
+                          alignItems: 'center', justifyContent: 'center'
+                        }}
+                        onPress={() => toggleDiaSemana(d.id)}
+                      >
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: seleccionado ? '#FFF' : '#555' }}>
+                          {d.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.cream }]} onPress={() => { setModalRutinaOpen(false); setRutinaEditando(null); setRutinaDesc(''); setRutinaTipo('higiene'); setRutinaHora('09:00'); resetControlesTiempo(); }}>
+                  <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]} onPress={guardarRutina} disabled={guardandoRutina}>
+                  <Text style={styles.modalBtnText}>{guardandoRutina ? 'Guardando...' : 'Guardar'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      )}{/* MODAL MEDICAMENTO */}
+      {modalOpen && (
+        <View style={styles.modalOverlay}>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>
+                {medicamentoEditando ? 'Editar medicamento' : 'Nuevo medicamento'}
+              </Text>
+
+              <Text style={styles.label}>Nombre *</Text>
+              <TextInput style={styles.input} placeholder="Ej: Metformina" placeholderTextColor={COLORS.textLight} value={nombre} onChangeText={setNombre} autoFocus />
+
+              <Text style={styles.label}>Dosis *</Text>
+              <TextInput style={styles.input} placeholder="Ej: 500mg" placeholderTextColor={COLORS.textLight} value={dosis} onChangeText={setDosis} />
+
+              <Text style={styles.label}>Frecuencia</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  {FRECUENCIAS.map(f => (
+                    <TouchableOpacity key={f} style={[styles.chipBtn, frecuencia === f && styles.chipBtnActive]} onPress={() => setFrecuencia(f)}>
+                      <Text style={[styles.chipBtnText, frecuencia === f && styles.chipBtnTextActive]}>{f}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+
+              <Text style={styles.label}>Horarios de administración</Text>
+              {horariosArray.map((h, idx) => (
+                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 }}>
+                  <TouchableOpacity
+                    style={{ flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, padding: 12, backgroundColor: COLORS.white, alignItems: 'center' }}
+                    onPress={() => { setHorarioIndex(idx); setShowTimePicker(true); }}
+                  >
+                    <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.cacao }}>{`🕐 ${h}`}</Text>
+                  </TouchableOpacity>
+                  {horariosArray.length > 1 && (
+                    <TouchableOpacity onPress={() => setHorariosArray(prev => prev.filter((_, i) => i !== idx))} style={{ padding: 8 }}>
+                      <Text style={{ color: COLORS.red, fontSize: 18 }}>{'✕'}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+              <TouchableOpacity
+                onPress={() => setHorariosArray(prev => [...prev, '12:00'])}
+                style={{ borderWidth: 1, borderColor: COLORS.gold, borderRadius: 8, padding: 10, alignItems: 'center', backgroundColor: COLORS.goldPale, marginBottom: 12 }}
+              >
+                <Text style={{ color: COLORS.gold, fontWeight: '700' }}>{'+ Agregar horario'}</Text>
+              </TouchableOpacity>
+
+              {showTimePicker && (
+                <DateTimePicker
+                  value={(() => {
+                    const partes = (horariosArray[horarioIndex] || '08:00').split(':').map(Number);
+                    const d = new Date();
+                    d.setHours(partes[0] || 8, partes[1] || 0, 0, 0);
+                    return d;
+                  })()}
+                  mode="time"
+                  is24Hour={true}
+                  display="spinner"
+                  onChange={onMedicamentoTimeChange}
+                />
+              )}
+
+              <Text style={styles.label}>Vía de administración</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                {VIAS.map(v => (
+                  <TouchableOpacity key={v} style={[styles.chipBtn, via === v && styles.chipBtnActive]} onPress={() => setVia(v)}>
+                    <Text style={[styles.chipBtnText, via === v && styles.chipBtnTextActive]}>{v}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.label}>Indicaciones (opcional)</Text>
+              <TextInput style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]} placeholder="Tomar con alimentos..." placeholderTextColor={COLORS.textLight} multiline value={indicaciones} onChangeText={setIndicaciones} />
+              
+              {/* 🗓️ SECCIÓN DE RECURRENCIA Y CRONOGRAMA INTELIGENTE */}
+              <View style={{ marginVertical: 12, padding: 12, backgroundColor: '#F9F9F9', borderRadius: 8, borderWidth: 1, borderColor: '#EAEAEA' }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao, marginBottom: 8 }}>🗓️ Duración del Plan</Text>
+                
+                {/* Selector de Duración de Plan Corregido */}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                  <TouchableOpacity 
+                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, tipoDuracion === 'permanente' && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
+                    onPress={() => { 
+                      setTipoDuracion('permanente');
+                      setEsPermanente(true); 
+                      setFechaFin(''); 
+                    }}
+                  >
+                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, tipoDuracion === 'permanente' && { color: '#FFF' }]}>♾️ Permanente</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, tipoDuracion === 'periodo' && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
+                    onPress={() => {
+                      setTipoDuracion('periodo');
+                      setEsPermanente(false);
+                      if (fechaInicio === fechaFin) {
+                        setFechaFin(''); 
+                      }
+                    }}
+                  >
+                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, tipoDuracion === 'periodo' && { color: '#FFF' }]}>📅 Por Periodo</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, tipoDuracion === 'especifica' && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
+                    onPress={() => {
+                      setTipoDuracion('especifica');
+                      setEsPermanente(false);
+                      setFechaFin(fechaInicio);
+                    }}
+                  >
+                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, tipoDuracion === 'especifica' && { color: '#FFF' }]}>📍 Fecha Específica</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Pickers de fecha */}
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 11, color: '#777', marginBottom: 4 }}>Fecha Inicio</Text>
+                    <TouchableOpacity 
+                      style={{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }}
+                      onPress={() => setShowInicioPicker(true)}
+                    >
+                      <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>{fechaInicio}</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {!esPermanente && (
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 11, color: '#777', marginBottom: 4 }}>Fecha Término</Text>
+                      <TouchableOpacity 
+                        style={[{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }, tipoDuracion === 'especifica' && { backgroundColor: '#EAEAEA' }]}
+                        onPress={() => {
+                          if (tipoDuracion !== 'especifica') {
+                            setShowFinPicker(true);
+                          }
+                        }}
+                        disabled={tipoDuracion === 'especifica'}
+                      >
+                        <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>{fechaFin || 'Seleccionar'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+
+                {/* Renderizado de DateTimePickers Nativos */}
+                {showInicioPicker && (
+                  <DateTimePicker
+                    value={new Date(fechaInicio + 'T12:00:00')}
+                    mode="date"
+                    display="default"
+                    onChange={(event, date) => {
+                      setShowInicioPicker(false);
+                      if (date) {
+                        const nuevaFecha = date.toLocaleDateString('en-CA');
+                        setFechaInicio(nuevaFecha);
+                        if (tipoDuracion === 'especifica') {
+                          setFechaFin(nuevaFecha);
+                        }
+                      }
+                    }}
+                  />
+                )}
+                {showFinPicker && (
+                  <DateTimePicker
+                    value={fechaFin ? new Date(fechaFin + 'T12:00:00') : new Date()}
+                    mode="date"
+                    display="default"
+                    onChange={(event, date) => {
+                      setShowFinPicker(false);
+                      if (date) setFechaFin(date.toLocaleDateString('en-CA'));
+                    }}
+                  />
+                )}
+
+                {/* 📆 Días de la semana */}
+                <Text style={{ fontSize: 11, color: '#777', marginBottom: 6 }}>Días de ejecución (Vacío aplica diario)</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 2 }}>
+                  {[
+                    { id: 0, label: 'D' }, { id: 1, label: 'L' }, { id: 2, label: 'M' },
+                    { id: 3, label: 'M' }, { id: 4, label: 'J' }, { id: 5, label: 'V' }, { id: 6, label: 'S' }
+                  ].map(d => {
+                    const seleccionado = diasSemana.includes(d.id);
+                    return (
+                      <TouchableOpacity
+                        key={d.id}
+                        style={{
+                          width: 32, height: 32, borderRadius: 16, borderWidth: 1,
+                          borderColor: seleccionado ? COLORS.cacao : COLORS.border,
+                          backgroundColor: seleccionado ? COLORS.cacao : '#FFF',
+                          alignItems: 'center', justifyContent: 'center'
+                        }}
+                        onPress={() => toggleDiaSemana(d.id)}
+                      >
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: seleccionado ? '#FFF' : '#555' }}>
+                          {d.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.cream }]} onPress={() => { setModalOpen(false); setMedicamentoEditando(null); setNombre(''); setDosis(''); setHorariosArray(['08:00']); setIndicaciones(''); resetControlesTiempo(); }}>
+                  <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]} onPress={guardarMedicamento} disabled={guardando}>
+                  <Text style={styles.modalBtnText}>{guardando ? 'Guardando...' : 'Guardar'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      )}
+
+      {/* MODAL RUTINA */}
+      {modalRutinaOpen && (
+        <View style={styles.modalOverlay}>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>
+                {rutinaEditando ? 'Editar rutina' : 'Nueva rutina'}
+              </Text>
+
+              <Text style={styles.label}>Descripción *</Text>
+              <TextInput style={styles.input} placeholder="Ej: Baño matutino" placeholderTextColor={COLORS.textLight} value={rutinaDesc} onChangeText={setRutinaDesc} autoFocus />
+
+              <Text style={styles.label}>Tipo</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                {TIPOS_RUTINA.map(t => (
+                  <TouchableOpacity key={t} style={[styles.chipBtn, rutinaTipo === t && styles.chipBtnActive]} onPress={() => setRutinaTipo(t)}>
+                    <Text style={[styles.chipBtnText, rutinaTipo === t && styles.chipBtnTextActive]}>{ICONOS_RUTINA[t]} {t}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.label}>Horario</Text>
+              <TouchableOpacity
+                style={{ borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, padding: 12, backgroundColor: COLORS.white, alignItems: 'center', marginBottom: 12 }}
+                onPress={() => setShowRutinaTimePicker(true)}
+              >
+                <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.cacao }}>{`🕐 ${rutinaHora}`}</Text>
+              </TouchableOpacity>
+
+              {showRutinaTimePicker && (
+                <DateTimePicker
+                  value={(() => {
+                    const partes = (rutinaHora || '09:00').split(':').map(Number);
+                    const d = new Date();
+                    d.setHours(partes[0] || 9, partes[1] || 0, 0, 0);
+                    return d;
+                  })()}
+                  mode="time"
+                  is24Hour={true}
+                  display="spinner"
+                  onChange={onRutinaTimeChange}
+                />
+              )}
+              
+              {/* 🗓️ SECCIÓN DE RECURRENCIA Y CRONOGRAMA INTELIGENTE */}
+              <View style={{ marginVertical: 12, padding: 12, backgroundColor: '#F9F9F9', borderRadius: 8, borderWidth: 1, borderColor: '#EAEAEA' }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao, marginBottom: 8 }}>🗓️ Duración del Plan</Text>
+                
+                {/* Selector de Duración de Plan Corregido */}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                  <TouchableOpacity 
+                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, tipoDuracion === 'permanente' && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
+                    onPress={() => { 
+                      setTipoDuracion('permanente');
+                      setEsPermanente(true); 
+                      setFechaFin(''); 
+                    }}
+                  >
+                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, tipoDuracion === 'permanente' && { color: '#FFF' }]}>♾️ Permanente</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, tipoDuracion === 'periodo' && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
+                    onPress={() => {
+                      setTipoDuracion('periodo');
+                      setEsPermanente(false);
+                      if (fechaInicio === fechaFin) {
+                        setFechaFin(''); 
+                      }
+                    }}
+                  >
+                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, tipoDuracion === 'periodo' && { color: '#FFF' }]}>📅 Por Periodo</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, tipoDuracion === 'especifica' && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
+                    onPress={() => {
+                      setTipoDuracion('especifica');
+                      setEsPermanente(false);
+                      setFechaFin(fechaInicio);
+                    }}
+                  >
+                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, tipoDuracion === 'especifica' && { color: '#FFF' }]}>📍 Fecha Específica</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Pickers de fecha */}
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 11, color: '#777', marginBottom: 4 }}>Fecha Inicio</Text>
+                    <TouchableOpacity 
+                      style={{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }}
+                      onPress={() => setShowInicioPicker(true)}
+                    >
+                      <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>{fechaInicio}</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {!esPermanente && (
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 11, color: '#777', marginBottom: 4 }}>Fecha Término</Text>
+                      <TouchableOpacity 
+                        style={[{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }, tipoDuracion === 'especifica' && { backgroundColor: '#EAEAEA' }]}
+                        onPress={() => {
+                          if (tipoDuracion !== 'especifica') {
+                            setShowFinPicker(true);
+                          }
+                        }}
+                        disabled={tipoDuracion === 'especifica'}
+                      >
+                        <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>{fechaFin || 'Seleccionar'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+
+                {/* Renderizado de DateTimePickers Nativos */}
+                {showInicioPicker && (
+                  <DateTimePicker
+                    value={new Date(fechaInicio + 'T12:00:00')}
+                    mode="date"
+                    display="default"
+                    onChange={(event, date) => {
+                      setShowInicioPicker(false);
+                      if (date) {
+                        const nuevaFecha = date.toLocaleDateString('en-CA');
+                        setFechaInicio(nuevaFecha);
+                        if (tipoDuracion === 'especifica') {
                           setFechaFin(nuevaFecha);
                         }
                       }
