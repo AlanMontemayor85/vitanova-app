@@ -1,10 +1,12 @@
-import { useLocalSearchParams } from 'expo-router';
 import { Activity, Calendar as CalendarIcon, Clock, Pill } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
-// 🪐 Importamos tus funciones de la API local
-import { getMedicamentos, getTareasRecurrentes } from '../services/api'; // 👈 Ajusta si tu ruta a api.ts varía
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'; // 🎯 FIX: SafeAreaView moderno
+
+// Importamos tus funciones de la API local
+import { useLocalSearchParams } from 'expo-router';
+import { getMedicamentos, getTareasRecurrentes } from '../services/api';
 
 // Configuración del idioma
 LocaleConfig.locales['es'] = {
@@ -35,22 +37,25 @@ interface Evento {
 }
 
 export default function CalendarioScreen() {
-  // 🎯 RECUPERAMOS EL PARAMETRO DE EXPO ROUTER DIRECTAMENTE AQUÍ:
   const params = useLocalSearchParams<{ pacienteId?: string }>();
-  
-  // Si no viene ningún ID en los parámetros (por ejemplo, en pruebas locales), 
-  // le asignamos un string vacío o el de Blanca por defecto para que no truene.
-  const pacienteId = params.pacienteId || ''; 
+  const pacienteId = params.pacienteId || '';
 
   const [diaSeleccionado, setDiaSeleccionado] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [eventos, setEventos] = useState<Evento[]>([]);
 
+  // 🎯 FIX: Ajuste estricto de zona horaria local (Monterrey) sin desfases de UTC
   useEffect(() => {
-    const hoy = new Date().toISOString().split('T')[0];
+    const local = new Date();
+    const offset = local.getTimezoneOffset();
+    const fechaLocal = new Date(local.getTime() - (offset * 60 * 1000));
+    const hoy = fechaLocal.toISOString().split('T')[0];
+    
+    console.log("📅 Inicializando calendario en fecha local:", hoy);
     setDiaSeleccionado(hoy);
   }, []);
 
+  // 🎯 FIX: Se ejecuta siempre que cambie el día seleccionado o el ID del paciente
   useEffect(() => {
     if (diaSeleccionado && pacienteId) {
       cargarItinerarioDeAPI();
@@ -61,8 +66,9 @@ export default function CalendarioScreen() {
     setLoading(true);
     try {
       const nuevosEventos: Evento[] = [];
+      console.log("⚡ Cargando itinerario para el paciente:", pacienteId);
 
-      // 1. 💊 Consultar Medicamentos a tu API en Railway
+      // 1. 💊 Consultar Medicamentos
       const meds = await getMedicamentos(pacienteId);
       if (Array.isArray(meds)) {
         meds.forEach(m => {
@@ -81,7 +87,7 @@ export default function CalendarioScreen() {
         });
       }
 
-      // 2. 📋 Consultar Tareas Recurrentes a tu API en Railway
+      // 2. 📋 Consultar Tareas Recurrentes
       const rutinas = await getTareasRecurrentes(pacienteId);
       if (Array.isArray(rutinas)) {
         rutinas.forEach(r => {
@@ -100,6 +106,7 @@ export default function CalendarioScreen() {
       // 3. ⏰ Ordenar cronológicamente por hora
       nuevosEventos.sort((a, b) => a.hora.localeCompare(b.hora));
       setEventos(nuevosEventos);
+      console.log(`✅ Carga exitosa. ${nuevosEventos.length} tareas encontradas.`);
 
     } catch (error) {
       console.error('❌ Error al cargar el itinerario de la API:', error);
@@ -109,71 +116,77 @@ export default function CalendarioScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Calendario */}
-      <Calendar
-        current={diaSeleccionado}
-        onDayPress={(day) => setDiaSeleccionado(day.dateString)}
-        monthFormat={'MMMM yyyy'}
-        markedDates={{
-          [diaSeleccionado]: {
-            selected: true,
-            selectedColor: COLORS.gold,
-            disableTouchEvent: true
-          }
-        }}
-        theme={{
-          todayTextColor: COLORS.gold,
-          arrowColor: COLORS.cacao,
-          selectedDayTextColor: COLORS.white,
-          textMonthFontWeight: 'bold',
-          textDayHeaderFontWeight: '700',
-        }}
-      />
-
-      {/* Info del día seleccionado */}
-      <View style={styles.headerDia}>
-        <CalendarIcon size={18} color={COLORS.gold} style={{ marginRight: 8 }} />
-        <Text style={styles.tituloDia}>
-          Itinerario del <Text style={{ color: COLORS.gold }}>{diaSeleccionado}</Text>
-        </Text>
-      </View>
-
-      {/* Listado de tareas */}
-      {loading ? (
-        <View style={styles.loader}>
-          <ActivityIndicator size="large" color={COLORS.gold} />
-        </View>
-      ) : (
-        <FlatList
-          data={eventos}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listaContainer}
-          ListEmptyComponent={
-            <Text style={styles.listaVacia}>No hay actividades programadas para este día.</Text>
-          }
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <View style={styles.iconContainer}>
-                {item.tipo === 'medicamento' ? (
-                  <Pill size={22} color={COLORS.gold} />
-                ) : (
-                  <Activity size={22} color={COLORS.green} />
-                )}
-              </View>
-              <View style={styles.infoContainer}>
-                <Text style={styles.cardTitulo}>{item.titulo}</Text>
-                <Text style={styles.cardDetalle}>{item.detalle}</Text>
-              </View>
-              <View style={styles.badgeHora}>
-                <Clock size={12} color={COLORS.cacao} style={{ marginRight: 4 }} />
-                <Text style={styles.badgeHoraText}>{item.hora}</Text>
-              </View>
-            </View>
-          )}
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        {/* Calendario */}
+        <Calendar
+          current={diaSeleccionado}
+          key={diaSeleccionado} // 🎯 Fuerza al calendario a redibujarse si cambia el estado inicial
+          onDayPress={(day) => {
+            console.log("👉 Día seleccionado:", day.dateString);
+            setDiaSeleccionado(day.dateString);
+          }}
+          monthFormat={'MMMM yyyy'}
+          markedDates={{
+            [diaSeleccionado]: {
+              selected: true,
+              selectedColor: COLORS.gold,
+              disableTouchEvent: true
+            }
+          }}
+          theme={{
+            todayTextColor: COLORS.gold,
+            arrowColor: COLORS.cacao,
+            selectedDayTextColor: COLORS.white,
+            textMonthFontWeight: 'bold',
+            textDayHeaderFontWeight: '700',
+          }}
         />
-      )}
-    </SafeAreaView>
+
+        {/* Info del día seleccionado */}
+        <View style={styles.headerDia}>
+          <CalendarIcon size={18} color={COLORS.gold} style={{ marginRight: 8 }} />
+          <Text style={styles.tituloDia}>
+            Itinerario del <Text style={{ color: COLORS.gold }}>{diaSeleccionado}</Text>
+          </Text>
+        </View>
+
+        {/* Listado de tareas */}
+        {loading ? (
+          <View style={styles.loader}>
+            <ActivityIndicator size="large" color={COLORS.gold} />
+          </View>
+        ) : (
+          <FlatList
+            data={eventos}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listaContainer}
+            ListEmptyComponent={
+              <Text style={styles.listaVacia}>No hay actividades programadas para este día.</Text>
+            }
+            renderItem={({ item }) => (
+              <View style={styles.card}>
+                <View style={styles.iconContainer}>
+                  {item.tipo === 'medicamento' ? (
+                    <Pill size={22} color={COLORS.gold} />
+                  ) : (
+                    <Activity size={22} color={COLORS.green} />
+                  )}
+                </View>
+                <View style={styles.infoContainer}>
+                  <Text style={styles.cardTitulo}>{item.titulo}</Text>
+                  <Text style={styles.cardDetalle}>{item.detalle}</Text>
+                </View>
+                <View style={styles.badgeHora}>
+                  <Clock size={12} color={COLORS.cacao} style={{ marginRight: 4 }} />
+                  <Text style={styles.badgeHoraText}>{item.hora}</Text>
+                </View>
+              </View>
+            )}
+          />
+        )}
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
