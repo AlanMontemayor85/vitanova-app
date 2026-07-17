@@ -1127,28 +1127,57 @@ useFocusEffect(
             </TouchableOpacity>
           </View>
 
-          {tareasPendientes.map((t) => (
-            <TouchableOpacity key={t.id} style={styles.tareaCard} onPress={() => {
-              Alert.alert('Confirmar actividad', `¿Confirmas la ejecución de: ${t.descripcion}?`, [
-                { text: 'Cancelar', style: 'cancel' },
-                { text: '✓ Ejecutada', onPress: async () => {
-                  if (t.med_id) await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora);
-                  else if (t.actividad_id) await completarActividad(t.actividad_id, pacienteActivo.id);
-                  else if (t.es_incidental && t.id) {
-                    await fetch(`${BASE_URL}/tareas/${t.id}/completar`, {
-                      method: 'PATCH',
-                      headers: { Authorization: `Bearer ${getToken()}` }
-                    });
-                  }
-                  setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: true } : item));
-                }}
-              ]);
-            }}>
-              <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
-              <View style={styles.tareaInfo}><Text style={styles.tareaTexto}>{t.descripcion}</Text><Text style={styles.tareaHora}>{t.hora ?? 'Incidental'}</Text></View>
-              <View style={styles.tareaCheck} />
-            </TouchableOpacity>
-          ))}
+          {tareasPendientes.map((t) => {
+            // 🧠 Helper local para calcular la etiqueta de temporalidad de la tarea diaria
+            const renderTemporalidadTarea = () => {
+              if (t.es_incidental) {
+                return <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '600' }}>⚡ Incidental</Text>;
+              }
+              if (!t.fecha_fin) {
+                return <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '600' }}>♾️ Permanente</Text>;
+              }
+              if (t.fecha_inicio === t.fecha_fin) {
+                return <Text style={{ fontSize: 10, color: '#777', fontWeight: '600' }}>📍 Cita Única</Text>;
+              }
+              return <Text style={{ fontSize: 10, color: '#555', fontWeight: '600' }}>📅 Rango Finito</Text>;
+            };
+
+            return (
+              <TouchableOpacity key={t.id} style={styles.tareaCard} onPress={() => {
+                Alert.alert('Confirmar actividad', `¿Confirmas la ejecución de: ${t.descripcion}?`, [
+                  { text: 'Cancelar', style: 'cancel' },
+                  { text: '✓ Ejecutada', onPress: async () => {
+                    if (t.med_id) await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora);
+                    else if (t.actividad_id) await completarActividad(t.actividad_id, pacienteActivo.id);
+                    else if (t.es_incidental && t.id) {
+                      await fetch(`${BASE_URL}/tareas/${t.id}/completar`, {
+                        method: 'PATCH',
+                        headers: { Authorization: `Bearer ${getToken()}` }
+                      });
+                    }
+                    setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: true } : item));
+                  }}
+                ]);
+              }}>
+                <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
+                
+                <View style={styles.tareaInfo}>
+                  <Text style={styles.tareaTexto}>{t.descripcion}</Text>
+                  
+                  {/* Fila de Badges: Horario + Vencimiento */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                    <Text style={styles.tareaHora}>{t.hora ?? 'Incidental'}</Text>
+                    <Text style={{ fontSize: 10, color: '#CCC' }}>·</Text>
+                    <View style={{ backgroundColor: '#F0F0F0', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, borderWidth: 1, borderColor: '#EAEAEA' }}>
+                      {renderTemporalidadTarea()}
+                    </View>
+                  </View>
+                </View>
+                
+                <View style={styles.tareaCheck} />
+              </TouchableOpacity>
+            );
+          })}
 
           {/* ACCIONES DE BITÁCORA */}
           <Text style={styles.sectionTitle}>Acciones de bitácora</Text>
