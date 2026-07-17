@@ -596,10 +596,20 @@ const importarDesdeExcel = async () => {
                   </TouchableOpacity>
 
                   <TouchableOpacity 
-                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, (!esPermanente && fechaInicio !== fechaFin) && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
-                    onPress={() => setEsPermanente(false)}
+                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, 
+                      (!esPermanente && fechaFin && fechaInicio !== fechaFin) && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }
+                    ]}
+                    onPress={() => {
+                      setEsPermanente(false);
+                      // Si venimos de "Fecha Específica", limpiamos la fecha fin para poder poner un periodo
+                      if (fechaFin === fechaInicio) {
+                        setFechaFin('');
+                      }
+                    }}
                   >
-                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, (!esPermanente && fechaInicio !== fechaFin) && { color: '#FFF' }]}>📅 Por Periodo</Text>
+                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, 
+                      (!esPermanente && fechaFin && fechaInicio !== fechaFin) && { color: '#FFF' }
+                    ]}>📅 Por Periodo</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity 
@@ -629,17 +639,25 @@ const importarDesdeExcel = async () => {
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 11, color: '#777', marginBottom: 4 }}>Fecha Término</Text>
                       <TouchableOpacity 
-                        style={[{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }, fechaInicio === fechaFin && { backgroundColor: '#EAEAEA' }]}
-                        onPress={() => {
-                          // Bloqueamos la edición manual de fecha de fin si está configurada como cita única
-                          if (fechaInicio !== fechaFin || fechaFin === '') {
-                            setShowFinPicker(true);
-                          }
-                        }}
-                        disabled={fechaInicio === fechaFin && fechaFin !== ''}
-                      >
-                        <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>{fechaFin || 'Seleccionar'}</Text>
-                      </TouchableOpacity>
+                      style={[{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }, 
+                        (fechaInicio === fechaFin && fechaFin !== '') && { backgroundColor: '#EAEAEA' }
+                      ]}
+                      onPress={() => {
+                        if (fechaInicio === fechaFin && fechaFin !== '') {
+                          // Si está en modo fecha específica, al tocarlo lo convertimos automáticamente en periodo
+                          setFechaFin(''); 
+                        } else if (fechaFin === '' || fechaFin === fechaInicio) {
+                          setShowFinPicker(true);
+                        } else {
+                          setShowFinPicker(true);
+                        }
+                      }}
+                      disabled={false}   // quitamos el disabled para que siempre sea interactivo
+                    >
+                      <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>
+                        {fechaFin || 'Seleccionar fecha de término'}
+                      </Text>
+                    </TouchableOpacity>
                     </View>
                   )}
                 </View>
@@ -773,11 +791,21 @@ const importarDesdeExcel = async () => {
                   </TouchableOpacity>
 
                   <TouchableOpacity 
-                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, (!esPermanente && fechaInicio !== fechaFin) && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
-                    onPress={() => setEsPermanente(false)}
-                  >
-                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, (!esPermanente && fechaInicio !== fechaFin) && { color: '#FFF' }]}>📅 Por Periodo</Text>
-                  </TouchableOpacity>
+                  style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, 
+                    (!esPermanente && fechaFin && fechaInicio !== fechaFin) && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }
+                  ]}
+                  onPress={() => {
+                    setEsPermanente(false);
+                    // Si venimos de "Fecha Específica", limpiamos la fecha fin para poder poner un periodo
+                    if (fechaFin === fechaInicio) {
+                      setFechaFin('');
+                    }
+                  }}
+                >
+                  <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, 
+                    (!esPermanente && fechaFin && fechaInicio !== fechaFin) && { color: '#FFF' }
+                  ]}>📅 Por Periodo</Text>
+                </TouchableOpacity>
 
                   <TouchableOpacity 
                     style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, (!esPermanente && fechaInicio === fechaFin && fechaFin !== '') && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
@@ -806,16 +834,25 @@ const importarDesdeExcel = async () => {
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 11, color: '#777', marginBottom: 4 }}>Fecha Término</Text>
                       <TouchableOpacity 
-                        style={[{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }, fechaInicio === fechaFin && { backgroundColor: '#EAEAEA' }]}
-                        onPress={() => {
-                          if (fechaInicio !== fechaFin || fechaFin === '') {
-                            setShowFinPicker(true);
-                          }
-                        }}
-                        disabled={fechaInicio === fechaFin && fechaFin !== ''}
-                      >
-                        <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>{fechaFin || 'Seleccionar'}</Text>
-                      </TouchableOpacity>
+                      style={[{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }, 
+                        (fechaInicio === fechaFin && fechaFin !== '') && { backgroundColor: '#EAEAEA' }
+                      ]}
+                      onPress={() => {
+                        if (fechaInicio === fechaFin && fechaFin !== '') {
+                          // Si está en modo fecha específica, al tocarlo lo convertimos automáticamente en periodo
+                          setFechaFin(''); 
+                        } else if (fechaFin === '' || fechaFin === fechaInicio) {
+                          setShowFinPicker(true);
+                        } else {
+                          setShowFinPicker(true);
+                        }
+                      }}
+                      disabled={false}   // quitamos el disabled para que siempre sea interactivo
+                    >
+                      <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>
+                        {fechaFin || 'Seleccionar fecha de término'}
+                      </Text>
+                    </TouchableOpacity>
                     </View>
                   )}
                 </View>
