@@ -1133,12 +1133,24 @@ useFocusEffect(
               if (t.es_incidental) {
                 return <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '600' }}>⚡ Incidental</Text>;
               }
-              if (!t.fecha_fin) {
+
+              // 🎯 Extraemos las fechas buscando en la raíz o en los objetos anidados por si el JOIN cambió el nombre
+              const fInicioRaw = t.fecha_inicio || t.medicamentos?.fecha_inicio || t.rutinas?.fecha_inicio;
+              const fFinRaw = t.fecha_fin || t.medicamentos?.fecha_fin || t.rutinas?.fecha_fin;
+
+              // Si de plano no hay ninguna fecha de finalización válida, es permanente
+              if (!fFinRaw || fFinRaw === '') {
                 return <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '600' }}>♾️ Permanente</Text>;
               }
-              if (t.fecha_inicio === t.fecha_fin) {
+
+              // Sanitizamos los strings quedándonos únicamente con la porción YYYY-MM-DD para evitar errores por horas/ISO strings
+              const inicioSanitizado = String(fInicioRaw).split('T')[0];
+              const finSanitizada = String(fFinRaw).split('T')[0];
+
+              if (inicioSanitizado === finSanitizada) {
                 return <Text style={{ fontSize: 10, color: '#777', fontWeight: '600' }}>📍 Cita Única</Text>;
               }
+
               return <Text style={{ fontSize: 10, color: '#555', fontWeight: '600' }}>📅 Rango Finito</Text>;
             };
 
