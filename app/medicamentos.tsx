@@ -263,11 +263,13 @@ const importarDesdeExcel = async () => {
     setHorariosArray(med.horarios || ['08:00']);
     setIndicaciones(med.indicaciones || '');
     
-    // Mapear campos de tiempo que vienen de Supabase
+    // 🎯 FIX EXPLÍCITO: Evaluamos correctamente la existencia de fecha_fin
+    const tieneFechaFin = med.fecha_fin && med.fecha_fin !== '' && med.fecha_fin !== null;
     setFechaInicio(med.fecha_inicio || new Date().toLocaleDateString('en-CA'));
-    setFechaFin(med.fecha_fin || '');
-    setEsPermanente(!med.fecha_fin);
+    setFechaFin(tieneFechaFin ? med.fecha_fin : '');
+    setEsPermanente(!tieneFechaFin);
     setDiasSemana(med.dias_semana || []);
+    
     setModalOpen(true);
   };
 
@@ -275,20 +277,16 @@ const importarDesdeExcel = async () => {
     setRutinaEditando(t);
     setRutinaDesc(t.descripcion);
     setRutinaTipo(t.tipo);
-    setRutinaHora(t.hora);
+    setRutinaHora(t.hora || '09:00');
     
-    // Mapear campos de tiempo
+    // 🎯 FIX EXPLÍCITO: Evaluamos correctamente la existencia de fecha_fin
+    const tieneFechaFin = t.fecha_fin && t.fecha_fin !== '' && t.fecha_fin !== null;
     setFechaInicio(t.fecha_inicio || new Date().toLocaleDateString('en-CA'));
-    setFechaFin(t.fecha_fin || '');
-    setEsPermanente(!t.fecha_fin);
+    setFechaFin(tieneFechaFin ? t.fecha_fin : '');
+    setEsPermanente(!tieneFechaFin);
     setDiasSemana(t.dias_semana || []);
+    
     setModalRutinaOpen(true);
-  };
-
-  const toggleDiaSemana = (diaId: number) => {
-    setDiasSemana(prev => 
-      prev.includes(diaId) ? prev.filter(d => d !== diaId) : [...prev, diaId].sort()
-    );
   };
 
   const resetControlesTiempo = () => {
@@ -297,6 +295,13 @@ const importarDesdeExcel = async () => {
     setFechaFin('');
     setDiasSemana([]);
   };
+  const toggleDiaSemana = (diaId: number) => {
+    setDiasSemana(prev => 
+      prev.includes(diaId) ? prev.filter(d => d !== diaId) : [...prev, diaId].sort()
+    );
+  };
+
+  
   const eliminarMedicamento = async (id: string) => {
     if (!paciente?.id) return;
     try {
@@ -365,12 +370,27 @@ const importarDesdeExcel = async () => {
         </View>
         <TouchableOpacity
           style={styles.addBtn}
-          onPress={() => tab === 'medicamentos' ? setModalOpen(true) : setModalRutinaOpen(true)}
+          onPress={() => {
+            // 🎯 FIX: Limpieza absoluta de estados temporales y banderas de edición antes de abrir
+            resetControlesTiempo();
+            if (tab === 'medicamentos') {
+              setMedicamentoEditando(null); // Nos aseguramos que no detecte modo edición
+              setNombre(''); 
+              setDosis(''); 
+              setHorariosArray(['08:00']);
+              setIndicaciones('');
+              setModalOpen(true);
+            } else {
+              setRutinaEditando(null); // Nos aseguramos que no detecte modo edición
+              setRutinaDesc(''); 
+              setRutinaHora('09:00');
+              setModalRutinaOpen(true);
+            }
+          }}
         >
           <Text style={styles.addBtnText}>+ Agregar</Text>
         </TouchableOpacity>
       </View>
-
       {/* TABS */}
       <View style={styles.tabRow}>
         <TouchableOpacity style={[styles.tab, tab === 'medicamentos' && styles.tabActive]} onPress={() => setTab('medicamentos')}>
