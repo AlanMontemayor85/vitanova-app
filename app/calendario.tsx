@@ -6,7 +6,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 // Importamos tus funciones de la API local
 import { useLocalSearchParams } from 'expo-router';
-import { getMedicamentos, getTareasRecurrentes } from '../services/api';
+import { getMedicamentos, getTareasRecurrentes, loadStoredToken } from '../services/api';
 
 // Configuración del idioma
 LocaleConfig.locales['es'] = {
@@ -63,58 +63,75 @@ export default function CalendarioScreen() {
   }, [diaSeleccionado, pacienteId]);
 
   const cargarItinerarioDeAPI = async () => {
-    setLoading(true);
-    try {
-      const nuevosEventos: Evento[] = [];
-      console.log("⚡ Cargando itinerario para el paciente:", pacienteId);
+  setLoading(true);
+  try {
+    // 1. Asegurar que el token de autenticación esté cargado en la API local antes de consultar
+    const token = await loadStoredToken();
+    console.log("🔑 [Calendario] Token cargado:", token ? "Existente (OK)" : "No encontrado (Vacío)");
 
-      // 1. 💊 Consultar Medicamentos
-      const meds = await getMedicamentos(pacienteId);
-      if (Array.isArray(meds)) {
-        meds.forEach(m => {
-          if (m.activo) {
-            const horarios = m.horarios || [];
-            horarios.forEach((hora: string) => {
-              nuevosEventos.push({
-                id: `${m.id}-${hora}`,
-                tipo: 'medicamento',
-                titulo: m.nombre,
-                detalle: `Dosis: ${m.dosis}`,
-                hora: hora
-              });
-            });
-          }
-        });
-      }
-
-      // 2. 📋 Consultar Tareas Recurrentes
-      const rutinas = await getTareasRecurrentes(pacienteId);
-      if (Array.isArray(rutinas)) {
-        rutinas.forEach(r => {
-          if (r.activo) {
-            nuevosEventos.push({
-              id: r.id,
-              tipo: 'rutina',
-              titulo: r.descripcion,
-              detalle: 'Rutina diaria programada',
-              hora: r.hora ? r.hora.slice(0, 5) : '00:00'
-            });
-          }
-        });
-      }
-
-      // 3. ⏰ Ordenar cronológicamente por hora
-      nuevosEventos.sort((a, b) => a.hora.localeCompare(b.hora));
-      setEventos(nuevosEventos);
-      console.log(`✅ Carga exitosa. ${nuevosEventos.length} tareas encontradas.`);
-
-    } catch (error) {
-      console.error('❌ Error al cargar el itinerario de la API:', error);
-    } finally {
+    console.log("👤 [Calendario] Consultando datos para el paciente ID:", pacienteId);
+    
+    if (!pacienteId) {
+      console.warn("⚠️ [Calendario] No se puede cargar el itinerario: pacienteId está vacío.");
+      setEventos([]);
       setLoading(false);
+      return;
     }
-  };
 
+    const nuevosEventos: Evento[] = [];
+
+    // 2. 💊 Consultar Medicamentos
+    console.log("🛰️ [Calendario] Solicitando medicamentos a Railway...");
+    const meds = await getMedicamentos(pacienteId);
+    console.log("💊 [Calendario] Respuesta medicamentos de la API:", meds);
+
+    if (Array.isArray(meds)) {
+      meds.forEach(m => {
+        if (m.activo) {
+          const horarios = m.horarios || [];
+          horarios.forEach((hora: string) => {
+            nuevosEventos.push({
+              id: `${m.id}-${hora}`,
+              tipo: 'medicamento',
+              titulo: m.nombre,
+              detalle: `Dosis: ${m.dosis}`,
+              hora: hora
+            });
+          });
+        }
+      });
+    }
+
+    // 3. 📋 Consultar Tareas Recurrentes
+    console.log("🛰️ [Calendario] Solicitando tareas recurrentes a Railway...");
+    const rutinas = await getTareasRecurrentes(pacienteId);
+    console.log("📋 [Calendario] Respuesta rutinas de la API:", rutinas);
+
+    if (Array.isArray(rutinas)) {
+      rutinas.forEach(r => {
+        if (r.activo) {
+          nuevosEventos.push({
+            id: r.id,
+            tipo: 'rutina',
+            titulo: r.descripcion,
+            detalle: 'Rutina diaria programada',
+            hora: r.hora ? r.hora.slice(0, 5) : '00:00'
+          });
+        }
+      });
+    }
+
+    // 4. ⏰ Ordenar cronológicamente por hora
+    nuevosEventos.sort((a, b) => a.hora.localeCompare(b.hora));
+    setEventos(nuevosEventos);
+    console.log(`✅ [Calendario] Renderizado completado con ${nuevosEventos.length} eventos.`);
+
+  } catch (error) {
+    console.error('❌ [Calendario] Error crítico en la carga:', error);
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
