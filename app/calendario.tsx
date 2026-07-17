@@ -1,14 +1,13 @@
-import { Activity, Calendar as CalendarIcon, Clock, Pill } from 'lucide-react-native';
+import { useLocalSearchParams } from 'expo-router';
+import { Calendar as CalendarIcon, CheckCircle, Clock } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'; // 🎯 FIX: SafeAreaView moderno
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
-// Importamos tus funciones de la API local
-import { useLocalSearchParams } from 'expo-router';
-import { getMedicamentos, getTareasRecurrentes, loadStoredToken } from '../services/api';
+// 🪐 Importamos tu función unificada de itinerario diario
+import { getTareasDia, loadStoredToken } from '../services/api';
 
-// Configuración del idioma
 LocaleConfig.locales['es'] = {
   monthNames: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
   monthNamesShort: ['Ene.','Feb.','Mar.','Abr.','May.','Jun.','Jul.','Ago.','Sep.','Oct.','Nov.','Dic.'],
@@ -28,12 +27,18 @@ const COLORS = {
   textDark: '#2C2C2C'
 };
 
-interface Evento {
+const ICONOS_TIPO: Record<string, string> = {
+  medicamento: '💊',
+  rutina: '📋',
+  incidental: '⚡',
+};
+
+interface TareaPlan {
   id: string;
-  tipo: 'medicamento' | 'rutina';
-  titulo: string;
-  detalle: string;
+  descripcion: string;
   hora: string;
+  tipo: string;
+  completada: boolean;
 }
 
 export default function CalendarioScreen() {
@@ -42,107 +47,70 @@ export default function CalendarioScreen() {
 
   const [diaSeleccionado, setDiaSeleccionado] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
-  const [eventos, setEventos] = useState<Evento[]>([]);
+  const [tareas, setTareas] = useState<TareaPlan[]>([]);
 
-  // 🎯 FIX: Ajuste estricto de zona horaria local (Monterrey) sin desfases de UTC
+  // 1. Inicializar con la fecha local de Monterrey
   useEffect(() => {
     const local = new Date();
     const offset = local.getTimezoneOffset();
     const fechaLocal = new Date(local.getTime() - (offset * 60 * 1000));
     const hoy = fechaLocal.toISOString().split('T')[0];
-    
-    console.log("📅 Inicializando calendario en fecha local:", hoy);
     setDiaSeleccionado(hoy);
   }, []);
 
-  // 🎯 FIX: Se ejecuta siempre que cambie el día seleccionado o el ID del paciente
+  // 2. Cargar tareas cada vez que cambie el día seleccionado o el paciente
   useEffect(() => {
     if (diaSeleccionado && pacienteId) {
-      cargarItinerarioDeAPI();
+      cargarPlanDelDia();
     }
   }, [diaSeleccionado, pacienteId]);
 
-  const cargarItinerarioDeAPI = async () => {
-  setLoading(true);
-  try {
-    // 1. Asegurar que el token de autenticación esté cargado en la API local antes de consultar
-    const token = await loadStoredToken();
-    console.log("🔑 [Calendario] Token cargado:", token ? "Existente (OK)" : "No encontrado (Vacío)");
+  const cargarPlanDelDia = async () => {
+    setLoading(true);
+    try {
+      await loadStoredToken(); // Asegurar sesión
+      console.log(`🛰️ Consultando plan para fecha: ${diaSeleccionado} y paciente: ${pacienteId}`);
+      
+      const response = await getTareasDia(pacienteId, diaSeleccionado);
+      console.log("📥 Respuesta de tareas-dia:", response);
 
-    console.log("👤 [Calendario] Consultando datos para el paciente ID:", pacienteId);
-    
-    if (!pacienteId) {
-      console.warn("⚠️ [Calendario] No se puede cargar el itinerario: pacienteId está vacío.");
-      setEventos([]);
+      if (Array.isArray(response)) {
+        // Mapeamos los datos para homogeneizarlos en nuestro estado local
+        const formatoTareas = response.map((t: any) => ({
+          id: t.id || String(Math.random()),
+          descripcion: t.descripcion || t.nombre || 'Sin descripción',
+          hora: t.hora || 'Incidental',
+          tipo: t.tipo || 'rutina',
+          completada: !!t.completada
+        }));
+
+        // Ordenar cronológicamente (las incidentales o sin hora al final)
+        formatoTareas.sort((a, b) => {
+          if (a.hora === 'Incidental') return 1;
+          if (b.hora === 'Incidental') return -1;
+          return a.hora.localeCompare(b.hora);
+        });
+
+        setTareas(formatoTareas);
+      } else {
+        setTareas([]);
+      }
+    } catch (error) {
+      console.error('❌ Error cargando plan de cuidados:', error);
+      setTareas([]);
+    } finally {
       setLoading(false);
-      return;
     }
+  };
 
-    const nuevosEventos: Evento[] = [];
-
-    // 2. 💊 Consultar Medicamentos
-    console.log("🛰️ [Calendario] Solicitando medicamentos a Railway...");
-    const meds = await getMedicamentos(pacienteId);
-    console.log("💊 [Calendario] Respuesta medicamentos de la API:", meds);
-
-    if (Array.isArray(meds)) {
-      meds.forEach(m => {
-        if (m.activo) {
-          const horarios = m.horarios || [];
-          horarios.forEach((hora: string) => {
-            nuevosEventos.push({
-              id: `${m.id}-${hora}`,
-              tipo: 'medicamento',
-              titulo: m.nombre,
-              detalle: `Dosis: ${m.dosis}`,
-              hora: hora
-            });
-          });
-        }
-      });
-    }
-
-    // 3. 📋 Consultar Tareas Recurrentes
-    console.log("🛰️ [Calendario] Solicitando tareas recurrentes a Railway...");
-    const rutinas = await getTareasRecurrentes(pacienteId);
-    console.log("📋 [Calendario] Respuesta rutinas de la API:", rutinas);
-
-    if (Array.isArray(rutinas)) {
-      rutinas.forEach(r => {
-        if (r.activo) {
-          nuevosEventos.push({
-            id: r.id,
-            tipo: 'rutina',
-            titulo: r.descripcion,
-            detalle: 'Rutina diaria programada',
-            hora: r.hora ? r.hora.slice(0, 5) : '00:00'
-          });
-        }
-      });
-    }
-
-    // 4. ⏰ Ordenar cronológicamente por hora
-    nuevosEventos.sort((a, b) => a.hora.localeCompare(b.hora));
-    setEventos(nuevosEventos);
-    console.log(`✅ [Calendario] Renderizado completado con ${nuevosEventos.length} eventos.`);
-
-  } catch (error) {
-    console.error('❌ [Calendario] Error crítico en la carga:', error);
-  } finally {
-    setLoading(false);
-  }
-};
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         {/* Calendario */}
         <Calendar
           current={diaSeleccionado}
-          key={diaSeleccionado} // 🎯 Fuerza al calendario a redibujarse si cambia el estado inicial
-          onDayPress={(day) => {
-            console.log("👉 Día seleccionado:", day.dateString);
-            setDiaSeleccionado(day.dateString);
-          }}
+          key={diaSeleccionado}
+          onDayPress={(day) => setDiaSeleccionado(day.dateString)}
           monthFormat={'MMMM yyyy'}
           markedDates={{
             [diaSeleccionado]: {
@@ -164,7 +132,7 @@ export default function CalendarioScreen() {
         <View style={styles.headerDia}>
           <CalendarIcon size={18} color={COLORS.gold} style={{ marginRight: 8 }} />
           <Text style={styles.tituloDia}>
-            Itinerario del <Text style={{ color: COLORS.gold }}>{diaSeleccionado}</Text>
+            Plan de cuidados del <Text style={{ color: COLORS.gold }}>{diaSeleccionado}</Text>
           </Text>
         </View>
 
@@ -175,29 +143,29 @@ export default function CalendarioScreen() {
           </View>
         ) : (
           <FlatList
-            data={eventos}
+            data={tareas}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listaContainer}
             ListEmptyComponent={
               <Text style={styles.listaVacia}>No hay actividades programadas para este día.</Text>
             }
             renderItem={({ item }) => (
-              <View style={styles.card}>
-                <View style={styles.iconContainer}>
-                  {item.tipo === 'medicamento' ? (
-                    <Pill size={22} color={COLORS.gold} />
-                  ) : (
-                    <Activity size={22} color={COLORS.green} />
-                  )}
-                </View>
+              <View style={[styles.card, item.completada && styles.cardCompletada]}>
+                <Text style={styles.tareaIcon}>{ICONOS_TIPO[item.tipo] ?? '📋'}</Text>
+                
                 <View style={styles.infoContainer}>
-                  <Text style={styles.cardTitulo}>{item.titulo}</Text>
-                  <Text style={styles.cardDetalle}>{item.detalle}</Text>
+                  <Text style={[styles.cardTitulo, item.completada && styles.textoCompletado]}>
+                    {item.descripcion}
+                  </Text>
+                  <View style={styles.rowHora}>
+                    <Clock size={12} color="#777777" style={{ marginRight: 4 }} />
+                    <Text style={styles.cardDetalle}>{item.hora}</Text>
+                  </View>
                 </View>
-                <View style={styles.badgeHora}>
-                  <Clock size={12} color={COLORS.cacao} style={{ marginRight: 4 }} />
-                  <Text style={styles.badgeHoraText}>{item.hora}</Text>
-                </View>
+
+                {item.completada && (
+                  <CheckCircle size={20} color={COLORS.green} style={styles.checkIcon} />
+                )}
               </View>
             )}
           />
@@ -243,13 +211,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.grayLight,
-    justifyContent: 'center',
-    alignItems: 'center',
+  cardCompletada: {
+    backgroundColor: '#F4FAF4',
+    borderColor: '#D0EED0',
+  },
+  tareaIcon: {
+    fontSize: 24,
     marginRight: 12,
   },
   infoContainer: {
@@ -260,23 +227,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.cacao,
   },
+  textoCompletado: {
+    textDecorationLine: 'line-through',
+    color: '#777777',
+  },
+  rowHora: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
   cardDetalle: {
     fontSize: 12,
     color: '#777777',
-    marginTop: 2,
   },
-  badgeHora: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  badgeHoraText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.cacao,
+  checkIcon: {
+    marginLeft: 8,
   },
   listaVacia: {
     textAlign: 'center',
