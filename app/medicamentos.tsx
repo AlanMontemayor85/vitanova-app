@@ -45,7 +45,15 @@ export default function MedicamentosScreen() {
   const [frecuencia, setFrecuencia] = useState('cada 12 horas');
   const [via, setVia] = useState('oral');
   const [indicaciones, setIndicaciones] = useState('');
+  // --- Estados de Temporalidad y Recurrencia Compartidos ---
+  const [esPermanente, setEsPermanente] = useState<boolean>(true);
+  const [fechaInicio, setFechaInicio] = useState<string>(new Date().toLocaleDateString('en-CA')); // YYYY-MM-DD
+  const [fechaFin, setFechaFin] = useState<string>('');
+  const [diasSemana, setDiasSemana] = useState<number[]>([]); // Array [0=Dom, 1=Lun, etc.]
 
+  // Modales de control de fecha nativos
+  const [showInicioPicker, setShowInicioPicker] = useState<boolean>(false);
+  const [showFinPicker, setShowFinPicker] = useState<boolean>(false);
   // Time picker medicamento
   const [horariosArray, setHorariosArray] = useState<string[]>(['08:00']);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -92,72 +100,76 @@ export default function MedicamentosScreen() {
   }, [pacienteIdParam]);
 
   const guardarMedicamento = async () => {
-  if (!nombre.trim() || !dosis.trim()) return;
-  setGuardando(true);
-  try {
-    if (medicamentoEditando) {
-      // Edición
-      await actualizarMedicamento(medicamentoEditando.id, {
-        nombre: nombre.trim(),
-        dosis: dosis.trim(),
-        frecuencia,
-        via_administracion: via,
-        horarios: horariosArray,
-        indicaciones: indicaciones.trim() || null,
-      });
-    } else {
-      // Nuevo
-      await crearMedicamento(paciente.id, {
-        nombre: nombre.trim(),
-        dosis: dosis.trim(),
-        frecuencia,
-        via_administracion: via,
-        horarios: horariosArray,
-        indicaciones: indicaciones.trim() || null,
-      });
+    if (!nombre.trim() || !dosis.trim()) return;
+    setGuardando(true);
+    
+    // Preparar el payload con el esquema temporal inteligente
+    const payloadTemporal = {
+      nombre: nombre.trim(),
+      dosis: dosis.trim(),
+      frecuencia,
+      via_administracion: via,
+      horarios: horariosArray,
+      indicaciones: indicaciones.trim() || null,
+      fecha_inicio: fechaInicio,
+      fecha_fin: esPermanente ? null : (fechaFin || null),
+      dias_semana: diasSemana.length === 0 ? null : diasSemana
+    };
+
+    try {
+      if (medicamentoEditando) {
+        await actualizarMedicamento(medicamentoEditando.id, payloadTemporal);
+      } else {
+        await crearMedicamento(paciente.id, payloadTemporal);
+      }
+      const meds = await getMedicamentos(paciente.id);
+      if (meds.medicamentos) setMedicamentos(meds.medicamentos);
+      
+      // Resetear estados limpios
+      setModalOpen(false);
+      setMedicamentoEditando(null);
+      setNombre(''); setDosis(''); setFrecuencia('cada 12 horas');
+      setVia('oral'); setIndicaciones(''); setHorariosArray(['08:00']);
+      resetControlesTiempo();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setGuardando(false);
     }
-    const meds = await getMedicamentos(paciente.id);
-    if (meds.medicamentos) setMedicamentos(meds.medicamentos);
-    setModalOpen(false);
-    setMedicamentoEditando(null);
-    setNombre(''); setDosis(''); setFrecuencia('cada 12 horas');
-    setVia('oral'); setIndicaciones('');
-    setHorariosArray(['08:00']);
-  } catch (e) {
-    console.error(e);
-  } finally {
-    setGuardando(false);
-  }
-};
+  };
 
   const guardarRutina = async () => {
-  if (!rutinaDesc.trim()) return;
-  setGuardandoRutina(true);
-  try {
-    if (rutinaEditando) {
-      await actualizarTareaRecurrente(rutinaEditando.id, {
-        descripcion: rutinaDesc.trim(),
-        tipo: rutinaTipo,
-        hora: rutinaHora,
-      });
-    } else {
-      await crearTareaRecurrente(paciente.id, {
-        descripcion: rutinaDesc.trim(),
-        tipo: rutinaTipo,
-        hora: rutinaHora,
-      });
+    if (!rutinaDesc.trim()) return;
+    setGuardandoRutina(true);
+
+    const payloadTemporal = {
+      descripcion: rutinaDesc.trim(),
+      tipo: rutinaTipo,
+      hora: rutinaHora,
+      fecha_inicio: fechaInicio,
+      fecha_fin: esPermanente ? null : (fechaFin || null),
+      dias_semana: diasSemana.length === 0 ? null : diasSemana
+    };
+
+    try {
+      if (rutinaEditando) {
+        await actualizarTareaRecurrente(rutinaEditando.id, payloadTemporal);
+      } else {
+        await crearTareaRecurrente(paciente.id, payloadTemporal);
+      }
+      const rutinas = await getTareasRecurrentes(paciente.id);
+      if (rutinas.tareas) setTareasRec(rutinas.tareas);
+      
+      setModalRutinaOpen(false);
+      setRutinaEditando(null);
+      setRutinaDesc(''); setRutinaTipo('higiene'); setRutinaHora('09:00');
+      resetControlesTiempo();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setGuardandoRutina(false);
     }
-    const rutinas = await getTareasRecurrentes(paciente.id);
-    if (rutinas.tareas) setTareasRec(rutinas.tareas);
-    setModalRutinaOpen(false);
-    setRutinaEditando(null);
-    setRutinaDesc(''); setRutinaTipo('higiene'); setRutinaHora('09:00');
-  } catch (e) {
-    console.error(e);
-  } finally {
-    setGuardandoRutina(false);
-  }
-};
+  };
 
 const importarDesdeExcel = async () => {
     if (!paciente?.id) return;
@@ -249,15 +261,40 @@ const importarDesdeExcel = async () => {
     setVia(med.via_administracion);
     setHorariosArray(med.horarios || ['08:00']);
     setIndicaciones(med.indicaciones || '');
+    
+    // Mapear campos de tiempo que vienen de Supabase
+    setFechaInicio(med.fecha_inicio || new Date().toLocaleDateString('en-CA'));
+    setFechaFin(med.fecha_fin || '');
+    setEsPermanente(!med.fecha_fin);
+    setDiasSemana(med.dias_semana || []);
     setModalOpen(true);
   };
 
-const abrirEdicionRutina = (t: any) => {
-  setRutinaEditando(t);
-  setRutinaDesc(t.descripcion);
-  setRutinaTipo(t.tipo);
-  setRutinaHora(t.hora);
-  setModalRutinaOpen(true);
+  const abrirEdicionRutina = (t: any) => {
+    setRutinaEditando(t);
+    setRutinaDesc(t.descripcion);
+    setRutinaTipo(t.tipo);
+    setRutinaHora(t.hora);
+    
+    // Mapear campos de tiempo
+    setFechaInicio(t.fecha_inicio || new Date().toLocaleDateString('en-CA'));
+    setFechaFin(t.fecha_fin || '');
+    setEsPermanente(!t.fecha_fin);
+    setDiasSemana(t.dias_semana || []);
+    setModalRutinaOpen(true);
+  };
+
+  const toggleDiaSemana = (diaId: number) => {
+    setDiasSemana(prev => 
+      prev.includes(diaId) ? prev.filter(d => d !== diaId) : [...prev, diaId].sort()
+    );
+  };
+
+  const resetControlesTiempo = () => {
+    setEsPermanente(true);
+    setFechaInicio(new Date().toLocaleDateString('en-CA'));
+    setFechaFin('');
+    setDiasSemana([]);
   };
   const eliminarMedicamento = async (id: string) => {
     if (!paciente?.id) return;
@@ -522,7 +559,102 @@ const abrirEdicionRutina = (t: any) => {
 
               <Text style={styles.label}>Indicaciones (opcional)</Text>
               <TextInput style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]} placeholder="Tomar con alimentos..." placeholderTextColor={COLORS.textLight} multiline value={indicaciones} onChangeText={setIndicaciones} />
+              {/* 🗓️ SECCIÓN DE RECURRENCIA Y CRONOGRAMA INTELIGENTE */}
+              <View style={{ marginVertical: 12, padding: 12, backgroundColor: '#F9F9F9', borderRadius: 8, borderWidth: 1, borderColor: '#EAEAEA' }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao, marginBottom: 8 }}>🗓️ Duración del Plan</Text>
+                
+                {/* Switch Permanente / Periodo */}
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                  <TouchableOpacity 
+                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, esPermanente && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
+                    onPress={() => setEsPermanente(true)}
+                  >
+                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, esPermanente && { color: '#FFF' }]}>Permanente</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, !esPermanente && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
+                    onPress={() => setEsPermanente(false)}
+                  >
+                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, !esPermanente && { color: '#FFF' }]}>Por Periodo</Text>
+                  </TouchableOpacity>
+                </View>
 
+                {/* Pickers de fecha */}
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 11, color: '#777', marginBottom: 4 }}>Fecha Inicio</Text>
+                    <TouchableOpacity 
+                      style={{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }}
+                      onPress={() => setShowInicioPicker(true)}
+                    >
+                      <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>{fechaInicio}</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {!esPermanente && (
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 11, color: '#777', marginBottom: 4 }}>Fecha Término</Text>
+                      <TouchableOpacity 
+                        style={{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }}
+                        onPress={() => setShowFinPicker(true)}
+                      >
+                        <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>{fechaFin || 'Seleccionar'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+
+                {/* Renderizado de DateTimePickers Nativos */}
+                {showInicioPicker && (
+                  <DateTimePicker
+                    value={new Date(fechaInicio + 'T12:00:00')}
+                    mode="date"
+                    display="default"
+                    onChange={(event, date) => {
+                      setShowInicioPicker(false);
+                      if (date) setFechaInicio(date.toLocaleDateString('en-CA'));
+                    }}
+                  />
+                )}
+                {showFinPicker && (
+                  <DateTimePicker
+                    value={fechaFin ? new Date(fechaFin + 'T12:00:00') : new Date()}
+                    mode="date"
+                    display="default"
+                    onChange={(event, date) => {
+                      setShowFinPicker(false);
+                      if (date) setFechaFin(date.toLocaleDateString('en-CA'));
+                    }}
+                  />
+                )}
+
+                {/* 📆 Días de la semana */}
+                <Text style={{ fontSize: 11, color: '#777', marginBottom: 6 }}>Días de ejecución (Vacío aplica diario)</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 2 }}>
+                  {[
+                    { id: 0, label: 'D' }, { id: 1, label: 'L' }, { id: 2, label: 'M' },
+                    { id: 3, label: 'M' }, { id: 4, label: 'J' }, { id: 5, label: 'V' }, { id: 6, label: 'S' }
+                  ].map(d => {
+                    const seleccionado = diasSemana.includes(d.id);
+                    return (
+                      <TouchableOpacity
+                        key={d.id}
+                        style={{
+                          width: 32, height: 32, borderRadius: 16, borderWidth: 1,
+                          borderColor: seleccionado ? COLORS.cacao : COLORS.border,
+                          backgroundColor: seleccionado ? COLORS.cacao : '#FFF',
+                          alignItems: 'center', justifyContent: 'center'
+                        }}
+                        onPress={() => toggleDiaSemana(d.id)}
+                      >
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: seleccionado ? '#FFF' : '#555' }}>
+                          {d.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
                 <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.cream }]} onPress={() => { setModalOpen(false); setHorariosArray(['08:00']); }}>
                   <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
@@ -579,7 +711,102 @@ const abrirEdicionRutina = (t: any) => {
                   onChange={onRutinaTimeChange}
                 />
               )}
+               {/* 🗓️ SECCIÓN DE RECURRENCIA Y CRONOGRAMA INTELIGENTE */}
+              <View style={{ marginVertical: 12, padding: 12, backgroundColor: '#F9F9F9', borderRadius: 8, borderWidth: 1, borderColor: '#EAEAEA' }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao, marginBottom: 8 }}>🗓️ Duración del Plan</Text>
+                
+                {/* Switch Permanente / Periodo */}
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                  <TouchableOpacity 
+                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, esPermanente && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
+                    onPress={() => setEsPermanente(true)}
+                  >
+                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, esPermanente && { color: '#FFF' }]}>Permanente</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, !esPermanente && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
+                    onPress={() => setEsPermanente(false)}
+                  >
+                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, !esPermanente && { color: '#FFF' }]}>Por Periodo</Text>
+                  </TouchableOpacity>
+                </View>
 
+                {/* Pickers de fecha */}
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 11, color: '#777', marginBottom: 4 }}>Fecha Inicio</Text>
+                    <TouchableOpacity 
+                      style={{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }}
+                      onPress={() => setShowInicioPicker(true)}
+                    >
+                      <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>{fechaInicio}</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {!esPermanente && (
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 11, color: '#777', marginBottom: 4 }}>Fecha Término</Text>
+                      <TouchableOpacity 
+                        style={{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }}
+                        onPress={() => setShowFinPicker(true)}
+                      >
+                        <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>{fechaFin || 'Seleccionar'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+
+                {/* Renderizado de DateTimePickers Nativos */}
+                {showInicioPicker && (
+                  <DateTimePicker
+                    value={new Date(fechaInicio + 'T12:00:00')}
+                    mode="date"
+                    display="default"
+                    onChange={(event, date) => {
+                      setShowInicioPicker(false);
+                      if (date) setFechaInicio(date.toLocaleDateString('en-CA'));
+                    }}
+                  />
+                )}
+                {showFinPicker && (
+                  <DateTimePicker
+                    value={fechaFin ? new Date(fechaFin + 'T12:00:00') : new Date()}
+                    mode="date"
+                    display="default"
+                    onChange={(event, date) => {
+                      setShowFinPicker(false);
+                      if (date) setFechaFin(date.toLocaleDateString('en-CA'));
+                    }}
+                  />
+                )}
+
+                {/* 📆 Días de la semana */}
+                <Text style={{ fontSize: 11, color: '#777', marginBottom: 6 }}>Días de ejecución (Vacío aplica diario)</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 2 }}>
+                  {[
+                    { id: 0, label: 'D' }, { id: 1, label: 'L' }, { id: 2, label: 'M' },
+                    { id: 3, label: 'M' }, { id: 4, label: 'J' }, { id: 5, label: 'V' }, { id: 6, label: 'S' }
+                  ].map(d => {
+                    const seleccionado = diasSemana.includes(d.id);
+                    return (
+                      <TouchableOpacity
+                        key={d.id}
+                        style={{
+                          width: 32, height: 32, borderRadius: 16, borderWidth: 1,
+                          borderColor: seleccionado ? COLORS.cacao : COLORS.border,
+                          backgroundColor: seleccionado ? COLORS.cacao : '#FFF',
+                          alignItems: 'center', justifyContent: 'center'
+                        }}
+                        onPress={() => toggleDiaSemana(d.id)}
+                      >
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: seleccionado ? '#FFF' : '#555' }}>
+                          {d.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
                 <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.cream }]} onPress={() => { setModalRutinaOpen(false); setRutinaDesc(''); setRutinaTipo('higiene'); setRutinaHora('09:00'); }}>
                   <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
