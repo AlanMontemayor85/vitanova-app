@@ -912,7 +912,7 @@ useFocusEffect(
             <Text style={styles.activoText}>Monitoreo</Text>
           </View>
         </View>
-
+        <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
         <View style={[styles.monitorCard, { marginHorizontal: 16, marginTop: 16, backgroundColor: COLORS.white, borderColor: COLORS.border }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <Text style={{ fontSize: 9, fontWeight: '800', color: COLORS.textLight }}>📡 TELEMETRÍA EN VIVO</Text>
@@ -945,6 +945,10 @@ useFocusEffect(
             </View>
           </View>
         </View>
+
+        
+
+        
 
         {/* TARJETA CONFIG RELOJ — Vista Cuidador (solo lectura) */}
         {signosDispositivo?.reloj_config && (
@@ -989,7 +993,10 @@ useFocusEffect(
           </View>
         )}
 
-        <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+
+
+
+
           {/* 🎯 ACCESOS RÁPIDOS DE CONTROL (Condicionados por UX) */}
           <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Accesos rápidos de control</Text>
 

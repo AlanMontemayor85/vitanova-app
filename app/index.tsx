@@ -352,7 +352,7 @@ useEffect(() => {
         </View>
 
         <TouchableOpacity 
-          style={[styles.notifBtn, { marginRight: 8 }]}
+          style={[styles.notifBtn, { marginRight: 5 }]}
           onPress={() => router.push('/nuevo-paciente' as any)}
         >
           <Text style={{ color: COLORS.gold, fontSize: 22, fontWeight: '800' }}>+</Text>
