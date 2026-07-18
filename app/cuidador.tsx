@@ -151,6 +151,7 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
   const vistaRef = useRef(vista);
   // Estado temporal para la sensibilidad de caídas recuperada del servidor
   const [sensibilidadCaidas, setSensibilidadCaidas] = useState('');
+  const [notasExpandidas, setNotasExpandidas] = useState(false);
 
   const sincronizarSignosReloj = async (pacienteId: string, forzarComando: boolean = false) => {
     if (!pacienteId) return;
@@ -912,7 +913,6 @@ useFocusEffect(
           </View>
         </View>
 
-        
         <View style={[styles.monitorCard, { marginHorizontal: 16, marginTop: 16, backgroundColor: COLORS.white, borderColor: COLORS.border }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <Text style={{ fontSize: 9, fontWeight: '800', color: COLORS.textLight }}>📡 TELEMETRÍA EN VIVO</Text>
@@ -945,6 +945,7 @@ useFocusEffect(
             </View>
           </View>
         </View>
+
         {/* TARJETA CONFIG RELOJ — Vista Cuidador (solo lectura) */}
         {signosDispositivo?.reloj_config && (
           <View style={{
@@ -987,140 +988,77 @@ useFocusEffect(
             </View>
           </View>
         )}
+
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-         {/* 🎯 ACCESOS RÁPIDOS DE CONTROL (Condicionados por UX) */}
-        <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Accesos rápidos de control</Text>
+          {/* 🎯 ACCESOS RÁPIDOS DE CONTROL (Condicionados por UX) */}
+          <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Accesos rápidos de control</Text>
 
-        {pacienteProp || pacienteActivo?.rol_en_equipo === 'familiar_principal' || pacienteActivo?.usuarioRol === 'familiar_principal' ? (
-          /* 💡 Mensaje amigable para el Familiar Principal cuando está en modo lectura */
-          <View style={{
-            backgroundColor: COLORS.cream,
-            borderRadius: 12,
-            padding: 16,
-            marginBottom: 14,
-            borderWidth: 1,
-            borderColor: COLORS.border,
-            alignItems: 'center'
-          }}>
-            <Text style={{ fontSize: 18, marginBottom: 6 }}>👨‍👩‍👧</Text>
-            <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textDark, textAlign: 'center' }}>
-              Modo de Monitoreo Activo
-            </Text>
-            <Text style={{ fontSize: 10, color: COLORS.textLight, textAlign: 'center', marginTop: 2, lineHeight: 14 }}>
-              Para visualizar las gráficas, el mapa de ubicación o la red de cuidadores, por favor regrese al modo familiar usando el interruptor de arriba.
-            </Text>
-          </View>
-        ) : (
-              /* 🛠️ Botones operativos completos para el Personal de Cuidado (Modo Independiente) */
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
-                <TouchableOpacity 
-                  style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }}
-                  onPress={() => {
-                    router.push({
-                      pathname: '/red-cuidadores' as any,
-                      params: { pacienteId: pacienteActivo.id, pacienteNombre: pacienteActivo.nombre_completo, isCuidador: 'true' }
-                    });
-                  }}
-                >
-                  <Text style={{ fontSize: 20, marginBottom: 4 }}>💬</Text>
-                  <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Cuidadores</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
-                  onPress={() => router.push({ pathname: '/alertas', params: { rol: 'cuidador' } })}
-                >
-                  <Text style={{ fontSize: 20, marginBottom: 4 }}>⚠️</Text>
-                  <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Alertas</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} onPress={() => router.push('/mapa' as any)}>
-                  <Text style={{ fontSize: 20, marginBottom: 4 }}>📍</Text>
-                  <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Ubicación</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
-                  onPress={() => router.push({
-                    pathname: '/grafica-signos' as any,
-                    params: { 
-                      pacienteId: pacienteActivo.id, 
-                      pacienteNombre: pacienteActivo.nombre_completo 
-                    }
-                  })}
-                >
-                  <Text style={{ fontSize: 20, marginBottom: 4 }}>📊</Text>
-                  <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Gráficas</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          
-          {/* 📝 SECCIÓN: NOTAS DEL CUIDADOR */}
-          <View style={{ 
-            flexDirection: 'row', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            marginTop: 15,
-            marginBottom: 12 
-          }}>
-            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
-              Notas del Cuidador (Últimos Relevos)
-            </Text>
-            
-            <TouchableOpacity 
-              style={[styles.iniciarBtn, { 
-                paddingHorizontal: 14, 
-                paddingVertical: 6,
-                borderRadius: 20,
-                marginBottom: 0 
-              }]} 
-              onPress={() => setNotaOpen(true)}
-            >
-              <Text style={[styles.iniciarBtnText, { fontSize: 12, fontWeight: 'bold' }]}>
-                + Nota
+          {pacienteProp || pacienteActivo?.rol_en_equipo === 'familiar_principal' || pacienteActivo?.usuarioRol === 'familiar_principal' ? (
+            <View style={{
+              backgroundColor: COLORS.cream,
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 14,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              alignItems: 'center'
+            }}>
+              <Text style={{ fontSize: 18, marginBottom: 6 }}>👨‍👩‍👧</Text>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textDark, textAlign: 'center' }}>
+                Modo de Monitoreo Activo
               </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* NOTAS RECIENTES */}
-          {notas && notas.length > 0 ? (
-            <View style={{ gap: 8, marginBottom: 4 }}>
-              {notas.map((n, i) => {
-                const contenidoNota = n?.descripcion || n?.texto || "Nota de relevo registrada";
-                return (
-                  <View 
-                    key={n?.id || i} 
-                    style={[styles.alertCard, { 
-                      backgroundColor: COLORS.amberPale, 
-                      borderColor: '#F5DBA0', 
-                      marginHorizontal: 0, 
-                      marginBottom: 0 
-                    }]}
-                  >
-                    <Text style={styles.alertIcon}>📝</Text>
-                    <View style={styles.alertContent}>
-                      <Text style={styles.alertTitle}>{String(contenidoNota).replace('📝 ', '')}</Text>
-                      <Text style={styles.alertSub}>{`${n?.usuarios?.nombre_completo ?? 'Personal Vitanova'} · ${
-                        n?.created_at 
-                          ? new Date(n.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-                          : ''
-                      }`} </Text>
-                    </View>
-                  </View>
-                );
-              })}
+              <Text style={{ fontSize: 10, color: COLORS.textLight, textAlign: 'center', marginTop: 2, lineHeight: 14 }}>
+                Para visualizar las gráficas, el mapa de ubicación o la red de cuidadores, por favor regrese al modo familiar usando el interruptor de arriba.
+              </Text>
             </View>
           ) : (
-            <View style={[styles.alertCard, { backgroundColor: '#F9F9F9', borderColor: COLORS.border, marginHorizontal: 0 }]}>
-              <Text style={styles.alertIcon}>🔍</Text>
-              <View style={styles.alertContent}>
-                <Text style={styles.alertTitle}>Sin notas en el bloque actual</Text>
-                <Text style={styles.alertSub}>Usa el botón superior para registrar incidencias o notas.</Text>
-              </View>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+              <TouchableOpacity 
+                style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }}
+                onPress={() => {
+                  router.push({
+                    pathname: '/red-cuidadores' as any,
+                    params: { pacienteId: pacienteActivo.id, pacienteNombre: pacienteActivo.nombre_completo, isCuidador: 'true' }
+                  });
+                }}
+              >
+                <Text style={{ fontSize: 20, marginBottom: 4 }}>💬</Text>
+                <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Cuidadores</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
+                onPress={() => router.push({ pathname: '/alertas', params: { rol: 'cuidador' } })}
+              >
+                <Text style={{ fontSize: 20, marginBottom: 4 }}>⚠️</Text>
+                <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Alertas</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} onPress={() => router.push('/mapa' as any)}>
+                <Text style={{ fontSize: 20, marginBottom: 4 }}>📍</Text>
+                <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Ubicación</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
+                onPress={() => router.push({
+                  pathname: '/grafica-signos' as any,
+                  params: { 
+                    pacienteId: pacienteActivo.id, 
+                    pacienteNombre: pacienteActivo.nombre_completo 
+                  }
+                })}
+              >
+                <Text style={{ fontSize: 20, marginBottom: 4 }}>📊</Text>
+                <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Gráficas</Text>
+              </TouchableOpacity>
             </View>
           )}
 
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, marginTop: 10 }}>
+          {/* ========================================================== */}
+          {/* 1. 📋 PLAN DE CUIDADOS DEL DÍA (AHORA EN PRIMER LUGAR)     */}
+          {/* ========================================================== */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, marginTop: 4 }}>
             <Text style={styles.sectionTitle}>Plan de cuidados del día ({tareasPendientes.length})</Text>
             <TouchableOpacity style={[styles.iniciarBtn, { paddingHorizontal: 12, paddingVertical: 4 }]} onPress={() => setTareaOpen(true)}>
               <Text style={[styles.iniciarBtnText, { fontSize: 11 }]}>+ Incidental</Text>
@@ -1128,42 +1066,37 @@ useFocusEffect(
           </View>
 
           {tareasPendientes.map((t) => {
-            // 🎯 Helper robusto: Lee directo de la raíz del objeto enviado por el backend
             const renderTemporalidadTarea = () => {
-            if (t.es_incidental) {
-              return <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '600' }}>⚡ Incidental</Text>;
-            }
+              if (t.es_incidental) {
+                return <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '600' }}>⚡ Incidental</Text>;
+              }
 
-            const fInicio = t.fecha_inicio;
-            const fFin = t.fecha_fin;
+              const fInicio = t.fecha_inicio;
+              const fFin = t.fecha_fin;
 
-            // 1. Permanente (Mantiene su estilo morado/dorado característico)
-            if (!fFin || fFin === null || fFin === '') {
-              return <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '600' }}>♾️ Permanente</Text>;
-            }
+              if (!fFin || fFin === null || fFin === '') {
+                return <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '600' }}>♾️ Permanente</Text>;
+              }
 
-            // Sanitizamos los strings para asegurar el formato puro YYYY-MM-DD
-            const inicioClean = String(fInicio).split('T')[0];
-            const finClean = String(fFin).split('T')[0];
+              const inicioClean = String(fInicio).split('T')[0];
+              const finClean = String(fFin).split('T')[0];
 
-            // 2. Fecha Específica / Cita Única
-            if (inicioClean === finClean) {
-              return <Text style={{ fontSize: 10, color: '#555', fontWeight: '600' }}>📍 {inicioClean}</Text>;
-            }
+              if (inicioClean === finClean) {
+                return <Text style={{ fontSize: 10, color: '#555', fontWeight: '600' }}>📍 {inicioClean}</Text>;
+              }
 
-            // 3. Por Periodo (Idéntico a la pantalla de gestión)
-            return (
-              <Text style={{ fontSize: 10, color: '#555', fontWeight: '600' }}>
-                📆 {inicioClean} al {finClean}
-              </Text>
-            );
-          };
+              return (
+                <Text style={{ fontSize: 10, color: '#555', fontWeight: '600' }}>
+                  📆 {inicioClean} al {finClean}
+                </Text>
+              );
+            };
+
             return (
               <TouchableOpacity key={t.id} style={styles.tareaCard} onPress={() => {
                 Alert.alert('Confirmar actividad', `¿Confirmas la ejecución de: ${t.descripcion}?`, [
                   { text: 'Cancelar', style: 'cancel' },
                   { text: '✓ Ejecutada', onPress: async () => {
-                    // ... tu lógica de completar ...
                     if (t.med_id) await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora);
                     else if (t.actividad_id) await completarActividad(t.actividad_id, pacienteActivo.id);
                     else if (t.es_incidental && t.id) {
@@ -1195,8 +1128,106 @@ useFocusEffect(
             );
           })}
 
+          {/* ========================================================== */}
+          {/* 2. 📝 NOTAS DEL CUIDADOR (ABAJO Y CON ACORDEÓN DESPLEGABLE) */}
+          {/* ========================================================== */}
+          <View style={{ 
+            flexDirection: 'row', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            marginTop: 20,
+            marginBottom: 12 
+          }}>
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
+              Notas del Cuidador (Últimos Relevos)
+            </Text>
+            
+            <TouchableOpacity 
+              style={[styles.iniciarBtn, { 
+                paddingHorizontal: 14, 
+                paddingVertical: 6,
+                borderRadius: 20,
+                marginBottom: 0 
+              }]} 
+              onPress={() => setNotaOpen(true)}
+            >
+              <Text style={[styles.iniciarBtnText, { fontSize: 12, fontWeight: 'bold' }]}>
+                + Nota
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* NOTAS CON ACORDEÓN DE CONTROL INTERACTIVO */}
+          {notas && notas.length > 0 ? (
+            <View style={{ gap: 8, marginBottom: 4 }}>
+              {(() => {
+                // Si no está expandido, renderiza únicamente la nota de arriba (última registrada).
+                // Al presionar el switch, expande limpiamente un bloque con las 5 últimas notas.
+                const notasAMostrar = notasExpandidas ? notas.slice(0, 5) : [notas[0]];
+                
+                return (
+                  <>
+                    {notasAMostrar.map((n, i) => {
+                      const contenidoNota = n?.descripcion || n?.texto || "Nota de relevo registrada";
+                      return (
+                        <View 
+                          key={n?.id || i} 
+                          style={[styles.alertCard, { 
+                            backgroundColor: COLORS.amberPale, 
+                            borderColor: '#F5DBA0', 
+                            marginHorizontal: 0, 
+                            marginBottom: 0 
+                          }]}
+                        >
+                          <Text style={styles.alertIcon}>📝</Text>
+                          <View style={styles.alertContent}>
+                            <Text style={styles.alertTitle}>{String(contenidoNota).replace('📝 ', '')}</Text>
+                            <Text style={styles.alertSub}>{`${n?.usuarios?.nombre_completo ?? 'Personal Vitanova'} · ${
+                              n?.created_at 
+                                ? new Date(n.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                                : ''
+                            }`} </Text>
+                          </View>
+                        </View>
+                      );
+                    })}
+
+                    {/* Botón de despliegue interactivo (Solo visible si hay más de una nota) */}
+                    {notas.length > 1 && (
+                      <TouchableOpacity 
+                        onPress={() => setNotasExpandidas(!notasExpandidas)}
+                        style={{ 
+                          paddingVertical: 7, 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          backgroundColor: '#FDF8EE', 
+                          borderRadius: 8, 
+                          borderWidth: 1, 
+                          borderColor: '#F5DBA0',
+                          marginTop: 2 
+                        }}
+                      >
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.amber }}>
+                          {notasExpandidas ? "🔼 Ver menos notas" : `🔽 Ver historial completo (+${notas.length - 1} notas)`}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </>
+                );
+              })()}
+            </View>
+          ) : (
+            <View style={[styles.alertCard, { backgroundColor: '#F9F9F9', borderColor: COLORS.border, marginHorizontal: 0 }]}>
+              <Text style={styles.alertIcon}>🔍</Text>
+              <View style={styles.alertContent}>
+                <Text style={styles.alertTitle}>Sin notas en el bloque actual</Text>
+                <Text style={styles.alertSub}>Usa el botón superior para registrar incidencias o notas.</Text>
+              </View>
+            </View>
+          )}
+
           {/* ACCIONES DE BITÁCORA */}
-          <Text style={styles.sectionTitle}>Acciones de bitácora</Text>
+          <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Acciones de bitácora</Text>
           <View style={styles.accionesRow}>
             <TouchableOpacity style={[styles.accionBtn, { backgroundColor: COLORS.redPale, borderColor: COLORS.red }]} onPress={() => setIncidenteOpen(true)}>
               <Text style={{ color: COLORS.red, marginRight: 6 }}>🚨</Text><Text style={[styles.accionBtnText, { color: COLORS.red }]}>Reportar Incidente</Text>
@@ -1235,7 +1266,6 @@ useFocusEffect(
             </View>
           </View>
         </Modal>
-
         {/* MODAL EMERGENCIA */}
 <Modal visible={incidenteOpen} animationType="slide" transparent={true}>
   <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 16 }}>
