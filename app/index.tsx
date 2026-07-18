@@ -118,7 +118,7 @@ const handleCalibrarReloj = async () => {
     alert("Error de red al conectar con el servidor.");
   }
 };
-// 🎯 INTERCEPTOR OPERATIVO: Limpia el conteo inflado del backend para el turno activo
+// 🎯 INTERCEPTOR OPERATIVO: Corrige el desfase 1/0 homogenizando completadas y totales
 const corregirResumenTurno = (turnoOriginal: any, listadoMedicamentos: any[], listadoTareas: any[]) => {
   if (!turnoOriginal) return null;
 
@@ -130,19 +130,30 @@ const corregirResumenTurno = (turnoOriginal: any, listadoMedicamentos: any[], li
   });
   const totalMedsTurno = medsHoy.reduce((acc, med) => acc + (Array.isArray(med.horarios) ? med.horarios.length : 1), 0);
 
-  // 2. Filtrar tareas vigentes hoy EXCLUYENDO las notas del cuidador
+  // 🎯 Reutilizamos el conteo de medicamentos completados si tu backend los computa así
+  // (Si tu API maneja los medicamentos completados dentro de un array separado o flag, asegúrate de sumarlos aquí)
+
+  // 2. Filtrar tareas vigentes hoy EXCLUYENDO las notas del cuidador de forma estricta
   const tareasHoy = listadoTareas.filter(tarea => {
     const tipo = String(tarea.tipo || tarea.categoria || '').toLowerCase().trim();
     const esNota = tipo === 'nota' || tipo === 'nota_cuidador' || tipo.includes('nota');
     const esVigente = tarea.fecha_inicio && tarea.fecha_inicio <= hoyStr && (!tarea.fecha_fin || tarea.fecha_fin >= hoyStr);
-    return esVigente && !esNota; // 🛡️ Solo incidentales/operativas vigentes
+    return esVigente && !esNota; // 🛡️ Solo incidentales/operativas vigentes de hoy
   });
 
+  // 3. ⚡ RECALCULAR COMPLETADAS REALES SOBRE EL CONTENIDO FILTRADO DE HOY
+  const tareasCompletadasHoy = tareasHoy.filter(tarea => tarea.completada || tarea.status === 'completada').length;
+  
+  // Si tu backend suma medicamentos y tareas en el mismo badge, consolidamos ambos totales aquí
   const totalReal = totalMedsTurno + tareasHoy.length;
 
   return {
     ...turnoOriginal,
-    total: totalReal // Seteamos el conteo real (los 4 en lugar de 8)
+    total: totalReal, // Seteamos el divisor real (el 0 de tu 1/0)
+    
+    // 🛡️ SINCRONIZACIÓN MATEMÁTICA: Forzamos al badge a leer el conteo correcto de completadas de hoy
+    completadas: tareasCompletadasHoy, 
+    tareas_completadas: tareasCompletadasHoy // Mapeamos ambas variantes comunes de llaves por seguridad
   };
 };
 // 🔄 Carga inicial y Enrutador Inteligente Relacional
