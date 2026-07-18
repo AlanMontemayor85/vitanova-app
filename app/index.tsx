@@ -3,7 +3,7 @@ import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { Bell, Calendar, MapPin, Pill } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getNotasTurno, getPacientes, getSignosRecientes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
+import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getMedicamentos, getNotasTurno, getPacientes, getSignosRecientes, getTareasRecurrentes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 import CuidadorScreen from './cuidador';
 
@@ -118,7 +118,33 @@ const handleCalibrarReloj = async () => {
     alert("Error de red al conectar con el servidor.");
   }
 };
+// 🎯 INTERCEPTOR OPERATIVO: Limpia el conteo inflado del backend para el turno activo
+const corregirResumenTurno = (turnoOriginal: any, listadoMedicamentos: any[], listadoTareas: any[]) => {
+  if (!turnoOriginal) return null;
 
+  const hoyStr = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD local de México
+
+  // 1. Filtrar medicamentos vigentes para hoy y contar por horarios
+  const medsHoy = listadoMedicamentos.filter(med => {
+    return med.fecha_inicio && med.fecha_inicio <= hoyStr && (!med.fecha_fin || med.fecha_fin >= hoyStr);
+  });
+  const totalMedsTurno = medsHoy.reduce((acc, med) => acc + (Array.isArray(med.horarios) ? med.horarios.length : 1), 0);
+
+  // 2. Filtrar tareas vigentes hoy EXCLUYENDO las notas del cuidador
+  const tareasHoy = listadoTareas.filter(tarea => {
+    const tipo = String(tarea.tipo || tarea.categoria || '').toLowerCase().trim();
+    const esNota = tipo === 'nota' || tipo === 'nota_cuidador' || tipo.includes('nota');
+    const esVigente = tarea.fecha_inicio && tarea.fecha_inicio <= hoyStr && (!tarea.fecha_fin || tarea.fecha_fin >= hoyStr);
+    return esVigente && !esNota; // 🛡️ Solo incidentales/operativas vigentes
+  });
+
+  const totalReal = totalMedsTurno + tareasHoy.length;
+
+  return {
+    ...turnoOriginal,
+    total: totalReal // Seteamos el conteo real (los 4 en lugar de 8)
+  };
+};
 // 🔄 Carga inicial y Enrutador Inteligente Relacional
 useEffect(() => {
   const init = async () => {
@@ -224,8 +250,18 @@ useEffect(() => {
         
         // Verificar si hay un cuidador en turno activo transmitiendo
         const turnoRes = await getTurnoActivoResumen(p.id).catch(() => ({ turno: null }));
-        if (turnoRes?.turno) setTurnoResumen(turnoRes.turno);
-        else setTurnoResumen(null);
+        if (turnoRes?.turno) {
+          // Traemos rápidamente los catálogos para contrastar vigencias
+          const [medsData, tareasData] = await Promise.all([
+            getMedicamentos(p.id).catch(() => ({ medicamentos: [] })),
+            getTareasRecurrentes(p.id).catch(() => ({ tareas: [] }))
+          ]);
+          
+          const turnoLimpio = corregirResumenTurno(turnoRes.turno, medsData.medicamentos || [], tareasData.tareas || []);
+          setTurnoResumen(turnoLimpio);
+        } else {
+          setTurnoResumen(null);
+        }
         
         // Verificar alertas críticas de peso/hidratación
         const alertaPesoData = await getAlertaPeso(p.id).catch(() => ({ alerta: null }));
@@ -262,18 +298,28 @@ useEffect(() => {
   setUltimoCierre(null);
   setNotas([]);
   const cargarDatos = async () => {
-  const cierreData = await getUltimoCierre(p.id);
-  if (cierreData.cierre) setUltimoCierre(cierreData.cierre);
-  const notasData = await getNotasTurno(p.id);
-  if (notasData.notas) setNotas(notasData.notas.slice(0, 5));
-  if (notasData.notas) setNotas(notasData.notas);
-  const turnoRes = await getTurnoActivoResumen(p.id);
-  if (turnoRes.turno) setTurnoResumen(turnoRes.turno);
-  else setTurnoResumen(null);
-  const alertaPesoData = await getAlertaPeso(p.id);
-  if (alertaPesoData.alerta) setAlertaPeso(alertaPesoData);
-  else setAlertaPeso(null);
-};
+    const cierreData = await getUltimoCierre(p.id);
+    if (cierreData.cierre) setUltimoCierre(cierreData.cierre);
+    const notasData = await getNotasTurno(p.id);
+    if (notasData.notas) setNotas(notasData.notas);
+    
+    // 🎯 Intercepción en cambio de pestaña/paciente
+    const turnoRes = await getTurnoActivoResumen(p.id);
+    if (turnoRes.turno) {
+      const [medsData, tareasData] = await Promise.all([
+        getMedicamentos(p.id).catch(() => ({ medicamentos: [] })),
+        getTareasRecurrentes(p.id).catch(() => ({ tareas: [] }))
+      ]);
+      const turnoLimpio = corregirResumenTurno(turnoRes.turno, medsData.medicamentos || [], tareasData.tareas || []);
+      setTurnoResumen(turnoLimpio);
+    } else {
+      setTurnoResumen(null);
+    }
+    
+    const alertaPesoData = await getAlertaPeso(p.id);
+    if (alertaPesoData.alerta) setAlertaPeso(alertaPesoData);
+    else setAlertaPeso(null);
+  };
   cargarDatos();
 }, [pacienteIndex]);
 
