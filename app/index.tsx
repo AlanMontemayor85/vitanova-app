@@ -647,7 +647,9 @@ useEffect(() => {
                   </View>
                 </View>
                 <View style={styles.turnoProgress}>
-                  <Text style={styles.turnoProgressText}>{`${turnoResumen.completadas}/${turnoResumen.total}`}</Text>
+                  <Text style={styles.turnoProgressText}>
+                    {`${(turnoResumen.total || 0) === 0 ? 0 : (turnoResumen.completadas || 0)}/${turnoResumen.total || 0}`}
+                  </Text>
                   <Text style={styles.turnoProgressLabel}>tareas</Text>
                 </View>
               </View>
