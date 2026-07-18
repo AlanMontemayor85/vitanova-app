@@ -234,7 +234,7 @@ const importarDesdeExcel = async () => {
         return fechaStr.split('T')[0];
       };
 
-      // 4. Mapeo y Sincronización masiva con tu API existente
+     // 4. Mapeo y Sincronización masiva con tu API existente
       for (const fila of filas) {
         const tipo = String(fila.Tipo || '').toLowerCase().trim();
         
@@ -242,35 +242,47 @@ const importarDesdeExcel = async () => {
         const fInicioClean = limpiarYFormatearFecha(fila.FechaInicio || fila['Fecha Inicio']);
         const fFinClean = limpiarYFormatearFecha(fila.FechaFin || fila['Fecha Fin']);
 
-        // Seteamos por defecto la fecha de hoy en formato BD por si viene vacía la fecha de inicio
+        // Seteamos por defecto la fecha de hoy en formato BD (YYYY-MM-DD) si viene vacía
         const fecha_inicio = fInicioClean || new Date().toISOString().split('T')[0];
-        const fecha_fin = fFinClean; // Mantiene null de forma correcta si es permanente
         
-        if (tipo === 'medicina' || tipo === 'medicamento') {
-          const horariosRaw = fila.Horarios ? String(fila.Horarios) : '08:00';
-          const horariosArr = horariosRaw.split(',').map(h => h.trim());
+        // REGLA DE ORO: Si no hay fecha de fin, mandamos NULL explícito para que la columna DATE de Postgres lo acepte.
+        // Jamás mandes un string vacío "" porque rompe el tipo DATE en Supabase.
+        const fecha_fin = fFinClean ? fFinClean : null;
+        
+        try {
+          if (tipo === 'medicina' || tipo === 'medicamento') {
+            const horariosRaw = fila.Horarios ? String(fila.Horarios) : '08:00';
+            // Separamos por comas y limpiamos espacios
+            const horariosArr = horariosRaw.split(',').map(h => h.trim());
 
-          await crearMedicamento(paciente.id, {
-            nombre: String(fila.Nombre || 'Medicamento Sin Nombre').trim(),
-            dosis: String(fila.Dosis || '1 tableta').trim(),
-            frecuencia: String(fila.Frecuencia || 'cada 12 horas').trim(),
-            via_administracion: String(fila.Via || 'oral').toLowerCase().trim(),
-            horarios: horariosArr,
-            indicaciones: fila.Indicaciones ? String(fila.Indicaciones).trim() : null,
-            // 🎯 Campos de temporalidad mandatorios para la consola e historial
-            fecha_inicio: fecha_inicio,
-            fecha_fin: fecha_fin
-          });
-        } 
-        else if (tipo === 'rutina' || tipo === 'actividad') {
-          await crearTareaRecurrente(paciente.id, {
-            descripcion: String(fila.Descripcion || 'Rutina sin descripción').trim(),
-            tipo: String(fila.Categoria || 'otro').toLowerCase().trim(),
-            hora: String(fila.Hora || '09:00').trim(),
-            // 🎯 Campos de temporalidad mandatorios para la consola e historial
-            fecha_inicio: fecha_inicio,
-            fecha_fin: fecha_fin
-          });
+            await crearMedicamento(paciente.id, {
+              nombre: String(fila.Nombre || 'Medicamento Sin Nombre').trim(),
+              dosis: String(fila.Dosis || '1 tableta').trim(),
+              frecuencia: String(fila.Frecuencia || 'cada 12 horas').trim(),
+              via_administracion: String(fila.Via || 'oral').toLowerCase().trim(),
+              horarios: horariosArr, // Mandamos el array limpio
+              indicaciones: fila.Indicaciones ? String(fila.Indicaciones).trim() : null,
+              
+              // 🎯 Sincronización exacta con las columnas de tu tabla:
+              fecha_inicio: fecha_inicio,
+              fecha_fin: fecha_fin,
+              fuente: 'manual', // Obligatorio según tu registro real
+              activo: true      // Lo cargamos activo por defecto para la Consola
+            });
+          } 
+          else if (tipo === 'rutina' || tipo === 'actividad') {
+            await crearTareaRecurrente(paciente.id, {
+              descripcion: String(fila.Descripcion || 'Rutina sin descripción').trim(),
+              tipo: String(fila.Categoria || 'otro').toLowerCase().trim(),
+              hora: String(fila.Hora || '09:00').trim(),
+              
+              // Aplicamos el mismo blindaje para la tabla de tareas
+              fecha_inicio: fecha_inicio,
+              fecha_fin: fecha_fin
+            });
+          }
+        } catch (apiError: any) {
+          console.error(`❌ [API Error] Error en fila "${fila.Nombre || fila.Descripcion}":`, apiError?.message || apiError);
         }
       }
 
