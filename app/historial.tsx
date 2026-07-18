@@ -399,8 +399,23 @@ export default function HistorialScreen() {
                         cierreSeleccionado?.estado_paciente === 'preocupante' ? 'CRÍTICO' : 'REGULAR';
 
   // Separación segura de tareas (protegida contra nulos si el turno viene vacío)
-  const tareasTrabajo = cierreSeleccionado?.tareas ? cierreSeleccionado.tareas.filter((t: any) => !t.es_incidental) : [];
-  const notasTurno = cierreSeleccionado?.tareas ? cierreSeleccionado.tareas.filter((t: any) => t.es_incidental) : [];
+  // ── 🎯 CORRECCIÓN DE FILTRADO CLÍNICO DE VITALES ──
+  
+  // 1. Actividades Planificadas: Rutinas e incidentales operativas reales (NO notas)
+  const tareasTrabajo = cierreSeleccionado?.tareas 
+    ? cierreSeleccionado.tareas.filter((t: any) => {
+        const desc = String(t.descripcion || '');
+        return !desc.startsWith('📝'); // Filtra todo lo operativo, sin importar si es rutina o incidental
+      }) 
+    : [];
+
+  // 2. Notas del Turno: Bitácoras de evolución que empiezan estrictamente con el emoji descriptivo
+  const notasTurno = cierreSeleccionado?.tareas 
+    ? cierreSeleccionado.tareas.filter((t: any) => {
+        const desc = String(t.descripcion || '');
+        return desc.startsWith('📝'); // Captura únicamente las anotaciones clínicas del personal
+      }) 
+    : [];
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />

@@ -595,6 +595,9 @@ useFocusEffect(
     const tipoActual = tareaTipo;
     const horaActual = tareaHora || null;
 
+    // 🎯 OBTENER FECHA LOCAL DE HOY (Formato YYYY-MM-DD para México)
+    const hoyStr = new Date().toLocaleDateString('sv-SE'); 
+
     try {
       const res = await agregarTareaManual({ 
         turno_id: turnoActivoRef.current?.id || null, 
@@ -602,13 +605,29 @@ useFocusEffect(
         tipo: tipoActual, 
         descripcion: descripcionLimpia, 
         hora_programada: horaActual, 
-        es_incidental: true 
+        es_incidental: true,
+        
+        // ⚡ HOMOLOGACIÓN TEMPORAL:
+        // Forzamos que la tarea nazca y muera estrictamente el día de hoy.
+        // Así el filtro de vigencia de la HomeScreen la descartará mañana en automático.
+        fecha_inicio: hoyStr,
+        fecha_fin: hoyStr
       });
       
       const idFinal = res?.tarea_id || res?.id || idTemporal;
       setTareas(prev => [
         ...prev, 
-        { id: idFinal, tipo: tipoActual, descripcion: descripcionLimpia, hora_programada: horaActual, completada: false, es_incidental: true }
+        { 
+          id: idFinal, 
+          tipo: tipoActual, 
+          descripcion: descripcionLimpia, 
+          hora_programada: horaActual, 
+          completada: false, 
+          es_incidental: true,
+          // Sincronizamos el estado local también
+          fecha_inicio: hoyStr,
+          fecha_fin: hoyStr
+        }
       ]);
       setTareaDesc(''); setTareaTipo('otro'); setTareaHora(''); setTareaOpen(false);
     } catch (e) { 
