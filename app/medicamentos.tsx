@@ -213,12 +213,40 @@ const importarDesdeExcel = async () => {
 
       console.log(`📊 [EXCEL] Detectadas ${filas.length} filas para procesar.`);
 
+      // 🛠️ HELPER LOCAL: Traduce fechas mexicanas "DD/MM/YYYY" a "YYYY-MM-DD"
+      const limpiarYFormatearFecha = (fechaRaw: any) => {
+        if (!fechaRaw) return null;
+        
+        const fechaStr = String(fechaRaw).trim();
+        
+        // Si el usuario metió la fecha con formato clásico mexicano "17/07/2026"
+        if (fechaStr.includes('/')) {
+          const partes = fechaStr.split('/');
+          if (partes.length === 3) {
+            const dia = partes[0].padStart(2, '0');
+            const mes = partes[1].padStart(2, '0');
+            const anio = partes[2];
+            return `${anio}-${mes}-${dia}`; // Cambia a "2026-07-17" para Supabase
+          }
+        }
+        
+        // Si ya viene como string nativo ISO (YYYY-MM-DD), solo aislamos el día
+        return fechaStr.split('T')[0];
+      };
+
       // 4. Mapeo y Sincronización masiva con tu API existente
       for (const fila of filas) {
         const tipo = String(fila.Tipo || '').toLowerCase().trim();
         
+        // Extraemos y traducimos las fechas usando el formato de México
+        const fInicioClean = limpiarYFormatearFecha(fila.FechaInicio || fila['Fecha Inicio']);
+        const fFinClean = limpiarYFormatearFecha(fila.FechaFin || fila['Fecha Fin']);
+
+        // Seteamos por defecto la fecha de hoy en formato BD por si viene vacía la fecha de inicio
+        const fecha_inicio = fInicioClean || new Date().toISOString().split('T')[0];
+        const fecha_fin = fFinClean; // Mantiene null de forma correcta si es permanente
+        
         if (tipo === 'medicina' || tipo === 'medicamento') {
-          // Sanitizamos horarios: Soporta un solo string ("08:00") o lista separada por comas ("08:00, 20:00")
           const horariosRaw = fila.Horarios ? String(fila.Horarios) : '08:00';
           const horariosArr = horariosRaw.split(',').map(h => h.trim());
 
@@ -229,6 +257,9 @@ const importarDesdeExcel = async () => {
             via_administracion: String(fila.Via || 'oral').toLowerCase().trim(),
             horarios: horariosArr,
             indicaciones: fila.Indicaciones ? String(fila.Indicaciones).trim() : null,
+            // 🎯 Campos de temporalidad mandatorios para la consola e historial
+            fecha_inicio: fecha_inicio,
+            fecha_fin: fecha_fin
           });
         } 
         else if (tipo === 'rutina' || tipo === 'actividad') {
@@ -236,6 +267,9 @@ const importarDesdeExcel = async () => {
             descripcion: String(fila.Descripcion || 'Rutina sin descripción').trim(),
             tipo: String(fila.Categoria || 'otro').toLowerCase().trim(),
             hora: String(fila.Hora || '09:00').trim(),
+            // 🎯 Campos de temporalidad mandatorios para la consola e historial
+            fecha_inicio: fecha_inicio,
+            fecha_fin: fecha_fin
           });
         }
       }
@@ -255,6 +289,7 @@ const importarDesdeExcel = async () => {
       setImportando(false);
     }
   };
+
   const abrirEdicionMedicamento = (med: any) => {
     setMedicamentoEditando(med);
     setNombre(med.nombre);
