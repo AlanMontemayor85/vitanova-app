@@ -1130,32 +1130,34 @@ useFocusEffect(
           {tareasPendientes.map((t) => {
             // 🎯 Helper robusto: Lee directo de la raíz del objeto enviado por el backend
             const renderTemporalidadTarea = () => {
-              if (t.es_incidental) {
-                return <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '600' }}>⚡ Incidental</Text>;
-              }
+            if (t.es_incidental) {
+              return <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '600' }}>⚡ Incidental</Text>;
+            }
 
-              // Normalizamos las fechas que envía el nuevo backend
-              const fInicio = t.fecha_inicio;
-              const fFin = t.fecha_fin;
+            const fInicio = t.fecha_inicio;
+            const fFin = t.fecha_fin;
 
-              // 1. Si no hay fecha fin, es permanente
-              if (!fFin || fFin === null || fFin === '') {
-                return <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '600' }}>♾️ Permanente</Text>;
-              }
+            // 1. Permanente (Mantiene su estilo morado/dorado característico)
+            if (!fFin || fFin === null || fFin === '') {
+              return <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '600' }}>♾️ Permanente</Text>;
+            }
 
-              // 2. Si son iguales, es Cita Única (Fecha específica)
-              // Usamos .split('T')[0] para comparar solo la fecha y evitar errores por horas
-              const inicio = String(fInicio).split('T')[0];
-              const fin = String(fFin).split('T')[0];
+            // Sanitizamos los strings para asegurar el formato puro YYYY-MM-DD
+            const inicioClean = String(fInicio).split('T')[0];
+            const finClean = String(fFin).split('T')[0];
 
-              if (inicio === fin) {
-                return <Text style={{ fontSize: 10, color: '#777', fontWeight: '600' }}>📍 Cita Única</Text>;
-              }
+            // 2. Fecha Específica / Cita Única
+            if (inicioClean === finClean) {
+              return <Text style={{ fontSize: 10, color: '#555', fontWeight: '600' }}>📍 {inicioClean}</Text>;
+            }
 
-              // 3. Si son diferentes, es un rango
-              return <Text style={{ fontSize: 10, color: '#555', fontWeight: '600' }}>📅 Rango Finito</Text>;
-            };
-
+            // 3. Por Periodo (Idéntico a la pantalla de gestión)
+            return (
+              <Text style={{ fontSize: 10, color: '#555', fontWeight: '600' }}>
+                📆 {inicioClean} al {finClean}
+              </Text>
+            );
+          };
             return (
               <TouchableOpacity key={t.id} style={styles.tareaCard} onPress={() => {
                 Alert.alert('Confirmar actividad', `¿Confirmas la ejecución de: ${t.descripcion}?`, [
