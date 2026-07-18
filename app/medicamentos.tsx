@@ -213,32 +213,45 @@ const importarDesdeExcel = async () => {
 
       console.log(`📊 [EXCEL] Detectadas ${filas.length} filas para procesar.`);
 
-      // 🛠️ HELPER LOCAL: Traduce fechas mexicanas "DD/MM/YYYY" a "YYYY-MM-DD"
+      // 🛠️ HELPER LOCAL ULTRA-BLINDADO: Traduce formatos texto "DD/MM/YYYY" y números de serie de Excel (e.g. 46222)
       const limpiarYFormatearFecha = (fechaRaw: any) => {
         if (!fechaRaw) return null;
         
+        // Caso 1: Si Excel nos entrega la fecha calculada como número de serie secuencial
+        if (typeof fechaRaw === 'number' || !isNaN(Number(fechaRaw))) {
+          const serialExcel = Number(fechaRaw);
+          // Ajuste por el desfase de días entre el Epoch de Excel (1900) y el de JS (1970)
+          const fechaJS = new Date((serialExcel - 25569) * 86400 * 1000);
+          
+          const anio = fechaJS.getUTCFullYear();
+          const mes = String(fechaJS.getUTCMonth() + 1).padStart(2, '0');
+          const dia = String(fechaJS.getUTCDate()).padStart(2, '0');
+          
+          return `${anio}-${mes}-${dia}`; // Cambia a "2026-07-18" listo para FastAPI/Postgres
+        }
+        
         const fechaStr = String(fechaRaw).trim();
         
-        // Si el usuario metió la fecha con formato clásico mexicano "17/07/2026"
+        // Caso 2: Si viene explícitamente como texto clásico de México "17/07/2026"
         if (fechaStr.includes('/')) {
           const partes = fechaStr.split('/');
           if (partes.length === 3) {
             const dia = partes[0].padStart(2, '0');
             const mes = partes[1].padStart(2, '0');
             const anio = partes[2];
-            return `${anio}-${mes}-${dia}`; // Cambia a "2026-07-17" para Supabase
+            return `${anio}-${mes}-${dia}`;
           }
         }
         
-        // Si ya viene como string nativo ISO (YYYY-MM-DD), solo aislamos el día
+        // Caso 3: Si ya viene como string nativo ISO o similar, aislamos el día
         return fechaStr.split('T')[0];
       };
 
-     // 4. Mapeo y Sincronización masiva con tu API existente
+      // 4. Mapeo y Sincronización masiva con tu API existente
       for (const fila of filas) {
         const tipo = String(fila.Tipo || '').toLowerCase().trim();
         
-        // Extraemos y traducimos las fechas usando el formato de México
+        // Extraemos y traducimos las fechas usando el formato de México o Serial
         const fInicioClean = limpiarYFormatearFecha(fila.FechaInicio || fila['Fecha Inicio']);
         const fFinClean = limpiarYFormatearFecha(fila.FechaFin || fila['Fecha Fin']);
 
@@ -246,37 +259,64 @@ const importarDesdeExcel = async () => {
         const fecha_inicio = fInicioClean || new Date().toISOString().split('T')[0];
         
         // REGLA DE ORO: Si no hay fecha de fin, mandamos NULL explícito para que la columna DATE de Postgres lo acepte.
-        // Jamás mandes un string vacío "" porque rompe el tipo DATE en Supabase.
         const fecha_fin = fFinClean ? fFinClean : null;
         
         try {
           if (tipo === 'medicina' || tipo === 'medicamento') {
-            const horariosRaw = fila.Horarios ? String(fila.Horarios) : '08:00';
-            // Separamos por comas y limpiamos espacios
-            const horariosArr = horariosRaw.split(',').map(h => h.trim());
+            let horariosRaw = fila.Horarios ? String(fila.Horarios).trim() : '08:00';
+            
+            // 🛠️ DETECTOR DE FRACCIÓN DE HORA DE EXCEL (Ej: 0.583333 -> "14:00")
+            if (!isNaN(Number(horariosRaw)) && Number(horariosRaw) > 0 && Number(horariosRaw) < 1) {
+              const fraccionDia = Number(horariosRaw);
+              const totalMinutos = Math.round(fraccionDia * 24 * 60);
+              const horas = Math.floor(totalMinutos / 60);
+              const minutos = totalMinutos % 60;
+              horariosRaw = `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}`;
+            }
 
+            // Separamos por comas si vienen múltiples horarios y limpiamos espacios
+            const horariosArr = horariosRaw.split(',').map(h => {
+              let horaLimpia = h.trim();
+              
+              // Por si acaso una de las horas separadas por comas también viene como número de serie
+              if (!isNaN(Number(horaLimpia)) && Number(horaLimpia) > 0 && Number(horaLimpia) < 1) {
+                const f = Number(horaLimpia);
+                const tm = Math.round(f * 24 * 60);
+                horaLimpia = `${String(Math.floor(tm / 60)).padStart(2, '0')}:${String(tm % 60).padStart(2, '0')}`;
+              }
+              return horaLimpia;
+            });
             await crearMedicamento(paciente.id, {
               nombre: String(fila.Nombre || 'Medicamento Sin Nombre').trim(),
               dosis: String(fila.Dosis || '1 tableta').trim(),
               frecuencia: String(fila.Frecuencia || 'cada 12 horas').trim(),
               via_administracion: String(fila.Via || 'oral').toLowerCase().trim(),
-              horarios: horariosArr, // Mandamos el array limpio
+              horarios: horariosArr,
               indicaciones: fila.Indicaciones ? String(fila.Indicaciones).trim() : null,
               
-              // 🎯 Sincronización exacta con las columnas de tu tabla:
+              // Sincronización exacta con las columnas validables de la BD:
               fecha_inicio: fecha_inicio,
               fecha_fin: fecha_fin,
-              fuente: 'manual', // Obligatorio según tu registro real
-              activo: true      // Lo cargamos activo por defecto para la Consola
+              fuente: 'manual',
+              activo: true
             });
           } 
           else if (tipo === 'rutina' || tipo === 'actividad') {
+            let horaRaw = fila.Hora ? String(fila.Hora).trim() : '09:00';
+
+            // Convertidor idéntico para la celda de hora en rutinas
+            if (!isNaN(Number(horaRaw)) && Number(horaRaw) > 0 && Number(horaRaw) < 1) {
+              const fraccionDia = Number(horaRaw);
+              const totalMinutos = Math.round(fraccionDia * 24 * 60);
+              const horas = Math.floor(totalMinutos / 60);
+              const minutos = totalMinutos % 60;
+              horaRaw = `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}`;
+            }
+
             await crearTareaRecurrente(paciente.id, {
               descripcion: String(fila.Descripcion || 'Rutina sin descripción').trim(),
               tipo: String(fila.Categoria || 'otro').toLowerCase().trim(),
-              hora: String(fila.Hora || '09:00').trim(),
-              
-              // Aplicamos el mismo blindaje para la tabla de tareas
+              hora: horaRaw, // Pasa completamente sanitizada como "14:00"
               fecha_inicio: fecha_inicio,
               fecha_fin: fecha_fin
             });
@@ -301,7 +341,6 @@ const importarDesdeExcel = async () => {
       setImportando(false);
     }
   };
-
   const abrirEdicionMedicamento = (med: any) => {
     setMedicamentoEditando(med);
     setNombre(med.nombre);
