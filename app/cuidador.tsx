@@ -1128,29 +1128,31 @@ useFocusEffect(
           </View>
 
           {tareasPendientes.map((t) => {
-            // 🧠 Helper local para calcular la etiqueta de temporalidad de la tarea diaria
+            // 🎯 Helper robusto: Lee directo de la raíz del objeto enviado por el backend
             const renderTemporalidadTarea = () => {
               if (t.es_incidental) {
                 return <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '600' }}>⚡ Incidental</Text>;
               }
 
-              // 🎯 Extraemos las fechas buscando en la raíz o en los objetos anidados por si el JOIN cambió el nombre
-              const fInicioRaw = t.fecha_inicio || t.medicamentos?.fecha_inicio || t.rutinas?.fecha_inicio;
-              const fFinRaw = t.fecha_fin || t.medicamentos?.fecha_fin || t.rutinas?.fecha_fin;
+              // Normalizamos las fechas que envía el nuevo backend
+              const fInicio = t.fecha_inicio;
+              const fFin = t.fecha_fin;
 
-              // Si de plano no hay ninguna fecha de finalización válida, es permanente
-              if (!fFinRaw || fFinRaw === '') {
+              // 1. Si no hay fecha fin, es permanente
+              if (!fFin || fFin === null || fFin === '') {
                 return <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '600' }}>♾️ Permanente</Text>;
               }
 
-              // Sanitizamos los strings quedándonos únicamente con la porción YYYY-MM-DD para evitar errores por horas/ISO strings
-              const inicioSanitizado = String(fInicioRaw).split('T')[0];
-              const finSanitizada = String(fFinRaw).split('T')[0];
+              // 2. Si son iguales, es Cita Única (Fecha específica)
+              // Usamos .split('T')[0] para comparar solo la fecha y evitar errores por horas
+              const inicio = String(fInicio).split('T')[0];
+              const fin = String(fFin).split('T')[0];
 
-              if (inicioSanitizado === finSanitizada) {
+              if (inicio === fin) {
                 return <Text style={{ fontSize: 10, color: '#777', fontWeight: '600' }}>📍 Cita Única</Text>;
               }
 
+              // 3. Si son diferentes, es un rango
               return <Text style={{ fontSize: 10, color: '#555', fontWeight: '600' }}>📅 Rango Finito</Text>;
             };
 
@@ -1159,6 +1161,7 @@ useFocusEffect(
                 Alert.alert('Confirmar actividad', `¿Confirmas la ejecución de: ${t.descripcion}?`, [
                   { text: 'Cancelar', style: 'cancel' },
                   { text: '✓ Ejecutada', onPress: async () => {
+                    // ... tu lógica de completar ...
                     if (t.med_id) await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora);
                     else if (t.actividad_id) await completarActividad(t.actividad_id, pacienteActivo.id);
                     else if (t.es_incidental && t.id) {
@@ -1176,7 +1179,6 @@ useFocusEffect(
                 <View style={styles.tareaInfo}>
                   <Text style={styles.tareaTexto}>{t.descripcion}</Text>
                   
-                  {/* Fila de Badges: Horario + Vencimiento */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
                     <Text style={styles.tareaHora}>{t.hora ?? 'Incidental'}</Text>
                     <Text style={{ fontSize: 10, color: '#CCC' }}>·</Text>
