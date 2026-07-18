@@ -264,12 +264,13 @@ useEffect(() => {
         if (turnoRes?.turno) {
           // Traemos rápidamente los catálogos para contrastar vigencias
           const [medsData, tareasData] = await Promise.all([
-            getMedicamentos(p.id).catch(() => ({ medicamentos: [] })),
-            getTareasRecurrentes(p.id).catch(() => ({ tareas: [] }))
-          ]);
-          
-          const turnoLimpio = corregirResumenTurno(turnoRes.turno, medsData.medicamentos || [], tareasData.tareas || []);
-          setTurnoResumen(turnoLimpio);
+          getMedicamentos(p.id).catch(() => ({ medicamentos: [] })),
+          getTareasRecurrentes(p.id).catch(() => ({ tareas: [] }))
+        ]);
+
+        // 🎯 Pasamos 'tareasData.tareas' de forma limpia. El interceptor se encargará del resto.
+        const turnoLimpio = corregirResumenTurno(turnoRes.turno, medsData.medicamentos || [], tareasData.tareas || []);
+        setTurnoResumen(turnoLimpio);
         } else {
           setTurnoResumen(null);
         }
@@ -318,11 +319,13 @@ useEffect(() => {
     const turnoRes = await getTurnoActivoResumen(p.id);
     if (turnoRes.turno) {
       const [medsData, tareasData] = await Promise.all([
-        getMedicamentos(p.id).catch(() => ({ medicamentos: [] })),
-        getTareasRecurrentes(p.id).catch(() => ({ tareas: [] }))
-      ]);
-      const turnoLimpio = corregirResumenTurno(turnoRes.turno, medsData.medicamentos || [], tareasData.tareas || []);
-      setTurnoResumen(turnoLimpio);
+      getMedicamentos(p.id).catch(() => ({ medicamentos: [] })),
+      getTareasRecurrentes(p.id).catch(() => ({ tareas: [] }))
+    ]);
+
+    // 🎯 Pasamos 'tareasData.tareas' de forma limpia. El interceptor se encargará del resto.
+    const turnoLimpio = corregirResumenTurno(turnoRes.turno, medsData.medicamentos || [], tareasData.tareas || []);
+    setTurnoResumen(turnoLimpio);
     } else {
       setTurnoResumen(null);
     }
