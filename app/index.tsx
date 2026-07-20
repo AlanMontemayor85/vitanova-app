@@ -182,6 +182,13 @@ useEffect(() => {
       // 3. 🚨 ADUANA BIOMÉDICA: Preguntamos a Railway/Supabase quién es este usuario
       const data = await getPacientes();
       
+
+      console.log("🧪 =========================");
+      console.log("🧪 USUARIO_TIPO QUE LLEGA:", data ? data.usuario_tipo : "data es null");
+      console.log("🧪 NOMBRE:", data ? data.usuario_nombre : "sin nombre");
+      console.log("🧪 DATA COMPLETA:", JSON.stringify(data, null, 2));
+      console.log("🧪 =========================");
+      
       // Mapeo del nombre completo (Alan Montemayor). 
       // Usamos un typeof para evitar que truene en rojo si aún no has declarado el useState arriba.
       if (data && data.usuario_nombre && typeof setNombreUsuario === 'function') {
