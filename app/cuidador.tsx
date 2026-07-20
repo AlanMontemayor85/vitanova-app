@@ -77,9 +77,27 @@ const ICONOS_TIPO: Record<string, string> = {
 
 type Vista = 'lista' | 'turno' | 'espontaneo' | 'cierre';
 
-export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
-  const router = useRouter();
+export default function CuidadorScreenCuidadorScreen({ 
+  pacienteProp = null, 
+  modoFamiliar = false, 
+  esFamiliarEnModoCuidador = false,   // ← nueva prop
+  onRegresar 
+}: any) {
+
   const params = useLocalSearchParams();
+  const router = useRouter();
+
+  // ==========================================
+  // 🎯 BANDERA MAESTRA (la más importante de todas)
+  // ==========================================
+  const esSwitchFamiliar = 
+    esFamiliarEnModoCuidador === true || 
+    modoFamiliar === true || 
+    !!pacienteProp || 
+    params?.modoSwitch === 'cuidador_familiar';
+
+  // A partir de ahora usaremos SIEMPRE "esSwitchFamiliar" 
+  // en todos los candados de horario y navegación.
 
   const [vista, setVista] = useState<Vista>('lista');
   const [loading, setLoading] = useState(true);
@@ -147,7 +165,7 @@ export default function CuidadorScreen({ pacienteProp, onRegresar }: any) {
   const [glucosa, setGlucosa] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const yaTransicionadoRef = useRef(false);
-  const modoFamiliar = params.modoFamiliar === 'true';
+  
   const vistaRef = useRef(vista);
   // Estado temporal para la sensibilidad de caídas recuperada del servidor
   const [sensibilidadCaidas, setSensibilidadCaidas] = useState('');

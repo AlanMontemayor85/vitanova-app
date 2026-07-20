@@ -50,6 +50,7 @@ export default function HomeScreen() {
   const [vistaModo, setVistaModo] = useState<'familiar' | 'cuidador'>('familiar');
   const pathname = usePathname();
   const pacienteId = paciente?.id;
+  const [modoCuidadorFamiliar, setModoCuidadorFamiliar] = useState(false);
   
 // 📡 1. Función para jalar la telemetría más reciente del reloj
 const cargarSignosDispositivo = async (idToLoad?: string) => {
@@ -391,30 +392,14 @@ useEffect(() => {
         {/* SWITCH MODO */}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12, gap: 4 }}>
           <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>
-            {vistaModo === 'familiar' ? '👨‍👩‍👧' : '🩺'}
+            {modoCuidadorFamiliar ? '🩺' : '👨‍👩‍👧'}
           </Text>
           <Switch
-            trackColor={{ false: 'rgba(255,255,255,0.2)', true: COLORS.gold }}
-            thumbColor={COLORS.white}
-            value={vistaModo === 'cuidador'}
-            onValueChange={(val) => {
-              // 1. Cambiamos el estado local de siempre
-              setVistaModo(val ? 'cuidador' : 'familiar');
-
-              // 2. 🎯 INYECTAMOS O LIMPIAMOS EL ESCUDO EN LA URL SEGÚN EL CASO
-              if (val) {
-                router.setParams({
-                  refresh: String(Date.now()),
-                  modoSwitch: 'cuidador_familiar',
-                  usuarioRol: 'familiar_principal'
-                });
-              } else {
-                router.setParams({
-                  modoSwitch: undefined,
-                  usuarioRol: undefined
-                });
-              }
-            }}
+            value={modoCuidadorFamiliar}
+            onValueChange={setModoCuidadorFamiliar}
+            trackColor={{ false: '#767577', true: COLORS.gold } as any}
+            thumbColor="#ffffff"
+            ios_backgroundColor="#3e3e3e"
           />
         </View>
 
@@ -436,11 +421,12 @@ useEffect(() => {
       </View>
 
       {/* ── INTERRUPTOR DINÁMICO DE CONSOLA ── */}
-      {vistaModo === 'cuidador' && paciente?.id ? (
-        /* 🩺 MODO OPERATIVO (Cargamos tu pantalla de cuidador directamente) */
-        <CuidadorScreen 
-          pacienteProp={paciente} 
-          onRegresar={() => setVistaModo('familiar')}
+      {modoCuidadorFamiliar ? (
+        <CuidadorScreen
+          pacienteProp={paciente}                    // el paciente actual
+          modoFamiliar={true}
+          esFamiliarEnModoCuidador={true}            // ← ESTA ES LA NUEVA PROP CLAVE
+          onRegresar={() => setModoCuidadorFamiliar(false)}
         />
       ) : (
         /* 👨‍👩‍👧 MODO FAMILIAR (Tu interfaz normal con tarjeta de paciente, scroll, bottomNav y modal) */
