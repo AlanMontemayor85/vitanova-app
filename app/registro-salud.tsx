@@ -103,31 +103,37 @@ export default function RegistroSaludScreen() {
   };
 
   const avanzarAlTurno = async () => {
-    try {
-      if (momento === 'inicio_turno') {
-        await iniciarTurno(paciente.id);
-      }
-      
-      
-      // Esto evita crear una instancia standalone nueva y preserva 'pacienteProp'
-      if (params.modoSwitch === 'cuidador_familiar' || params.usuarioRol === 'familiar_principal') {
-        console.log("🔙 Regresando al CuidadorScreen embebido (Preservando layout familiar)");
-        router.back();
-        return;
-      }
-      
-      // Flujo tradicional para cuidadores contratados directos (ruta independiente)
-      router.replace({
-        pathname: '/cuidador' as any,
-        params: { 
-          vistaInicial: 'turno', 
-          paciente: typeof params.paciente === 'string' ? params.paciente : JSON.stringify(paciente) 
-        }
-      });
-    } catch (err) {
-      console.error("Error al arrancar el bloque del turno:", err);
+  try {
+    if (momento === 'inicio_turno') {
+      await iniciarTurno(paciente.id);
     }
-  };
+    
+    // 🎯 CANDADO DE NAVEGACIÓN ESTRICTO:
+    // Un cuidador contratado o con modo de navegación limpia NUNCA debe hacer router.back()
+    const esCuidadorDirecto = 
+      params.usuarioRol === 'cuidador_contratado' || 
+      params.modoSwitch === 'ninguno' ||
+      !params.modoSwitch;
+
+    if (!esCuidadorDirecto && (params.modoSwitch === 'cuidador_familiar' || params.usuarioRol === 'familiar_principal')) {
+      console.log("🔙 Regresando al CuidadorScreen embebido (Preservando layout familiar)");
+      router.back();
+      return;
+    }
+    
+    // 🚀 Flujo estricto e independiente para Cuidador Contratado Directo
+    console.log("🚀 Avanzando a Consola de Cuidador activa...");
+    router.replace({
+      pathname: '/cuidador' as any,
+      params: { 
+        vistaInicial: 'turno', 
+        paciente: typeof params.paciente === 'string' ? params.paciente : JSON.stringify(paciente) 
+      }
+    });
+  } catch (err) {
+    console.error("❌ Error al arrancar el bloque del turno:", err);
+  }
+};
 
   const momentoLabel: Record<string, string> = {
     inicio_turno: 'Verificación de Entrada',
