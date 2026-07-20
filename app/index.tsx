@@ -205,53 +205,45 @@ useEffect(() => {
         return;
       }
 
-      // 🎛️ SEGMENTACIÓN DE RUTAS BASADA EN ROLES DE PRODUCCIÓN
-      const esCuidadorPuro = data.usuario_tipo === 'cuidador' || data.usuario_tipo === 'cuidador_contratado';
+      // 🎛️ SEGMENTACIÓN DE RUTAS CORREGIDA (Julio 2026)
+          const tipo = data.usuario_tipo;
 
-      if (esCuidadorPuro) {
-        console.log("🧑‍⚕️ Acceso concedido como Cuidador operativo. Redirigiendo limpia...");
-        router.replace({
-          pathname: '/cuidador' as any,
-          params: { 
-            usuarioRol: 'cuidador_contratado',
-            modoSwitch: 'ninguno' // Sobrescribimos cualquier param fantasma anterior
+          const esCuidadorPuro = tipo === 'cuidador' || tipo === 'cuidador_contratado';
+          const esFamiliar = tipo === 'familiar' || tipo === 'admin' || tipo === 'familiar_principal';
+
+          // 1. Solo los cuidadores contratados reales van directo a /cuidador
+          if (esCuidadorPuro) {
+            console.log("🧑‍⚕️ Acceso concedido como Cuidador operativo real. Redirigiendo limpia...");
+            router.replace({
+              pathname: '/cuidador' as any,
+              params: { 
+                usuarioRol: 'cuidador_contratado',
+                modoSwitch: 'ninguno'
+              }
+            });
+            return;
           }
-        });
-        return;
-      }
-      // 🎯 CANDADO DEFENSIVO SUPREMO REFORZADO:
-      // Validamos que TANTO la URL como el estado local estén de acuerdo en que seguimos en modo switch.
-      const esModoSwitchActivo = 
-        vistaModo === 'cuidador' && 
-        (params.modoSwitch === 'cuidador_familiar' || params.usuarioRol === 'familiar_principal');
 
-      if (esModoSwitchActivo) {
-        console.log("🛡️ [INIT] Url protegida por Switch Familiar. Bloqueando expulsión del enrutador.");
-      } 
-      // 2. Si el switch está apagado localmente, se evalúan los roles normales de producción:
-      else if (data.usuario_tipo === 'cuidador' || data.usuario_tipo === 'cuidador_contratado') {
-        console.log("🧑‍⚕️ Acceso concedido como Cuidador operativo. Redirigiendo...");
-        router.replace('/cuidador');
-        return;
-      } else if (data.usuario_tipo === 'autonomo') {
-        console.log("🧓 Acceso concedido como Autocuidador. Redirigiendo...");
-        router.replace({
-          pathname: '/autocuidador' as any,
-          params: { pacienteId: data.patients?.[0]?.id }
-        });
-        return;
-      } else if (data.usuario_tipo === 'medico') {
-        console.log("🩺 Acceso concedido como Supervisor Médico. Redirigiendo...");
-        router.replace('/medico');
-        return;
-      } else {
-        console.log("👨‍👩‍👧 Acceso familiar confirmado estándar.");
-      }
-
-      // 👑 CONTROL C: Si eres un Familiar/Admin válido, te damos luz verde para continuar abajo
-      if (data.usuario_tipo === 'familiar' || data.usuario_tipo === 'admin') {
-        console.log("👑 Acceso concedido como Administrador. Inicializando entorno de telemetría...");
-      }
+          // 2. Si es Familiar / Admin → nos quedamos en el Index (Home Familiar)
+          if (esFamiliar) {
+            console.log("👨‍👩‍👧 Acceso concedido como Familiar Principal. Permaneciendo en Home.");
+            // No hacemos return. Dejamos que continúe la carga de pacientes y telemetría de abajo.
+          } 
+          // 3. Otros roles
+          else if (tipo === 'autonomo') {
+            console.log("🧓 Acceso concedido como Autocuidador. Redirigiendo...");
+            router.replace({
+              pathname: '/autocuidador' as any,
+              params: { pacienteId: data.patients?.[0]?.id }
+            });
+            return;
+          } else if (tipo === 'medico') {
+            console.log("🩺 Acceso concedido como Supervisor Médico. Redirigiendo...");
+            router.replace('/medico');
+            return;
+          } else {
+            console.log("⚠️ Rol desconocido:", tipo, "→ se trata como Familiar por seguridad");
+          }
 
       // 📡 4. Flujo Normal de Familiar (Carga de telemetría y estado clínico)
       if (data.patients && data.patients.length > 0) {
@@ -305,7 +297,7 @@ useEffect(() => {
   };
 
   init();
-}, [params.refresh, params.modoSwitch, params.usuarioRol]);
+}, [params.refresh]);
 // Borramos el router.push y lo dejamos como un log pasivo de estado
 useEffect(() => {
   console.log("🔄 [INDEX] Modo de visualización cambiado a:", vistaModo, "| Paciente:", paciente?.id);
