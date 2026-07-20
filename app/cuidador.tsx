@@ -500,9 +500,14 @@ useFocusEffect(
     // 3. 🟢 FLUJO CON TELEMETRÍA (Para Blanca que sí cuenta con reloj_imei)
     try {
       if (!esSwitchFamiliar) {
-        const tareasCheck = await getTareasHoy(p.id);
-        if (tareasCheck?.sin_horario) {
-          Alert.alert('Sin horario', 'El familiar no ha configurado tu horario de entrada.');
+        const tareasCheck = await getTareasHoy(p.id); // o getTareasDia
+        console.log("🧪 CHECK HORARIO PARA CUIDADOR:", JSON.stringify(tareasCheck, null, 2));
+        
+        if (tareasCheck?.sin_horario === true) {
+          Alert.alert(
+            'Sin horario asignado',
+            'El familiar principal no ha configurado tu horario ni los días habilitados.'
+          );
           setIniciando(false);
           return;
         }
@@ -534,13 +539,19 @@ useFocusEffect(
     },
   });
 };
-// ── Abrir directo en Consola cuando venimos del registro-salud ──
+// ── Abrir directo en Consola cuando venimos del switch + registro-salud ──
 useEffect(() => {
-  if (esSwitchFamiliar && initialVista === 'turno' && initialPacienteId) {
-    const p = pacientes.find((x: any) => x.id === initialPacienteId) || pacienteProp;
+  if (!esSwitchFamiliar) return;
+
+  // Prioridad 1: props nuevas
+  const targetId = initialPacienteId || params.pacienteIdConsola;
+  const quiereTurno = initialVista === 'turno' || params.vistaDeseada === 'turno';
+
+  if (quiereTurno && targetId && pacientes.length > 0) {
+    const p = pacientes.find((x: any) => x.id === targetId) || pacienteProp;
     
-    if (p) {
-      console.log("🎯 Abriendo directo en Consola de Turno para:", p.nombre_completo);
+    if (p && vista !== 'turno') {
+      console.log("🎯 FORZANDO Consola de Turno para:", p.nombre_completo);
       setPacienteActivo({
         ...p,
         rol_en_equipo: 'familiar_principal',
@@ -548,9 +559,17 @@ useEffect(() => {
       });
       cargarTurno(p.id);
       setVista('turno');
+      
+      // Limpiar
+      router.setParams({ 
+        vistaDeseada: undefined, 
+        pacienteIdConsola: undefined,
+        abrirModoCuidador: undefined
+      });
     }
   }
-}, [esSwitchFamiliar, initialVista, initialPacienteId, pacientes]);
+}, [esSwitchFamiliar, initialPacienteId, initialVista, params.vistaDeseada, params.pacienteIdConsola, pacientes, vista]);
+
   const guardarRegistroEspontaneo = async () => {
   setGuardandoEspontaneo(true);
   try {

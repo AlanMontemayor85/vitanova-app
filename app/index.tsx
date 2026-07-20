@@ -435,7 +435,6 @@ useEffect(() => {
           modoFamiliar={true}
           esFamiliarEnModoCuidador={true}
           onRegresar={() => setModoCuidadorFamiliar(false)}
-          // 👇 Nuevas props para aterrizar directo en consola
           initialPacienteId={params.pacienteIdConsola as string}
           initialVista={params.vistaDeseada as string}
         />
