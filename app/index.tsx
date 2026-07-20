@@ -309,7 +309,21 @@ useEffect(() => {
 useEffect(() => {
   console.log("🔄 [INDEX] Modo de visualización cambiado a:", vistaModo, "| Paciente:", paciente?.id);
 }, [vistaModo, paciente?.id]);
+// Escuchar cuando regresamos de registro-salud en modo switch
+useEffect(() => {
+  if (params.abrirModoCuidador === 'true') {
+    console.log("🔄 Restaurando Modo Cuidador Familiar → abriendo consola");
+    
+    setModoCuidadorFamiliar(true);
 
+    // Limpiamos los params para que no se dispare otra vez
+    router.setParams({ 
+      abrirModoCuidador: undefined,
+      pacienteIdConsola: undefined,
+      vistaDeseada: undefined
+    });
+  }
+}, [params.abrirModoCuidador]);
 useEffect(() => {
   if (pacientes.length === 0) return;
   const p = pacientes[pacienteIndex];

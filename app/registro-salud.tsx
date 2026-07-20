@@ -104,33 +104,41 @@ export default function RegistroSaludScreen() {
   };
 
   const avanzarAlTurno = async () => {
-    try {
-      if (momento === 'inicio_turno') {
-        await iniciarTurno(paciente.id);
-      }
+  try {
+    if (momento === 'inicio_turno') {
+      await iniciarTurno(paciente.id);
+    }
 
-      const esSwitchEmbebido = params.modoSwitch === 'cuidador_familiar';
+    const esSwitchEmbebido = params.modoSwitch === 'cuidador_familiar';
 
-      if (esSwitchEmbebido) {
-        console.log("🔙 Regresando al CuidadorScreen embebido (Preservando layout familiar)");
-        router.back();
-        return;
-      }
-
-      // Cuidador real
-      console.log("🚀 Avanzando a Consola de Cuidador activa limpia...");
+    if (esSwitchEmbebido) {
+      console.log("🔙 Regresando al Modo Monitoreo del Familiar (embebido)");
+      
+      // En lugar de router.back(), volvemos al Index forzando el switch ON
       router.replace({
-        pathname: '/cuidador' as any,
-        params: { 
-          vistaInicial: 'turno', 
-          paciente: typeof params.paciente === 'string' ? params.paciente : JSON.stringify(paciente),
-          modoSwitch: 'ninguno'
+        pathname: '/',
+        params: {
+          refresh: String(Date.now()),
+          abrirModoCuidador: 'true'   // ← señal especial
         }
       });
-    } catch (err) {
-      console.error("❌ Error al arrancar el bloque del turno:", err);
+      return;
     }
-  };
+
+    // Cuidador real
+    console.log("🚀 Avanzando a Consola de Cuidador activa limpia...");
+    router.replace({
+      pathname: '/cuidador' as any,
+      params: { 
+        vistaInicial: 'turno', 
+        paciente: typeof params.paciente === 'string' ? params.paciente : JSON.stringify(paciente),
+        modoSwitch: 'ninguno'
+      }
+    });
+  } catch (err) {
+    console.error("❌ Error al arrancar el bloque del turno:", err);
+  }
+};
   const momentoLabel: Record<string, string> = {
     inicio_turno: 'Verificación de Entrada',
     cierre_turno: 'Cierre de turno',

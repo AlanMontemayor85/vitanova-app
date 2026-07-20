@@ -534,6 +534,26 @@ useFocusEffect(
     },
   });
 };
+
+ // ── Abrir directo en Consola cuando venimos del switch + registro-salud ──
+useEffect(() => {
+  if (esSwitchFamiliar && params.vistaDeseada === 'turno' && params.pacienteIdConsola) {
+    const pacienteId = params.pacienteIdConsola as string;
+    
+    // Buscamos el paciente en la lista
+    const p = pacientes.find((x: any) => x.id === pacienteId) || pacienteProp;
+    
+    if (p) {
+      console.log("🎯 Abriendo directo en Consola de Turno para:", p.nombre_completo);
+      setPacienteActivo(p);
+      cargarTurno(p.id);
+      setVista('turno');
+      
+      // Limpiamos para que no se repita
+      router.setParams({ vistaDeseada: undefined, pacienteIdConsola: undefined });
+    }
+  }
+}, [esSwitchFamiliar, params.vistaDeseada, params.pacienteIdConsola, pacientes]);
   const guardarRegistroEspontaneo = async () => {
   setGuardandoEspontaneo(true);
   try {
