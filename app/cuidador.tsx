@@ -500,13 +500,13 @@ useFocusEffect(
     // 3. 🟢 FLUJO CON TELEMETRÍA (Para Blanca que sí cuenta con reloj_imei)
     try {
       if (!esSwitchFamiliar) {
-        const tareasCheck = await getTareasHoy(p.id); // o getTareasDia
-        console.log("🧪 CHECK HORARIO PARA CUIDADOR:", JSON.stringify(tareasCheck, null, 2));
-        
+        const tareasCheck = await getTareasHoy(p.id);
+        console.log("🧪 CHECK HORARIO:", tareasCheck);
+
         if (tareasCheck?.sin_horario === true) {
           Alert.alert(
             'Sin horario asignado',
-            'El familiar principal no ha configurado tu horario ni los días habilitados.'
+            tareasCheck.mensaje || 'El familiar principal no ha configurado tu horario ni los días habilitados.'
           );
           setIniciando(false);
           return;
