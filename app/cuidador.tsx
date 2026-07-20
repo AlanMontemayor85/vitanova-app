@@ -393,9 +393,17 @@ useFocusEffect(
       getAlertaPeso(pacienteId)
     ]);
 
-    if (tareasData.sin_horario) {
-      Alert.alert('Sin horario asignado', 'Pídele al familiar que configure tu horario.', [{ text: 'Entendido', onPress: () => setVista('lista') }]);
-      return;
+    if (tareasData?.sin_horario) {
+      if (!esSwitchFamiliar) {
+        Alert.alert(
+          'Sin horario asignado',
+          'El familiar principal no ha configurado tu horario de entrada ni los días habilitados.',
+          [{ text: 'Entendido', onPress: () => setVista('lista') }]
+        );
+        return;
+      } else {
+        console.log("👑 Familiar Principal en Modo Monitoreo → acceso permitido (sin restricción de horario)");
+      }
     }
     if (turnoData.turno) {
       setTurnoActivo(turnoData.turno);
@@ -435,6 +443,10 @@ useFocusEffect(
   };
 
   const manejarInicioTurno = async (p: any) => {
+    // 🛡️ Si es Familiar en switch, saltamos el chequeo de horario de cuidador
+    if (esSwitchFamiliar) {
+      console.log("👑 Familiar en switch → saltando validación de horario de cuidador");
+    }
     if (iniciando) return;
     setIniciando(true);
     
@@ -456,10 +468,13 @@ useFocusEffect(
             text: 'Iniciar Turno', 
             onPress: async () => {
               try {
-                const tareasCheck = await getTareasHoy(p.id);
-                if (tareasCheck.sin_horario) {
-                  Alert.alert('Sin horario', 'El familiar no ha configurado tu horario de entrada.');
-                  return;
+                if (!esSwitchFamiliar) {
+                  const tareasCheck = await getTareasHoy(p.id);
+                  if (tareasCheck?.sin_horario) {
+                    Alert.alert('Sin horario', 'El familiar no ha configurado tu horario de entrada.');
+                    setIniciando(false);
+                    return;
+                  }
                 }
                 
                 // 🎯 PASAMOS EL PACIENTE ACTIVO CON SU ROL ACTUAL
@@ -484,11 +499,13 @@ useFocusEffect(
 
     // 3. 🟢 FLUJO CON TELEMETRÍA (Para Blanca que sí cuenta con reloj_imei)
     try {
-      const tareasCheck = await getTareasHoy(p.id);
-      if (tareasCheck.sin_horario) {
-        Alert.alert('Sin horario', 'El familiar no ha configurado tu horario de entrada.');
-        setIniciando(false);
-        return;
+      if (!esSwitchFamiliar) {
+        const tareasCheck = await getTareasHoy(p.id);
+        if (tareasCheck?.sin_horario) {
+          Alert.alert('Sin horario', 'El familiar no ha configurado tu horario de entrada.');
+          setIniciando(false);
+          return;
+        }
       }
       
       const cambiosData = await detectarCambiosTurno(p.id);
@@ -507,16 +524,16 @@ useFocusEffect(
   };
 
   const irARegistroSalud = (p: any) => {
-    router.push({
-      pathname: '/registro-salud' as any,
-      params: { 
-        paciente: JSON.stringify(p), 
-        momento: 'inicio_turno',
-        // 🎯 LE PASAMOS LA IDENTIDAD DEL SWITCH PARA QUE LA OTRA PANTALLA SEPA DE DÓNDE VIENE
-        modoSwitch: 'cuidador_familiar' 
-      },
-    });
-  };
+  router.push({
+    pathname: '/registro-salud' as any,
+    params: { 
+      paciente: JSON.stringify(p), 
+      momento: 'inicio_turno',
+      // 🎯 Solo marcamos el switch si realmente somos el Familiar Principal
+      modoSwitch: esSwitchFamiliar ? 'cuidador_familiar' : 'ninguno'
+    },
+  });
+};
   const guardarRegistroEspontaneo = async () => {
   setGuardandoEspontaneo(true);
   try {
@@ -842,19 +859,38 @@ useFocusEffect(
                   <TouchableOpacity 
                     style={[styles.iniciarBtn, { marginTop: 10 }]} 
                     onPress={async () => {
-                      console.log("🩺 Iniciando verificación de turno para:", p.nombre_completo);
+                      if (iniciando) return;
+                      setIniciando(true);
+                      
                       try {
-                        // 1. Ejecutamos tu lógica nativa para abrir el turno en el backend
-                        await manejarInicioTurno(p);
-                        
-                        // 2. Una vez creado el turno con éxito, forzamos de golpe los estados visuales
-                        setPacienteActivo(p);
-                        if (typeof cargarTurno === 'function') {
-                          await cargarTurno(p.id);
+                        console.log("🩺 Iniciando verificación de turno para:", p.nombre_completo);
+
+                        // 🛡️ Chequeo de horario SOLO para cuidadores reales
+                        if (!esSwitchFamiliar) {
+                          const tareasCheck = await getTareasHoy(p.id); // cambia a getTareasDia si se llama así
+                          if (tareasCheck?.sin_horario) {
+                            Alert.alert(
+                              'Sin horario asignado',
+                              'Pídele al familiar principal que configure tu horario y los días en que puedes ingresar.'
+                            );
+                            return;
+                          }
                         }
-                        setVista('turno');
+
+                        // Le pasamos el paciente con el rol correcto
+                        await manejarInicioTurno({
+                          ...p,
+                          rol_en_equipo: esSwitchFamiliar ? 'familiar_principal' : (p.rol_en_equipo || 'cuidador_contratado'),
+                          usuarioRol: esSwitchFamiliar ? 'familiar_principal' : 'cuidador_contratado'
+                        });
+
+                        // Nota: Ya NO forzamos setVista('turno') aquí.
+                        // Dejamos que manejarInicioTurno o avanzarAlTurno se encarguen de la navegación.
+                        
                       } catch (error) {
                         console.error("❌ Error al transicionar el turno:", error);
+                      } finally {
+                        setIniciando(false);
                       }
                     }} 
                     disabled={iniciando}

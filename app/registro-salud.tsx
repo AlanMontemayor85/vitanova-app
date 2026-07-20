@@ -45,6 +45,7 @@ export default function RegistroSaludScreen() {
       if (!paciente?.id) return;
       try {
         const res = await getSignosRecientes(paciente.id);
+        
         if (res && res.success) {
           if (res.spo2 !== '—') setSpo2(Number(res.spo2));
           if (res.fc !== '—') setFc(Number(res.fc));
@@ -103,35 +104,33 @@ export default function RegistroSaludScreen() {
   };
 
   const avanzarAlTurno = async () => {
-  try {
-    if (momento === 'inicio_turno') {
-      await iniciarTurno(paciente.id);
-    }
-    
-    // 🎯 CANDADO ABSOLUTO CONTRA EL BUCLE DE REBOTE:
-    // Solo regresamos si viene EXPLÍCITAMENTE marcado el switch del familiar
-    const esSwitchEmbebido = params.modoSwitch === 'cuidador_familiar';
-
-    if (esSwitchEmbebido) {
-      console.log("🔙 Regresando al CuidadorScreen embebido (Preservando layout familiar)");
-      router.back();
-      return;
-    }
-    
-    // 🚀 Cuidador Operativo Directo (Rompe la pila de navegación y entra directo a la consola)
-    console.log("🚀 Avanzando a Consola de Cuidador activa limpia...");
-    router.replace({
-      pathname: '/cuidador' as any,
-      params: { 
-        vistaInicial: 'turno', 
-        paciente: typeof params.paciente === 'string' ? params.paciente : JSON.stringify(paciente),
-        modoSwitch: 'ninguno' // Forzamos limpieza total de params
+    try {
+      if (momento === 'inicio_turno') {
+        await iniciarTurno(paciente.id);
       }
-    });
-  } catch (err) {
-    console.error("❌ Error al arrancar el bloque del turno:", err);
-  }
-};
+
+      const esSwitchEmbebido = params.modoSwitch === 'cuidador_familiar';
+
+      if (esSwitchEmbebido) {
+        console.log("🔙 Regresando al CuidadorScreen embebido (Preservando layout familiar)");
+        router.back();
+        return;
+      }
+
+      // Cuidador real
+      console.log("🚀 Avanzando a Consola de Cuidador activa limpia...");
+      router.replace({
+        pathname: '/cuidador' as any,
+        params: { 
+          vistaInicial: 'turno', 
+          paciente: typeof params.paciente === 'string' ? params.paciente : JSON.stringify(paciente),
+          modoSwitch: 'ninguno'
+        }
+      });
+    } catch (err) {
+      console.error("❌ Error al arrancar el bloque del turno:", err);
+    }
+  };
   const momentoLabel: Record<string, string> = {
     inicio_turno: 'Verificación de Entrada',
     cierre_turno: 'Cierre de turno',
