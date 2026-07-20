@@ -205,12 +205,19 @@ useEffect(() => {
       }
 
       // 🎛️ SEGMENTACIÓN DE RUTAS BASADA EN ROLES DE PRODUCCIÓN
-      
-      // 🎯 CANDADO DEFENSIVO SUPREMO:
-      // Leemos directamente si en los parámetros globales de la URL existe el flag del Switch.
-      // Si está activo, congelamos cualquier redirección física para quedarnos en el index.
-      // 🎛️ SEGMENTACIÓN DE RUTAS BASADA EN ROLES DE PRODUCCIÓN
-      
+      const esCuidadorPuro = data.usuario_tipo === 'cuidador' || data.usuario_tipo === 'cuidador_contratado';
+
+      if (esCuidadorPuro) {
+        console.log("🧑‍⚕️ Acceso concedido como Cuidador operativo. Redirigiendo limpia...");
+        router.replace({
+          pathname: '/cuidador' as any,
+          params: { 
+            usuarioRol: 'cuidador_contratado',
+            modoSwitch: 'ninguno' // Sobrescribimos cualquier param fantasma anterior
+          }
+        });
+        return;
+      }
       // 🎯 CANDADO DEFENSIVO SUPREMO REFORZADO:
       // Validamos que TANTO la URL como el estado local estén de acuerdo en que seguimos en modo switch.
       const esModoSwitchActivo = 
