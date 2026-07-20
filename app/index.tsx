@@ -312,16 +312,11 @@ useEffect(() => {
 // Escuchar cuando regresamos de registro-salud en modo switch
 useEffect(() => {
   if (params.abrirModoCuidador === 'true') {
-    console.log("🔄 Restaurando Modo Cuidador Familiar → abriendo consola");
-    
+    console.log("🔄 Restaurando Modo Cuidador Familiar");
     setModoCuidadorFamiliar(true);
-
-    // Limpiamos los params para que no se dispare otra vez
-    router.setParams({ 
-      abrirModoCuidador: undefined,
-      pacienteIdConsola: undefined,
-      vistaDeseada: undefined
-    });
+    
+    // No limpiamos todavía los params de pacienteIdConsola y vistaDeseada
+    // para que el CuidadorScreen los pueda leer al montar
   }
 }, [params.abrirModoCuidador]);
 useEffect(() => {
@@ -436,10 +431,13 @@ useEffect(() => {
       {/* ── INTERRUPTOR DINÁMICO DE CONSOLA ── */}
       {modoCuidadorFamiliar ? (
         <CuidadorScreen
-          pacienteProp={paciente}                    // el paciente actual
+          pacienteProp={paciente}
           modoFamiliar={true}
-          esFamiliarEnModoCuidador={true}            // ← ESTA ES LA NUEVA PROP CLAVE
+          esFamiliarEnModoCuidador={true}
           onRegresar={() => setModoCuidadorFamiliar(false)}
+          // 👇 Nuevas props para aterrizar directo en consola
+          initialPacienteId={params.pacienteIdConsola as string}
+          initialVista={params.vistaDeseada as string}
         />
       ) : (
         /* 👨‍👩‍👧 MODO FAMILIAR (Tu interfaz normal con tarjeta de paciente, scroll, bottomNav y modal) */

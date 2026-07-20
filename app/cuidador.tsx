@@ -81,15 +81,15 @@ export default function CuidadorScreen({
   pacienteProp = null, 
   modoFamiliar = false, 
   esFamiliarEnModoCuidador = false,   // ← nueva prop
-  onRegresar 
+  onRegresar,
+  initialPacienteId = null,
+  initialVista = null
 }: any) {
 
   const params = useLocalSearchParams();
   const router = useRouter();
 
-  // ==========================================
-  // 🎯 BANDERA MAESTRA (la más importante de todas)
-  // ==========================================
+
   const esSwitchFamiliar = 
     esFamiliarEnModoCuidador === true || 
     modoFamiliar === true || 
@@ -534,26 +534,23 @@ useFocusEffect(
     },
   });
 };
-
- // ── Abrir directo en Consola cuando venimos del switch + registro-salud ──
+// ── Abrir directo en Consola cuando venimos del registro-salud ──
 useEffect(() => {
-  if (esSwitchFamiliar && params.vistaDeseada === 'turno' && params.pacienteIdConsola) {
-    const pacienteId = params.pacienteIdConsola as string;
-    
-    // Buscamos el paciente en la lista
-    const p = pacientes.find((x: any) => x.id === pacienteId) || pacienteProp;
+  if (esSwitchFamiliar && initialVista === 'turno' && initialPacienteId) {
+    const p = pacientes.find((x: any) => x.id === initialPacienteId) || pacienteProp;
     
     if (p) {
       console.log("🎯 Abriendo directo en Consola de Turno para:", p.nombre_completo);
-      setPacienteActivo(p);
+      setPacienteActivo({
+        ...p,
+        rol_en_equipo: 'familiar_principal',
+        usuarioRol: 'familiar_principal'
+      });
       cargarTurno(p.id);
       setVista('turno');
-      
-      // Limpiamos para que no se repita
-      router.setParams({ vistaDeseada: undefined, pacienteIdConsola: undefined });
     }
   }
-}, [esSwitchFamiliar, params.vistaDeseada, params.pacienteIdConsola, pacientes]);
+}, [esSwitchFamiliar, initialVista, initialPacienteId, pacientes]);
   const guardarRegistroEspontaneo = async () => {
   setGuardandoEspontaneo(true);
   try {
