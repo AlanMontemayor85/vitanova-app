@@ -77,7 +77,7 @@ const ICONOS_TIPO: Record<string, string> = {
 
 type Vista = 'lista' | 'turno' | 'espontaneo' | 'cierre';
 
-export default function CuidadorScreenCuidadorScreen({ 
+export default function CuidadorScreen({
   pacienteProp = null, 
   modoFamiliar = false, 
   esFamiliarEnModoCuidador = false,   // ← nueva prop
