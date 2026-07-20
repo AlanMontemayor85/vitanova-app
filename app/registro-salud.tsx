@@ -108,33 +108,30 @@ export default function RegistroSaludScreen() {
       await iniciarTurno(paciente.id);
     }
     
-    // 🎯 CANDADO DE NAVEGACIÓN ESTRICTO:
-    // Un cuidador contratado o con modo de navegación limpia NUNCA debe hacer router.back()
-    const esCuidadorDirecto = 
-      params.usuarioRol === 'cuidador_contratado' || 
-      params.modoSwitch === 'ninguno' ||
-      !params.modoSwitch;
+    // 🎯 CANDADO ABSOLUTO CONTRA EL BUCLE DE REBOTE:
+    // Solo regresamos si viene EXPLÍCITAMENTE marcado el switch del familiar
+    const esSwitchEmbebido = params.modoSwitch === 'cuidador_familiar';
 
-    if (!esCuidadorDirecto && (params.modoSwitch === 'cuidador_familiar' || params.usuarioRol === 'familiar_principal')) {
+    if (esSwitchEmbebido) {
       console.log("🔙 Regresando al CuidadorScreen embebido (Preservando layout familiar)");
       router.back();
       return;
     }
     
-    // 🚀 Flujo estricto e independiente para Cuidador Contratado Directo
-    console.log("🚀 Avanzando a Consola de Cuidador activa...");
+    // 🚀 Cuidador Operativo Directo (Rompe la pila de navegación y entra directo a la consola)
+    console.log("🚀 Avanzando a Consola de Cuidador activa limpia...");
     router.replace({
       pathname: '/cuidador' as any,
       params: { 
         vistaInicial: 'turno', 
-        paciente: typeof params.paciente === 'string' ? params.paciente : JSON.stringify(paciente) 
+        paciente: typeof params.paciente === 'string' ? params.paciente : JSON.stringify(paciente),
+        modoSwitch: 'ninguno' // Forzamos limpieza total de params
       }
     });
   } catch (err) {
     console.error("❌ Error al arrancar el bloque del turno:", err);
   }
 };
-
   const momentoLabel: Record<string, string> = {
     inicio_turno: 'Verificación de Entrada',
     cierre_turno: 'Cierre de turno',
