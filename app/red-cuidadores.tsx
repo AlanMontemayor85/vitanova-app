@@ -88,29 +88,49 @@ export default function RedCuidadoresScreen() {
   const familiares = equipo.filter(m => m.rol === 'familiar_principal' || m.rol === 'familiar');
   const cuidadores = equipo.filter(m => m.rol === 'cuidador_contratado');
   const medicos = equipo.filter(m => m.rol === 'medico');
-
-  const guardarHorario = async () => {
-    if (!editando || !horaInicio || !horaFin) return;
-    setGuardandoHorario(true);
-    try {
-      await actualizarHorarioCuidador(pacienteId, editando.usuario_id, {
-        horario_inicio: horaInicio + ':00',
-        horario_fin: horaFin + ':00',
-        dias_semana: diasSeleccionados,
-      });
-      setEquipo(prev => prev.map(m =>
-        m.usuario_id === editando.usuario_id
-          ? { ...m, horario_inicio: horaInicio + ':00', horario_fin: horaFin + ':00', dias_semana: diasSeleccionados }
-          : m
-      ));
-      setEditando(null);
-    } catch (e) {
-      console.error(e);
-      Alert.alert('❌ Error', 'No se pudo actualizar el turno de asistencia.');
-    } finally {
-      setGuardandoHorario(false);
-    }
+  // Mapeo bidireccional / Estándar de Códigos
+  const DIAS_MAPA: Record<string, string> = {
+    lunes: 'L',
+    martes: 'M',
+    miercoles: 'X',
+    jueves: 'J',
+    viernes: 'V',
+    sabado: 'S',
+    domingo: 'D',
   };
+  const guardarHorario = async () => {
+  if (!editando || !horaInicio || !horaFin) return;
+  setGuardandoHorario(true);
+  try {
+    // Normalizamos los días seleccionados para asegurar que se guarden como ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+    const diasNormalizados = diasSeleccionados.map(
+      d => DIAS_MAPA[d.toLowerCase()] || d
+    );
+
+    await actualizarHorarioCuidador(pacienteId, editando.usuario_id, {
+      horario_inicio: horaInicio + ':00',
+      horario_fin: horaFin + ':00',
+      dias_semana: diasNormalizados, // Send ['M', 'X', 'J', 'V', 'S', 'D']
+    });
+
+    setEquipo(prev => prev.map(m =>
+      m.usuario_id === editando.usuario_id
+        ? { 
+            ...m, 
+            horario_inicio: horaInicio + ':00', 
+            horario_fin: horaFin + ':00', 
+            dias_semana: diasNormalizados 
+          }
+        : m
+    ));
+    setEditando(null);
+  } catch (e) {
+    console.error(e);
+    Alert.alert('❌ Error', 'No se pudo actualizar el turno de asistencia.');
+  } finally {
+    setGuardandoHorario(false);
+  }
+};
 
   const enviarInvitacion = async () => {
     if (!invEmail.trim()) return;
