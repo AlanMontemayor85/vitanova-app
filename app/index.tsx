@@ -3,7 +3,7 @@ import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { Bell, Calendar, MapPin, Pill } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getMedicamentos, getNotasTurno, getPacientes, getSignosRecientes, getTareasRecurrentes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
+import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getMedicamentos, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTareasRecurrentes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 import CuidadorScreen from './cuidador';
 
@@ -284,17 +284,35 @@ useEffect(() => {
         if (notasData?.notas) setNotas(notasData.notas);
         
         // Verificar si hay un cuidador en turno activo transmitiendo
+        // Verificar si hay un cuidador en turno activo transmitiendo
         const turnoRes = await getTurnoActivoResumen(p.id).catch(() => ({ turno: null }));
         if (turnoRes?.turno) {
-          // Traemos rápidamente los catálogos para contrastar vigencias
-          const [medsData, tareasData] = await Promise.all([
-          getMedicamentos(p.id).catch(() => ({ medicamentos: [] })),
-          getTareasRecurrentes(p.id).catch(() => ({ tareas: [] }))
-        ]);
+          // 💡 Consultamos tareasHoy para incluir incidentales + medicamentos + recurrentes
+          const [medsData, tareasData, tareasHoyData] = await Promise.all([
+            getMedicamentos(p.id).catch(() => ({ medicamentos: [] })),
+            getTareasRecurrentes(p.id).catch(() => ({ tareas: [] })),
+            getTareasHoy(p.id).catch(() => ({ tareas: [] }))
+          ]);
 
-        // 🎯 Pasamos 'tareasData.tareas' de forma limpia. El interceptor se encargará del resto.
-        const turnoLimpio = corregirResumenTurno(turnoRes.turno, medsData.medicamentos || [], tareasData.tareas || []);
-        setTurnoResumen(turnoLimpio);
+          // Extraemos las tareas incidentales que ya identificó el backend
+          const tareasHoy = tareasHoyData?.tareas || [];
+          const incidentales = tareasHoy.filter((t: any) => t.es_incidental === true);
+
+          // 🎯 Le pasamos a la función de corrección el listado base + incidentales
+          const turnoLimpio = corregirResumenTurno(
+            turnoRes.turno, 
+            medsData.medicamentos || [], 
+            [...(tareasData.tareas || []), ...incidentales] // 👈 Le inyectamos las incidentales
+          );
+
+          // Si 'corregirResumenTurno' recalcula completadas también:
+          const completadasReales = tareasHoy.filter((t: any) => t.completada === true).length;
+
+          setTurnoResumen({
+            ...turnoLimpio,
+            total: (turnoLimpio?.total || 0) + incidentales.length,
+            completadas: completadasReales > 0 ? completadasReales : turnoLimpio?.completadas
+          });
         } else {
           setTurnoResumen(null);
         }
