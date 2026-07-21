@@ -165,7 +165,7 @@ useEffect(() => {
   const init = async () => {
     try {
       setLoading(true);
-      
+
       // 0. 🧼 LIMPIEZA INICIAL: Borrar estado del paciente anterior inmediatamente
       setTurnoResumen(null);
       setUltimoCierre(null);
@@ -189,10 +189,10 @@ useEffect(() => {
       const data = await getPacientes();
 
       if (data && data.usuario_nombre && typeof setNombreUsuario === 'function') {
-        setNombreUsuario(data.usuario_nombre); 
+        setNombreUsuario(data.usuario_nombre);
       }
       await registrarNotificaciones().catch(err => console.log("Push omitido en simulación:", err));
-      
+
       if (!data || data.no_autenticado || data.error || data.detail === 'Token inválido o expirado') {
         await clearToken();
         router.replace('/login');
@@ -222,7 +222,7 @@ useEffect(() => {
         if (quiereModoCuidador) {
           router.replace({
             pathname: '/cuidador' as any,
-            params: { 
+            params: {
               usuarioRol: 'familiar_principal',
               modoSwitch: 'familiar',
               pacienteId: pacienteIdParam || data.patients?.[0]?.id
@@ -241,64 +241,58 @@ useEffect(() => {
       // 📡 4. Flujo Normal de Familiar (Carga de telemetría y estado clínico)
       if (data.patients && data.patients.length > 0) {
         setPacientes(data.patients);
-        
+
         // 🎯 Usar paciente activo según pacienteIndex
         const idxActual = pacienteIndex ?? 0;
         const p = data.patients[idxActual] || data.patients[0];
         setPaciente(p);
-        
-        // Jalar asíncronamente el último cierre y notas
-        const cierreData = await getUltimoCierre(p.id).catch(() => ({ cierre: null }));
+
+        // 1. Peticiones paralelas unificadas (Sin depender de turno activo)
+        const [cierreData, notasData, alertaPesoData, turnoRes, medsData, tareasData, tareasHoyData] = await Promise.all([
+          getUltimoCierre(p.id).catch(() => ({ cierre: null })),
+          getNotasTurno(p.id).catch(() => ({ notas: [] })),
+          getAlertaPeso(p.id).catch(() => ({ alerta: null })),
+          getTurnoActivoResumen(p.id).catch(() => ({ turno: null })),
+          getMedicamentos(p.id).catch(() => ({ medicamentos: [] })),
+          getTareasRecurrentes(p.id).catch(() => ({ tareas: [] })),
+          getTareasHoy(p.id).catch((err) => {
+            console.log("❌ FALLO getTareasHoy:", err);
+            return null;
+          })
+        ]);
+
         if (cierreData?.cierre) setUltimoCierre(cierreData.cierre);
-        
-        const notasData = await getNotasTurno(p.id).catch(() => ({ notas: [] }));
         if (notasData?.notas) setNotas(notasData.notas);
-        
-        // Cargar Turno Activo y Tareas
-        const turnoRes = await getTurnoActivoResumen(p.id).catch(() => ({ turno: null }));
-
-        if (turnoRes?.turno) {
-          const [medsData, tareasData, tareasHoyData] = await Promise.all([
-            getMedicamentos(p.id).catch(() => ({ medicamentos: [] })),
-            getTareasRecurrentes(p.id).catch(() => ({ tareas: [] })),
-            getTareasHoy(p.id).catch((err) => {
-              console.log("❌ FALLO getTareasHoy:", err);
-              return null;
-            })
-          ]);
-
-          // Parsear lista enviada por backend
-          const tareasHoy = Array.isArray(tareasHoyData) 
-            ? tareasHoyData 
-            : (tareasHoyData?.tareas || []);
-
-          // 🎯 TOTAL FUENTE DE VERDAD: Si el endpoint devolvió tareas hoy, usamos su length real.
-          const totalCalculado = tareasHoy.length;
-
-          // Contar verdaderamente las completadas
-          const completadasReales = tareasHoy.filter(
-            (t: any) => t.completada === true || t.completada === 1 || t.completada === "true"
-          ).length;
-
-          const turnoLimpio = corregirResumenTurno(
-            turnoRes.turno, 
-            medsData.medicamentos || [], 
-            tareasData.tareas || []
-          );
-
-          // 🎯 PRIORIDAD: Si tenemos respuesta de tareasHoy, se impone totalCalculado (las 4)
-          setTurnoResumen({
-            ...turnoLimpio,
-            total: tareasHoyData ? totalCalculado : (turnoLimpio?.total || 0),
-            completadas: completadasReales
-          });
-        } else {
-          setTurnoResumen(null);
-        }
-
-        const alertaPesoData = await getAlertaPeso(p.id).catch(() => ({ alerta: null }));
         if (alertaPesoData?.alerta) setAlertaPeso(alertaPesoData);
-        
+
+        // 2. Extraer Tareas Hoy
+        const tareasHoy = Array.isArray(tareasHoyData) 
+          ? tareasHoyData 
+          : (tareasHoyData?.tareas || []);
+
+        const totalCalculado = tareasHoy.length;
+
+        // Contar estrictamente completadas
+        const completadasReales = tareasHoy.filter(
+          (t: any) => t.completada === true || t.completada === 1 || t.completada === "true" || t.completada === "1"
+        ).length;
+
+        // 3. Formatear resumen
+        const turnoLimpio = corregirResumenTurno(
+          turnoRes?.turno || {}, 
+          medsData?.medicamentos || [], 
+          tareasData?.tareas || []
+        );
+
+        // 🎯 FUENTE DE VERDAD: Se setea el estado independientemente de si turnoRes.turno es null
+        setTurnoResumen({
+          ...turnoLimpio,
+          cuidador_nombre: turnoRes?.turno?.cuidador_nombre || "Turno del Día",
+          horario: turnoRes?.turno?.horario || "00:00 - 23:59",
+          total: Number(tareasHoyData ? totalCalculado : (turnoLimpio?.total || 0)),
+          completadas: Number(completadasReales)
+        });
+
       } else {
         router.replace('/perfil-paciente');
         return;
@@ -313,52 +307,21 @@ useEffect(() => {
   };
 
   init();
-// 🎯 AGREGADO pacienteIndex: Al cambiar de Blanca a Jorge, se vuelve a ejecutar e inicializar todo desde cero
 }, [params.refresh, pacienteIndex]);
-// Borramos el router.push y lo dejamos como un log pasivo de estado
+
+
 useEffect(() => {
   console.log("🔄 [INDEX] Modo de visualización cambiado a:", vistaModo, "| Paciente:", paciente?.id);
 }, [vistaModo, paciente?.id]);
-// Escuchar cuando regresamos de registro-salud en modo switch
+
+
 useEffect(() => {
   if (params.abrirModoCuidador === 'true') {
     console.log("🔄 Restaurando switch + Consola");
     setModoCuidadorFamiliar(true);
   }
 }, [params.abrirModoCuidador]);
-useEffect(() => {
-  if (pacientes.length === 0) return;
-  const p = pacientes[pacienteIndex];
-  setPaciente(p);
-  setUltimoCierre(null);
-  setNotas([]);
-  const cargarDatos = async () => {
-    const cierreData = await getUltimoCierre(p.id);
-    if (cierreData.cierre) setUltimoCierre(cierreData.cierre);
-    const notasData = await getNotasTurno(p.id);
-    if (notasData.notas) setNotas(notasData.notas);
-    
-    // 🎯 Intercepción en cambio de pestaña/paciente
-    const turnoRes = await getTurnoActivoResumen(p.id);
-    if (turnoRes.turno) {
-      const [medsData, tareasData] = await Promise.all([
-      getMedicamentos(p.id).catch(() => ({ medicamentos: [] })),
-      getTareasRecurrentes(p.id).catch(() => ({ tareas: [] }))
-    ]);
 
-    // 🎯 Pasamos 'tareasData.tareas' de forma limpia. El interceptor se encargará del resto.
-    const turnoLimpio = corregirResumenTurno(turnoRes.turno, medsData.medicamentos || [], tareasData.tareas || []);
-    setTurnoResumen(turnoLimpio);
-    } else {
-      setTurnoResumen(null);
-    }
-    
-    const alertaPesoData = await getAlertaPeso(p.id);
-    if (alertaPesoData.alerta) setAlertaPeso(alertaPesoData);
-    else setAlertaPeso(null);
-  };
-  cargarDatos();
-}, [pacienteIndex]);
 
 // 3️⃣ TERCER EFFECT: Polling asíncrono y autónomo para los signos vitales
 useEffect(() => {
@@ -658,11 +621,11 @@ useEffect(() => {
                   </View>
                 </View>
                 <View style={styles.turnoProgress}>
-                  <Text style={styles.turnoProgressText}>
-                    {`${(turnoResumen.total || 0) === 0 ? 0 : (turnoResumen.completadas || 0)}/${turnoResumen.total || 0}`}
-                  </Text>
-                  <Text style={styles.turnoProgressLabel}>tareas</Text>
-                </View>
+                <Text style={styles.turnoProgressText}>
+                  {`${Number(turnoResumen?.completadas || 0)}/${Number(turnoResumen?.total || 0)}`}
+                </Text>
+                <Text style={styles.turnoProgressLabel}>tareas</Text>
+              </View>
               </View>
             ) : (
               <View style={[styles.turnoCard, { justifyContent: 'center', marginTop: 8 }]}>
