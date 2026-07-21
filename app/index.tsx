@@ -285,7 +285,12 @@ useEffect(() => {
         
         // Verificar si hay un cuidador en turno activo transmitiendo
         
-       const turnoRes = await getTurnoActivoResumen(p.id).catch(() => ({ turno: null }));
+       // Dentro de tu función init() o el listener de foco/paciente:
+
+      // 1. Limpiamos el resumen inmediatamente para evitar que se muestre la data del paciente anterior
+      setTurnoResumen(null);
+
+      const turnoRes = await getTurnoActivoResumen(p.id).catch(() => ({ turno: null }));
 
       if (turnoRes?.turno) {
         const [medsData, tareasData, tareasHoyData] = await Promise.all([
@@ -294,12 +299,15 @@ useEffect(() => {
           getTareasHoy(p.id).catch(() => ({ tareas: [] }))
         ]);
 
-        // Lista consolidada enviada por el nuevo backend
         const tareasHoy = tareasHoyData?.tareas || [];
 
-        // Conteo exacto en tiempo real
+        // Total de tareas del día
         const totalReal = tareasHoy.length;
-        const completadasReales = tareasHoy.filter((t: any) => t.completada === true).length;
+
+        // 🎯 SOLO cuenta las que tienen completada en TRUE (booleano)
+        const completadasReales = tareasHoy.filter(
+          (t: any) => t.completada === true || t.completada === 1 || t.completada === "true"
+        ).length;
 
         const turnoLimpio = corregirResumenTurno(
           turnoRes.turno, 
@@ -310,7 +318,7 @@ useEffect(() => {
         setTurnoResumen({
           ...turnoLimpio,
           total: totalReal > 0 ? totalReal : (turnoLimpio?.total || 0),
-          completadas: completadasReales
+          completadas: completadasReales // 👈 Solo sube cuando la tarea está realmente completada
         });
       } else {
         setTurnoResumen(null);
