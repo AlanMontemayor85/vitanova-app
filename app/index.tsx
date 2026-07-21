@@ -166,6 +166,11 @@ useEffect(() => {
     try {
       setLoading(true);
       
+      // 0. 🧼 LIMPIEZA INICIAL: Borrar estado del paciente anterior inmediatamente
+      setTurnoResumen(null);
+      setUltimoCierre(null);
+      setNotas([]);
+
       // 1. Validar Onboarding local
       const onboardingCompletado = await AsyncStorage.getItem('onboarding_completado');
       if (!onboardingCompletado) {
@@ -173,170 +178,134 @@ useEffect(() => {
         return;
       }
 
-      
-      
-      // 2. Verificar si hay un token de sesión guardado en el dispositivo
+      // 2. Verificar token de sesión
       const token = await loadStoredToken();
       if (!token) {
         router.replace('/login');
         return;
       }
 
-      // 3. 🚨 ADUANA BIOMÉDICA: Preguntamos a Railway/Supabase quién es este usuario
+      // 3. Aduana Biomédica
       const data = await getPacientes();
-      
 
-      console.log("🧪 =========================");
-      console.log("🧪 USUARIO_TIPO QUE LLEGA:", data ? data.usuario_tipo : "data es null");
-      console.log("🧪 NOMBRE:", data ? data.usuario_nombre : "sin nombre");
-      console.log("🧪 DATA COMPLETA:", JSON.stringify(data, null, 2));
-      console.log("🧪 =========================");
-      
-      // Mapeo del nombre completo (Alan Montemayor). 
-      // Usamos un typeof para evitar que truene en rojo si aún no has declarado el useState arriba.
       if (data && data.usuario_nombre && typeof setNombreUsuario === 'function') {
         setNombreUsuario(data.usuario_nombre); 
       }
-      // Inicializar canal de notificaciones push de Expo
       await registrarNotificaciones().catch(err => console.log("Push omitido en simulación:", err));
       
-      // 🛡️ CONTROL A: Token inválido/expirado o usuario borrado → limpiar y a login
       if (!data || data.no_autenticado || data.error || data.detail === 'Token inválido o expirado') {
-        console.log("🛑 Sesión inválida o expirada. Expulsando al Login.");
         await clearToken();
         router.replace('/login');
         return;
       }
 
-      // 🛡️ CONTROL B: Registro trunco o cuenta reseteada con el botón dorado
       if (data.status === 'pending_profile' || data.requiere_perfil || !data.usuario_tipo) {
-        console.log("🚀 Perfil limpio detectado en Supabase. Redirigiendo a completar-perfil.");
         router.replace('/completar-perfil');
         return;
       }
 
-    
-          // 🎛️ SEGMENTACIÓN DE RUTAS (Limpia y descentralizada)
-          const tipo = data.usuario_tipo;
+      // Segmentación de Rutas
+      const tipo = data.usuario_tipo;
+      const esCuidadorPuro = tipo === 'cuidador' || tipo === 'cuidador_contratado';
+      const esFamiliar = tipo === 'familiar' || tipo === 'admin' || tipo === 'familiar_principal';
 
-          const esCuidadorPuro = tipo === 'cuidador' || tipo === 'cuidador_contratado';
-          const esFamiliar = tipo === 'familiar' || tipo === 'admin' || tipo === 'familiar_principal';
+      if (esCuidadorPuro) {
+        router.replace({
+          pathname: '/cuidador' as any,
+          params: { usuarioRol: 'cuidador_contratado', modoSwitch: 'ninguno' }
+        });
+        return;
+      }
 
-          // 1. Cuidadores van directo a su consola (CuidadorScreen validará el horario con la BD)
-          if (esCuidadorPuro) {
-            console.log("🧑‍⚕️ Acceso concedido como Cuidador operativo. Redirigiendo a /cuidador...");
-            router.replace({
-              pathname: '/cuidador' as any,
-              params: { 
-                usuarioRol: 'cuidador_contratado',
-                modoSwitch: 'ninguno'
-              }
-            });
-            return;
-          }
-
-          // 2. En tu bloque de segmentación de rutas:
-          if (esFamiliar) {
-            // 💡 Si viene un parámetro pidiendo entrar como cuidador/switch
-            const quiereModoCuidador = modoSwitchParam === 'familiar' || modoSwitchParam === 'cuidador';
-
-            if (quiereModoCuidador) {
-              console.log("🔄 Familiar Principal ingresando a Consola de Cuidador vía Switch...");
-              router.replace({
-                pathname: '/cuidador' as any,
-                params: { 
-                  usuarioRol: 'familiar_principal',
-                  modoSwitch: 'familiar',
-                  pacienteId: pacienteIdParam || data.patients?.[0]?.id
-                }
-              });
-              return;
+      if (esFamiliar) {
+        const quiereModoCuidador = modoSwitchParam === 'familiar' || modoSwitchParam === 'cuidador';
+        if (quiereModoCuidador) {
+          router.replace({
+            pathname: '/cuidador' as any,
+            params: { 
+              usuarioRol: 'familiar_principal',
+              modoSwitch: 'familiar',
+              pacienteId: pacienteIdParam || data.patients?.[0]?.id
             }
+          });
+          return;
+        }
+      } else if (tipo === 'autonomo') {
+        router.replace({ pathname: '/autocuidador' as any, params: { pacienteId: data.patients?.[0]?.id } });
+        return;
+      } else if (tipo === 'medico') {
+        router.replace('/medico');
+        return;
+      }
 
-            console.log("👨‍👩‍👧 Acceso concedido como Familiar Principal. Permaneciendo en Home.");
-          }
-          else if (tipo === 'autonomo') {
-            console.log("🧓 Acceso concedido como Autocuidador. Redirigiendo...");
-            router.replace({
-              pathname: '/autocuidador' as any,
-              params: { pacienteId: data.patients?.[0]?.id }
-            });
-            return;
-          } else if (tipo === 'medico') {
-            console.log("🩺 Acceso concedido como Supervisor Médico. Redirigiendo...");
-            router.replace('/medico');
-            return;
-          } else {
-            console.log("⚠️ Rol desconocido:", tipo, "→ se trata como Familiar por seguridad");
-          }
-                // 📡 4. Flujo Normal de Familiar (Carga de telemetría y estado clínico)
+      // 📡 4. Flujo Normal de Familiar (Carga de telemetría y estado clínico)
       if (data.patients && data.patients.length > 0) {
         setPacientes(data.patients);
-        const p = data.patients[pacienteIndex || 0]; // Usa el índice seleccionado o el primero
+        
+        // 🎯 Usar paciente activo según pacienteIndex
+        const idxActual = pacienteIndex ?? 0;
+        const p = data.patients[idxActual] || data.patients[0];
         setPaciente(p);
         
-        // Jalar asíncronamente el último cierre de turno del cuidador
+        // Jalar asíncronamente el último cierre y notas
         const cierreData = await getUltimoCierre(p.id).catch(() => ({ cierre: null }));
         if (cierreData?.cierre) setUltimoCierre(cierreData.cierre);
         
-        // Jalar bitácora de notas de cuidado recientes
         const notasData = await getNotasTurno(p.id).catch(() => ({ notas: [] }));
         if (notasData?.notas) setNotas(notasData.notas);
         
-        // Verificar si hay un cuidador en turno activo transmitiendo
-        
-       const turnoRes = await getTurnoActivoResumen(p.id).catch(() => ({ turno: null }));
+        // Cargar Turno Activo y Tareas
+        const turnoRes = await getTurnoActivoResumen(p.id).catch(() => ({ turno: null }));
 
-  if (turnoRes?.turno) {
-    const [medsData, tareasData, tareasHoyData] = await Promise.all([
-      getMedicamentos(p.id).catch(() => ({ medicamentos: [] })),
-      getTareasRecurrentes(p.id).catch(() => ({ tareas: [] })),
-      getTareasHoy(p.id).catch((err) => {
-        console.log("❌ FALLO getTareasHoy:", err);
-        return null;
-      })
-    ]);
+        if (turnoRes?.turno) {
+          const [medsData, tareasData, tareasHoyData] = await Promise.all([
+            getMedicamentos(p.id).catch(() => ({ medicamentos: [] })),
+            getTareasRecurrentes(p.id).catch(() => ({ tareas: [] })),
+            getTareasHoy(p.id).catch((err) => {
+              console.log("❌ FALLO getTareasHoy:", err);
+              return null;
+            })
+          ]);
 
-    // 🔍 Imprimimos la respuesta tal cual llega
-    console.log("🔍 [RESPUESTA CRUDA]:", tareasHoyData);
+          // Parsear lista enviada por backend
+          const tareasHoy = Array.isArray(tareasHoyData) 
+            ? tareasHoyData 
+            : (tareasHoyData?.tareas || []);
 
-    // 🛡️ Manejo flexible: si viene como arreglo directo [...] o como { tareas: [...] }
-    const tareasHoy = Array.isArray(tareasHoyData) 
-      ? tareasHoyData 
-      : (tareasHoyData?.tareas || []);
+          // 🎯 TOTAL FUENTE DE VERDAD: Si el endpoint devolvió tareas hoy, usamos su length real.
+          const totalCalculado = tareasHoy.length;
 
-    const totalReal = tareasHoy.length;
-    const completadasReales = tareasHoy.filter((t: any) => t.completada === true).length;
+          // Contar verdaderamente las completadas
+          const completadasReales = tareasHoy.filter(
+            (t: any) => t.completada === true || t.completada === 1 || t.completada === "true"
+          ).length;
 
-    const turnoLimpio = corregirResumenTurno(
-      turnoRes.turno, 
-      medsData.medicamentos || [], 
-      tareasData.tareas || []
-    );
+          const turnoLimpio = corregirResumenTurno(
+            turnoRes.turno, 
+            medsData.medicamentos || [], 
+            tareasData.tareas || []
+          );
 
-    setTurnoResumen({
-      ...turnoLimpio,
-      total: totalReal > 0 ? totalReal : (turnoLimpio?.total || 0),
-      completadas: completadasReales
-    });
-  } else {
-    setTurnoResumen(null);
-  }
-        // Verificar alertas críticas de peso/hidratación
+          // 🎯 PRIORIDAD: Si tenemos respuesta de tareasHoy, se impone totalCalculado (las 4)
+          setTurnoResumen({
+            ...turnoLimpio,
+            total: tareasHoyData ? totalCalculado : (turnoLimpio?.total || 0),
+            completadas: completadasReales
+          });
+        } else {
+          setTurnoResumen(null);
+        }
+
         const alertaPesoData = await getAlertaPeso(p.id).catch(() => ({ alerta: null }));
         if (alertaPesoData?.alerta) setAlertaPeso(alertaPesoData);
         
       } else {
-        // 🔥 LA CORRECCIÓN CLAVE: Si ya tienes rol de admin, pero no hay pacientes en Supabase,
-        // la app te transfiere directo a vincular el hardware, no a completar perfil.
-        console.log("⌚ Familiar sin paciente asignado actualmente. Redirigiendo a perfil-paciente.");
         router.replace('/perfil-paciente');
         return;
       }
 
     } catch (e) {
       console.error('❌ Error crítico en el init de la Home:', e);
-      // En caso de un fallo generalizado de red o parseo, el sistema se protege regresando al login
       router.replace('/login');
     } finally {
       setLoading(false);
@@ -344,7 +313,8 @@ useEffect(() => {
   };
 
   init();
-}, [params.refresh]);
+// 🎯 AGREGADO pacienteIndex: Al cambiar de Blanca a Jorge, se vuelve a ejecutar e inicializar todo desde cero
+}, [params.refresh, pacienteIndex]);
 // Borramos el router.push y lo dejamos como un log pasivo de estado
 useEffect(() => {
   console.log("🔄 [INDEX] Modo de visualización cambiado a:", vistaModo, "| Paciente:", paciente?.id);
