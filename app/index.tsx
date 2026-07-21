@@ -284,39 +284,37 @@ useEffect(() => {
         if (notasData?.notas) setNotas(notasData.notas);
         
         // Verificar si hay un cuidador en turno activo transmitiendo
-        // Verificar si hay un cuidador en turno activo transmitiendo
-        const turnoRes = await getTurnoActivoResumen(p.id).catch(() => ({ turno: null }));
-        if (turnoRes?.turno) {
-          // 💡 Consultamos tareasHoy para incluir incidentales + medicamentos + recurrentes
-          const [medsData, tareasData, tareasHoyData] = await Promise.all([
-            getMedicamentos(p.id).catch(() => ({ medicamentos: [] })),
-            getTareasRecurrentes(p.id).catch(() => ({ tareas: [] })),
-            getTareasHoy(p.id).catch(() => ({ tareas: [] }))
-          ]);
-
-          // Extraemos las tareas incidentales que ya identificó el backend
-          const tareasHoy = tareasHoyData?.tareas || [];
-          const incidentales = tareasHoy.filter((t: any) => t.es_incidental === true);
-
-          // 🎯 Le pasamos a la función de corrección el listado base + incidentales
-          const turnoLimpio = corregirResumenTurno(
-            turnoRes.turno, 
-            medsData.medicamentos || [], 
-            [...(tareasData.tareas || []), ...incidentales] // 👈 Le inyectamos las incidentales
-          );
-
-          // Si 'corregirResumenTurno' recalcula completadas también:
-          const completadasReales = tareasHoy.filter((t: any) => t.completada === true).length;
-
-          setTurnoResumen({
-            ...turnoLimpio,
-            total: (turnoLimpio?.total || 0) + incidentales.length,
-            completadas: completadasReales > 0 ? completadasReales : turnoLimpio?.completadas
-          });
-        } else {
-          setTurnoResumen(null);
-        }
         
+       const turnoRes = await getTurnoActivoResumen(p.id).catch(() => ({ turno: null }));
+
+      if (turnoRes?.turno) {
+        const [medsData, tareasData, tareasHoyData] = await Promise.all([
+          getMedicamentos(p.id).catch(() => ({ medicamentos: [] })),
+          getTareasRecurrentes(p.id).catch(() => ({ tareas: [] })),
+          getTareasHoy(p.id).catch(() => ({ tareas: [] }))
+        ]);
+
+        // Lista consolidada enviada por el nuevo backend
+        const tareasHoy = tareasHoyData?.tareas || [];
+
+        // Conteo exacto en tiempo real
+        const totalReal = tareasHoy.length;
+        const completadasReales = tareasHoy.filter((t: any) => t.completada === true).length;
+
+        const turnoLimpio = corregirResumenTurno(
+          turnoRes.turno, 
+          medsData.medicamentos || [], 
+          tareasData.tareas || []
+        );
+
+        setTurnoResumen({
+          ...turnoLimpio,
+          total: totalReal > 0 ? totalReal : (turnoLimpio?.total || 0),
+          completadas: completadasReales
+        });
+      } else {
+        setTurnoResumen(null);
+      }
         // Verificar alertas críticas de peso/hidratación
         const alertaPesoData = await getAlertaPeso(p.id).catch(() => ({ alerta: null }));
         if (alertaPesoData?.alerta) setAlertaPeso(alertaPesoData);
