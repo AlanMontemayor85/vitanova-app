@@ -188,13 +188,13 @@ export default function RedCuidadoresScreen() {
               )}
               {dias.length > 0 && (
                 <View style={styles.diasRow}>
-                  {['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'].map(d => (
+                  {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => (
                     <View
                       key={d}
                       style={[styles.diaChip, dias.includes(d) && { backgroundColor: colores.bg, borderColor: colores.border }]}
                     >
                       <Text style={[styles.diaChipText, dias.includes(d) && { color: colores.text, fontWeight: '700' }]}>
-                        {DIAS_CORTO[d]}
+                        {d}
                       </Text>
                     </View>
                   ))}
@@ -217,7 +217,23 @@ export default function RedCuidadoresScreen() {
               setEditando(m);
               setHoraInicio(m.horario_inicio?.slice(0, 5) ?? '08:00');
               setHoraFin(m.horario_fin?.slice(0, 5) ?? '18:00');
-              setDiasSeleccionados(m.dias_semana ?? []);
+
+              // 🛡️ Normalizamos los días a formato corto ['L','M','X'...] sin importar cómo vengan
+              const diasRaw = m.dias_semana ?? [];
+              const diasNormalizados = diasRaw.map((d: any) => {
+                if (typeof d === 'string') {
+                  const lower = d.toLowerCase();
+                  // Si ya es corto
+                  if (['L','M','X','J','V','S','D'].includes(d)) return d;
+                  // Si viene como 'lunes', 'martes'...
+                  return DIAS_MAPA[lower] || d;
+                }
+                // Si viene como número JS (0=Dom, 1=Lun...)
+                const mapaNum = ['D','L','M','X','J','V','S'];
+                return mapaNum[d] || d;
+              });
+
+              setDiasSeleccionados(diasNormalizados);
             }}
           >
             <Text style={styles.editarBtnText}>
