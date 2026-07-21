@@ -110,7 +110,7 @@ export default function RedCuidadoresScreen() {
     await actualizarHorarioCuidador(pacienteId, editando.usuario_id, {
       horario_inicio: horaInicio + ':00',
       horario_fin: horaFin + ':00',
-      dias_semana: diasNormalizados, // Send ['M', 'X', 'J', 'V', 'S', 'D']
+      dias_semana: diasNormalizados, // <-- MANDA ['M', 'X', 'J', 'V', 'S', 'D'
     });
 
     setEquipo(prev => prev.map(m =>

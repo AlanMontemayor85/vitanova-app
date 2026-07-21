@@ -375,7 +375,16 @@ export const agregarTareaManual = async (tarea: object) => {
   return res.json();
 };
 
+// ✅ Esta es la correcta para el módulo de Cuidador (tiene sin_horario)
 export const getTareasHoy = async (pacienteId: string) => {
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/tareas-hoy`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  return res.json();
+};
+// Antes se llamaba getTareasHoy (era de autocuidador)
+export const getTareasHoyAutocuidador = async (pacienteId: string) => {
   const token = getToken();
   const res = await fetch(`${BASE_URL}/autocuidador/tareas-hoy/${pacienteId}`, {
     headers: { 'Authorization': `Bearer ${token}` }
