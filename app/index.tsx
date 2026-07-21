@@ -212,15 +212,16 @@ useEffect(() => {
         return;
       }
 
-      // 🎛️ SEGMENTACIÓN DE RUTAS CORREGIDA (Julio 2026)
+    
+          // 🎛️ SEGMENTACIÓN DE RUTAS (Limpia y descentralizada)
           const tipo = data.usuario_tipo;
 
           const esCuidadorPuro = tipo === 'cuidador' || tipo === 'cuidador_contratado';
           const esFamiliar = tipo === 'familiar' || tipo === 'admin' || tipo === 'familiar_principal';
 
-          // 1. Solo los cuidadores contratados reales van directo a /cuidador
+          // 1. Cuidadores van directo a su consola (CuidadorScreen validará el horario con la BD)
           if (esCuidadorPuro) {
-            console.log("🧑‍⚕️ Acceso concedido como Cuidador operativo real. Redirigiendo limpia...");
+            console.log("🧑‍⚕️ Acceso concedido como Cuidador operativo. Redirigiendo a /cuidador...");
             router.replace({
               pathname: '/cuidador' as any,
               params: { 
@@ -231,12 +232,10 @@ useEffect(() => {
             return;
           }
 
-          // 2. Si es Familiar / Admin → nos quedamos en el Index (Home Familiar)
+          // 2. Familiares / Admins se quedan en el Index
           if (esFamiliar) {
             console.log("👨‍👩‍👧 Acceso concedido como Familiar Principal. Permaneciendo en Home.");
-            // No hacemos return. Dejamos que continúe la carga de pacientes y telemetría de abajo.
           } 
-          // 3. Otros roles
           else if (tipo === 'autonomo') {
             console.log("🧓 Acceso concedido como Autocuidador. Redirigiendo...");
             router.replace({
@@ -251,8 +250,7 @@ useEffect(() => {
           } else {
             console.log("⚠️ Rol desconocido:", tipo, "→ se trata como Familiar por seguridad");
           }
-
-      // 📡 4. Flujo Normal de Familiar (Carga de telemetría y estado clínico)
+                // 📡 4. Flujo Normal de Familiar (Carga de telemetría y estado clínico)
       if (data.patients && data.patients.length > 0) {
         setPacientes(data.patients);
         const p = data.patients[pacienteIndex || 0]; // Usa el índice seleccionado o el primero
