@@ -109,34 +109,30 @@ export default function RegistroSaludScreen() {
       await iniciarTurno(paciente.id);
     }
 
-    const esSwitchEmbebido = params.modoSwitch === 'cuidador_familiar';
-
-    if (esSwitchEmbebido) {
-      console.log("🔙 Regresando al Modo Monitoreo del Familiar (embebido)");
-      
-      // En lugar de router.back(), volvemos al Index forzando el switch ON
+    if (params.modoSwitch === 'cuidador_familiar') {
+      console.log("🔙 Regresando al embebido → Consola");
       router.replace({
         pathname: '/',
         params: {
           refresh: String(Date.now()),
-          abrirModoCuidador: 'true'   // ← señal especial
+          abrirModoCuidador: 'true',
+          pacienteIdConsola: paciente.id
         }
       });
       return;
     }
 
     // Cuidador real
-    console.log("🚀 Avanzando a Consola de Cuidador activa limpia...");
     router.replace({
       pathname: '/cuidador' as any,
-      params: { 
-        vistaInicial: 'turno', 
-        paciente: typeof params.paciente === 'string' ? params.paciente : JSON.stringify(paciente),
+      params: {
+        vistaInicial: 'turno',
+        paciente: JSON.stringify(paciente),
         modoSwitch: 'ninguno'
       }
     });
   } catch (err) {
-    console.error("❌ Error al arrancar el bloque del turno:", err);
+    console.error(err);
   }
 };
   const momentoLabel: Record<string, string> = {

@@ -52,6 +52,9 @@ export default function HomeScreen() {
   const pacienteId = paciente?.id;
   const [modoCuidadorFamiliar, setModoCuidadorFamiliar] = useState(false);
   
+  const modoSwitchParam = params.modoSwitch; // Puede ser 'familiar', 'ninguno', etc.
+  const pacienteIdParam = params.pacienteId;
+    
 // 📡 1. Función para jalar la telemetría más reciente del reloj
 const cargarSignosDispositivo = async (idToLoad?: string) => {
   const targetId = idToLoad || pacienteId;
@@ -232,10 +235,26 @@ useEffect(() => {
             return;
           }
 
-          // 2. Familiares / Admins se quedan en el Index
+          // 2. En tu bloque de segmentación de rutas:
           if (esFamiliar) {
+            // 💡 Si viene un parámetro pidiendo entrar como cuidador/switch
+            const quiereModoCuidador = modoSwitchParam === 'familiar' || modoSwitchParam === 'cuidador';
+
+            if (quiereModoCuidador) {
+              console.log("🔄 Familiar Principal ingresando a Consola de Cuidador vía Switch...");
+              router.replace({
+                pathname: '/cuidador' as any,
+                params: { 
+                  usuarioRol: 'familiar_principal',
+                  modoSwitch: 'familiar',
+                  pacienteId: pacienteIdParam || data.patients?.[0]?.id
+                }
+              });
+              return;
+            }
+
             console.log("👨‍👩‍👧 Acceso concedido como Familiar Principal. Permaneciendo en Home.");
-          } 
+          }
           else if (tipo === 'autonomo') {
             console.log("🧓 Acceso concedido como Autocuidador. Redirigiendo...");
             router.replace({
@@ -310,11 +329,8 @@ useEffect(() => {
 // Escuchar cuando regresamos de registro-salud en modo switch
 useEffect(() => {
   if (params.abrirModoCuidador === 'true') {
-    console.log("🔄 Restaurando Modo Cuidador Familiar");
+    console.log("🔄 Restaurando switch + Consola");
     setModoCuidadorFamiliar(true);
-    
-    // No limpiamos todavía los params de pacienteIdConsola y vistaDeseada
-    // para que el CuidadorScreen los pueda leer al montar
   }
 }, [params.abrirModoCuidador]);
 useEffect(() => {
@@ -429,12 +445,13 @@ useEffect(() => {
       {/* ── INTERRUPTOR DINÁMICO DE CONSOLA ── */}
       {modoCuidadorFamiliar ? (
         <CuidadorScreen
+          key={params.pacienteIdConsola || 'embed'}
           pacienteProp={paciente}
           modoFamiliar={true}
           esFamiliarEnModoCuidador={true}
           onRegresar={() => setModoCuidadorFamiliar(false)}
           initialPacienteId={params.pacienteIdConsola as string}
-          initialVista={params.vistaDeseada as string}
+          initialVista={params.pacienteIdConsola ? 'turno' : 'lista'}
         />
       ) : (
         /* 👨‍👩‍👧 MODO FAMILIAR (Tu interfaz normal con tarjeta de paciente, scroll, bottomNav y modal) */

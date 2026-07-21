@@ -23,6 +23,7 @@ import {
   getTareasHoy, getToken,
   getTurnoActivo,
   getUltimoCierre,
+  iniciarTurno,
   loadStoredToken,
   verificarEscalas
 } from '../services/api';
@@ -443,90 +444,89 @@ useFocusEffect(
   };
 
   const manejarInicioTurno = async (p: any) => {
-    // 🛡️ Si es Familiar en switch, saltamos el chequeo de horario de cuidador
-    if (esSwitchFamiliar) {
-      console.log("👑 Familiar en switch → saltando validación de horario de cuidador");
-    }
-    if (iniciando) return;
-    setIniciando(true);
+  if (esSwitchFamiliar) {
+    console.log("👑 Familiar en switch → saltando validación de horario de cuidador");
+  }
+  
+  if (iniciando) return;
+  setIniciando(true);
+  
+  // 1. Limpieza
+  setSignosDispositivo(null);
+
+  const tieneHardware = p.reloj_imei && p.reloj_imei.trim() !== "";
+
+  // ───────────────────────────────────────────────
+  // CASO 1: Sin reloj (como Jorge)
+  // ───────────────────────────────────────────────
+  if (!tieneHardware) {
+    setIniciando(false);
     
-    // 1. 🧼 LIMPIEZA INICIAL: Borramos la caché clínica residual
-    setSignosDispositivo(null);
+    Alert.alert(
+      'Sin Dispositivo Vinculado',
+      `${p.nombre_completo} no tiene un reloj inteligente configurado. ¿Deseas iniciar el turno con captura manual?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Iniciar Turno', 
+          onPress: async () => {
+            try {
+              // 🔑 ESTA ES LA LÍNEA QUE FALTABA
+              await iniciarTurno(p.id);
+              
+              console.log("✅ Turno iniciado manualmente para:", p.nombre_completo);
 
-    // 2. 🛡️ CONTROL DE HARDWARE CON IMEI REAL:
-    // Ahora le pegamos exactamente al campo de tu backend: 'reloj_imei'
-    const tieneHardware = p.reloj_imei && p.reloj_imei.trim() !== "";
-
-    if (!tieneHardware) {
-      setIniciando(false);
-      Alert.alert(
-        'Sin Dispositivo Vinculado',
-        `${p.nombre_completo} no tiene un reloj inteligente configurado para telemetría pasiva TCP. ¿Deseas iniciar el turno y proceder con captura manual de parámetros?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { 
-            text: 'Iniciar Turno', 
-            onPress: async () => {
-              try {
-                if (!esSwitchFamiliar) {
-                  const tareasCheck = await getTareasHoy(p.id);
-                  if (tareasCheck?.sin_horario) {
-                    Alert.alert('Sin horario', 'El familiar no ha configurado tu horario de entrada.');
-                    setIniciando(false);
-                    return;
-                  }
-                }
-                
-                // 🎯 PASAMOS EL PACIENTE ACTIVO CON SU ROL ACTUAL
-                // Si 'p' ya trae el rol de la lista (como vimos en el log: "rol_en_equipo": "familiar_principal")
-                // nos aseguramos de que la consola lo reciba para aplicar los candados visuales.
-                setPacienteActivo({
-                  ...p,
-                  usuarioRol: p.rol_en_equipo // O la variable global que uses para tu sesión de Alan
-                });
-                
-                cargarTurno(p.id);
-                setVista('turno'); 
-              } catch (err) {
-                console.error(err);
-              }
-            } 
-          }
-        ]
-      );
-      return;
-    }
-
-    // 3. 🟢 FLUJO CON TELEMETRÍA (Para Blanca que sí cuenta con reloj_imei)
-    try {
-      if (!esSwitchFamiliar) {
-        const tareasCheck = await getTareasHoy(p.id);
-        console.log("🧪 CHECK HORARIO:", tareasCheck);
-
-        if (tareasCheck?.sin_horario === true) {
-          Alert.alert(
-            'Sin horario asignado',
-            tareasCheck.mensaje || 'El familiar principal no ha configurado tu horario ni los días habilitados.'
-          );
-          setIniciando(false);
-          return;
+              setPacienteActivo({
+                ...p,
+                rol_en_equipo: esSwitchFamiliar ? 'familiar_principal' : (p.rol_en_equipo || 'cuidador_contratado'),
+                usuarioRol: esSwitchFamiliar ? 'familiar_principal' : 'cuidador_contratado'
+              });
+              
+              await cargarTurno(p.id);
+              setVista('turno');
+            } catch (err) {
+              console.error("❌ Error al iniciar turno manual:", err);
+              Alert.alert("Error", "No se pudo iniciar el turno. Intenta de nuevo.");
+            }
+          } 
         }
+      ]
+    );
+    return;
+  }
+
+  // ───────────────────────────────────────────────
+  // CASO 2: Con reloj (como Blanca)
+  // ───────────────────────────────────────────────
+  try {
+    if (!esSwitchFamiliar) {
+      const tareasCheck = await getTareasHoy(p.id);
+      console.log("🧪 CHECK HORARIO:", tareasCheck);
+
+      if (tareasCheck?.sin_horario === true) {
+        Alert.alert(
+          'Sin horario asignado',
+          tareasCheck.mensaje || 'El familiar principal no ha configurado tu horario ni los días habilitados.'
+        );
+        setIniciando(false);
+        return;
       }
-      
-      const cambiosData = await detectarCambiosTurno(p.id);
-      if (cambiosData.changes && cambiosData.changes.length > 0) {
-        setPacienteActivo(p);
-        setCambiosPendientes(cambiosData.changes);
-        setCambiosModal(true);
-      } else {
-        irARegistroSalud(p);
-      }
-    } catch (e) {
-      irARegistroSalud(p);
-    } finally {
-      setIniciando(false);
     }
-  };
+    
+    const cambiosData = await detectarCambiosTurno(p.id);
+    if (cambiosData.changes && cambiosData.changes.length > 0) {
+      setPacienteActivo(p);
+      setCambiosPendientes(cambiosData.changes);
+      setCambiosModal(true);
+    } else {
+      irARegistroSalud(p);
+    }
+  } catch (e) {
+    irARegistroSalud(p);
+  } finally {
+    setIniciando(false);
+  }
+};
 
   const irARegistroSalud = (p: any) => {
   router.push({
@@ -542,33 +542,21 @@ useFocusEffect(
 // ── Abrir directo en Consola cuando venimos del switch + registro-salud ──
 useEffect(() => {
   if (!esSwitchFamiliar) return;
+  if (initialVista !== 'turno' || !initialPacienteId) return;
 
-  // Prioridad 1: props nuevas
-  const targetId = initialPacienteId || params.pacienteIdConsola;
-  const quiereTurno = initialVista === 'turno' || params.vistaDeseada === 'turno';
-
-  if (quiereTurno && targetId && pacientes.length > 0) {
-    const p = pacientes.find((x: any) => x.id === targetId) || pacienteProp;
-    
-    if (p && vista !== 'turno') {
-      console.log("🎯 FORZANDO Consola de Turno para:", p.nombre_completo);
-      setPacienteActivo({
-        ...p,
-        rol_en_equipo: 'familiar_principal',
-        usuarioRol: 'familiar_principal'
-      });
-      cargarTurno(p.id);
-      setVista('turno');
-      
-      // Limpiar
-      router.setParams({ 
-        vistaDeseada: undefined, 
-        pacienteIdConsola: undefined,
-        abrirModoCuidador: undefined
-      });
-    }
+  const p = pacientes.find((x: any) => x.id === initialPacienteId) || pacienteProp;
+  
+  if (p) {
+    console.log("🎯 Entrando directo a Consola:", p.nombre_completo);
+    setPacienteActivo({
+      ...p,
+      rol_en_equipo: 'familiar_principal',
+      usuarioRol: 'familiar_principal'
+    });
+    cargarTurno(p.id);
+    setVista('turno');
   }
-}, [esSwitchFamiliar, initialPacienteId, initialVista, params.vistaDeseada, params.pacienteIdConsola, pacientes, vista]);
+}, [esSwitchFamiliar, initialPacienteId, initialVista, pacientes]);
 
   const guardarRegistroEspontaneo = async () => {
   setGuardandoEspontaneo(true);
