@@ -1,3 +1,4 @@
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -70,7 +71,8 @@ export default function RedCuidadoresScreen() {
   const [invMensaje, setInvMensaje] = useState('');
   const [enviandoInv, setEnviandoInv] = useState(false);
   const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null);
-
+  const [showInicioTimePicker, setShowInicioTimePicker] = useState(false);
+  const [showFinTimePicker, setShowFinTimePicker] = useState(false);
   useEffect(() => {
     const cargar = async () => {
       try {
@@ -345,26 +347,71 @@ export default function RedCuidadoresScreen() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Horario de {editando.nombre}</Text>
 
-            <Text style={styles.modalLabel}>Hora inicio (HH:MM)</Text>
-            <TextInput
+            {/* HORA INICIO */}
+            <Text style={styles.modalLabel}>Hora inicio</Text>
+            <TouchableOpacity
               style={styles.modalInput}
-              value={horaInicio}
-              onChangeText={setHoraInicio}
-              placeholder="08:00"
-              placeholderTextColor={COLORS.textLight}
-              keyboardType="numbers-and-punctuation"
-            />
+              onPress={() => setShowInicioTimePicker(true)}
+            >
+              <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.cacao }}>
+                🕐 {horaInicio || '08:00'}
+              </Text>
+            </TouchableOpacity>
 
-            <Text style={styles.modalLabel}>Hora fin (HH:MM)</Text>
-            <TextInput
+            {showInicioTimePicker && (
+              <DateTimePicker
+                value={(() => {
+                  const [h, m] = (horaInicio || '08:00').split(':').map(Number);
+                  const d = new Date();
+                  d.setHours(h || 8, m || 0, 0, 0);
+                  return d;
+                })()}
+                mode="time"
+                is24Hour={true}
+                display="spinner"
+                onChange={(event, selectedDate) => {
+                  setShowInicioTimePicker(false);
+                  if (selectedDate) {
+                    const hh = selectedDate.getHours().toString().padStart(2, '0');
+                    const mm = selectedDate.getMinutes().toString().padStart(2, '0');
+                    setHoraInicio(`${hh}:${mm}`);
+                  }
+                }}
+              />
+            )}
+
+            {/* HORA FIN */}
+            <Text style={styles.modalLabel}>Hora fin</Text>
+            <TouchableOpacity
               style={styles.modalInput}
-              value={horaFin}
-              onChangeText={setHoraFin}
-              placeholder="18:00"
-              placeholderTextColor={COLORS.textLight}
-              keyboardType="numbers-and-punctuation"
-            />
+              onPress={() => setShowFinTimePicker(true)}
+            >
+              <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.cacao }}>
+                🕐 {horaFin || '20:00'}
+              </Text>
+            </TouchableOpacity>
 
+            {showFinTimePicker && (
+              <DateTimePicker
+                value={(() => {
+                  const [h, m] = (horaFin || '20:00').split(':').map(Number);
+                  const d = new Date();
+                  d.setHours(h || 20, m || 0, 0, 0);
+                  return d;
+                })()}
+                mode="time"
+                is24Hour={true}
+                display="spinner"
+                onChange={(event, selectedDate) => {
+                  setShowFinTimePicker(false);
+                  if (selectedDate) {
+                    const hh = selectedDate.getHours().toString().padStart(2, '0');
+                    const mm = selectedDate.getMinutes().toString().padStart(2, '0');
+                    setHoraFin(`${hh}:${mm}`);
+                  }
+                }}
+              />
+            )}
             <Text style={styles.modalLabel}>Días de la semana asignados</Text>
             <View style={styles.diasModalRow}>
               {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => {
