@@ -447,12 +447,44 @@ useFocusEffect(
   if (esSwitchFamiliar) {
     console.log("👑 Familiar en switch → saltando validación de horario de cuidador");
   }
-  
+
   if (iniciando) return;
   setIniciando(true);
-  
+
   // 1. Limpieza
   setSignosDispositivo(null);
+
+  // ───────────────────────────────────────────────
+  // 🛡️ VALIDACIÓN GLOBAL DE HORARIO PARA CUIDADORES
+  // ───────────────────────────────────────────────
+  if (!esSwitchFamiliar) {
+    try {
+      const tareasCheck = await getTareasHoy(p.id);
+      console.log("🧪 CHECK HORARIO:", tareasCheck);
+
+      // A. Sin horario o días no permitidos
+      if (tareasCheck?.sin_horario === true) {
+        Alert.alert(
+          'Sin horario asignado',
+          tareasCheck.mensaje || 'El familiar principal no ha configurado tu horario ni los días habilitados.'
+        );
+        setIniciando(false);
+        return;
+      }
+
+      // B. ⛔ Límite de horario +1h de tolerancia superado
+      if (tareasCheck?.fuera_de_turno === true) {
+        Alert.alert(
+          'Fuera de Turno',
+          tareasCheck.mensaje || 'Tu horario asignado ha concluido y el tiempo de tolerancia ha finalizado.'
+        );
+        setIniciando(false);
+        return;
+      }
+    } catch (errorCheck) {
+      console.error("⚠️ Error consultando check horario:", errorCheck);
+    }
+  }
 
   const tieneHardware = p.reloj_imei && p.reloj_imei.trim() !== "";
 
@@ -461,7 +493,7 @@ useFocusEffect(
   // ───────────────────────────────────────────────
   if (!tieneHardware) {
     setIniciando(false);
-    
+
     Alert.alert(
       'Sin Dispositivo Vinculado',
       `${p.nombre_completo} no tiene un reloj inteligente configurado. ¿Deseas iniciar el turno con captura manual?`,
@@ -473,7 +505,7 @@ useFocusEffect(
             try {
               // 🔑 ESTA ES LA LÍNEA QUE FALTABA
               await iniciarTurno(p.id);
-              
+
               console.log("✅ Turno iniciado manualmente para:", p.nombre_completo);
 
               setPacienteActivo({
@@ -481,7 +513,7 @@ useFocusEffect(
                 rol_en_equipo: esSwitchFamiliar ? 'familiar_principal' : (p.rol_en_equipo || 'cuidador_contratado'),
                 usuarioRol: esSwitchFamiliar ? 'familiar_principal' : 'cuidador_contratado'
               });
-              
+
               await cargarTurno(p.id);
               setVista('turno');
             } catch (err) {
@@ -499,20 +531,6 @@ useFocusEffect(
   // CASO 2: Con reloj (como Blanca)
   // ───────────────────────────────────────────────
   try {
-    if (!esSwitchFamiliar) {
-      const tareasCheck = await getTareasHoy(p.id);
-      console.log("🧪 CHECK HORARIO:", tareasCheck);
-
-      if (tareasCheck?.sin_horario === true) {
-        Alert.alert(
-          'Sin horario asignado',
-          tareasCheck.mensaje || 'El familiar principal no ha configurado tu horario ni los días habilitados.'
-        );
-        setIniciando(false);
-        return;
-      }
-    }
-    
     const cambiosData = await detectarCambiosTurno(p.id);
     if (cambiosData.changes && cambiosData.changes.length > 0) {
       setPacienteActivo(p);
@@ -528,7 +546,7 @@ useFocusEffect(
   }
 };
 
-  const irARegistroSalud = (p: any) => {
+const irARegistroSalud = (p: any) => {
   router.push({
     pathname: '/registro-salud' as any,
     params: { 
