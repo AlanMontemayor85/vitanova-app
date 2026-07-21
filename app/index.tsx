@@ -285,44 +285,43 @@ useEffect(() => {
         
         // Verificar si hay un cuidador en turno activo transmitiendo
         
-       // Dentro de tu función init() o el listener de foco/paciente:
+       const turnoRes = await getTurnoActivoResumen(p.id).catch(() => ({ turno: null }));
 
-      // 1. Limpiamos el resumen inmediatamente para evitar que se muestre la data del paciente anterior
-      setTurnoResumen(null);
+  if (turnoRes?.turno) {
+    const [medsData, tareasData, tareasHoyData] = await Promise.all([
+      getMedicamentos(p.id).catch(() => ({ medicamentos: [] })),
+      getTareasRecurrentes(p.id).catch(() => ({ tareas: [] })),
+      getTareasHoy(p.id).catch((err) => {
+        console.log("❌ FALLO getTareasHoy:", err);
+        return null;
+      })
+    ]);
 
-      const turnoRes = await getTurnoActivoResumen(p.id).catch(() => ({ turno: null }));
+    // 🔍 Imprimimos la respuesta tal cual llega
+    console.log("🔍 [RESPUESTA CRUDA]:", tareasHoyData);
 
-      if (turnoRes?.turno) {
-        const [medsData, tareasData, tareasHoyData] = await Promise.all([
-          getMedicamentos(p.id).catch(() => ({ medicamentos: [] })),
-          getTareasRecurrentes(p.id).catch(() => ({ tareas: [] })),
-          getTareasHoy(p.id).catch(() => ({ tareas: [] }))
-        ]);
+    // 🛡️ Manejo flexible: si viene como arreglo directo [...] o como { tareas: [...] }
+    const tareasHoy = Array.isArray(tareasHoyData) 
+      ? tareasHoyData 
+      : (tareasHoyData?.tareas || []);
 
-        const tareasHoy = tareasHoyData?.tareas || [];
+    const totalReal = tareasHoy.length;
+    const completadasReales = tareasHoy.filter((t: any) => t.completada === true).length;
 
-        // Total de tareas del día
-        const totalReal = tareasHoy.length;
+    const turnoLimpio = corregirResumenTurno(
+      turnoRes.turno, 
+      medsData.medicamentos || [], 
+      tareasData.tareas || []
+    );
 
-        // 🎯 SOLO cuenta las que tienen completada en TRUE (booleano)
-        const completadasReales = tareasHoy.filter(
-          (t: any) => t.completada === true || t.completada === 1 || t.completada === "true"
-        ).length;
-
-        const turnoLimpio = corregirResumenTurno(
-          turnoRes.turno, 
-          medsData.medicamentos || [], 
-          tareasData.tareas || []
-        );
-
-        setTurnoResumen({
-          ...turnoLimpio,
-          total: totalReal > 0 ? totalReal : (turnoLimpio?.total || 0),
-          completadas: completadasReales // 👈 Solo sube cuando la tarea está realmente completada
-        });
-      } else {
-        setTurnoResumen(null);
-      }
+    setTurnoResumen({
+      ...turnoLimpio,
+      total: totalReal > 0 ? totalReal : (turnoLimpio?.total || 0),
+      completadas: completadasReales
+    });
+  } else {
+    setTurnoResumen(null);
+  }
         // Verificar alertas críticas de peso/hidratación
         const alertaPesoData = await getAlertaPeso(p.id).catch(() => ({ alerta: null }));
         if (alertaPesoData?.alerta) setAlertaPeso(alertaPesoData);
