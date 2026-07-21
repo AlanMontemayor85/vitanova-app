@@ -367,19 +367,30 @@ export default function RedCuidadoresScreen() {
 
             <Text style={styles.modalLabel}>Días de la semana asignados</Text>
             <View style={styles.diasModalRow}>
-              {['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'].map(d => (
-                <TouchableOpacity
-                  key={d}
-                  style={[styles.diaModalChip, diasSeleccionados.includes(d) && styles.diaModalChipActive]}
-                  onPress={() => setDiasSeleccionados(prev =>
-                    prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]
-                  )}
-                >
-                  <Text style={[styles.diaModalChipText, diasSeleccionados.includes(d) && styles.diaModalChipTextActive]}>
-                    {DIAS_CORTO[d]}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => {
+                const seleccionado = diasSeleccionados.includes(d);
+                return (
+                  <TouchableOpacity
+                    key={d}
+                    style={[
+                      styles.diaModalChip, 
+                      seleccionado && styles.diaModalChipActive
+                    ]}
+                    onPress={() => setDiasSeleccionados(prev =>
+                      prev.includes(d) 
+                        ? prev.filter(x => x !== d) 
+                        : [...prev, d]
+                    )}
+                  >
+                    <Text style={[
+                      styles.diaModalChipText, 
+                      seleccionado && styles.diaModalChipTextActive
+                    ]}>
+                      {d}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 20 }}>
