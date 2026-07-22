@@ -5,8 +5,16 @@ import { registrarPushToken } from './api';
 
 let pushYaRegistrado = false;
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => 
+    ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    } as any),
+});
+
 export async function registrarNotificaciones() {
-  // 🔒 Si ya se registró con sesión en esta sesión de app, no repetir
   if (pushYaRegistrado) return null;
 
   try {
@@ -15,12 +23,26 @@ export async function registrarNotificaciones() {
       return null;
     }
 
+    // 📣 CANAL ANDROID: Crear antes de solicitar permisos/tokens
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('vitanova', {
+        name: 'Vitanova Alertas y Medicamentos',
+        importance: Notifications.AndroidImportance.MAX, // 🚨 Máxima prioridad para sonido y banner
+        vibrationPattern: [0, 500, 250, 500],
+        lightColor: '#BF9A40',
+        sound: 'default',
+        enableVibrate: true,
+        showBadge: true,
+      });
+    }
+
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
     if (existingStatus !== 'granted') {
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
     }
+
     if (finalStatus !== 'granted') {
       console.log('Permiso de notificaciones denegado');
       return null;
@@ -34,20 +56,8 @@ export async function registrarNotificaciones() {
 
     const resultado = await registrarPushToken(token, Platform.OS);
 
-    // ✅ Solo marcamos como registrado si de verdad había sesión y se guardó.
-    //    Si no había sesión, registrarPushToken regresa null → no lo marcamos
-    //    y se volverá a intentar después del login.
     if (resultado) {
       pushYaRegistrado = true;
-    }
-
-    if (Platform.OS === 'android') {
-      Notifications.setNotificationChannelAsync('vitanova', {
-        name: 'Vitanova Alertas',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#BF9A40',
-      });
     }
 
     return token;
