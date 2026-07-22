@@ -257,34 +257,30 @@ useEffect(() => {
         if (notasData?.notas) setNotas(notasData.notas);
         if (alertaPesoData?.alerta) setAlertaPeso(alertaPesoData);
 
-        // 🎯 Extraer Tareas Hoy
+        // 🎯 EXTRAER TAREAS Y MÉTRICAS DIRECTAS DEL BACKEND
         const tareasHoy = Array.isArray(tareasHoyData) 
           ? tareasHoyData 
           : (tareasHoyData?.tareas || []);
 
-        // 🛡️ REGLA MATEMÁTICA ESTRELLA:
-        // Priorizar las métricas calculadas del backend (excluyen incidentales del denominador)
-        // Fallback: Si no vienen, se filtran en cliente para NO contar incidentales en el total.
-        const totalAgenda = tareasHoyData?.total ?? tareasHoy.filter((t: any) => !t.es_incidental).length;
-        
-        const completadasAgenda = tareasHoyData?.completadas ?? tareasHoy.filter((t: any) => 
-          !t.es_incidental && (t.completada === true || t.completada === 1 || t.completada === "true" || t.completada === "1")
+        const totalRespuesta = tareasHoyData?.total ?? tareasHoy.length;
+
+        const completadasRespuesta = tareasHoyData?.completadas ?? tareasHoy.filter(
+          (t: any) => t.completada === true || t.completada === 1 || String(t.completada).toLowerCase() === "true"
         ).length;
 
-        // Formatear fallback de turno
         const turnoLimpio = corregirResumenTurno(
           turnoRes?.turno || {}, 
           medsData?.medicamentos || [], 
           tareasData?.tareas || []
         );
 
-        // 🎯 SETEAR ESTADO DEFINITIVO
+        // 🎯 FUENTE DE VERDAD ÚNICA
         setTurnoResumen({
           ...turnoLimpio,
           cuidador_nombre: turnoRes?.turno?.cuidador_nombre || "Turno del Día",
           horario: turnoRes?.turno?.horario || "00:00 - 23:59",
-          total: Number(tareasHoyData ? totalAgenda : (turnoLimpio?.total || 0)),
-          completadas: Number(tareasHoyData ? completadasAgenda : (turnoLimpio?.completadas || 0))
+          total: Number(totalRespuesta),
+          completadas: Number(completadasRespuesta)
         });
 
       } else {
