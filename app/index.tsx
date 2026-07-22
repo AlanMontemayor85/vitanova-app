@@ -122,44 +122,37 @@ const handleCalibrarReloj = async () => {
     alert("Error de red al conectar con el servidor.");
   }
 };
-// 🎯 INTERCEPTOR OPERATIVO: Corrige el desfase 1/0 homogenizando completadas y totales
+// 🎯 INTERCEPTOR OPERATIVO: Normalización y saneamiento de estado de Turno
 const corregirResumenTurno = (turnoOriginal: any, listadoMedicamentos: any[], listadoTareas: any[]) => {
   if (!turnoOriginal) return null;
 
-  const hoyStr = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD local de México
+  const hoyStr = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD local
 
-  // 1. Filtrar medicamentos vigentes para hoy y contar por horarios
-  const medsHoy = listadoMedicamentos.filter(med => {
+  // 1. Filtrar medicamentos vigentes para hoy
+  const medsHoy = (listadoMedicamentos || []).filter(med => {
     return med.fecha_inicio && med.fecha_inicio <= hoyStr && (!med.fecha_fin || med.fecha_fin >= hoyStr);
   });
   const totalMedsTurno = medsHoy.reduce((acc, med) => acc + (Array.isArray(med.horarios) ? med.horarios.length : 1), 0);
 
-  // 🎯 Reutilizamos el conteo de medicamentos completados si tu backend los computa así
-  // (Si tu API maneja los medicamentos completados dentro de un array separado o flag, asegúrate de sumarlos aquí)
-
-  // 2. Filtrar tareas vigentes hoy EXCLUYENDO las notas del cuidador de forma estricta
-  const tareasHoy = listadoTareas.filter(tarea => {
+  // 2. Filtrar tareas vigentes excluyendo notas
+  const tareasHoy = (listadoTareas || []).filter(tarea => {
     const tipo = String(tarea.tipo || tarea.categoria || '').toLowerCase().trim();
     const esNota = tipo === 'nota' || tipo === 'nota_cuidador' || tipo.includes('nota');
     const esVigente = tarea.fecha_inicio && tarea.fecha_inicio <= hoyStr && (!tarea.fecha_fin || tarea.fecha_fin >= hoyStr);
-    return esVigente && !esNota; // 🛡️ Solo incidentales/operativas vigentes de hoy
+    return esVigente && !esNota;
   });
 
-  // 3. ⚡ RECALCULAR COMPLETADAS REALES SOBRE EL CONTENIDO FILTRADO DE HOY
   const tareasCompletadasHoy = tareasHoy.filter(tarea => tarea.completada || tarea.status === 'completada').length;
-  
-  // Si tu backend suma medicamentos y tareas en el mismo badge, consolidamos ambos totales aquí
   const totalReal = totalMedsTurno + tareasHoy.length;
 
   return {
     ...turnoOriginal,
-    total: totalReal, // Seteamos el divisor real (el 0 de tu 1/0)
-    
-    // 🛡️ SINCRONIZACIÓN MATEMÁTICA: Forzamos al badge a leer el conteo correcto de completadas de hoy
-    completadas: tareasCompletadasHoy, 
-    tareas_completadas: tareasCompletadasHoy // Mapeamos ambas variantes comunes de llaves por seguridad
+    total: totalReal,
+    completadas: tareasCompletadasHoy,
+    tareas_completadas: tareasCompletadasHoy
   };
 };
+
 // 🔄 Carga inicial y Enrutador Inteligente Relacional
 useEffect(() => {
   const init = async () => {
@@ -242,12 +235,11 @@ useEffect(() => {
       if (data.patients && data.patients.length > 0) {
         setPacientes(data.patients);
 
-        // 🎯 Usar paciente activo según pacienteIndex
         const idxActual = pacienteIndex ?? 0;
         const p = data.patients[idxActual] || data.patients[0];
         setPaciente(p);
 
-        // 1. Peticiones paralelas unificadas (Sin depender de turno activo)
+        // Peticiones paralelas unificadas
         const [cierreData, notasData, alertaPesoData, turnoRes, medsData, tareasData, tareasHoyData] = await Promise.all([
           getUltimoCierre(p.id).catch(() => ({ cierre: null })),
           getNotasTurno(p.id).catch(() => ({ notas: [] })),
@@ -265,32 +257,34 @@ useEffect(() => {
         if (notasData?.notas) setNotas(notasData.notas);
         if (alertaPesoData?.alerta) setAlertaPeso(alertaPesoData);
 
-        // 2. Extraer Tareas Hoy
+        // 🎯 Extraer Tareas Hoy
         const tareasHoy = Array.isArray(tareasHoyData) 
           ? tareasHoyData 
           : (tareasHoyData?.tareas || []);
 
-        const totalCalculado = tareasHoy.length;
-
-        // Contar estrictamente completadas
-        const completadasReales = tareasHoy.filter(
-          (t: any) => t.completada === true || t.completada === 1 || t.completada === "true" || t.completada === "1"
+        // 🛡️ REGLA MATEMÁTICA ESTRELLA:
+        // Priorizar las métricas calculadas del backend (excluyen incidentales del denominador)
+        // Fallback: Si no vienen, se filtran en cliente para NO contar incidentales en el total.
+        const totalAgenda = tareasHoyData?.total ?? tareasHoy.filter((t: any) => !t.es_incidental).length;
+        
+        const completadasAgenda = tareasHoyData?.completadas ?? tareasHoy.filter((t: any) => 
+          !t.es_incidental && (t.completada === true || t.completada === 1 || t.completada === "true" || t.completada === "1")
         ).length;
 
-        // 3. Formatear resumen
+        // Formatear fallback de turno
         const turnoLimpio = corregirResumenTurno(
           turnoRes?.turno || {}, 
           medsData?.medicamentos || [], 
           tareasData?.tareas || []
         );
 
-        // 🎯 FUENTE DE VERDAD: Se setea el estado independientemente de si turnoRes.turno es null
+        // 🎯 SETEAR ESTADO DEFINITIVO
         setTurnoResumen({
           ...turnoLimpio,
           cuidador_nombre: turnoRes?.turno?.cuidador_nombre || "Turno del Día",
           horario: turnoRes?.turno?.horario || "00:00 - 23:59",
-          total: Number(tareasHoyData ? totalCalculado : (turnoLimpio?.total || 0)),
-          completadas: Number(completadasReales)
+          total: Number(tareasHoyData ? totalAgenda : (turnoLimpio?.total || 0)),
+          completadas: Number(tareasHoyData ? completadasAgenda : (turnoLimpio?.completadas || 0))
         });
 
       } else {
