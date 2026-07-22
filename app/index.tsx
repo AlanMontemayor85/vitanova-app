@@ -154,6 +154,14 @@ const corregirResumenTurno = (turnoOriginal: any, listadoMedicamentos: any[], li
 };
 // 🔄 Carga inicial y Enrutador Inteligente Relacional
 useEffect(() => {
+
+  console.log("🚀 [INIT DISPARADO]", { 
+  refresh: params.refresh, 
+  modoSwitchParam, 
+  paramModoSwitch: params.modoSwitch,
+  time: new Date().toISOString() 
+});
+
   const init = async () => {
     try {
       setLoading(true);
@@ -317,7 +325,14 @@ useEffect(() => {
   };
 
   init();
-}, [params.refresh, pacienteIndex, modoSwitchParam, params.modoSwitch]);
+}, [
+  params.refresh, 
+  pacienteIndex, 
+  modoSwitchParam, 
+  params.modoSwitch, 
+  vistaModo, 
+  modoCuidadorFamiliar
+]);
 
 useEffect(() => {
   console.log("🔄 [INDEX] Modo de visualización cambiado a:", vistaModo, "| Paciente:", paciente?.id);
