@@ -702,7 +702,8 @@ useEffect(() => {
                         pathname: '/medicamentos' as any,
                         params: {
                           pacienteId: paciente?.id,
-                          pacienteNombre: paciente?.nombre_completo,
+                          
+                          
                         }
                       });
                     } else if (item.label === 'Alertas') {

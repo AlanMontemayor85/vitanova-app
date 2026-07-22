@@ -1,9 +1,9 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as DocumentPicker from 'expo-document-picker';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { actualizarMedicamento, actualizarTareaRecurrente, crearMedicamento, crearTareaRecurrente, desactivarMedicamento, desactivarTareaRecurrente, getMedicamentos, getPacientes, getTareasRecurrentes, loadStoredToken } from '../services/api';
+import { actualizarMedicamento, actualizarTareaRecurrente, crearMedicamento, crearTareaRecurrente, desactivarMedicamento, desactivarTareaRecurrente, getMedicamentos, getPacientes, getTareasRecurrentes } from '../services/api';
 
 const COLORS = {
   gold: '#BF9A40',
@@ -72,41 +72,34 @@ export default function MedicamentosScreen() {
   const XLSX = require('xlsx');
   const [importando, setImportando] = useState(false);
 
-
-// 🔄 Reemplaza tu useEffect por esto:
-useFocusEffect(
-  useCallback(() => {
+  
+ useEffect(() => {
     const cargar = async () => {
       try {
-        setLoading(true);
-        const token = await loadStoredToken();
-        if (!token) {
-          router.replace('/login');
-          return;
-        }
         const data = await getPacientes();
+
         if (data.patients && data.patients.length > 0) {
           const p = pacienteIdParam
             ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
             : data.patients[0];
-          setPaciente(p);
           
+          setPaciente(p);
+
           const meds = await getMedicamentos(p.id);
           if (meds.medicamentos) setMedicamentos(meds.medicamentos);
-          
+
           const rutinas = await getTareasRecurrentes(p.id);
           if (rutinas.tareas) setTareasRec(rutinas.tareas);
         }
       } catch (e) {
-        console.error('ERROR CARGANDO DATOS:', e);
+        console.error(e);
       } finally {
         setLoading(false);
       }
     };
 
     cargar();
-  }, [pacienteIdParam, params.refresh])
-);
+  }, [pacienteIdParam, params?.refresh]);
 
   const guardarMedicamento = async () => {
     if (!nombre.trim() || !dosis.trim()) return;
@@ -453,12 +446,30 @@ const importarDesdeExcel = async () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
+{/* HEADER */}
+          <View style={styles.header}>
+                <TouchableOpacity 
+      onPress={() => {
+        console.log("🔙 [MEDS] Botón atrás presionado. Paciente actual:", paciente?.nombre_completo, `(ID: ${paciente?.id})`);
+        
+        if (!paciente?.id) {
+          console.log("⚠️ [MEDS] No hay paciente seleccionado, regresando sin ID");
+        } else {
+          console.log("📤 [MEDS] Enviando pacienteId a Index:", paciente.id);
+        }
 
-      {/* HEADER */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
+        router.push({
+          pathname: '/',
+          params: { 
+            refresh: Date.now().toString(),
+            pacienteId: paciente?.id 
+          }
+        });
+      }} 
+      style={styles.backBtn}
+    >
+      <Text style={styles.backIcon}>←</Text>
+    </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerSub}>Cuidado del Paciente</Text>
           <Text style={styles.headerTitle}>{paciente?.nombre_completo ?? 'Paciente'}</Text>
