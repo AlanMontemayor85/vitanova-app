@@ -448,28 +448,12 @@ const importarDesdeExcel = async () => {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
 {/* HEADER */}
           <View style={styles.header}>
-                <TouchableOpacity 
-      onPress={() => {
-        console.log("🔙 [MEDS] Botón atrás presionado. Paciente actual:", paciente?.nombre_completo, `(ID: ${paciente?.id})`);
-        
-        if (!paciente?.id) {
-          console.log("⚠️ [MEDS] No hay paciente seleccionado, regresando sin ID");
-        } else {
-          console.log("📤 [MEDS] Enviando pacienteId a Index:", paciente.id);
-        }
-
-        router.push({
-          pathname: '/',
-          params: { 
-            refresh: Date.now().toString(),
-            pacienteId: paciente?.id 
-          }
-        });
-      }} 
-      style={styles.backBtn}
-    >
-      <Text style={styles.backIcon}>←</Text>
-    </TouchableOpacity>
+               <TouchableOpacity 
+          onPress={() => router.back()}
+          style={styles.backBtn}
+        >
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerSub}>Cuidado del Paciente</Text>
           <Text style={styles.headerTitle}>{paciente?.nombre_completo ?? 'Paciente'}</Text>

@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useLocalSearchParams, usePathname, useRouter } from 'expo-router';
+import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { Bell, Calendar, MapPin, Pill } from 'lucide-react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
@@ -51,7 +51,7 @@ export default function HomeScreen() {
   const pathname = usePathname();
   const pacienteId = paciente?.id;
   const [modoCuidadorFamiliar, setModoCuidadorFamiliar] = useState(false);
-  
+  const pacienteIndexRef = useRef(0);
   const modoSwitchParam = params.modoSwitch; // Puede ser 'familiar', 'ninguno', etc.
   const pacienteIdParam = params.pacienteId;
     
@@ -153,32 +153,7 @@ const corregirResumenTurno = (turnoOriginal: any, listadoMedicamentos: any[], li
   };
 };
 
-// ← AGREGAR aquí, después de los useState
-useFocusEffect(
-  useCallback(() => {
-    const recargar = async () => {
-      const pData = await getPacientes();
-      if (pData.patients && pData.patients.length > 0) {
-        setPacientes(pData.patients);
-        
-        // Restaurar el paciente seleccionado
-        const idActual = paciente?.id;
-        if (idActual) {
-          const indexActual = pData.patients.findIndex((p: any) => p.id === idActual);
-          if (indexActual >= 0) {
-            setPacienteIndex(indexActual);
-            setPaciente(pData.patients[indexActual]);
-            return;
-          }
-        }
-        // Solo ir al primero si no había selección previa
-        setPaciente(pData.patients[0]);
-        setPacienteIndex(0);
-      }
-    };
-    recargar();
-  }, [paciente?.id])
-);
+
 // 🔄 Carga inicial y Enrutador Inteligente Relacional
 useEffect(() => {
 
@@ -270,11 +245,10 @@ useEffect(() => {
         return;
       }
 
-      // 📡 4. Flujo Normal de Familiar
       if (data.patients && data.patients.length > 0) {
         setPacientes(data.patients);
 
-        const idxActual = pacienteIndex ?? 0;
+        const idxActual = pacienteIndexRef.current ?? 0;
         const p = data.patients[idxActual] || data.patients[0];
         setPaciente(p);
 
@@ -465,15 +439,16 @@ useEffect(() => {
         <>
           {/* PATIENT CARD */}
           <View style={styles.patientCard}>
-            {pacientes.length > 1 && (
-              <TouchableOpacity onPress={() => {
-                const newIndex = (pacienteIndex - 1 + pacientes.length) % pacientes.length;
-                setPacienteIndex(newIndex);
-                setPaciente(pacientes[newIndex]);
-              }}>
-                <Text style={{ color: COLORS.gold, fontSize: 20, marginRight: 4 }}>‹</Text>
-              </TouchableOpacity>
-            )}
+           {pacientes.length > 1 && (
+            <TouchableOpacity onPress={() => {
+              const newIndex = (pacienteIndex - 1 + pacientes.length) % pacientes.length;
+              setPacienteIndex(newIndex);
+              setPaciente(pacientes[newIndex]);
+              pacienteIndexRef.current = newIndex; // ← agregar
+            }}>
+              <Text style={{ color: COLORS.gold, fontSize: 20, marginRight: 4 }}>‹</Text>
+            </TouchableOpacity>
+          )}
             <TouchableOpacity 
               onPress={() => router.push({
                 pathname: '/perfil-paciente' as any,
@@ -498,14 +473,15 @@ useEffect(() => {
               <Text style={styles.statusText}>Bien</Text>
             </View>
             {pacientes.length > 1 && (
-              <TouchableOpacity onPress={() => {
-                const newIndex = (pacienteIndex + 1) % pacientes.length;
-                setPacienteIndex(newIndex);
-                setPaciente(pacientes[newIndex]);
-              }}>
-                <Text style={{ color: COLORS.gold, fontSize: 20, marginLeft: 4 }}>›</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity onPress={() => {
+              const newIndex = (pacienteIndex + 1) % pacientes.length;
+              setPacienteIndex(newIndex);
+              setPaciente(pacientes[newIndex]);
+              pacienteIndexRef.current = newIndex; // ← agregar
+            }}>
+              <Text style={{ color: COLORS.gold, fontSize: 20, marginLeft: 4 }}>›</Text>
+            </TouchableOpacity>
+          )}
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
