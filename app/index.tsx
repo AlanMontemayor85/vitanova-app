@@ -766,7 +766,7 @@ useEffect(() => {
                     } else if (item.ruta) {
                       router.push({
                         pathname: item.ruta as any,
-                        params: { pacienteId: paciente?.id, ts: Date.now().toString() }
+                        params: { pacienteId: paciente?.id }
                       });
                     }
                   }}
