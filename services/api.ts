@@ -375,10 +375,17 @@ export const agregarTareaManual = async (tarea: object) => {
   return res.json();
 };
 
-// ✅ Esta es la correcta para el módulo de Cuidador (tiene sin_horario)
 export const getTareasHoy = async (pacienteId: string) => {
   const token = getToken();
-  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/tareas-hoy`, {
+  
+  // 🇲🇽 Obtener la fecha en formato YYYY-MM-DD usando la ZONA HORARIA LOCAL (México)
+  const ahora = new Date();
+  const year = ahora.getFullYear();
+  const month = String(ahora.getMonth() + 1).padStart(2, '0');
+  const day = String(ahora.getDate()).padStart(2, '0');
+  const fechaHoyLocal = `${year}-${month}-${day}`; // Traerá 2026-07-21
+
+  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/tareas-dia?fecha=${fechaHoyLocal}&offset=360`, {
     headers: { 'Authorization': `Bearer ${token}` }
   });
   return res.json();

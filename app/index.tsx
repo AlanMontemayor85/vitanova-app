@@ -217,7 +217,8 @@ useEffect(() => {
             params: {
               usuarioRol: 'familiar_principal',
               modoSwitch: 'familiar',
-              pacienteId: pacienteIdParam || data.patients?.[0]?.id
+              pacienteId: pacienteIdParam || data.patients?.[0]?.id,
+              refresh: Date.now().toString()
             }
           });
           return;
@@ -259,21 +260,37 @@ useEffect(() => {
           ? tareasHoyData
           : (tareasHoyData?.tareas || []);
 
-        // Si el objeto JSON del servidor trae .total y .completadas, usarlos directo;
-        // de lo contrario, contarlos sobre el array `listaTareas`.
+        // 🔍 LOG DE DEPURACIÓN DETALLADO
+        console.log("==========================================");
+        console.log("🔍 DIAGNÓSTICO EN FRONTEND (Index.tsx):");
+        console.log("📦 Respuesta cruda de tareasHoyData:", JSON.stringify(tareasHoyData));
+        console.log("📋 Cantidad de tareas en la lista:", listaTareas.length);
+        
+        listaTareas.forEach((t: any, index: number) => {
+          const estaCompletada = 
+            t.completada === true || 
+            t.completada === 1 || 
+            String(t.completada).toLowerCase() === "true";
+
+          console.log(
+            `  [${index + 1}] ID: ${t.id} | Desc: "${t.descripcion}" | Tipo: ${t.tipo} | Incidental: ${t.es_incidental} | RAW completada: ${JSON.stringify(t.completada)} -> EVALUADO: ${estaCompletada ? "✅ TRUE" : "❌ FALSE"}`
+          );
+        });
+
         const totalCalculado = tareasHoyData?.total !== undefined 
           ? Number(tareasHoyData.total) 
           : listaTareas.length;
 
-        const completadasCalculadas = tareasHoyData?.completadas !== undefined 
-          ? Number(tareasHoyData.completadas) 
-          : listaTareas.filter((t: any) => 
-              t.completada === true || 
-              t.completada === 1 || 
-              String(t.completada).toLowerCase() === "true"
-            ).length;
+        const completadasCalculadas = listaTareas.filter((t: any) => 
+          t.completada === true || 
+          t.completada === 1 || 
+          String(t.completada).toLowerCase() === "true"
+        ).length;
 
-        // 🎯 SETEAR SIN INTERFERENCIAS DE 'corregirResumenTurno'
+        console.log(`📊 RESULTADO FINAL EVALUADO: ${completadasCalculadas} / ${totalCalculado}`);
+        console.log("==========================================");
+
+        // 🎯 SETEAR EN EL ESTADO
         setTurnoResumen({
           ...(turnoRes?.turno || {}),
           cuidador_nombre: turnoRes?.turno?.cuidador_nombre || "Turno del Día",
@@ -296,7 +313,7 @@ useEffect(() => {
   };
 
   init();
-}, [params.refresh, pacienteIndex]);
+}, [params.refresh, pacienteIndex, modoSwitchParam, params.modoSwitch]);
 
 useEffect(() => {
   console.log("🔄 [INDEX] Modo de visualización cambiado a:", vistaModo, "| Paciente:", paciente?.id);
