@@ -3,7 +3,7 @@ import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { Bell, Calendar, MapPin, Pill } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getMedicamentos, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTareasRecurrentes, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
+import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 import CuidadorScreen from './cuidador';
 
@@ -152,14 +152,13 @@ const corregirResumenTurno = (turnoOriginal: any, listadoMedicamentos: any[], li
     tareas_completadas: tareasCompletadasHoy
   };
 };
-
 // 🔄 Carga inicial y Enrutador Inteligente Relacional
 useEffect(() => {
   const init = async () => {
     try {
       setLoading(true);
 
-      // 0. 🧼 LIMPIEZA INICIAL: Borrar estado del paciente anterior inmediatamente
+      // 0. 🧼 LIMPIEZA INICIAL
       setTurnoResumen(null);
       setUltimoCierre(null);
       setNotas([]);
@@ -231,7 +230,7 @@ useEffect(() => {
         return;
       }
 
-      // 📡 4. Flujo Normal de Familiar (Carga de telemetría y estado clínico)
+      // 📡 4. Flujo Normal de Familiar
       if (data.patients && data.patients.length > 0) {
         setPacientes(data.patients);
 
@@ -239,14 +238,12 @@ useEffect(() => {
         const p = data.patients[idxActual] || data.patients[0];
         setPaciente(p);
 
-        // Peticiones paralelas unificadas
-        const [cierreData, notasData, alertaPesoData, turnoRes, medsData, tareasData, tareasHoyData] = await Promise.all([
+        // Peticiones paralelas originales que ya te funcionaban
+        const [cierreData, notasData, alertaPesoData, turnoRes, tareasHoyData] = await Promise.all([
           getUltimoCierre(p.id).catch(() => ({ cierre: null })),
           getNotasTurno(p.id).catch(() => ({ notas: [] })),
           getAlertaPeso(p.id).catch(() => ({ alerta: null })),
           getTurnoActivoResumen(p.id).catch(() => ({ turno: null })),
-          getMedicamentos(p.id).catch(() => ({ medicamentos: [] })),
-          getTareasRecurrentes(p.id).catch(() => ({ tareas: [] })),
           getTareasHoy(p.id).catch((err) => {
             console.log("❌ FALLO getTareasHoy:", err);
             return null;
@@ -257,30 +254,32 @@ useEffect(() => {
         if (notasData?.notas) setNotas(notasData.notas);
         if (alertaPesoData?.alerta) setAlertaPeso(alertaPesoData);
 
-        // 🎯 EXTRAER TAREAS Y MÉTRICAS DIRECTAS DEL BACKEND
-        const tareasHoy = Array.isArray(tareasHoyData) 
-          ? tareasHoyData 
+        // 🎯 EXTRAER EL ARRAY COMPLETO DE TAREAS RECIBIDO
+        const listaTareas = Array.isArray(tareasHoyData)
+          ? tareasHoyData
           : (tareasHoyData?.tareas || []);
 
-        const totalRespuesta = tareasHoyData?.total ?? tareasHoy.length;
+        // Si el objeto JSON del servidor trae .total y .completadas, usarlos directo;
+        // de lo contrario, contarlos sobre el array `listaTareas`.
+        const totalCalculado = tareasHoyData?.total !== undefined 
+          ? Number(tareasHoyData.total) 
+          : listaTareas.length;
 
-        const completadasRespuesta = tareasHoyData?.completadas ?? tareasHoy.filter(
-          (t: any) => t.completada === true || t.completada === 1 || String(t.completada).toLowerCase() === "true"
-        ).length;
+        const completadasCalculadas = tareasHoyData?.completadas !== undefined 
+          ? Number(tareasHoyData.completadas) 
+          : listaTareas.filter((t: any) => 
+              t.completada === true || 
+              t.completada === 1 || 
+              String(t.completada).toLowerCase() === "true"
+            ).length;
 
-        const turnoLimpio = corregirResumenTurno(
-          turnoRes?.turno || {}, 
-          medsData?.medicamentos || [], 
-          tareasData?.tareas || []
-        );
-
-        // 🎯 FUENTE DE VERDAD ÚNICA
+        // 🎯 SETEAR SIN INTERFERENCIAS DE 'corregirResumenTurno'
         setTurnoResumen({
-          ...turnoLimpio,
+          ...(turnoRes?.turno || {}),
           cuidador_nombre: turnoRes?.turno?.cuidador_nombre || "Turno del Día",
           horario: turnoRes?.turno?.horario || "00:00 - 23:59",
-          total: Number(totalRespuesta),
-          completadas: Number(completadasRespuesta)
+          total: totalCalculado,
+          completadas: completadasCalculadas
         });
 
       } else {
@@ -298,7 +297,6 @@ useEffect(() => {
 
   init();
 }, [params.refresh, pacienteIndex]);
-
 
 useEffect(() => {
   console.log("🔄 [INDEX] Modo de visualización cambiado a:", vistaModo, "| Paciente:", paciente?.id);
