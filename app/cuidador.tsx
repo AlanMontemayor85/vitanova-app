@@ -1,3 +1,4 @@
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -166,12 +167,62 @@ export default function CuidadorScreen({
   const [glucosa, setGlucosa] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const yaTransicionadoRef = useRef(false);
-  
+  const [nuevaTareaDesc, setNuevaTareaDesc] = useState('');
+  const [nuevaTareaTipo, setNuevaTareaTipo] = useState('otro');
+  const [nuevaTareaHora, setNuevaTareaHora] = useState(''); // Ej. "11:30" o "" para incidental pura
   const vistaRef = useRef(vista);
   // Estado temporal para la sensibilidad de caídas recuperada del servidor
   const [sensibilidadCaidas, setSensibilidadCaidas] = useState('');
   const [notasExpandidas, setNotasExpandidas] = useState(false);
+  // 🇲🇽 Convierte "2026-07-22" -> "22/07/2026" (Para mostrar al usuario)
+  const ISOaLatino = (fechaISO: string) => {
+    if (!fechaISO) return '';
+    const partes = fechaISO.split('T')[0].split('-');
+    if (partes.length !== 3) return fechaISO;
+    return `${partes[2]}/${partes[1]}/${partes[0]}`;
+  };
+   // Estado inicial formateado como "22/07/2026"
+  const hoyLatino = () => {
+  const d = new Date();
+  const dia = String(d.getDate()).padStart(2, '0');
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const anio = d.getFullYear();
+  return `${dia}/${mes}/${anio}`;
+};
+  
+const [nuevaTareaFecha, setNuevaTareaFecha] = useState(hoyLatino());
+  // ⚙️ Convierte "22/07/2026" -> "2026-07-22" (Para enviar al backend)
+  const LatinoaISO = (fechaLatino: string) => {
+    if (!fechaLatino) return new Date().toISOString().split('T')[0];
+    const partes = fechaLatino.split('/');
+    if (partes.length !== 3) return fechaLatino;
+    return `${partes[2]}-${partes[1]}-${partes[0]}`;
+  };
 
+  // Estados para Picker
+const [showDatePicker, setShowDatePicker] = useState(false);
+const [showTimePicker, setShowTimePicker] = useState(false);
+
+// Handler para cambio de Fecha
+const onFechaChange = (event: any, selectedDate?: Date) => {
+  setShowDatePicker(false);
+  if (selectedDate) {
+    const dia = String(selectedDate.getDate()).padStart(2, '0');
+    const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const anio = selectedDate.getFullYear();
+    setNuevaTareaFecha(`${dia}/${mes}/${anio}`);
+  }
+};
+
+// Handler para cambio de Hora
+const onHoraChange = (event: any, selectedDate?: Date) => {
+  setShowTimePicker(false);
+  if (selectedDate) {
+    const hrs = String(selectedDate.getHours()).padStart(2, '0');
+    const mins = String(selectedDate.getMinutes()).padStart(2, '0');
+    setNuevaTareaHora(`${hrs}:${mins}`);
+  }
+};
   const sincronizarSignosReloj = async (pacienteId: string, forzarComando: boolean = false) => {
     if (!pacienteId) return;
     setCargandoSignos(true);
@@ -664,56 +715,65 @@ useEffect(() => {
     }
   };
 
-  const guardarTareaManual = async () => {
-    if (!tareaDesc.trim()) return;
-    setGuardandoTarea(true);
-    const idTemporal = `incidental-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const descripcionLimpia = tareaDesc.trim();
-    const tipoActual = tareaTipo;
-    const horaActual = tareaHora || null;
+ const guardarTareaManual = async () => {
+  if (!nuevaTareaDesc.trim() && !tareaDesc.trim()) return;
+  setGuardandoTarea(true);
 
-    // 🎯 OBTENER FECHA LOCAL DE HOY (Formato YYYY-MM-DD para México)
-    const hoyStr = new Date().toLocaleDateString('sv-SE'); 
+  const descripcionLimpia = (nuevaTareaDesc || tareaDesc).trim();
+  const tipoActual = nuevaTareaTipo || tareaTipo;
+  const horaActual = nuevaTareaHora || tareaHora || null;
+  const idTemporal = `incidental-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-    try {
-      const res = await agregarTareaManual({ 
-        turno_id: turnoActivoRef.current?.id || null, 
-        paciente_id: pacienteActivo.id, 
+  // 🎯 Convertir fecha DD/MM/YYYY a YYYY-MM-DD
+  const fechaISO = LatinoaISO(nuevaTareaFecha);
+
+  // Formato para hora_programada: Si hay hora se manda HH:mm:00
+  const horaProgramadaFormatted = horaActual ? `${horaActual}:00` : null;
+
+  try {
+    const res = await agregarTareaManual({ 
+      turno_id: turnoActivoRef.current?.id || null, 
+      paciente_id: pacienteActivo.id, 
+      tipo: tipoActual, 
+      descripcion: descripcionLimpia, 
+      hora_programada: horaProgramadaFormatted, 
+      es_incidental: true,
+      fecha_inicio: fechaISO,
+      fecha_fin: fechaISO
+    });
+    
+    const idFinal = res?.tarea_id || res?.id || idTemporal;
+
+    // Actualizamos el estado local
+    setTareas(prev => [
+      ...prev, 
+      { 
+        id: idFinal, 
         tipo: tipoActual, 
         descripcion: descripcionLimpia, 
-        hora_programada: horaActual, 
+        hora_programada: horaProgramadaFormatted, 
+        hora: horaActual || null,
+        completada: false, 
         es_incidental: true,
-        
-        // ⚡ HOMOLOGACIÓN TEMPORAL:
-        // Forzamos que la tarea nazca y muera estrictamente el día de hoy.
-        // Así el filtro de vigencia de la HomeScreen la descartará mañana en automático.
-        fecha_inicio: hoyStr,
-        fecha_fin: hoyStr
-      });
-      
-      const idFinal = res?.tarea_id || res?.id || idTemporal;
-      setTareas(prev => [
-        ...prev, 
-        { 
-          id: idFinal, 
-          tipo: tipoActual, 
-          descripcion: descripcionLimpia, 
-          hora_programada: horaActual, 
-          completada: false, 
-          es_incidental: true,
-          // Sincronizamos el estado local también
-          fecha_inicio: hoyStr,
-          fecha_fin: hoyStr
-        }
-      ]);
-      setTareaDesc(''); setTareaTipo('otro'); setTareaHora(''); setTareaOpen(false);
-    } catch (e) { 
-      console.error("❌ Error en guardarTareaManual:", e); 
-      alert("⚠️ El servidor de Railway rechazó la tarea incidental.");
-    } finally { 
-      setGuardandoTarea(false); 
-    }
-  };
+        fecha_inicio: fechaISO,
+        fecha_fin: fechaISO
+      }
+    ]);
+
+    // Limpiar formulario y cerrar
+    setNuevaTareaDesc(''); 
+    setTareaDesc('');
+    setNuevaTareaHora(''); 
+    setTareaHora('');
+    setTareaOpen(false);
+
+  } catch (e) { 
+    console.error("❌ Error en guardarTareaManual:", e); 
+    alert("⚠️ El servidor rechazó la tarea incidental.");
+  } finally { 
+    setGuardandoTarea(false); 
+  }
+};
 
   const registrarIncidente = async (descripcion: string, tipo: string = 'otro') => {
     try {
@@ -1189,30 +1249,49 @@ useEffect(() => {
 
           {tareasPendientes.map((t) => {
             const renderTemporalidadTarea = () => {
-              if (t.es_incidental) {
-                return <Text style={{ fontSize: 10, color: '#D97706', fontWeight: '600' }}>⚡ Incidental</Text>;
-              }
+            const hoyISO = new Date().toISOString().split('T')[0];
+            const fechaTareaISO = t.fecha_inicio ? String(t.fecha_inicio).split('T')[0] : hoyISO;
+            
+            const tieneHora = Boolean(t.hora_programada || (t.hora && t.hora !== 'Incidental'));
+            const esFechaFuturaODiferente = fechaTareaISO !== hoyISO;
 
-              const fInicio = t.fecha_inicio;
-              const fFin = t.fecha_fin;
-
-              if (!fFin || fFin === null || fFin === '') {
-                return <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '600' }}>♾️ Permanente</Text>;
-              }
-
-              const inicioClean = String(fInicio).split('T')[0];
-              const finClean = String(fFin).split('T')[0];
-
-              if (inicioClean === finClean) {
-                return <Text style={{ fontSize: 10, color: '#555', fontWeight: '600' }}>📍 {inicioClean}</Text>;
-              }
+            if (t.es_incidental) {
+              // Si tiene hora O si es para una fecha diferente a hoy, cuenta como Agendada
+              const esAgendada = tieneHora || esFechaFuturaODiferente;
 
               return (
-                <Text style={{ fontSize: 10, color: '#555', fontWeight: '600' }}>
-                  📆 {inicioClean} al {finClean}
+                <Text style={{ fontSize: 10, color: esAgendada ? '#0284C7' : '#D97706', fontWeight: '600' }}>
+                  {esAgendada ? '⏰ Agendada' : '⚡ Del Día'}
                 </Text>
               );
-            };
+            }
+
+            const fInicio = t.fecha_inicio;
+            const fFin = t.fecha_fin;
+
+            if (!fFin || fFin === null || fFin === '') {
+              return <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '600' }}>♾️ Permanente</Text>;
+            }
+
+            const inicioClean = ISOaLatino(String(fInicio));
+            const finClean = ISOaLatino(String(fFin));
+
+            if (inicioClean === finClean) {
+              return <Text style={{ fontSize: 10, color: '#555', fontWeight: '600' }}>📍 {inicioClean}</Text>;
+            }
+
+            return (
+              <Text style={{ fontSize: 10, color: '#555', fontWeight: '600' }}>
+                📆 {inicioClean} al {finClean}
+              </Text>
+            );
+          };
+
+            
+            // Texto visual para la hora en la tarjeta
+          const horaTexto = t.hora_programada || (t.hora && t.hora !== 'Incidental' ? t.hora : null)
+            ? (t.hora_programada || t.hora)
+            : (t.fecha_inicio ? ISOaLatino(String(t.fecha_inicio)) : 'Sin hora');
 
             return (
               <TouchableOpacity key={t.id} style={styles.tareaCard} onPress={() => {
@@ -1232,19 +1311,19 @@ useEffect(() => {
                 ]);
               }}>
                 <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
-                
+
                 <View style={styles.tareaInfo}>
                   <Text style={styles.tareaTexto}>{t.descripcion}</Text>
-                  
+
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                    <Text style={styles.tareaHora}>{t.hora ?? 'Incidental'}</Text>
+                    <Text style={styles.tareaHora}>{horaTexto}</Text>
                     <Text style={{ fontSize: 10, color: '#CCC' }}>·</Text>
                     <View style={{ backgroundColor: '#F0F0F0', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, borderWidth: 1, borderColor: '#EAEAEA' }}>
                       {renderTemporalidadTarea()}
                     </View>
                   </View>
                 </View>
-                
+
                 <View style={styles.tareaCheck} />
               </TouchableOpacity>
             );
@@ -1368,26 +1447,114 @@ useEffect(() => {
         </ScrollView>
 
         {/* MODAL TAREAS INCIDENTALES */}
-        <Modal visible={tareaOpen} animationType="slide" transparent={true}>
-          <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: 20 }}>
-            <View style={{ backgroundColor: COLORS.white, padding: 20, borderRadius: 12, gap: 14 }}>
-              <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.cacao }}>+ Agregar Tarea Incidental</Text>
-              <TextInput 
-                placeholder="Ej. Apoyo en traslado a sala" 
-                value={tareaDesc}
-                onChangeText={setTareaDesc}
-                placeholderTextColor={COLORS.textLight}
-                style={{ borderBottomWidth: 1, borderColor: COLORS.border, paddingVertical: 6, color: COLORS.cacao }}
-              />
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
-                <TouchableOpacity onPress={() => setTareaOpen(false)} style={{ padding: 10 }}><Text style={{ color: COLORS.textLight, fontWeight: '700' }}>Cancelar</Text></TouchableOpacity>
-                <TouchableOpacity onPress={guardarTareaManual} disabled={guardandoTarea} style={{ backgroundColor: COLORS.cacao, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 6 }}>
-                  <Text style={{ color: COLORS.white, fontWeight: '700' }}>{guardandoTarea ? "Guardando..." : "Confirmar"}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
+        <Modal
+  animationType="slide"
+  transparent={true}
+  visible={tareaOpen}
+  onRequestClose={() => setTareaOpen(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalContainer}>
+      <Text style={styles.modalTitle}>➕ Nueva Actividad / Cita</Text>
+
+      {/* Descripción / Nombre */}
+      <Text style={styles.inputLabel}>Descripción / Nombre</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Ej. Cita con Cardiólogo, Comprar medicina..."
+        value={nuevaTareaDesc}
+        onChangeText={setNuevaTareaDesc}
+      />
+
+      {/* Selector de Categoría */}
+      <Text style={styles.inputLabel}>Categoría</Text>
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 15, flexWrap: 'wrap' }}>
+        {['alimentacion', 'cuidado', 'medica', 'otro'].map((cat) => (
+          <TouchableOpacity
+            key={cat}
+            style={[styles.chipCat, nuevaTareaTipo === cat && styles.chipCatSelected]}
+            onPress={() => setNuevaTareaTipo(cat)}
+          >
+            <Text style={[styles.chipCatText, nuevaTareaTipo === cat && styles.chipCatTextSelected]}>
+              {cat.toUpperCase()}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* 🕐 SELECTOR ÚNICO DE HORA (OPCIONAL) */}
+      <View style={{ marginBottom: 15 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={styles.inputLabel}>Hora (Opcional)</Text>
+          {nuevaTareaHora ? (
+            <TouchableOpacity onPress={() => setNuevaTareaHora('')}>
+              <Text style={{ fontSize: 11, color: COLORS.red || '#EF4444', fontWeight: '600' }}>Borrar hora</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        <TouchableOpacity
+          style={{
+            borderWidth: 1,
+            borderColor: COLORS.border || '#E2E8F0',
+            borderRadius: 8,
+            padding: 12,
+            backgroundColor: nuevaTareaHora ? (COLORS.white || '#FFFFFF') : '#F8FAFC',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: 4,
+          }}
+          onPress={() => setShowTimePicker(true)}
+        >
+          <Text style={{ fontSize: 14, fontWeight: '600', color: nuevaTareaHora ? (COLORS.cacao || '#1E293B') : '#94A3B8' }}>
+            {nuevaTareaHora ? `🕐 ${nuevaTareaHora} hrs` : '⚡ Sin hora específica (Para hoy)'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 🕐 DATETIMEPICKER DE HORA */}
+      {showTimePicker && (
+        <DateTimePicker
+          value={(() => {
+            const partes = (nuevaTareaHora || '12:00').split(':').map(Number);
+            const d = new Date();
+            d.setHours(partes[0] || 12, partes[1] || 0, 0, 0);
+            return d;
+          })()}
+          mode="time"
+          is24Hour={true}
+          display="spinner"
+          onChange={onHoraChange}
+        />
+      )}
+
+      {/* BOTONES DE ACCIÓN */}
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
+        <TouchableOpacity
+          style={styles.btnSecundario}
+          onPress={() => {
+            setTareaOpen(false);
+            setNuevaTareaDesc('');
+            setNuevaTareaHora('');
+          }}
+        >
+          <Text style={styles.btnSecundarioTexto}>Cancelar</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.btnPrimario}
+          disabled={guardandoTarea}
+          onPress={guardarTareaManual}
+        >
+          <Text style={styles.btnPrimarioTexto}>
+            {guardandoTarea ? 'Guardando...' : 'Guardar Tarea'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+    </View>
+  </View>
+</Modal>
         {/* MODAL EMERGENCIA */}
 <Modal visible={incidenteOpen} animationType="slide" transparent={true}>
   <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 16 }}>
@@ -2010,4 +2177,91 @@ const styles = StyleSheet.create({
   color: COLORS.textDark,
   marginBottom: 16,
 },
+// 🎨 Estilos para Modales y Formularios
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1E293B',
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 4,
+  },
+  inputSmall: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: '#0F172A',
+  },
+  
+  // 🏷️ Chips de Categoría
+  chipCat: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  chipCatSelected: {
+    backgroundColor: '#0284C7',
+    borderColor: '#0284C7',
+  },
+  chipCatText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  chipCatTextSelected: {
+    color: '#FFFFFF',
+  },
+
+  // 🔘 Botones
+  btnPrimario: {
+    backgroundColor: '#0284C7',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  btnPrimarioTexto: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  btnSecundario: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  btnSecundarioTexto: {
+    color: '#64748B',
+    fontWeight: '600',
+    fontSize: 13,
+  },
 });
