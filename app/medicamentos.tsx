@@ -1,7 +1,7 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as DocumentPicker from 'expo-document-picker';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { actualizarMedicamento, actualizarTareaRecurrente, crearMedicamento, crearTareaRecurrente, desactivarMedicamento, desactivarTareaRecurrente, getMedicamentos, getPacientes, getTareasRecurrentes, loadStoredToken } from '../services/api';
 
@@ -28,7 +28,7 @@ const ICONOS_RUTINA: Record<string, string> = {
 };
 
 export default function MedicamentosScreen() {
-  const params = useLocalSearchParams();
+  const params = useLocalSearchParams<{ pacienteId?: string; refresh?: string }>();
   const pacienteIdParam = params.pacienteId as string;
   const router = useRouter();
   const [paciente, setPaciente] = useState<any>(null);
@@ -72,9 +72,13 @@ export default function MedicamentosScreen() {
   const XLSX = require('xlsx');
   const [importando, setImportando] = useState(false);
 
-  useEffect(() => {
+
+// 🔄 Reemplaza tu useEffect por esto:
+useFocusEffect(
+  useCallback(() => {
     const cargar = async () => {
       try {
+        setLoading(true);
         const token = await loadStoredToken();
         if (!token) {
           router.replace('/login');
@@ -86,8 +90,10 @@ export default function MedicamentosScreen() {
             ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
             : data.patients[0];
           setPaciente(p);
+          
           const meds = await getMedicamentos(p.id);
           if (meds.medicamentos) setMedicamentos(meds.medicamentos);
+          
           const rutinas = await getTareasRecurrentes(p.id);
           if (rutinas.tareas) setTareasRec(rutinas.tareas);
         }
@@ -97,8 +103,10 @@ export default function MedicamentosScreen() {
         setLoading(false);
       }
     };
+
     cargar();
-  }, [pacienteIdParam]);
+  }, [pacienteIdParam, params.refresh])
+);
 
   const guardarMedicamento = async () => {
     if (!nombre.trim() || !dosis.trim()) return;
