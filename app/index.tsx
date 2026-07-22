@@ -210,13 +210,17 @@ useEffect(() => {
       }
 
       if (esFamiliar) {
-        const quiereModoCuidador = modoSwitchParam === 'familiar' || modoSwitchParam === 'cuidador';
+        // 🎯 SOLO nos desviamos si el usuario expresamente activó el Modo Cuidador.
+        // Si el valor es 'familiar', 'ninguno' o no viene nada, la condición da false 
+        // y el código continúa directo al Paso 4 (Flujo Normal de Familiar).
+        const quiereModoCuidador = modoSwitchParam === 'cuidador';
+
         if (quiereModoCuidador) {
           router.replace({
             pathname: '/cuidador' as any,
             params: {
               usuarioRol: 'familiar_principal',
-              modoSwitch: 'familiar',
+              modoSwitch: 'cuidador', // Notificamos a la vista cuidador su nuevo estado
               pacienteId: pacienteIdParam || data.patients?.[0]?.id,
               refresh: Date.now().toString()
             }
