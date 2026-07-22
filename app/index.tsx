@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { Bell, Calendar, MapPin, Pill } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
@@ -152,6 +152,33 @@ const corregirResumenTurno = (turnoOriginal: any, listadoMedicamentos: any[], li
     tareas_completadas: tareasCompletadasHoy
   };
 };
+
+// ← AGREGAR aquí, después de los useState
+useFocusEffect(
+  useCallback(() => {
+    const recargar = async () => {
+      const pData = await getPacientes();
+      if (pData.patients && pData.patients.length > 0) {
+        setPacientes(pData.patients);
+        
+        // Restaurar el paciente seleccionado
+        const idActual = paciente?.id;
+        if (idActual) {
+          const indexActual = pData.patients.findIndex((p: any) => p.id === idActual);
+          if (indexActual >= 0) {
+            setPacienteIndex(indexActual);
+            setPaciente(pData.patients[indexActual]);
+            return;
+          }
+        }
+        // Solo ir al primero si no había selección previa
+        setPaciente(pData.patients[0]);
+        setPacienteIndex(0);
+      }
+    };
+    recargar();
+  }, [paciente?.id])
+);
 // 🔄 Carga inicial y Enrutador Inteligente Relacional
 useEffect(() => {
 
