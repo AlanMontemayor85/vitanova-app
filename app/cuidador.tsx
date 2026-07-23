@@ -189,7 +189,22 @@ export default function CuidadorScreen({
   const anio = d.getFullYear();
   return `${dia}/${mes}/${anio}`;
 };
+  const formatearHoraBonita = (horaStr: string | null | undefined): string => {
+  if (!horaStr || horaStr === 'Incidental') return 'Sin hora';
   
+  // Limpiamos la cadena si viene como "14:00:00" o "14:00"
+  const partes = horaStr.split(':');
+  if (partes.length < 2) return horaStr;
+
+  let hrs = parseInt(partes[0], 10);
+  const mins = partes[1].padStart(2, '0');
+  const ampm = hrs >= 12 ? 'p.m.' : 'a.m.';
+
+  hrs = hrs % 12;
+  hrs = hrs ? hrs : 12; // Si es 0 (medianoche) se convierte a 12
+
+  return `${hrs}:${mins} ${ampm}`;
+};
 const [nuevaTareaFecha, setNuevaTareaFecha] = useState(hoyLatino());
   // ⚙️ Convierte "22/07/2026" -> "2026-07-22" (Para enviar al backend)
   const LatinoaISO = (fechaLatino: string) => {
@@ -1241,7 +1256,7 @@ useEffect(() => {
           )}
 
           {/* ========================================================== */}
-          {/* 1. 📋 PLAN DE CUIDADOS DEL DÍA (AHORA EN PRIMER LUGAR)     */}
+          {/* 1. 📋 PLAN DE CUIDADOS DEL DÍA                             */}
           {/* ========================================================== */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, marginTop: 4 }}>
             <Text style={styles.sectionTitle}>Plan de cuidados del día ({tareasPendientes.length})</Text>
@@ -1252,49 +1267,48 @@ useEffect(() => {
 
           {tareasPendientes.map((t) => {
             const renderTemporalidadTarea = () => {
-            const hoyISO = new Date().toISOString().split('T')[0];
-            const fechaTareaISO = t.fecha_inicio ? String(t.fecha_inicio).split('T')[0] : hoyISO;
-            
-            const tieneHora = Boolean(t.hora_programada || (t.hora && t.hora !== 'Incidental'));
-            const esFechaFuturaODiferente = fechaTareaISO !== hoyISO;
+              const hoyISO = new Date().toISOString().split('T')[0];
+              const fechaTareaISO = t.fecha_inicio ? String(t.fecha_inicio).split('T')[0] : hoyISO;
+              
+              const tieneHora = Boolean(t.hora_programada || (t.hora && t.hora !== 'Incidental'));
+              const esFechaFuturaODiferente = fechaTareaISO !== hoyISO;
 
-            if (t.es_incidental) {
-              // Si tiene hora O si es para una fecha diferente a hoy, cuenta como Agendada
-              const esAgendada = tieneHora || esFechaFuturaODiferente;
+              if (t.es_incidental) {
+                const esAgendada = tieneHora || esFechaFuturaODiferente;
+
+                return (
+                  <Text style={{ fontSize: 10, color: esAgendada ? '#0284C7' : '#D97706', fontWeight: '600' }}>
+                    {esAgendada ? '⏰ Agendada' : '⚡ Del Día'}
+                  </Text>
+                );
+              }
+
+              const fInicio = t.fecha_inicio;
+              const fFin = t.fecha_fin;
+
+              if (!fFin || fFin === null || fFin === '') {
+                return <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '600' }}>♾️ Permanente</Text>;
+              }
+
+              const inicioClean = ISOaLatino(String(fInicio));
+              const finClean = ISOaLatino(String(fFin));
+
+              if (inicioClean === finClean) {
+                return <Text style={{ fontSize: 10, color: '#555', fontWeight: '600' }}>📍 {inicioClean}</Text>;
+              }
 
               return (
-                <Text style={{ fontSize: 10, color: esAgendada ? '#0284C7' : '#D97706', fontWeight: '600' }}>
-                  {esAgendada ? '⏰ Agendada' : '⚡ Del Día'}
+                <Text style={{ fontSize: 10, color: '#555', fontWeight: '600' }}>
+                  📆 {inicioClean} al {finClean}
                 </Text>
               );
-            }
+            };
 
-            const fInicio = t.fecha_inicio;
-            const fFin = t.fecha_fin;
-
-            if (!fFin || fFin === null || fFin === '') {
-              return <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '600' }}>♾️ Permanente</Text>;
-            }
-
-            const inicioClean = ISOaLatino(String(fInicio));
-            const finClean = ISOaLatino(String(fFin));
-
-            if (inicioClean === finClean) {
-              return <Text style={{ fontSize: 10, color: '#555', fontWeight: '600' }}>📍 {inicioClean}</Text>;
-            }
-
-            return (
-              <Text style={{ fontSize: 10, color: '#555', fontWeight: '600' }}>
-                📆 {inicioClean} al {finClean}
-              </Text>
-            );
-          };
-
-            
-            // Texto visual para la hora en la tarjeta
-          const horaTexto = t.hora_programada || (t.hora && t.hora !== 'Incidental' ? t.hora : null)
-            ? (t.hora_programada || t.hora)
-            : (t.fecha_inicio ? ISOaLatino(String(t.fecha_inicio)) : 'Sin hora');
+            // 🎯 HORA FORMATO 12 HRS (Limpio y Amigable)
+            const horaOriginal = t.hora_programada || (t.hora && t.hora !== 'Incidental' ? t.hora : null);
+            const horaTexto = horaOriginal 
+              ? formatearHoraBonita(horaOriginal)
+              : (t.fecha_inicio ? ISOaLatino(String(t.fecha_inicio)) : 'Sin hora');
 
             return (
               <TouchableOpacity key={t.id} style={styles.tareaCard} onPress={() => {
