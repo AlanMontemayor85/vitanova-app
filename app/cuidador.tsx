@@ -774,8 +774,15 @@ useEffect(() => {
 
     // 🔔 SI SE ESPECIFICÓ UNA HORA, PROGRAMAMOS LA NOTIFICACIÓN PUSH LOCAL
     if (horaActual) {
-      const tituloNotif = `Actividad: ${tipoActual.toUpperCase()}`;
-      await programarNotificacionTarea(tituloNotif, descripcionLimpia, horaActual);
+      const tituloNotif = tipoActual.toUpperCase();
+      const nombrePaciente = pacienteActivo?.nombre || pacienteActivo?.nombre_completo || '';
+
+      await programarNotificacionTarea(
+        tituloNotif, 
+        descripcionLimpia, 
+        horaActual, 
+        nombrePaciente
+      );
     }
 
     // Limpiar formulario y cerrar modal

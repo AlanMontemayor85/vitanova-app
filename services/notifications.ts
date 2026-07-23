@@ -73,7 +73,8 @@ export async function registrarNotificaciones() {
 export async function programarNotificacionTarea(
   title: string,
   body: string,
-  horaString: string
+  horaString: string,
+  nombrePaciente?: string // 👈 Agregamos el nombre del paciente
 ) {
   try {
     const [horas, minutos] = horaString.split(':').map(Number);
@@ -81,15 +82,19 @@ export async function programarNotificacionTarea(
     const fechaNotificacion = new Date();
     fechaNotificacion.setHours(horas, minutos, 0, 0);
 
-    // Si la hora ya transcurrió el día de hoy, no la programamos
     if (fechaNotificacion.getTime() <= Date.now()) {
       console.log('⏰ La hora programada ya pasó hoy.');
       return;
     }
 
+    // Si viene el nombre del paciente, lo incluimos en el título o en el cuerpo
+    const tituloFinal = nombrePaciente 
+      ? `⏰ ${nombrePaciente}: ${title}` 
+      : `⏰ ${title}`;
+
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: `⏰ ${title}`,
+        title: tituloFinal,
         body: body,
         sound: 'default',
         categoryIdentifier: 'vitanova',
@@ -102,7 +107,7 @@ export async function programarNotificacionTarea(
       },
     });
 
-    console.log(`🔔 Notificación programada con éxito para las ${horaString} hrs`);
+    console.log(`🔔 Notificación programada para ${nombrePaciente || 'paciente'} a las ${horaString} hrs`);
   } catch (error) {
     console.error('❌ Error al programar notificación local:', error);
   }
