@@ -27,6 +27,7 @@ const COLORS = {
   amberPale: '#FFF4E0',
   red: '#D94F4F',
   redPale: '#FDEAEA',
+  
 };
 
 export default function HomeScreen() {
@@ -54,7 +55,7 @@ export default function HomeScreen() {
   const pacienteIndexRef = useRef(0);
   const modoSwitchParam = params.modoSwitch; // Puede ser 'familiar', 'ninguno', etc.
   const pacienteIdParam = params.pacienteId;
-    
+  const [notasExpandidas, setNotasExpandidas] = useState(false);
 // 📡 1. Función para jalar la telemetría más reciente del reloj
 const cargarSignosDispositivo = async (idToLoad?: string) => {
   const targetId = idToLoad || pacienteId;
@@ -836,36 +837,76 @@ useEffect(() => {
               </View>
             )}
 
-            {/* NOTAS RECIENTES DEL CUIDADOR */}
-            {notas && notas.length > 0 && (
-              <>
-                <Text style={[styles.sectionTitle, { marginTop: 24, marginBottom: 12 }]}>
-                  Notas del cuidador
-                </Text>
-                {notas.slice(0, 3).map((n, i) => (
-                  <View key={n?.id || i} style={[styles.alertCard, { 
-                    backgroundColor: COLORS.amberPale, 
-                    borderColor: '#F5DBA0', 
-                    marginBottom: 8,
-                    flexDirection: 'row',
-                    alignItems: 'center'
-                  }]}>
-                    <Text style={styles.alertIcon}>📝</Text>
-                    <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
-                      <Text style={styles.alertTitle}>
-                        {String(n?.descripcion || n?.texto || "Nota de relevo").replace('📝 ', '')}
-                      </Text>
-                      <Text style={styles.alertSub}>
-                        {`${n?.usuarios?.nombre_completo ?? 'Personal Vitanova'} · ${
-                        n?.created_at 
-                          ? new Date(n.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-                          : ''
-                      }`}
-                      </Text>
+            {/* ========================================================== */}
+            {/* 📝 NOTAS DEL CUIDADOR (CON ACORDEÓN DESPLEGABLE)          */}
+            {/* ========================================================== */}
+            <Text style={[styles.sectionTitle, { marginTop: 24, marginBottom: 12 }]}>
+              Notas del Cuidador
+            </Text>
+
+            {notas && notas.length > 0 ? (
+              <View style={{ gap: 8, marginBottom: 4 }}>
+                {/* Evaluamos qué notas renderizar según el estado de expansión */}
+                {(notasExpandidas ? notas.slice(0, 5) : [notas[0]]).map((n, i) => {
+                  const contenidoNota = n?.descripcion || n?.texto || "Nota de relevo registrada";
+                  return (
+                    <View 
+                      key={n?.id || i} 
+                      style={[styles.alertCard, { 
+                        backgroundColor: COLORS.amberPale, 
+                        borderColor: '#F5DBA0', 
+                        marginHorizontal: 0, 
+                        marginBottom: 0,
+                        flexDirection: 'row',
+                        alignItems: 'center'
+                      }]}
+                    >
+                      <Text style={styles.alertIcon}>📝</Text>
+                      <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
+                        <Text style={styles.alertTitle}>
+                          {String(contenidoNota).replace('📝 ', '')}
+                        </Text>
+                        <Text style={styles.alertSub}>
+                          {`${n?.usuarios?.nombre_completo ?? 'Personal Vitanova'} · ${
+                            n?.created_at 
+                              ? new Date(n.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                              : ''
+                          }`}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                ))}
-              </>
+                  );
+                })}
+
+                {/* Botón de despliegue interactivo (Visible si hay más de 1 nota) */}
+                {notas.length > 1 && (
+                  <TouchableOpacity 
+                    onPress={() => setNotasExpandidas(!notasExpandidas)}
+                    style={{ 
+                      paddingVertical: 7, 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      backgroundColor: '#FDF8EE', 
+                      borderRadius: 8, 
+                      borderWidth: 1, 
+                      borderColor: '#F5DBA0',
+                      marginTop: 2 
+                    }}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.amber }}>
+                      {notasExpandidas ? "🔼 Ver menos notas" : `🔽 Ver historial completo (+${notas.length - 1} notas)`}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ) : (
+              <View style={[styles.alertCard, { backgroundColor: '#F9F9F9', borderColor: COLORS.border, marginHorizontal: 0 }]}>
+                <Text style={styles.alertIcon}>🔍</Text>
+                <View style={styles.alertContent}>
+                  <Text style={styles.alertTitle}>Sin notas en el bloque actual</Text>
+                  <Text style={styles.alertSub}>El cuidador aún no ha registrado notas de relevo.</Text>
+                </View>
+              </View>
             )}
 
             {/* Espaciador final correcto al fondo del ScrollView */}
@@ -1271,5 +1312,48 @@ btnMedirText: {
   fontSize: 12,
   fontWeight: '700',
 },
+
+  iniciarBtn: {
+    backgroundColor: '#1F2937',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iniciarBtnText: {
+    color: '#FFFFFF',
+  },
+  tareaCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  tareaIcon: {
+    fontSize: 20,
+    marginRight: 12,
+  },
+  tareaInfo: {
+    flex: 1,
+  },
+  tareaTexto: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  tareaHora: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  tareaCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+  },
 
 });
