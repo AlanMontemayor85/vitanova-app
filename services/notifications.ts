@@ -66,3 +66,44 @@ export async function registrarNotificaciones() {
     return null;
   }
 }
+
+/**
+ * ⏰ Programar notificación local para una tarea con hora específica del día de hoy
+ */
+export async function programarNotificacionTarea(
+  title: string,
+  body: string,
+  horaString: string
+) {
+  try {
+    const [horas, minutos] = horaString.split(':').map(Number);
+
+    const fechaNotificacion = new Date();
+    fechaNotificacion.setHours(horas, minutos, 0, 0);
+
+    // Si la hora ya transcurrió el día de hoy, no la programamos
+    if (fechaNotificacion.getTime() <= Date.now()) {
+      console.log('⏰ La hora programada ya pasó hoy.');
+      return;
+    }
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `⏰ ${title}`,
+        body: body,
+        sound: 'default',
+        categoryIdentifier: 'vitanova',
+        data: { tipo: 'incidental_agendada' },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: fechaNotificacion,
+        channelId: Platform.OS === 'android' ? 'vitanova' : undefined,
+      },
+    });
+
+    console.log(`🔔 Notificación programada con éxito para las ${horaString} hrs`);
+  } catch (error) {
+    console.error('❌ Error al programar notificación local:', error);
+  }
+}

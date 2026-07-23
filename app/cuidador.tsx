@@ -28,7 +28,7 @@ import {
   loadStoredToken,
   verificarEscalas
 } from '../services/api';
-import { registrarNotificaciones } from '../services/notifications';
+import { programarNotificacionTarea, registrarNotificaciones } from '../services/notifications';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
@@ -724,10 +724,7 @@ useEffect(() => {
   const horaActual = nuevaTareaHora || tareaHora || null;
   const idTemporal = `incidental-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-  // 🎯 Convertir fecha DD/MM/YYYY a YYYY-MM-DD
-  const fechaISO = LatinoaISO(nuevaTareaFecha);
-
-  // Formato para hora_programada: Si hay hora se manda HH:mm:00
+  const hoyISO = new Date().toISOString().split('T')[0];
   const horaProgramadaFormatted = horaActual ? `${horaActual}:00` : null;
 
   try {
@@ -738,13 +735,13 @@ useEffect(() => {
       descripcion: descripcionLimpia, 
       hora_programada: horaProgramadaFormatted, 
       es_incidental: true,
-      fecha_inicio: fechaISO,
-      fecha_fin: fechaISO
+      fecha_inicio: hoyISO,
+      fecha_fin: hoyISO
     });
     
     const idFinal = res?.tarea_id || res?.id || idTemporal;
 
-    // Actualizamos el estado local
+    // Directo al estado de hoy
     setTareas(prev => [
       ...prev, 
       { 
@@ -755,12 +752,18 @@ useEffect(() => {
         hora: horaActual || null,
         completada: false, 
         es_incidental: true,
-        fecha_inicio: fechaISO,
-        fecha_fin: fechaISO
+        fecha_inicio: hoyISO,
+        fecha_fin: hoyISO
       }
     ]);
 
-    // Limpiar formulario y cerrar
+    // 🔔 SI SE ESPECIFICÓ UNA HORA, PROGRAMAMOS LA NOTIFICACIÓN PUSH LOCAL
+    if (horaActual) {
+      const tituloNotif = `Actividad: ${tipoActual.toUpperCase()}`;
+      await programarNotificacionTarea(tituloNotif, descripcionLimpia, horaActual);
+    }
+
+    // Limpiar formulario y cerrar modal
     setNuevaTareaDesc(''); 
     setTareaDesc('');
     setNuevaTareaHora(''); 
@@ -769,7 +772,7 @@ useEffect(() => {
 
   } catch (e) { 
     console.error("❌ Error en guardarTareaManual:", e); 
-    alert("⚠️ El servidor rechazó la tarea incidental.");
+    Alert.alert("Error", "No se pudo guardar la tarea.");
   } finally { 
     setGuardandoTarea(false); 
   }
