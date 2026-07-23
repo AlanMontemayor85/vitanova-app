@@ -116,7 +116,8 @@ export default function RedCuidadoresScreen() {
       horario_fin: horaFin + ':00',
       dias_semana: diasNormalizados, // <-- MANDA ['M', 'X', 'J', 'V', 'S', 'D'
     });
-
+    DeviceEventEmitter.emit('RECARGAR_TAREAS');
+    DeviceEventEmitter.emit('RECARGAR_CUIDADORES');
     setEquipo(prev => prev.map(m =>
       m.usuario_id === editando.usuario_id
         ? { 
@@ -127,8 +128,6 @@ export default function RedCuidadoresScreen() {
           }
         : m
     ));
-    DeviceEventEmitter.emit('RECARGAR_TAREAS');
-    DeviceEventEmitter.emit('RECARGAR_CUIDADORES');
     setEditando(null);
   } catch (e) {
     console.error(e);
@@ -137,6 +136,7 @@ export default function RedCuidadoresScreen() {
     setGuardandoHorario(false);
   }
 };
+
   const enviarInvitacion = async () => {
     if (!invEmail.trim()) return;
     setEnviandoInv(true);

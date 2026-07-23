@@ -191,7 +191,7 @@ useEffect(() => {
 
       // 3. Aduana Biomédica
       const data = await getPacientes();
-
+      console.log("📌 [ORDEN BACKEND]", data?.patients?.map((p: any, i: number) => `[${i}]: ${p.nombre} (ID: ${p.id})`));
       if (data && data.usuario_nombre && typeof setNombreUsuario === 'function') {
         setNombreUsuario(data.usuario_nombre);
       }
@@ -248,10 +248,16 @@ useEffect(() => {
       }
 
       if (data.patients && data.patients.length > 0) {
-        setPacientes(data.patients);
+        // 📌 1. Estabilizamos el orden por ID para que Railway no nos mueva las sillas
+        const pacientesEstables = [...data.patients].sort((a, b) => 
+          String(a.id).localeCompare(String(b.id))
+        );
 
+        setPacientes(pacientesEstables);
+
+        // 📌 2. Leemos la posición sobre la lista que YA está ordenada
         const idxActual = pacienteIndexRef.current ?? 0;
-        const p = data.patients[idxActual] || data.patients[0];
+        const p = pacientesEstables[idxActual] || pacientesEstables[0];
         setPaciente(p);
 
         // Peticiones paralelas originales que ya te funcionaban
@@ -339,14 +345,19 @@ useEffect(() => {
 ]);
 
 useEffect(() => {
-  // Guardamos la suscripción en una constante
-  const sub = DeviceEventEmitter.addListener('RECARGAR_TAREAS', () => {
-    console.log("⚡ Evento RECARGAR_TAREAS capturado. Disparando re-render...");
+  const subTareas = DeviceEventEmitter.addListener('RECARGAR_TAREAS', () => {
+    console.log("⚡ [INDEX] Recibida orden de recargar tareas...");
+    setRefreshKey(prev => prev + 1);
+  });
+
+  const subCuidadores = DeviceEventEmitter.addListener('RECARGAR_CUIDADORES', () => {
+    console.log("⚡ [INDEX] Recibida orden de recargar cuidadores...");
     setRefreshKey(prev => prev + 1);
   });
 
   return () => {
-    sub.remove(); // 👈 Limpiamos la suscripción específica
+    subTareas.remove();
+    subCuidadores.remove();
   };
 }, []);
 useEffect(() => {
@@ -453,16 +464,16 @@ useEffect(() => {
         <>
           {/* PATIENT CARD */}
           <View style={styles.patientCard}>
-           {pacientes.length > 1 && (
-            <TouchableOpacity onPress={() => {
-              const newIndex = (pacienteIndex - 1 + pacientes.length) % pacientes.length;
-              setPacienteIndex(newIndex);
-              setPaciente(pacientes[newIndex]);
-              pacienteIndexRef.current = newIndex; // ← agregar
-            }}>
-              <Text style={{ color: COLORS.gold, fontSize: 20, marginRight: 4 }}>‹</Text>
-            </TouchableOpacity>
-          )}
+            {pacientes.length > 1 && (
+              <TouchableOpacity onPress={() => {
+                const newIndex = (pacienteIndex - 1 + pacientes.length) % pacientes.length;
+                setPacienteIndex(newIndex);
+                setPaciente(pacientes[newIndex]);
+                pacienteIndexRef.current = newIndex; // 👈 Sincronización exacta de la ref
+              }}>
+                <Text style={{ color: COLORS.gold, fontSize: 20, marginRight: 4 }}>‹</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity 
               onPress={() => router.push({
                 pathname: '/perfil-paciente' as any,
@@ -487,15 +498,15 @@ useEffect(() => {
               <Text style={styles.statusText}>Bien</Text>
             </View>
             {pacientes.length > 1 && (
-            <TouchableOpacity onPress={() => {
-              const newIndex = (pacienteIndex + 1) % pacientes.length;
-              setPacienteIndex(newIndex);
-              setPaciente(pacientes[newIndex]);
-              pacienteIndexRef.current = newIndex; // ← agregar
-            }}>
-              <Text style={{ color: COLORS.gold, fontSize: 20, marginLeft: 4 }}>›</Text>
-            </TouchableOpacity>
-          )}
+              <TouchableOpacity onPress={() => {
+                const newIndex = (pacienteIndex + 1) % pacientes.length;
+                setPacienteIndex(newIndex);
+                setPaciente(pacientes[newIndex]);
+                pacienteIndexRef.current = newIndex; // 👈 Sincronización exacta de la ref
+              }}>
+                <Text style={{ color: COLORS.gold, fontSize: 20, marginLeft: 4 }}>›</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
