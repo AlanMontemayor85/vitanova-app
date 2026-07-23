@@ -3,7 +3,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert, ScrollView, StatusBar, StyleSheet, Text,
+  Alert,
+  DeviceEventEmitter,
+  ScrollView, StatusBar, StyleSheet, Text,
   TextInput, TouchableOpacity, View
 } from 'react-native';
 import { actualizarHorarioCuidador, crearInvitacion, getEquipoPaciente, removerDelEquipo } from '../services/api';
@@ -125,6 +127,8 @@ export default function RedCuidadoresScreen() {
           }
         : m
     ));
+    DeviceEventEmitter.emit('RECARGAR_TAREAS');
+    DeviceEventEmitter.emit('RECARGAR_CUIDADORES');
     setEditando(null);
   } catch (e) {
     console.error(e);
@@ -133,7 +137,6 @@ export default function RedCuidadoresScreen() {
     setGuardandoHorario(false);
   }
 };
-
   const enviarInvitacion = async () => {
     if (!invEmail.trim()) return;
     setEnviandoInv(true);
@@ -259,6 +262,8 @@ export default function RedCuidadoresScreen() {
                     onPress: async () => {
                       await removerDelEquipo(pacienteId, m.usuario_id);
                       setEquipo(prev => prev.filter(x => x.usuario_id !== m.usuario_id));
+                      DeviceEventEmitter.emit('RECARGAR_TAREAS');
+                      DeviceEventEmitter.emit('RECARGAR_CUIDADORES');
                     }
                   }
                 ]
