@@ -2,7 +2,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, DeviceEventEmitter, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { actualizarMedicamento, actualizarTareaRecurrente, crearMedicamento, crearTareaRecurrente, desactivarMedicamento, desactivarTareaRecurrente, getMedicamentos, getPacientes, getTareasRecurrentes } from '../services/api';
 
 const COLORS = {
@@ -126,7 +126,7 @@ export default function MedicamentosScreen() {
       }
       const meds = await getMedicamentos(paciente.id);
       if (meds.medicamentos) setMedicamentos(meds.medicamentos);
-      
+      DeviceEventEmitter.emit('RECARGAR_TAREAS');
       // Limpieza de estados
       setModalOpen(false);
       setMedicamentoEditando(null);
@@ -162,7 +162,7 @@ export default function MedicamentosScreen() {
       }
       const rutinas = await getTareasRecurrentes(paciente.id);
       if (rutinas.tareas) setTareasRec(rutinas.tareas);
-      
+      DeviceEventEmitter.emit('RECARGAR_TAREAS');
       setModalRutinaOpen(false);
       setRutinaEditando(null);
       setRutinaDesc(''); setRutinaTipo('higiene'); setRutinaHora('09:00');
@@ -332,7 +332,7 @@ const importarDesdeExcel = async () => {
       if (meds.medicamentos) setMedicamentos(meds.medicamentos);
       const rutinas = await getTareasRecurrentes(paciente.id);
       if (rutinas.tareas) setTareasRec(rutinas.tareas);
-
+      DeviceEventEmitter.emit('RECARGAR_TAREAS');
       alert('📊 ¡Itinerario importado y consolidado con éxito en Supabase!');
 
     } catch (error) {
@@ -396,6 +396,7 @@ const importarDesdeExcel = async () => {
       await desactivarMedicamento(id);
       const meds = await getMedicamentos(paciente.id);
       if (meds.medicamentos) setMedicamentos(meds.medicamentos);
+      DeviceEventEmitter.emit('RECARGAR_TAREAS');
     } catch (e) {
       console.error(e);
     }
@@ -407,6 +408,7 @@ const importarDesdeExcel = async () => {
       await desactivarTareaRecurrente(id);
       const rutinas = await getTareasRecurrentes(paciente.id);
       if (rutinas.tareas) setTareasRec(rutinas.tareas);
+      DeviceEventEmitter.emit('RECARGAR_TAREAS');
     } catch (e) {
       console.error(e);
     }

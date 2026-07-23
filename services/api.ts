@@ -375,17 +375,20 @@ export const agregarTareaManual = async (tarea: object) => {
   return res.json();
 };
 
-export const getTareasHoy = async (pacienteId: string) => {
+export const getTareasHoy = async (pacienteId: string, fecha?: string) => {
   const token = getToken();
   
-  // 🇲🇽 Obtener la fecha en formato YYYY-MM-DD usando la ZONA HORARIA LOCAL (México)
-  const ahora = new Date();
-  const year = ahora.getFullYear();
-  const month = String(ahora.getMonth() + 1).padStart(2, '0');
-  const day = String(ahora.getDate()).padStart(2, '0');
-  const fechaHoyLocal = `${year}-${month}-${day}`; // Traerá 2026-07-21
+  // 🇲🇽 Si le pasas fecha usa esa, si no, usa la fecha local de hoy
+  let fechaConsulta = fecha;
+  if (!fechaConsulta) {
+    const ahora = new Date();
+    const year = ahora.getFullYear();
+    const month = String(ahora.getMonth() + 1).padStart(2, '0');
+    const day = String(ahora.getDate()).padStart(2, '0');
+    fechaConsulta = `${year}-${month}-${day}`;
+  }
 
-  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/tareas-dia?fecha=${fechaHoyLocal}&offset=360`, {
+  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/tareas-dia?fecha=${fechaConsulta}&offset=360`, {
     headers: { 'Authorization': `Bearer ${token}` }
   });
   return res.json();
@@ -398,7 +401,14 @@ export const getTareasHoyAutocuidador = async (pacienteId: string) => {
   });
   return res.json();
 };
-
+// En utils.ts
+export const getHoyLocalISO = (): string => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 export const completarActividad = async (actividadId: string, pacienteId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/actividades/completar`, {

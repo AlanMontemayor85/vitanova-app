@@ -2,8 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { Bell, Calendar, MapPin, Pill } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
+import { ActivityIndicator, DeviceEventEmitter, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getHoyLocalISO, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 import CuidadorScreen from './cuidador';
 
@@ -56,6 +56,7 @@ export default function HomeScreen() {
   const modoSwitchParam = params.modoSwitch; // Puede ser 'familiar', 'ninguno', etc.
   const pacienteIdParam = params.pacienteId;
   const [notasExpandidas, setNotasExpandidas] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 // 📡 1. Función para jalar la telemetría más reciente del reloj
 const cargarSignosDispositivo = async (idToLoad?: string) => {
   const targetId = idToLoad || pacienteId;
@@ -127,7 +128,7 @@ const handleCalibrarReloj = async () => {
 const corregirResumenTurno = (turnoOriginal: any, listadoMedicamentos: any[], listadoTareas: any[]) => {
   if (!turnoOriginal) return null;
 
-  const hoyStr = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD local
+  const hoyStr = getHoyLocalISO();
 
   // 1. Filtrar medicamentos vigentes para hoy
   const medsHoy = (listadoMedicamentos || []).filter(med => {
@@ -259,7 +260,7 @@ useEffect(() => {
           getNotasTurno(p.id).catch(() => ({ notas: [] })),
           getAlertaPeso(p.id).catch(() => ({ alerta: null })),
           getTurnoActivoResumen(p.id).catch(() => ({ turno: null })),
-          getTareasHoy(p.id).catch((err) => {
+          getTareasHoy(p.id, getHoyLocalISO()).catch((err) => {
             console.log("❌ FALLO getTareasHoy:", err);
             return null;
           })
@@ -333,9 +334,21 @@ useEffect(() => {
   modoSwitchParam, 
   params.modoSwitch, 
   vistaModo, 
-  modoCuidadorFamiliar
+  modoCuidadorFamiliar,
+  refreshKey
 ]);
 
+useEffect(() => {
+  // Guardamos la suscripción en una constante
+  const sub = DeviceEventEmitter.addListener('RECARGAR_TAREAS', () => {
+    console.log("⚡ Evento RECARGAR_TAREAS capturado. Disparando re-render...");
+    setRefreshKey(prev => prev + 1);
+  });
+
+  return () => {
+    sub.remove(); // 👈 Limpiamos la suscripción específica
+  };
+}, []);
 useEffect(() => {
   console.log("🔄 [INDEX] Modo de visualización cambiado a:", vistaModo, "| Paciente:", paciente?.id);
 }, [vistaModo, paciente?.id]);
