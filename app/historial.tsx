@@ -122,31 +122,60 @@ export default function HistorialScreen() {
     control: '📋'
   };
 
-  // ── 4. EFFECT DE CARGA (IDÉNTICO) ──
-  useEffect(() => {
-    const cargar = async () => {
-      try {
-        const token = await loadStoredToken();
-        if (!token) { router.replace('/login'); return; }
-        const res = await fetch(
-          `${BASE_URL}/pacientes/${pacienteId}/historial-cierres?limit=20`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const data = await res.json();
-        if (data.cierres) {
-          // 🚨 ESTA LÍNEA ES PARA ESPIAR EL OBJETO EN LA TERMINAL:
-          console.log("🔍 JEFE, ASÍ SE VE UN REGISTRO REAL:", data.cierres[0]);
-          
-          setCierres(data.cierres);
-        }
-      } catch (e) {
-        console.error("❌ Error recuperando historial:", e);
-      } finally {
-        setLoading(false);
+  // ── 4. EFFECT DE CARGA (DEDUPLICADO Y PROTEGIDO) ──
+useEffect(() => {
+  const cargar = async () => {
+    try {
+      const token = await loadStoredToken();
+      if (!token) { router.replace('/login'); return; }
+      const res = await fetch(
+        `${BASE_URL}/pacientes/${pacienteId}/historial-cierres?limit=20`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = await res.json();
+      
+      if (data.cierres && Array.isArray(data.cierres)) {
+        // 🎯 DEDUPLICACIÓN QUIRÚRGICA:
+        // Si el cuidador cerró múltiples veces el mismo turno/día,
+        // agrupamos y nos quedamos ÚNICAMENTE con el cierre más reciente.
+        const cierresUnicos = data.cierres.reduce((acc: any[], actual: any) => {
+          // Identificador clave del turno (turno_id, o combinación de fecha + cuidador)
+          const claveTurno = actual.turno_id 
+            || `${actual.fecha || actual.created_at?.split('T')[0]}_${actual.nombre_cuidador || actual.cuidador_id}`;
+
+          const indiceExistente = acc.findIndex((item) => {
+            const claveItem = item.turno_id 
+              || `${item.fecha || item.created_at?.split('T')[0]}_${item.nombre_cuidador || item.cuidador_id}`;
+            return claveItem === claveTurno;
+          });
+
+          if (indiceExistente === -1) {
+            // No existe en nuestro acumulador, lo agregamos
+            acc.push(actual);
+          } else {
+            // Ya existe un intento previo de este turno. 
+            // Comparamos timestamps para conservar el reporte corregido (más reciente)
+            const fechaActual = new Date(actual.created_at || actual.fecha).getTime();
+            const fechaPrev = new Date(acc[indiceExistente].created_at || acc[indiceExistente].fecha).getTime();
+
+            if (fechaActual > fechaPrev) {
+              acc[indiceExistente] = actual; // Reemplazamos por la versión más nueva
+            }
+          }
+          return acc;
+        }, []);
+
+        console.log(`✅ Cierres cargados: ${data.cierres.length} totales | ${cierresUnicos.length} únicos proyectados`);
+        setCierres(cierresUnicos);
       }
-    };
-    cargar();
-  }, [pacienteId]);
+    } catch (e) {
+      console.error("❌ Error recuperando historial:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+  cargar();
+}, [pacienteId]);
   
   const generarPDF = async (c: any) => {
     // 🎯 1. LEER EL LOGO NATIVO AUTOMÁTICAMENTE Y PASARLO A BASE64
