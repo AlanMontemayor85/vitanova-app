@@ -157,11 +157,9 @@ export const completarTarea = async (data: {
   hora?: string;
   notas?: string;
 }) => {
-  const token = getToken();
   console.log("📤 completarTarea payload:", JSON.stringify(data));
-  const res = await fetch(`${BASE_URL}/autocuidador/completar-tarea`, {
+  const res = await fetchWithAuth(`${BASE_URL}/autocuidador/completar-tarea`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(data),
   });
   return res.json();
@@ -173,10 +171,8 @@ export const descompletarTarea = async (data: {
   tipo: 'rutina' | 'medicamento';
   hora?: string;
 }) => {
-  const token = getToken();
-  const res = await fetch(`${BASE_URL}/autocuidador/descompletar-tarea`, {
+  const res = await fetchWithAuth(`${BASE_URL}/autocuidador/descompletar-tarea`, {
     method: 'DELETE',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify(data),
   });
   return res.json();
