@@ -44,7 +44,44 @@ const formatHora = (iso: string) => {
     minute: '2-digit' 
   });
 };
+// 🛡️ Helper para evaluar si el signo vital es heredado (>30 min) o reciente
+const evaluarSignoVital = (
+  valor: any, 
+  timestampLectura: string | null | undefined, 
+  timestampCierre: string | null | undefined
+) => {
+  if (valor === null || valor === undefined || valor === '—' || valor === '') {
+    return { display: '—', etiqueta: null, esHeredado: false };
+  }
 
+  if (!timestampLectura || !timestampCierre) {
+    return { display: String(valor), etiqueta: null, esHeredado: false };
+  }
+
+  try {
+    const tLectura = new Date(timestampLectura).getTime();
+    const tCierre = new Date(timestampCierre).getTime();
+    const difMinutos = Math.round((tCierre - tLectura) / (1000 * 60));
+
+    // Si pasaron más de 30 minutos entre la lectura del reloj y el cierre:
+    if (difMinutos > 30) {
+      const horaFormateada = new Date(timestampLectura).toLocaleTimeString('es-MX', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      return {
+        display: String(valor),
+        etiqueta: `🕒 ${horaFormateada}`,
+        esHeredado: true
+      };
+    }
+  } catch (e) {
+    console.error("Error evaluando timestamp de signo vital:", e);
+  }
+
+  return { display: String(valor), etiqueta: null, esHeredado: false };
+};
 export default function HistorialScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -580,14 +617,80 @@ useEffect(() => {
                 </View>
               </View>
 
-              {/* MATRIZ DE SIGNOS VITALES */}
-              <View style={styles.signosRow}>
-                <View style={styles.signoItem}><Text style={styles.signoVal}>{cierreSeleccionado?.spo2 ? `${cierreSeleccionado.spo2}%` : '—'}</Text><Text style={styles.signoLabel}>SpO₂</Text></View>
-                <View style={styles.signoItem}><Text style={styles.signoVal}>{cierreSeleccionado?.presion_sistolica && cierreSeleccionado?.presion_diastolica ? `${Math.round(cierreSeleccionado.presion_sistolica)}/${Math.round(cierreSeleccionado.presion_diastolica)}` : '—'}</Text><Text style={styles.signoLabel}>Presión</Text></View>
-                <View style={styles.signoItem}><Text style={styles.signoVal}>{cierreSeleccionado?.frecuencia_cardiaca ? `${cierreSeleccionado.frecuencia_cardiaca}` : '—'}</Text><Text style={styles.signoLabel}>FC bpm</Text></View>
-                <View style={styles.signoItem}><Text style={styles.signoVal}>{cierreSeleccionado?.temperatura ? `${cierreSeleccionado.temperatura}°C` : '—'}</Text><Text style={styles.signoLabel}>Temp</Text></View>
-                <View style={styles.signoItem}><Text style={styles.signoVal}>{cierreSeleccionado?.peso_kg ? `${cierreSeleccionado.peso_kg} kg` : '—'}</Text><Text style={styles.signoLabel}>Peso</Text></View>
-              </View>
+              {/* MATRIZ DE SIGNOS VITALES CON TRAZABILIDAD TEMPORAL */}
+              {(() => {
+                const tCierre = cierreSeleccionado?.created_at;
+
+                const spo2Info = evaluarSignoVital(cierreSeleccionado?.spo2, cierreSeleccionado?.spo2_timestamp, tCierre);
+                
+                const presionVal = (cierreSeleccionado?.presion_sistolica && cierreSeleccionado?.presion_diastolica)
+                  ? `${Math.round(cierreSeleccionado.presion_sistolica)}/${Math.round(cierreSeleccionado.presion_diastolica)}`
+                  : null;
+                const presionInfo = evaluarSignoVital(presionVal, cierreSeleccionado?.presion_timestamp, tCierre);
+
+                const fcInfo = evaluarSignoVital(cierreSeleccionado?.frecuencia_cardiaca, cierreSeleccionado?.fc_timestamp, tCierre);
+                const tempInfo = evaluarSignoVital(cierreSeleccionado?.temperatura, cierreSeleccionado?.temperatura_timestamp, tCierre);
+                const pesoInfo = evaluarSignoVital(cierreSeleccionado?.peso_kg, cierreSeleccionado?.peso_timestamp, tCierre);
+
+                return (
+                  <View style={styles.signosRow}>
+                    {/* SpO2 */}
+                    <View style={styles.signoItem}>
+                      <Text style={styles.signoVal}>{spo2Info.display}{spo2Info.display !== '—' ? '%' : ''}</Text>
+                      <Text style={styles.signoLabel}>SpO₂</Text>
+                      {spo2Info.esHeredado && (
+                        <Text style={{ fontSize: 8, color: COLORS.amber, marginTop: 2, fontWeight: '700' }}>
+                          {spo2Info.etiqueta}
+                        </Text>
+                      )}
+                    </View>
+
+                    {/* Presión Arterial */}
+                    <View style={styles.signoItem}>
+                      <Text style={styles.signoVal}>{presionInfo.display}</Text>
+                      <Text style={styles.signoLabel}>Presión</Text>
+                      {presionInfo.esHeredado && (
+                        <Text style={{ fontSize: 8, color: COLORS.amber, marginTop: 2, fontWeight: '700' }}>
+                          {presionInfo.etiqueta}
+                        </Text>
+                      )}
+                    </View>
+
+                    {/* Frecuencia Cardíaca */}
+                    <View style={styles.signoItem}>
+                      <Text style={styles.signoVal}>{fcInfo.display}</Text>
+                      <Text style={styles.signoLabel}>FC bpm</Text>
+                      {fcInfo.esHeredado && (
+                        <Text style={{ fontSize: 8, color: COLORS.amber, marginTop: 2, fontWeight: '700' }}>
+                          {fcInfo.etiqueta}
+                        </Text>
+                      )}
+                    </View>
+
+                    {/* Temperatura */}
+                    <View style={styles.signoItem}>
+                      <Text style={styles.signoVal}>{tempInfo.display}{tempInfo.display !== '—' ? '°C' : ''}</Text>
+                      <Text style={styles.signoLabel}>Temp</Text>
+                      {tempInfo.esHeredado && (
+                        <Text style={{ fontSize: 8, color: COLORS.amber, marginTop: 2, fontWeight: '700' }}>
+                          {tempInfo.etiqueta}
+                        </Text>
+                      )}
+                    </View>
+
+                    {/* Peso */}
+                    <View style={styles.signoItem}>
+                      <Text style={styles.signoVal}>{pesoInfo.display}{pesoInfo.display !== '—' ? ' kg' : ''}</Text>
+                      <Text style={styles.signoLabel}>Peso</Text>
+                      {pesoInfo.esHeredado && (
+                        <Text style={{ fontSize: 8, color: COLORS.amber, marginTop: 2, fontWeight: '700' }}>
+                          {pesoInfo.etiqueta}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                );
+              })()}
 
               {/* PARÁMETROS DE CONFORT LOGÍSTICO */}
               {(cierreSeleccionado?.dolor_eva !== null && cierreSeleccionado?.dolor_eva !== undefined || cierreSeleccionado?.estado_animo || cierreSeleccionado?.hidratacion_vasos || cierreSeleccionado?.alimentacion || cierreSeleccionado?.observaciones) ? (

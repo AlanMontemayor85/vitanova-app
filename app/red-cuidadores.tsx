@@ -148,9 +148,10 @@ export default function RedCuidadoresScreen() {
         mensaje: invMensaje.trim() || null,
       });
       
-      // Capturamos el token dinámico de tu backend para mostrárselo al Admin
+      // Capturamos el token y lo truncamos a 8 caracteres (igual que el backend en el mail)
       if (res && (res.status === 'ok' || res.token)) {
-        setCodigoGenerado(res.token || 'VITA-REGISTRO');
+        const tokenCorto = res.token ? res.token.substring(0, 8).toUpperCase() : 'VITA-REGISTRO';
+        setCodigoGenerado(tokenCorto);
       } else {
         Alert.alert('⚠️ Aviso', 'La invitación se procesó, revisa el estatus en tu panel.');
       }
