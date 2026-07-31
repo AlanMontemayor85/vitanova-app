@@ -5,7 +5,6 @@ import { getToken } from '../services/api';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
-// 🎨 PALETA CORREGIDA: Agregamos textMid con su sintaxis limpia
 const COLORS = {
   gold: '#BF9A40',
   goldPale: '#F5EDD8',
@@ -20,8 +19,6 @@ const COLORS = {
   green: '#3DAA6A',
 };
 
-// 🎛️ ROLES ACTUALIZADOS: Separación explícita según tu visión de negocio
-// 🎛️ ROLES ALINEADOS CON EL CONSTRAIN DEL BACKEND (FastAPI / Supabase)
 const ROLES = [
   { valor: 'familiar', etiqueta: '👑 Familiar Administrador', desc: 'Registro al paciente, configuro el reloj y controlo la red' },
   { valor: 'cuidador', etiqueta: '🤲 Cuidador', desc: 'Asistencia directa (requiere asignación de turno por el Admin)' },
@@ -34,12 +31,11 @@ export default function CompletarPerfilScreen() {
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
   const [cedula, setCedula] = useState('');
-  const [rol, setRol] = useState('admin'); // Inicializamos en admin por defecto
+  const [rol, setRol] = useState('familiar'); 
   const [tokenInvitacion, setTokenInvitacion] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  // 🛡️ CONTROL DEL MODAL DE CONFIRMACIÓN CRÍTICA
   const [modalVisible, setModalVisible] = useState(false);
 
   const preGuardarValidacion = () => {
@@ -52,82 +48,106 @@ export default function CompletarPerfilScreen() {
       return;
     }
     setError('');
-    // Desplegamos el pop-up de confirmación de marketing de experiencia de usuario
     setModalVisible(true);
   };
 
   const handleGuardarDefinitivo = async () => {
-  setModalVisible(false);
-  setLoading(true);
-  setError('');
-  
-  try {
-    const token = await getToken();
+    setModalVisible(false);
+    setLoading(true);
+    setError('');
+    
+    try {
+      const token = await getToken();
 
-    if (!token) {
-      throw new Error('No se encontró una sesión activa o el token expiró tras el reinicio');
-    }
+      if (!token) {
+        throw new Error('No se encontró una sesión activa o el token expiró');
+      }
 
-    console.log("📡 Enviando perfil a Railway con Token verificado...");
+      console.log("📡 Enviando perfil a Railway con Token verificado...");
 
-    const res = await fetch(`${BASE_URL}/auth/completar-perfil`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({ nombre, telefono, cedula, tipo: rol }),
-    });
-
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      throw new Error(errorData.detail || 'Error al guardar el perfil en el servidor');
-    }
-
-    // Solo aceptar invitación si es cuidador
-    if (rol === 'cuidador' && tokenInvitacion.trim()) {
-      await fetch(`${BASE_URL}/invitaciones/${tokenInvitacion.trim()}/aceptar`, {
+      // 1. Guardar Perfil de Usuario en Supabase
+      const res = await fetch(`${BASE_URL}/auth/completar-perfil`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    }
-
-    // Setup automático para autocuidador
-    if (rol === 'autonomo') {
-      await fetch(`${BASE_URL}/autocuidador/setup`, {
-        method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
+          'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ nombre }),
+        body: JSON.stringify({ nombre, telefono, cedula, tipo: rol }),
       });
-    }
 
-    switch (rol) {
-      case 'familiar':
-        console.log("👑 Rol Familiar guardado. Enviando a configuración de hardware...");
-        router.replace('/perfil-paciente');
-        break;
-      case 'medico': 
-        router.replace('/medico'); 
-        break;
-      case 'cuidador': 
-        router.replace('/cuidador'); 
-        break;
-      case 'autonomo':
-        router.replace('/autocuidador');
-        break;
-      default: 
-        router.replace('/');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Error al guardar el perfil en el servidor');
+      }
+
+      // 2. Si trae TOKEN DE INVITACIÓN -> Procesar aceptación y redirigir
+      if (tokenInvitacion.trim()) {
+        console.log(`🔗 Aceptando código de invitación [${tokenInvitacion.trim()}]...`);
+        try {
+          const invRes = await fetch(`${BASE_URL}/invitaciones/${tokenInvitacion.trim()}/aceptar`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (!invRes.ok) {
+            const invErr = await invRes.json().catch(() => ({}));
+            console.warn("⚠️ No se pudo procesar la invitación:", invErr.detail || "Código no válido");
+          } else {
+            console.log("✅ Invitación aceptada. Redirigiendo a red del paciente...");
+          }
+        } catch (invException) {
+          console.error("⚠️ Error ejecutando invitación:", invException);
+        }
+
+        // Redirección directa tras aceptar invitación
+        if (rol === 'cuidador') {
+          router.replace('/cuidador');
+        } else if (rol === 'medico') {
+          router.replace('/medico');
+        } else {
+          // Si es familiar invitado, va al dashboard principal del paciente existente
+          router.replace('/');
+        }
+        return;
+      }
+
+      // 3. Setup automático para autocuidador
+      if (rol === 'autonomo') {
+        await fetch(`${BASE_URL}/autocuidador/setup`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}` 
+          },
+          body: JSON.stringify({ nombre }),
+        });
+      }
+
+      // 4. Redirección cuando NO HAY invitación
+      switch (rol) {
+        case 'familiar':
+          console.log("👑 Familiar Administrador (Sin invitación). Iniciando alta de paciente...");
+          router.replace('/perfil-paciente'); // Único caso que crea paciente nuevo
+          break;
+        case 'medico': 
+          router.replace('/medico'); 
+          break;
+        case 'cuidador': 
+          router.replace('/cuidador'); 
+          break;
+        case 'autonomo':
+          router.replace('/autocuidador');
+          break;
+        default: 
+          router.replace('/');
+      }
+    } catch (e: any) {
+      console.error("❌ Error en handleGuardar:", e);
+      setError(e.message || 'Error guardando perfil');
+    } finally {
+      setLoading(false);
     }
-  } catch (e: any) {
-    console.error("❌ Error en handleGuardar:", e);
-    setError(e.message || 'Error guardando perfil');
-  } finally {
-    setLoading(false);
-  }
-};
+  }; // 👈 Aquí estaba la llave faltante
 
   const getRolTextoMensaje = () => {
     const rFound = ROLES.find(r => r.valor === rol);
@@ -236,7 +256,7 @@ export default function CompletarPerfilScreen() {
         </View>
       </ScrollView>
 
-      {/* 👑 MODAL DE CONFIRMACIÓN CRÍTICA (UX CANDADO) */}
+      {/* MODAL DE CONFIRMACIÓN CRÍTICA */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -275,98 +295,87 @@ export default function CompletarPerfilScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.cream },
-  scroll: { flexGrow: 1 },
-  headerBar: {
-    backgroundColor: COLORS.cacao,
-    paddingTop: 60, paddingBottom: 24,
-    paddingHorizontal: 24,
-  },
-  headerTitle: {
-    fontSize: 24, fontWeight: '800', color: COLORS.white,
-  },
-  headerSub: {
-    fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 4,
-  },
-  form: { padding: 24 },
-  label: {
-    fontSize: 11, fontWeight: '700', color: COLORS.textLight,
-    letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, marginTop: 12,
-  },
+  scroll: { padding: 20, paddingBottom: 40 },
+  headerBar: { marginTop: 20, marginBottom: 20 },
+  headerTitle: { fontSize: 28, fontWeight: 'bold', color: COLORS.textDark },
+  headerSub: { fontSize: 14, color: COLORS.textLight, marginTop: 4 },
+  form: { marginTop: 10 },
+  label: { fontSize: 14, fontWeight: '600', color: COLORS.textDark, marginTop: 16, marginBottom: 8 },
   input: {
-    backgroundColor: COLORS.white, borderRadius: 12,
-    borderWidth: 1, borderColor: COLORS.border,
-    paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 14, color: COLORS.textDark, marginBottom: 8,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: COLORS.textDark,
   },
-  rolesContainer: { gap: 8, marginBottom: 8, marginTop: 4 },
+  rolesContainer: { gap: 10, marginVertical: 8 },
   rolCard: {
-    backgroundColor: COLORS.white, borderRadius: 12,
-    borderWidth: 1, borderColor: COLORS.border,
-    padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    borderRadius: 14,
+    padding: 14,
+    gap: 12,
   },
   rolCardActive: {
-    borderColor: COLORS.gold, backgroundColor: COLORS.goldPale,
+    borderColor: COLORS.gold,
+    backgroundColor: COLORS.goldPale,
   },
-  rolIcon: { fontSize: 22 },
-  rolLabel: {
-    fontSize: 14, fontWeight: '700', color: COLORS.textDark,
-  },
+  rolIcon: { fontSize: 24 },
+  rolLabel: { fontSize: 15, fontWeight: '700', color: COLORS.textDark },
   rolLabelActive: { color: COLORS.gold },
-  rolDesc: {
-    fontSize: 11, color: COLORS.textLight, marginTop: 2,
-  },
-  consentBox: {
-    backgroundColor: COLORS.white, borderRadius: 12,
-    borderWidth: 1, borderColor: COLORS.border,
-    padding: 14, marginTop: 12, marginBottom: 16,
-  },
-  consentText: {
-    fontSize: 11, color: COLORS.textLight, lineHeight: 18,
-  },
-  consentLink: { color: COLORS.gold, fontWeight: '700' },
-  error: { color: COLORS.red, fontSize: 12, marginBottom: 12, textAlign: 'center' },
+  rolDesc: { fontSize: 12, color: COLORS.textLight, marginTop: 2 },
+  consentBox: { marginVertical: 16, paddingHorizontal: 4 },
+  consentText: { fontSize: 11, color: COLORS.textLight, lineHeight: 16 },
+  consentLink: { color: COLORS.gold, fontWeight: '600' },
+  error: { color: COLORS.red, fontSize: 14, marginVertical: 8, textAlign: 'center' },
   btn: {
-    backgroundColor: COLORS.gold, borderRadius: 14,
-    paddingVertical: 16, alignItems: 'center', marginTop: 8,
+    backgroundColor: COLORS.gold,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 12,
   },
-  btnText: { color: COLORS.white, fontSize: 15, fontWeight: '800', letterSpacing: 1 },
-  
-  // ESTILOS DEL CANDADO UX (MODAL CRÍTICO)
+  btnText: { color: COLORS.white, fontSize: 16, fontWeight: 'bold' },
   modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(44, 40, 32, 0.6)',
-    justifyContent: 'center', alignItems: 'center', padding: 24
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
-    backgroundColor: COLORS.cream, borderRadius: 20,
-    padding: 24, width: '100%', maxWidth: 340,
-    borderWidth: 1, borderColor: COLORS.border,
-    shadowColor: COLORS.cacao, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15, shadowRadius: 12, elevation: 8
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    elevation: 5,
   },
-  modalTitle: {
-    fontSize: 16, fontWeight: '800', color: COLORS.textDark, marginBottom: 14
-  },
-  modalBody: {
-    fontSize: 13, color: COLORS.textMid, lineHeight: 20, marginBottom: 20
-  },
-  modalRolText: {
-    color: COLORS.gold, fontWeight: '800', fontSize: 14  
-  },
-  modalActions: {
-    flexDirection: 'row', gap: 10, justifyContent: 'flex-end'
-  },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.textDark, marginBottom: 12 },
+  modalBody: { fontSize: 14, color: COLORS.textMid, lineHeight: 20 },
+  modalRolText: { fontSize: 16, fontWeight: 'bold', color: COLORS.gold },
+  modalActions: { flexDirection: 'row', gap: 12, marginTop: 20 },
   modalBtnCancel: {
-    paddingVertical: 12, paddingHorizontal: 14, borderRadius: 10,
-    borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.white
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
   },
-  modalBtnCancelText: {
-    color: COLORS.textLight, fontSize: 13, fontWeight: '600'
-  },
+  modalBtnCancelText: { color: COLORS.textMid, fontWeight: '600', fontSize: 13 },
   modalBtnConfirm: {
-    paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10,
-    backgroundColor: COLORS.gold
+    flex: 1,
+    backgroundColor: COLORS.gold,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
   },
-  modalBtnConfirmText: {
-    color: COLORS.white, fontSize: 13, fontWeight: '700'
-  }
+  modalBtnConfirmText: { color: COLORS.white, fontWeight: 'bold', fontSize: 13 },
 });
