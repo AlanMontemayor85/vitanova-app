@@ -66,26 +66,27 @@ export default function LoginScreen() {
   };
 
   const handleRegistro = async () => {
-    if (!email || !password) { setError('Ingresa tu email y contraseña'); return; }
-    if (password !== confirmPassword) { setError('Las contraseñas no coinciden'); return; }
-    if (password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return; }
-    setLoading(true); setError('');
-    try {
-      const data = await register(email.trim(), password);
-      console.log('login response:', JSON.stringify(data));
-      if (data.access_token) {
-        await setToken(data.access_token);
-        await intentarRegistroPush();
-        router.replace('/completar-perfil');
-      } else {
-        setError(data.error ?? 'Error al crear cuenta');
-      }
-    } catch (e) {
-      setError('Error de conexión');
-    } finally {
-      setLoading(false);
+  if (!email || !password) { setError('Ingresa tu email y contraseña'); return; }
+  if (password !== confirmPassword) { setError('Las contraseñas no coinciden'); return; }
+  if (password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return; }
+  setLoading(true); setError('');
+  try {
+    const data = await register(email.trim(), password);
+    if (data.access_token) {
+      await setToken(data.access_token);
+      await intentarRegistroPush();
+      
+      // 🟢 REDIRECCIÓN DIRECTA: Ignora el index.tsx
+      router.replace('/completar-perfil' as any);
+    } else {
+      setError(data.error ?? 'Error al crear cuenta');
     }
-  };
+  } catch (e) {
+    setError('Error de conexión');
+  } finally {
+    setLoading(false);
+  }
+};
 
  const handleGoogle = async () => {
     setLoadingGoogle(true);
@@ -120,8 +121,8 @@ export default function LoginScreen() {
 
           // 3. 🎯 REDIRECCIÓN IMPLACABLE: Forzamos el salto a completar-perfil
           // 3. Dejamos que el init del index enrute según perfil/paciente/rol
-          console.log('🚀 Login Google OK, enrutando desde el index...');
-          router.replace('/' as any);
+          console.log('🚀 Login Google OK, enviando directo a completar-perfil...');
+          router.replace('/completar-perfil' as any);
         } else if (code) {
           console.log('⚠️ Llegó un "code" (PKCE), no un access_token:', code);
           setError('OAuth devolvió un code (PKCE) — hay que intercambiarlo');
