@@ -29,7 +29,6 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // 🛡️ FUNCIÓN DE EMERGENCIA: Registra el token push de forma segura
   const intentarRegistroPush = async () => {
     try {
       const { registrarNotificaciones } = await import('../services/notifications');
@@ -46,14 +45,29 @@ export default function LoginScreen() {
       const data = await login(email.trim(), password);
       if (data.access_token) {
         await setToken(data.access_token);
-        
-        // 🚀 Ejecutamos el registro push en segundo plano sin bloquear el flujo principal
         await intentarRegistroPush();
 
-        switch (data.tipo) {
-          case 'medico': router.replace('/medico'); break;
-          case 'cuidador': router.replace('/cuidador'); break;
-          default: router.replace('/');
+        // 🟢 VALIDACIÓN DE LA BD: Si la cuenta ya cuenta con un tipo/rol asignado
+        if (data.tipo && data.tipo.trim() !== '') {
+          switch (data.tipo) {
+            case 'medico': 
+              router.replace('/medico'); 
+              break;
+            case 'cuidador': 
+            case 'cuidador_contratado':
+              router.replace('/cuidador'); 
+              break;
+            case 'autonomo':
+              router.replace('/autocuidador');
+              break;
+            default: 
+              // 'familiar' o 'admin': Deriva al index.tsx sin alterar su inicialización
+              router.replace('/'); 
+          }
+        } else {
+          // Si el valor del rol en la BD es NULL, deriva a completar el perfil
+          console.log("⚠️ Usuario sin rol asignado en la BD. Redirigiendo a /completar-perfil");
+          router.replace('/completar-perfil' as any);
         }
       } else {
         setError('Email o contraseña incorrectos');
@@ -66,75 +80,58 @@ export default function LoginScreen() {
   };
 
   const handleRegistro = async () => {
-  if (!email || !password) { setError('Ingresa tu email y contraseña'); return; }
-  if (password !== confirmPassword) { setError('Las contraseñas no coinciden'); return; }
-  if (password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return; }
-  setLoading(true); setError('');
-  try {
-    const data = await register(email.trim(), password);
-    if (data.access_token) {
-      await setToken(data.access_token);
-      await intentarRegistroPush();
-      
-      // 🟢 REDIRECCIÓN DIRECTA: Ignora el index.tsx
-      router.replace('/completar-perfil' as any);
-    } else {
-      setError(data.error ?? 'Error al crear cuenta');
+    if (!email || !password) { setError('Ingresa tu email y contraseña'); return; }
+    if (password !== confirmPassword) { setError('Las contraseñas no coinciden'); return; }
+    if (password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return; }
+    setLoading(true); setError('');
+    try {
+      const data = await register(email.trim(), password);
+      if (data.access_token) {
+        await setToken(data.access_token);
+        await intentarRegistroPush();
+        
+        // Cuentas de nuevo registro se canalizan a completar el perfil
+        router.replace('/completar-perfil' as any);
+      } else {
+        setError(data.error ?? 'Error al crear cuenta');
+      }
+    } catch (e) {
+      setError('Error de conexión');
+    } finally {
+      setLoading(false);
     }
-  } catch (e) {
-    setError('Error de conexión');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
- const handleGoogle = async () => {
+  const handleGoogle = async () => {
     setLoadingGoogle(true);
-    setError(''); // Limpiamos errores previos antes de arrancar
+    setError('');
     try {
       const redirectUri = makeRedirectUri({ scheme: 'vitanovaintegralis' });
-      console.log('🔍 redirectUri usado:', redirectUri);
-
       const authUrl = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUri)}`;
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-      console.log('🔍 OAuth result:', JSON.stringify(result));
 
       if (result.type === 'success' && result.url) {
         const url = result.url;
-
-        // El token puede venir en el fragmento (#) o en la query (?)
         const accessToken = url.match(/access_token=([^&]+)/)?.[1];
         const code = url.match(/[?&]code=([^&]+)/)?.[1];
 
         if (accessToken) {
           const decodedToken = decodeURIComponent(accessToken);
-          
-          // 1. Guardamos el token de forma prioritaria
           await setToken(decodedToken);
-          console.log('✅ Token guardado con éxito.');
 
-          // 2. 🚀 INYECCIÓN TÁCTICA: Registramos el Push en segundo plano sin 'await' 
-          // para que un retraso en Railway o Supabase no congele la pantalla del usuario.
           intentarRegistroPush().catch(err => 
             console.log('⚠️ Registro Push en background ignorado:', err)
           );
 
-          // 3. 🎯 REDIRECCIÓN IMPLACABLE: Forzamos el salto a completar-perfil
-          // 3. Dejamos que el init del index enrute según perfil/paciente/rol
-          console.log('🚀 Login Google OK, enviando directo a completar-perfil...');
-          router.replace('/completar-perfil' as any);
+          // 🟢 Redirección a la raíz '/' para que el index.tsx verifique las credenciales contra la BD
+          router.replace('/' as any);
         } else if (code) {
-          console.log('⚠️ Llegó un "code" (PKCE), no un access_token:', code);
           setError('OAuth devolvió un code (PKCE) — hay que intercambiarlo');
         } else {
-          console.log('⚠️ URL de regreso sin token ni code:', url);
           setError('No se pudo obtener el token de Google');
         }
-      } else {
-        console.log('⚠️ OAuth no exitoso, type:', result.type);
       }
     } catch (e) {
-      console.log('⚠️ Error con Google:', e);
       setError('Error con Google');
     } finally {
       setLoadingGoogle(false);
@@ -184,6 +181,7 @@ export default function LoginScreen() {
             <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁️'}</Text>
           </TouchableOpacity>
         </View>
+
         {modo === 'registro' && (
           <>
             <Text style={styles.label}>Confirmar contraseña</Text>
