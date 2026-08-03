@@ -41,11 +41,6 @@ const ROL_COLOR: Record<string, { bg: string; text: string; border: string }> = 
   medico: { bg: '#FFF0F0', text: COLORS.red, border: '#FFB0B0' },
 };
 
-const DIAS_CORTO: Record<string, string> = {
-  lunes: 'L', martes: 'M', miercoles: 'X', jueves: 'J',
-  viernes: 'V', sabado: 'S', domingo: 'D',
-};
-
 function formatHorario(inicio?: string, fin?: string) {
   if (!inicio || !fin) return null;
   return `${inicio.slice(0, 5)} — ${fin.slice(0, 5)}`;
@@ -56,30 +51,39 @@ export default function RedCuidadoresScreen() {
   const params = useLocalSearchParams();
   const pacienteId = params.pacienteId as string;
   const pacienteNombre = params.pacienteNombre as string;
-  const usuarioActualId = params.usuarioId as string; // 👈 ID del usuario que tiene la sesión activa
+  const usuarioActualId = params.usuarioId as string;
 
   const [equipo, setEquipo] = useState<any[]>([]);
-  const [createdById, setCreatedById] = useState<string | null>(null); // 👈 ID del creador/dueño original del paciente
+  const [createdById, setCreatedById] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const esCuidador = params.usuarioRol === 'cuidador_contratado' || params.isCuidador === 'true';
 
-  // Editar horario
+  // Editar horario en tarjeta existente
   const [editando, setEditando] = useState<any>(null);
   const [horaInicio, setHoraInicio] = useState('');
   const [horaFin, setHoraFin] = useState('');
   const [diasSeleccionados, setDiasSeleccionados] = useState<string[]>([]);
   const [guardandoHorario, setGuardandoHorario] = useState(false);
 
-  // Invitar
+  // Estados para Invitar Integrante
   const [invitandoOpen, setInvitandoOpen] = useState(false);
   const [invEmail, setInvEmail] = useState('');
   const [invRol, setInvRol] = useState<'cuidador_contratado' | 'medico' | 'familiar' | 'familiar_co_admin'>('cuidador_contratado');
   const [invMensaje, setInvMensaje] = useState('');
   const [enviandoInv, setEnviandoInv] = useState(false);
   const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null);
+
+  // Horarios para la NUEVA invitación (Cuidador)
+  const [invHoraInicio, setInvHoraInicio] = useState('08:00');
+  const [invHoraFin, setInvHoraFin] = useState('18:00');
+  const [invDiasSeleccionados, setInvDiasSeleccionados] = useState<string[]>(['L', 'M', 'X', 'J', 'V']);
+
+  // Modales TimePicker
   const [showInicioTimePicker, setShowInicioTimePicker] = useState(false);
   const [showFinTimePicker, setShowFinTimePicker] = useState(false);
+  const [showInvInicioTimePicker, setShowInvInicioTimePicker] = useState(false);
+  const [showInvFinTimePicker, setShowInvFinTimePicker] = useState(false);
 
   useEffect(() => {
     const cargar = async () => {
@@ -101,22 +105,15 @@ export default function RedCuidadoresScreen() {
   const medicos = equipo.filter(m => m.rol === 'medico');
 
   const DIAS_MAPA: Record<string, string> = {
-    lunes: 'L',
-    martes: 'M',
-    miercoles: 'X',
-    jueves: 'J',
-    viernes: 'V',
-    sabado: 'S',
-    domingo: 'D',
+    lunes: 'L', martes: 'M', miercoles: 'X', jueves: 'J',
+    viernes: 'V', sabado: 'S', domingo: 'D',
   };
 
   const guardarHorario = async () => {
     if (!editando || !horaInicio || !horaFin) return;
     setGuardandoHorario(true);
     try {
-      const diasNormalizados = diasSeleccionados.map(
-        d => DIAS_MAPA[d.toLowerCase()] || d
-      );
+      const diasNormalizados = diasSeleccionados.map(d => DIAS_MAPA[d.toLowerCase()] || d);
 
       await actualizarHorarioCuidador(pacienteId, editando.usuario_id, {
         horario_inicio: horaInicio + ':00',
@@ -145,23 +142,30 @@ export default function RedCuidadoresScreen() {
   };
 
   const enviarInvitacion = async () => {
-    if (!invEmail.trim()) return;
+    if (!invEmail.trim()) {
+      Alert.alert('⚠️ Campo requerido', 'Por favor ingresa un correo electrónico.');
+      return;
+    }
     setEnviandoInv(true);
 
-    console.log('🚀 [INVITACIÓN] Enviando payload a backend:', {
+    const payloadInvitacion: any = {
       paciente_id: pacienteId,
       email_invitado: invEmail.trim(),
       rol: invRol,
       mensaje: invMensaje.trim() || null,
-    });
+    };
+
+    // Si es cuidador, adjuntamos los horarios al token
+    if (invRol === 'cuidador_contratado') {
+      payloadInvitacion.horario_inicio = invHoraInicio + ':00';
+      payloadInvitacion.horario_fin = invHoraFin + ':00';
+      payloadInvitacion.dias_semana = invDiasSeleccionados;
+    }
+
+    console.log('🚀 [INVITACIÓN] Enviando payload:', payloadInvitacion);
 
     try {
-      const res = await crearInvitacion({
-        paciente_id: pacienteId,
-        email_invitado: invEmail.trim(),
-        rol: invRol,
-        mensaje: invMensaje.trim() || null,
-      });
+      const res = await crearInvitacion(payloadInvitacion);
 
       if (res && (res.status === 'ok' || res.token)) {
         const tokenCorto = res.token ? res.token.substring(0, 8).toUpperCase() : 'VITA-REGISTRO';
@@ -171,7 +175,7 @@ export default function RedCuidadoresScreen() {
       }
     } catch (e) {
       console.error(e);
-      Alert.alert('❌ Error', 'Ocurrió un fallo al levantar el token de invitación.');
+      Alert.alert('❌ Error', 'Ocurrió un fallo al levantar la invitación.');
     } finally {
       setEnviandoInv(false);
     }
@@ -182,6 +186,9 @@ export default function RedCuidadoresScreen() {
     setInvEmail('');
     setInvMensaje('');
     setCodigoGenerado(null);
+    setInvHoraInicio('08:00');
+    setInvHoraFin('18:00');
+    setInvDiasSeleccionados(['L', 'M', 'X', 'J', 'V']);
   };
 
   const renderMiembro = (m: any) => {
@@ -190,7 +197,6 @@ export default function RedCuidadoresScreen() {
     const horario = formatHorario(m.horario_inicio, m.horario_fin);
     const dias = m.dias_semana ?? [];
 
-    // 🛡️ BANDERAS DE PERMISOS
     const esCreador = m.rol === 'familiar_principal' || m.usuario_id === createdById;
     const soyYo = m.usuario_id === usuarioActualId;
 
@@ -233,7 +239,6 @@ export default function RedCuidadoresScreen() {
           </View>
         </View>
 
-        {/* ✏️ BOTÓN EDITAR HORARIO: Si es cuidador, si soy yo, o si soy el Principal editando al equipo */}
         {(m.rol === 'cuidador_contratado' || soyYo || !esCuidador) && !esCuidador && (
           <TouchableOpacity
             style={styles.editarBtn}
@@ -262,7 +267,6 @@ export default function RedCuidadoresScreen() {
           </TouchableOpacity>
         )}
 
-        {/* 🛡️ CANDADO DE REMOVER: NUNCA se muestra si el miembro es el Familiar Principal / Creador */}
         {!esCreador && !esCuidador && (
           <TouchableOpacity
             style={styles.removerBtn}
@@ -362,34 +366,24 @@ export default function RedCuidadoresScreen() {
         <View style={{ height: 60 }} />
       </ScrollView>
 
-      {/* MODAL EDITAR HORARIO */}
+      {/* MODAL EDITAR HORARIO TARJETA */}
       {editando && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Horario de {editando.nombre}</Text>
 
-            {/* HORA INICIO */}
             <Text style={styles.modalLabel}>Hora inicio</Text>
-            <TouchableOpacity
-              style={styles.modalInput}
-              onPress={() => setShowInicioTimePicker(true)}
-            >
-              <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.cacao }}>
-                🕐 {horaInicio || '08:00'}
-              </Text>
+            <TouchableOpacity style={styles.modalInput} onPress={() => setShowInicioTimePicker(true)}>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.cacao }}>🕐 {horaInicio || '08:00'}</Text>
             </TouchableOpacity>
 
             {showInicioTimePicker && (
               <DateTimePicker
                 value={(() => {
                   const [h, m] = (horaInicio || '08:00').split(':').map(Number);
-                  const d = new Date();
-                  d.setHours(h || 8, m || 0, 0, 0);
-                  return d;
+                  const d = new Date(); d.setHours(h || 8, m || 0, 0, 0); return d;
                 })()}
-                mode="time"
-                is24Hour={true}
-                display="spinner"
+                mode="time" is24Hour={true} display="spinner"
                 onChange={(event, selectedDate) => {
                   setShowInicioTimePicker(false);
                   if (selectedDate) {
@@ -401,28 +395,18 @@ export default function RedCuidadoresScreen() {
               />
             )}
 
-            {/* HORA FIN */}
             <Text style={styles.modalLabel}>Hora fin</Text>
-            <TouchableOpacity
-              style={styles.modalInput}
-              onPress={() => setShowFinTimePicker(true)}
-            >
-              <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.cacao }}>
-                🕐 {horaFin || '20:00'}
-              </Text>
+            <TouchableOpacity style={styles.modalInput} onPress={() => setShowFinTimePicker(true)}>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.cacao }}>🕐 {horaFin || '20:00'}</Text>
             </TouchableOpacity>
 
             {showFinTimePicker && (
               <DateTimePicker
                 value={(() => {
                   const [h, m] = (horaFin || '20:00').split(':').map(Number);
-                  const d = new Date();
-                  d.setHours(h || 20, m || 0, 0, 0);
-                  return d;
+                  const d = new Date(); d.setHours(h || 20, m || 0, 0, 0); return d;
                 })()}
-                mode="time"
-                is24Hour={true}
-                display="spinner"
+                mode="time" is24Hour={true} display="spinner"
                 onChange={(event, selectedDate) => {
                   setShowFinTimePicker(false);
                   if (selectedDate) {
@@ -433,6 +417,7 @@ export default function RedCuidadoresScreen() {
                 }}
               />
             )}
+
             <Text style={styles.modalLabel}>Días de la semana asignados</Text>
             <View style={styles.diasModalRow}>
               {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => {
@@ -440,52 +425,31 @@ export default function RedCuidadoresScreen() {
                 return (
                   <TouchableOpacity
                     key={d}
-                    style={[
-                      styles.diaModalChip, 
-                      seleccionado && styles.diaModalChipActive
-                    ]}
-                    onPress={() => setDiasSeleccionados(prev =>
-                      prev.includes(d) 
-                        ? prev.filter(x => x !== d) 
-                        : [...prev, d]
-                    )}
+                    style={[styles.diaModalChip, seleccionado && styles.diaModalChipActive]}
+                    onPress={() => setDiasSeleccionados(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])}
                   >
-                    <Text style={[
-                      styles.diaModalChipText, 
-                      seleccionado && styles.diaModalChipTextActive
-                    ]}>
-                      {d}
-                    </Text>
+                    <Text style={[styles.diaModalChipText, seleccionado && styles.diaModalChipTextActive]}>{d}</Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 20 }}>
-              <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: COLORS.cream, flex: 1 }]}
-                onPress={() => setEditando(null)}
-              >
+              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.cream, flex: 1 }]} onPress={() => setEditando(null)}>
                 <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]}
-                onPress={guardarHorario}
-                disabled={guardandoHorario}
-              >
-                <Text style={styles.modalBtnText}>
-                  {guardandoHorario ? 'Guardando...' : 'Guardar'}
-                </Text>
+              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]} onPress={guardarHorario} disabled={guardandoHorario}>
+                <Text style={styles.modalBtnText}>{guardandoHorario ? 'Guardando...' : 'Guardar'}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       )}
 
-      {/* MODAL INVITAR CON ENTREGA DE TOKEN */}
+      {/* MODAL INVITAR CON DÍAS Y HORARIOS (SI ES CUIDADOR) */}
       {invitandoOpen && (
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { maxHeight: '85%' }]}>
             <Text style={styles.modalTitle}>Invitar integrante a la red</Text>
 
             {codigoGenerado ? (
@@ -499,15 +463,12 @@ export default function RedCuidadoresScreen() {
                 <Text style={{ fontSize: 11, color: COLORS.textLight, textAlign: 'center', marginTop: 12, lineHeight: 16 }}>
                   Tu cuidador deberá ingresar este código al completar su registro para heredar los horarios asignados.
                 </Text>
-                <TouchableOpacity
-                  style={[styles.modalBtn, { backgroundColor: COLORS.gold, width: '100%', marginTop: 24 }]}
-                  onPress={cerrarModalInvitacion}
-                >
+                <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.gold, width: '100%', marginTop: 24 }]} onPress={cerrarModalInvitacion}>
                   <Text style={styles.modalBtnText}>Listo</Text>
                 </TouchableOpacity>
               </View>
             ) : (
-              <>
+              <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={styles.modalLabel}>Correo Electrónico</Text>
                 <TextInput
                   style={styles.modalInput}
@@ -539,9 +500,88 @@ export default function RedCuidadoresScreen() {
                   ))}
                 </View>
 
+                {/* 🎯 SECCIÓN DINÁMICA: SÓLO APARECE SI EL ROL ES CUIDADOR */}
+                {invRol === 'cuidador_contratado' && (
+                  <View style={styles.horarioBox}>
+                    <Text style={[styles.modalLabel, { marginTop: 0, color: COLORS.gold }]}>⏰ Asignación de Turno Inicial</Text>
+                    
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
+                      {/* HORA INICIO INVITACION */}
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 10, color: COLORS.textLight, marginBottom: 4 }}>ENTRADA</Text>
+                        <TouchableOpacity style={styles.modalInput} onPress={() => setShowInvInicioTimePicker(true)}>
+                          <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao }}>{invHoraInicio}</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* HORA FIN INVITACION */}
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 10, color: COLORS.textLight, marginBottom: 4 }}>SALIDA</Text>
+                        <TouchableOpacity style={styles.modalInput} onPress={() => setShowInvFinTimePicker(true)}>
+                          <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao }}>{invHoraFin}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {/* TIMEPICKERS INVITACION */}
+                    {showInvInicioTimePicker && (
+                      <DateTimePicker
+                        value={(() => {
+                          const [h, m] = invHoraInicio.split(':').map(Number);
+                          const d = new Date(); d.setHours(h || 8, m || 0, 0, 0); return d;
+                        })()}
+                        mode="time" is24Hour={true} display="spinner"
+                        onChange={(event, selectedDate) => {
+                          setShowInvInicioTimePicker(false);
+                          if (selectedDate) {
+                            const hh = selectedDate.getHours().toString().padStart(2, '0');
+                            const mm = selectedDate.getMinutes().toString().padStart(2, '0');
+                            setInvHoraInicio(`${hh}:${mm}`);
+                          }
+                        }}
+                      />
+                    )}
+
+                    {showInvFinTimePicker && (
+                      <DateTimePicker
+                        value={(() => {
+                          const [h, m] = invHoraFin.split(':').map(Number);
+                          const d = new Date(); d.setHours(h || 18, m || 0, 0, 0); return d;
+                        })()}
+                        mode="time" is24Hour={true} display="spinner"
+                        onChange={(event, selectedDate) => {
+                          setShowInvFinTimePicker(false);
+                          if (selectedDate) {
+                            const hh = selectedDate.getHours().toString().padStart(2, '0');
+                            const mm = selectedDate.getMinutes().toString().padStart(2, '0');
+                            setInvHoraFin(`${hh}:${mm}`);
+                          }
+                        }}
+                      />
+                    )}
+
+                    {/* DÍAS INVITACIÓN */}
+                    <Text style={[styles.modalLabel, { marginTop: 10 }]}>Días de Trabajo</Text>
+                    <View style={styles.diasModalRow}>
+                      {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => {
+                        const seleccionado = invDiasSeleccionados.includes(d);
+                        return (
+                          <TouchableOpacity
+                            key={d}
+                            style={[styles.diaModalChip, seleccionado && styles.diaModalChipActive]}
+                            onPress={() => setInvDiasSeleccionados(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])}
+                          >
+                            <Text style={[styles.diaModalChipText, seleccionado && styles.diaModalChipTextActive]}>{d}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+
                 <Text style={styles.modalLabel}>Indicaciones Iniciales (Opcional)</Text>
                 <TextInput
-                  style={[styles.modalInput, { minHeight: 70, textAlignVertical: 'top' }]}
+                  style={[styles.modalInput, { minHeight: 60, textAlignVertical: 'top' }]}
                   value={invMensaje}
                   onChangeText={setInvMensaje}
                   placeholder="Instrucciones operativas para el equipo..."
@@ -549,18 +589,11 @@ export default function RedCuidadoresScreen() {
                   multiline
                 />
 
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
-                  <TouchableOpacity
-                    style={[styles.modalBtn, { backgroundColor: COLORS.cream, flex: 1 }]}
-                    onPress={cerrarModalInvitacion}
-                  >
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 16, marginBottom: 10 }}>
+                  <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.cream, flex: 1 }]} onPress={cerrarModalInvitacion}>
                     <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]}
-                    onPress={enviarInvitacion}
-                    disabled={enviandoInv}
-                  >
+                  <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]} onPress={enviarInvitacion} disabled={enviandoInv}>
                     {enviandoInv ? (
                       <ActivityIndicator color={COLORS.white} size="small" />
                     ) : (
@@ -568,7 +601,7 @@ export default function RedCuidadoresScreen() {
                     )}
                   </TouchableOpacity>
                 </View>
-              </>
+              </ScrollView>
             )}
           </View>
         </View>
@@ -611,17 +644,17 @@ const styles = StyleSheet.create({
   rolPillText: { fontSize: 10, fontWeight: '700' },
   editarBtn: { marginTop: 10, paddingVertical: 8, alignItems: 'center', borderRadius: 8, backgroundColor: COLORS.goldPale, borderWidth: 1, borderColor: COLORS.gold },
   editarBtnText: { fontSize: 11, fontWeight: '700', color: COLORS.gold },
-  modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 },
+  modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
   modalCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: COLORS.border },
-  modalTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textDark, marginBottom: 16 },
+  modalTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textDark, marginBottom: 12 },
   modalLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textLight, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, marginTop: 10 },
   modalInput: { backgroundColor: COLORS.cream, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: COLORS.border, fontSize: 14, color: COLORS.textDark, marginBottom: 4 },
   diasModalRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 6 },
-  diaModalChip: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.cream },
+  diaModalChip: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.cream },
   diaModalChipActive: { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold },
   diaModalChipText: { fontSize: 12, color: COLORS.textLight, fontWeight: '600' },
   diaModalChipTextActive: { color: COLORS.gold, fontWeight: '800' },
-  rolBtn: { flex: 1, minWidth: 90, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.cream, alignItems: 'center' },
+  rolBtn: { flex: 1, minWidth: 85, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.cream, alignItems: 'center' },
   rolBtnActive: { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold },
   rolBtnText: { fontSize: 10, fontWeight: '600', color: COLORS.textLight },
   rolBtnTextActive: { color: COLORS.gold, fontWeight: '800' },
@@ -630,12 +663,14 @@ const styles = StyleSheet.create({
   modalBtn: { borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
   modalBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.white },
   
+  horarioBox: {
+    backgroundColor: COLORS.cream, borderRadius: 12, padding: 12,
+    borderWidth: 1, borderColor: COLORS.goldPale, marginTop: 10, marginBottom: 4
+  },
   tokenContainer: {
     backgroundColor: COLORS.goldPale, borderRadius: 12,
     borderWidth: 2, borderStyle: 'dashed', borderColor: COLORS.gold,
     paddingVertical: 14, paddingHorizontal: 28, marginTop: 8
   },
-  tokenText: {
-    fontSize: 22, fontWeight: '900', color: COLORS.gold, letterSpacing: 2
-  }
+  tokenText: { fontSize: 22, fontWeight: '900', color: COLORS.gold, letterSpacing: 2 }
 });
