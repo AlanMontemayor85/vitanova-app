@@ -20,7 +20,11 @@ const COLORS = {
 };
 
 const ROLES = [
-  { valor: 'familiar', etiqueta: '👑 Familiar Administrador', desc: 'Registro al paciente, configuro el reloj y controlo la red' },
+  { 
+    valor: 'familiar', 
+    etiqueta: '👑 Familiar (Administrador / Co-Admin)', 
+    desc: 'Registro un paciente nuevo o me uno como Co-Admin ingresando mi código abajo' 
+  },
   { valor: 'cuidador', etiqueta: '🤲 Cuidador', desc: 'Asistencia directa (requiere asignación de turno por el Admin)' },
   { valor: 'autonomo', etiqueta: '🧓 Autónomo', desc: 'Quiero gestionar mis medicamentos y rutinas' },
   { valor: 'medico', etiqueta: '🩺 Médico', desc: 'Superviso médicamente los signos del paciente' },

@@ -19,6 +19,7 @@ const COLORS = {
 
 const ROL_LABEL: Record<string, string> = {
   familiar_principal: 'Familiar Principal',
+  familiar_co_admin: 'Co-Administrador', // 👈 Nuevo
   familiar: 'Familiar',
   cuidador_contratado: 'Cuidador',
   medico: 'Médico',
@@ -26,6 +27,7 @@ const ROL_LABEL: Record<string, string> = {
 
 const ROL_ICON: Record<string, string> = {
   familiar_principal: '👑',
+  familiar_co_admin: '⭐', // 👈 O una insignia distintiva
   familiar: '👨‍👩‍👧',
   cuidador_contratado: '🧑‍⚕️',
   medico: '👨‍⚕️',
@@ -33,6 +35,7 @@ const ROL_ICON: Record<string, string> = {
 
 const ROL_COLOR: Record<string, { bg: string; text: string; border: string }> = {
   familiar_principal: { bg: COLORS.goldPale, text: COLORS.gold, border: COLORS.gold },
+  familiar_co_admin: { bg: '#FFF4E0', text: '#D4860A', border: '#F5C26B' }, // 👈 Amber elegante
   familiar: { bg: COLORS.greenPale, text: COLORS.green, border: COLORS.green },
   cuidador_contratado: { bg: '#EEF0FF', text: '#5B6CF9', border: '#B0B8FF' },
   medico: { bg: '#FFF0F0', text: COLORS.red, border: '#FFB0B0' },
@@ -69,7 +72,7 @@ export default function RedCuidadoresScreen() {
   // Invitar
   const [invitandoOpen, setInvitandoOpen] = useState(false);
   const [invEmail, setInvEmail] = useState('');
-  const [invRol, setInvRol] = useState<'cuidador_contratado' | 'medico' | 'familiar'>('cuidador_contratado');
+  const [invRol, setInvRol] = useState<'cuidador_contratado' | 'medico' | 'familiar' | 'familiar_co_admin'>('cuidador_contratado');
   const [invMensaje, setInvMensaje] = useState('');
   const [enviandoInv, setEnviandoInv] = useState(false);
   const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null);
@@ -89,7 +92,7 @@ export default function RedCuidadoresScreen() {
     cargar();
   }, [pacienteId]);
 
-  const familiares = equipo.filter(m => m.rol === 'familiar_principal' || m.rol === 'familiar');
+  const familiares = equipo.filter(m => m.rol === 'familiar_principal' || m.rol === 'familiar_co_admin' || m.rol === 'familiar');
   const cuidadores = equipo.filter(m => m.rol === 'cuidador_contratado');
   const medicos = equipo.filter(m => m.rol === 'medico');
   // Mapeo bidireccional / Estándar de Códigos
@@ -136,32 +139,39 @@ export default function RedCuidadoresScreen() {
     setGuardandoHorario(false);
   }
 };
+const enviarInvitacion = async () => {
+  if (!invEmail.trim()) return;
+  setEnviandoInv(true);
 
-  const enviarInvitacion = async () => {
-    if (!invEmail.trim()) return;
-    setEnviandoInv(true);
-    try {
-      const res = await crearInvitacion({
-        paciente_id: pacienteId,
-        email_invitado: invEmail.trim(),
-        rol: invRol,
-        mensaje: invMensaje.trim() || null,
-      });
-      
-      // Capturamos el token y lo truncamos a 8 caracteres (igual que el backend en el mail)
-      if (res && (res.status === 'ok' || res.token)) {
-        const tokenCorto = res.token ? res.token.substring(0, 8).toUpperCase() : 'VITA-REGISTRO';
-        setCodigoGenerado(tokenCorto);
-      } else {
-        Alert.alert('⚠️ Aviso', 'La invitación se procesó, revisa el estatus en tu panel.');
-      }
-    } catch (e) {
-      console.error(e);
-      Alert.alert('❌ Error', 'Ocurrió un fallo al levantar el token de invitación en Railway.');
-    } finally {
-      setEnviandoInv(false);
+  // 🧪 DIAGNÓSTICO: Imprimimos en consola qué rol está seleccionado en el estado
+  console.log('🚀 [INVITACIÓN] Enviando payload a backend:', {
+    paciente_id: pacienteId,
+    email_invitado: invEmail.trim(),
+    rol: invRol, // 👈 DEBE DECIR "familiar_co_admin"
+    mensaje: invMensaje.trim() || null,
+  });
+
+  try {
+    const res = await crearInvitacion({
+      paciente_id: pacienteId,
+      email_invitado: invEmail.trim(),
+      rol: invRol, // 👈 ASEGÚRATE QUE NO DIGA 'cuidador_contratado' AQUÍ EN DURO
+      mensaje: invMensaje.trim() || null,
+    });
+
+    if (res && (res.status === 'ok' || res.token)) {
+      const tokenCorto = res.token ? res.token.substring(0, 8).toUpperCase() : 'VITA-REGISTRO';
+      setCodigoGenerado(tokenCorto);
+    } else {
+      Alert.alert('⚠️ Aviso', 'La invitación se procesó, revisa el estatus en tu panel.');
     }
-  };
+  } catch (e) {
+    console.error(e);
+    Alert.alert('❌ Error', 'Ocurrió un fallo al levantar el token de invitación en Railway.');
+  } finally {
+    setEnviandoInv(false);
+  }
+};
 
   const cerrarModalInvitacion = () => {
     setInvitandoOpen(false);
@@ -248,6 +258,7 @@ export default function RedCuidadoresScreen() {
           </TouchableOpacity>
         )}
 
+        {/* 🛡️ ESTE ES EL CANDADO: Nadie (ni un Co-Admin) ve este botón si la tarjeta es del Familiar Principal */}
         {m.rol !== 'familiar_principal' && !esCuidador && (
           <TouchableOpacity
             style={styles.removerBtn}
@@ -512,6 +523,7 @@ export default function RedCuidadoresScreen() {
                     { val: 'cuidador_contratado', label: '🧑‍⚕️ Cuidador' },
                     { val: 'medico', label: '👨‍⚕️ Médico' },
                     { val: 'familiar', label: '👨‍👩‍👧 Familiar' },
+                    { val: 'familiar_co_admin', label: '⭐ Co-Admin' }, // 👈 Nuevo botón de acceso especial
                   ] as const).map(r => (
                     <TouchableOpacity
                       key={r.val}

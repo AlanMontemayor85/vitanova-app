@@ -57,6 +57,11 @@ export default function HomeScreen() {
   const pacienteIdParam = params.pacienteId;
   const [notasExpandidas, setNotasExpandidas] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const miRol = paciente?.mi_rol || paciente?.equipo?.find((m: any) => m.es_usuario_actual)?.rol;
+  const esPrincipal = miRol === 'familiar_principal';
+  const esCoAdmin = miRol === 'familiar_co_admin';
+  const esAdminRed = esPrincipal || esCoAdmin;
+
 // 📡 1. Función para jalar la telemetría más reciente del reloj
 const cargarSignosDispositivo = async (idToLoad?: string) => {
   const targetId = idToLoad || pacienteId;
@@ -211,8 +216,12 @@ useEffect(() => {
       // Segmentación de Rutas
       const tipo = data.usuario_tipo;
       const esCuidadorPuro = tipo === 'cuidador' || tipo === 'cuidador_contratado';
-      const esFamiliar = tipo === 'familiar' || tipo === 'admin' || tipo === 'familiar_principal';
-
+      // 🎯 Reemplaza tu línea actual de esFamiliar por esta:
+      const esFamiliar = 
+        tipo === 'familiar' || 
+        tipo === 'admin' || 
+        tipo === 'familiar_principal' || 
+        tipo === 'familiar_co_admin'; // 👈 Se incluye explícitamente al Co-Admin
       if (esCuidadorPuro) {
         router.replace({
           pathname: '/cuidador' as any,
@@ -487,6 +496,13 @@ useEffect(() => {
               <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 }}>
                 Persona a tu cuidado
               </Text>
+              {/* 🏷️ Badge discreta para Co-Administrador */}
+                {esCoAdmin && (
+                  <View style={{ backgroundColor: COLORS.gold, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8 }}>
+                    <Text style={{ fontSize: 8, fontWeight: '800', color: COLORS.cacao }}>⭐ CO-ADMIN</Text>
+                  </View>
+                )}
+              
               <Text style={styles.patientName}>{nombre}</Text>
               <Text style={styles.patientAge}>{condiciones}</Text>
               {pacientes.length > 1 && (
