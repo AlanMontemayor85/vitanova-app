@@ -22,8 +22,13 @@ const COLORS = {
 const ROLES = [
   { 
     valor: 'familiar', 
-    etiqueta: '👑 Familiar (Administrador / Co-Admin)', 
-    desc: 'Registro un paciente nuevo o me uno como Co-Admin ingresando mi código abajo' 
+    etiqueta: '👑 Familiar Principal', 
+    desc: 'Registraré a un paciente nuevo desde cero' 
+  },
+  { 
+    valor: 'familiar_co_admin', 
+    etiqueta: '⭐ Familiar Co-Administrador', 
+    desc: 'Me uniré a la red de un paciente existente (requiere código abajo)' 
   },
   { valor: 'cuidador', etiqueta: '🤲 Cuidador', desc: 'Asistencia directa (requiere asignación de turno por el Admin)' },
   { valor: 'autonomo', etiqueta: '🧓 Autónomo', desc: 'Quiero gestionar mis medicamentos y rutinas' },
@@ -151,7 +156,7 @@ export default function CompletarPerfilScreen() {
     } finally {
       setLoading(false);
     }
-  }; // 👈 Aquí estaba la llave faltante
+  }; 
 
   const getRolTextoMensaje = () => {
     const rFound = ROLES.find(r => r.valor === rol);

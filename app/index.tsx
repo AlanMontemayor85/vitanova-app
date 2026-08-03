@@ -197,6 +197,7 @@ useEffect(() => {
       // 3. Aduana Biomédica
       const data = await getPacientes();
       console.log("📌 [ORDEN BACKEND]", data?.patients?.map((p: any, i: number) => `[${i}]: ${p.nombre} (ID: ${p.id})`));
+      
       if (data && data.usuario_nombre && typeof setNombreUsuario === 'function') {
         setNombreUsuario(data.usuario_nombre);
       }
@@ -208,11 +209,20 @@ useEffect(() => {
         return;
       }
 
-      if (data.status === 'pending_profile' || data.requiere_perfil || !data.usuario_tipo) {
+      // 🛑 CANDADO DE SEGURIDAD:
+      // Si el backend pide completar perfil, no hay tipo de usuario, 
+      // O el nombre viene vacío/nulo, REBOTAR a /completar-perfil SÍ O SÍ.
+      if (
+        data.status === 'pending_profile' || 
+        data.requiere_perfil || 
+        !data.usuario_tipo || 
+        !data.usuario_nombre || 
+        data.usuario_nombre.trim() === ''
+      ) {
+        console.log("⚠️ Perfil incompleto detectado. Redirigiendo obligatoriamente a /completar-perfil");
         router.replace('/completar-perfil');
         return;
       }
-
       // Segmentación de Rutas
       const tipo = data.usuario_tipo;
       const esCuidadorPuro = tipo === 'cuidador' || tipo === 'cuidador_contratado';
@@ -221,7 +231,7 @@ useEffect(() => {
         tipo === 'familiar' || 
         tipo === 'admin' || 
         tipo === 'familiar_principal' || 
-        tipo === 'familiar_co_admin'; // 👈 Se incluye explícitamente al Co-Admin
+        tipo === 'familiar_co_admin'; 
       if (esCuidadorPuro) {
         router.replace({
           pathname: '/cuidador' as any,
