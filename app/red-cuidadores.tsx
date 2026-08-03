@@ -19,7 +19,7 @@ const COLORS = {
 
 const ROL_LABEL: Record<string, string> = {
   familiar_principal: 'Familiar Principal',
-  familiar_co_admin: 'Co-Administrador', // 👈 Nuevo
+  familiar_co_admin: 'Co-Administrador',
   familiar: 'Familiar',
   cuidador_contratado: 'Cuidador',
   medico: 'Médico',
@@ -27,7 +27,7 @@ const ROL_LABEL: Record<string, string> = {
 
 const ROL_ICON: Record<string, string> = {
   familiar_principal: '👑',
-  familiar_co_admin: '⭐', // 👈 O una insignia distintiva
+  familiar_co_admin: '⭐',
   familiar: '👨‍👩‍👧',
   cuidador_contratado: '🧑‍⚕️',
   medico: '👨‍⚕️',
@@ -35,7 +35,7 @@ const ROL_ICON: Record<string, string> = {
 
 const ROL_COLOR: Record<string, { bg: string; text: string; border: string }> = {
   familiar_principal: { bg: COLORS.goldPale, text: COLORS.gold, border: COLORS.gold },
-  familiar_co_admin: { bg: '#FFF4E0', text: '#D4860A', border: '#F5C26B' }, // 👈 Amber elegante
+  familiar_co_admin: { bg: '#FFF4E0', text: '#D4860A', border: '#F5C26B' },
   familiar: { bg: COLORS.greenPale, text: COLORS.green, border: COLORS.green },
   cuidador_contratado: { bg: '#EEF0FF', text: '#5B6CF9', border: '#B0B8FF' },
   medico: { bg: '#FFF0F0', text: COLORS.red, border: '#FFB0B0' },
@@ -56,8 +56,10 @@ export default function RedCuidadoresScreen() {
   const params = useLocalSearchParams();
   const pacienteId = params.pacienteId as string;
   const pacienteNombre = params.pacienteNombre as string;
+  const usuarioActualId = params.usuarioId as string; // 👈 ID del usuario que tiene la sesión activa
 
   const [equipo, setEquipo] = useState<any[]>([]);
+  const [createdById, setCreatedById] = useState<string | null>(null); // 👈 ID del creador/dueño original del paciente
   const [loading, setLoading] = useState(true);
 
   const esCuidador = params.usuarioRol === 'cuidador_contratado' || params.isCuidador === 'true';
@@ -78,11 +80,13 @@ export default function RedCuidadoresScreen() {
   const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null);
   const [showInicioTimePicker, setShowInicioTimePicker] = useState(false);
   const [showFinTimePicker, setShowFinTimePicker] = useState(false);
+
   useEffect(() => {
     const cargar = async () => {
       try {
         const data = await getEquipoPaciente(pacienteId);
         if (data.equipo) setEquipo(data.equipo);
+        if (data.created_by) setCreatedById(data.created_by);
       } catch (e) {
         console.error(e);
       } finally {
@@ -95,7 +99,7 @@ export default function RedCuidadoresScreen() {
   const familiares = equipo.filter(m => m.rol === 'familiar_principal' || m.rol === 'familiar_co_admin' || m.rol === 'familiar');
   const cuidadores = equipo.filter(m => m.rol === 'cuidador_contratado');
   const medicos = equipo.filter(m => m.rol === 'medico');
-  // Mapeo bidireccional / Estándar de Códigos
+
   const DIAS_MAPA: Record<string, string> = {
     lunes: 'L',
     martes: 'M',
@@ -105,73 +109,73 @@ export default function RedCuidadoresScreen() {
     sabado: 'S',
     domingo: 'D',
   };
+
   const guardarHorario = async () => {
-  if (!editando || !horaInicio || !horaFin) return;
-  setGuardandoHorario(true);
-  try {
-    // Normalizamos los días seleccionados para asegurar que se guarden como ['L', 'M', 'X', 'J', 'V', 'S', 'D']
-    const diasNormalizados = diasSeleccionados.map(
-      d => DIAS_MAPA[d.toLowerCase()] || d
-    );
+    if (!editando || !horaInicio || !horaFin) return;
+    setGuardandoHorario(true);
+    try {
+      const diasNormalizados = diasSeleccionados.map(
+        d => DIAS_MAPA[d.toLowerCase()] || d
+      );
 
-    await actualizarHorarioCuidador(pacienteId, editando.usuario_id, {
-      horario_inicio: horaInicio + ':00',
-      horario_fin: horaFin + ':00',
-      dias_semana: diasNormalizados, // <-- MANDA ['M', 'X', 'J', 'V', 'S', 'D'
-    });
-    DeviceEventEmitter.emit('RECARGAR_TAREAS');
-    DeviceEventEmitter.emit('RECARGAR_CUIDADORES');
-    setEquipo(prev => prev.map(m =>
-      m.usuario_id === editando.usuario_id
-        ? { 
-            ...m, 
-            horario_inicio: horaInicio + ':00', 
-            horario_fin: horaFin + ':00', 
-            dias_semana: diasNormalizados 
-          }
-        : m
-    ));
-    setEditando(null);
-  } catch (e) {
-    console.error(e);
-    Alert.alert('❌ Error', 'No se pudo actualizar el turno de asistencia.');
-  } finally {
-    setGuardandoHorario(false);
-  }
-};
-const enviarInvitacion = async () => {
-  if (!invEmail.trim()) return;
-  setEnviandoInv(true);
+      await actualizarHorarioCuidador(pacienteId, editando.usuario_id, {
+        horario_inicio: horaInicio + ':00',
+        horario_fin: horaFin + ':00',
+        dias_semana: diasNormalizados,
+      });
+      DeviceEventEmitter.emit('RECARGAR_TAREAS');
+      DeviceEventEmitter.emit('RECARGAR_CUIDADORES');
+      setEquipo(prev => prev.map(m =>
+        m.usuario_id === editando.usuario_id
+          ? { 
+              ...m, 
+              horario_inicio: horaInicio + ':00', 
+              horario_fin: horaFin + ':00', 
+              dias_semana: diasNormalizados 
+            }
+          : m
+      ));
+      setEditando(null);
+    } catch (e) {
+      console.error(e);
+      Alert.alert('❌ Error', 'No se pudo actualizar el horario.');
+    } finally {
+      setGuardandoHorario(false);
+    }
+  };
 
-  // 🧪 DIAGNÓSTICO: Imprimimos en consola qué rol está seleccionado en el estado
-  console.log('🚀 [INVITACIÓN] Enviando payload a backend:', {
-    paciente_id: pacienteId,
-    email_invitado: invEmail.trim(),
-    rol: invRol, // 👈 DEBE DECIR "familiar_co_admin"
-    mensaje: invMensaje.trim() || null,
-  });
+  const enviarInvitacion = async () => {
+    if (!invEmail.trim()) return;
+    setEnviandoInv(true);
 
-  try {
-    const res = await crearInvitacion({
+    console.log('🚀 [INVITACIÓN] Enviando payload a backend:', {
       paciente_id: pacienteId,
       email_invitado: invEmail.trim(),
-      rol: invRol, // 👈 ASEGÚRATE QUE NO DIGA 'cuidador_contratado' AQUÍ EN DURO
+      rol: invRol,
       mensaje: invMensaje.trim() || null,
     });
 
-    if (res && (res.status === 'ok' || res.token)) {
-      const tokenCorto = res.token ? res.token.substring(0, 8).toUpperCase() : 'VITA-REGISTRO';
-      setCodigoGenerado(tokenCorto);
-    } else {
-      Alert.alert('⚠️ Aviso', 'La invitación se procesó, revisa el estatus en tu panel.');
+    try {
+      const res = await crearInvitacion({
+        paciente_id: pacienteId,
+        email_invitado: invEmail.trim(),
+        rol: invRol,
+        mensaje: invMensaje.trim() || null,
+      });
+
+      if (res && (res.status === 'ok' || res.token)) {
+        const tokenCorto = res.token ? res.token.substring(0, 8).toUpperCase() : 'VITA-REGISTRO';
+        setCodigoGenerado(tokenCorto);
+      } else {
+        Alert.alert('⚠️ Aviso', 'La invitación se procesó, revisa el estatus en tu panel.');
+      }
+    } catch (e) {
+      console.error(e);
+      Alert.alert('❌ Error', 'Ocurrió un fallo al levantar el token de invitación.');
+    } finally {
+      setEnviandoInv(false);
     }
-  } catch (e) {
-    console.error(e);
-    Alert.alert('❌ Error', 'Ocurrió un fallo al levantar el token de invitación en Railway.');
-  } finally {
-    setEnviandoInv(false);
-  }
-};
+  };
 
   const cerrarModalInvitacion = () => {
     setInvitandoOpen(false);
@@ -185,6 +189,10 @@ const enviarInvitacion = async () => {
     const colores = ROL_COLOR[m.rol] ?? ROL_COLOR.familiar;
     const horario = formatHorario(m.horario_inicio, m.horario_fin);
     const dias = m.dias_semana ?? [];
+
+    // 🛡️ BANDERAS DE PERMISOS
+    const esCreador = m.rol === 'familiar_principal' || m.usuario_id === createdById;
+    const soyYo = m.usuario_id === usuarioActualId;
 
     return (
       <View key={m.usuario_id} style={styles.miembroCard}>
@@ -225,8 +233,8 @@ const enviarInvitacion = async () => {
           </View>
         </View>
 
-        {/* Habilitamos la edición de horarios para el Cuidador Contratado y el Familiar Principal */}
-        {(m.rol === 'cuidador_contratado' || m.rol === 'familiar_principal') && !esCuidador && (
+        {/* ✏️ BOTÓN EDITAR HORARIO: Si es cuidador, si soy yo, o si soy el Principal editando al equipo */}
+        {(m.rol === 'cuidador_contratado' || soyYo || !esCuidador) && !esCuidador && (
           <TouchableOpacity
             style={styles.editarBtn}
             onPress={() => {
@@ -234,17 +242,13 @@ const enviarInvitacion = async () => {
               setHoraInicio(m.horario_inicio?.slice(0, 5) ?? '08:00');
               setHoraFin(m.horario_fin?.slice(0, 5) ?? '18:00');
 
-              // 🛡️ Normalizamos los días a formato corto ['L','M','X'...] sin importar cómo vengan
               const diasRaw = m.dias_semana ?? [];
               const diasNormalizados = diasRaw.map((d: any) => {
                 if (typeof d === 'string') {
                   const lower = d.toLowerCase();
-                  // Si ya es corto
                   if (['L','M','X','J','V','S','D'].includes(d)) return d;
-                  // Si viene como 'lunes', 'martes'...
                   return DIAS_MAPA[lower] || d;
                 }
-                // Si viene como número JS (0=Dom, 1=Lun...)
                 const mapaNum = ['D','L','M','X','J','V','S'];
                 return mapaNum[d] || d;
               });
@@ -253,13 +257,13 @@ const enviarInvitacion = async () => {
             }}
           >
             <Text style={styles.editarBtnText}>
-              ✏️ {m.rol === 'familiar_principal' ? 'Editar mi horario de apoyo' : 'Editar horario de turno'}
+              ✏️ {soyYo ? 'Editar mi horario de apoyo' : 'Editar horario de turno'}
             </Text>
           </TouchableOpacity>
         )}
 
-        {/* 🛡️ ESTE ES EL CANDADO: Nadie (ni un Co-Admin) ve este botón si la tarjeta es del Familiar Principal */}
-        {m.rol !== 'familiar_principal' && !esCuidador && (
+        {/* 🛡️ CANDADO DE REMOVER: NUNCA se muestra si el miembro es el Familiar Principal / Creador */}
+        {!esCreador && !esCuidador && (
           <TouchableOpacity
             style={styles.removerBtn}
             onPress={() => {
@@ -485,7 +489,6 @@ const enviarInvitacion = async () => {
             <Text style={styles.modalTitle}>Invitar integrante a la red</Text>
 
             {codigoGenerado ? (
-              // 👑 UX PREMIUM: Pantalla de token generado para compartir
               <View style={{ alignItems: 'center', paddingVertical: 12 }}>
                 <Text style={{ fontSize: 13, color: COLORS.textDark, textAlign: 'center', marginBottom: 14 }}>
                   Invitación registrada. Comparte este código de vinculación con tu asistente:
@@ -504,7 +507,6 @@ const enviarInvitacion = async () => {
                 </TouchableOpacity>
               </View>
             ) : (
-              // Formulario Estándar de Entrada
               <>
                 <Text style={styles.modalLabel}>Correo Electrónico</Text>
                 <TextInput
@@ -523,7 +525,7 @@ const enviarInvitacion = async () => {
                     { val: 'cuidador_contratado', label: '🧑‍⚕️ Cuidador' },
                     { val: 'medico', label: '👨‍⚕️ Médico' },
                     { val: 'familiar', label: '👨‍👩‍👧 Familiar' },
-                    { val: 'familiar_co_admin', label: '⭐ Co-Admin' }, // 👈 Nuevo botón de acceso especial
+                    { val: 'familiar_co_admin', label: '⭐ Co-Admin' },
                   ] as const).map(r => (
                     <TouchableOpacity
                       key={r.val}
@@ -628,7 +630,6 @@ const styles = StyleSheet.create({
   modalBtn: { borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
   modalBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.white },
   
-  // CAJA PREMIUM DE TOKEN GENERADO
   tokenContainer: {
     backgroundColor: COLORS.goldPale, borderRadius: 12,
     borderWidth: 2, borderStyle: 'dashed', borderColor: COLORS.gold,

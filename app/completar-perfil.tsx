@@ -72,49 +72,55 @@ export default function CompletarPerfilScreen() {
         throw new Error('No se encontró una sesión activa o el token expiró');
       }
 
+      // 🛡️ Validación previa para Familiar Co-Administrador
+      if (rol === 'familiar_co_admin' && !tokenInvitacion.trim()) {
+        throw new Error('Debes ingresar un código de invitación para unirte como Co-Administrador');
+      }
+
       console.log("📡 Enviando perfil a Railway con Token verificado...");
 
-      // 1. Guardar Perfil de Usuario en Supabase
+      // Mapeo de perfil genérico para backend auth ('familiar')
+      const tipoPerfilBackend = (rol === 'familiar_co_admin' || rol === 'familiar') ? 'familiar' : rol;
+
+      // 1. Guardar Perfil de Usuario en Supabase / Backend
       const res = await fetch(`${BASE_URL}/auth/completar-perfil`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ nombre, telefono, cedula, tipo: rol }),
+        body: JSON.stringify({ nombre, telefono, cedula, tipo: tipoPerfilBackend }),
       });
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Error al guardar el perfil en el servidor');
+        const rawMsg = errorData.detail || errorData.message || errorData.error || 'Error al guardar el perfil en el servidor';
+        throw new Error(typeof rawMsg === 'object' ? JSON.stringify(rawMsg) : rawMsg);
       }
 
-      // 2. Si trae TOKEN DE INVITACIÓN -> Procesar aceptación y redirigir
+      // 2. Si trae TOKEN DE INVITACIÓN (Co-Admin / Cuidador / Médico invitado)
       if (tokenInvitacion.trim()) {
         console.log(`🔗 Aceptando código de invitación [${tokenInvitacion.trim()}]...`);
-        try {
-          const invRes = await fetch(`${BASE_URL}/invitaciones/${tokenInvitacion.trim()}/aceptar`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}` },
-          });
+        
+        const invRes = await fetch(`${BASE_URL}/invitaciones/${tokenInvitacion.trim()}/aceptar`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-          if (!invRes.ok) {
-            const invErr = await invRes.json().catch(() => ({}));
-            console.warn("⚠️ No se pudo procesar la invitación:", invErr.detail || "Código no válido");
-          } else {
-            console.log("✅ Invitación aceptada. Redirigiendo a red del paciente...");
-          }
-        } catch (invException) {
-          console.error("⚠️ Error ejecutando invitación:", invException);
+        if (!invRes.ok) {
+          const invErr = await invRes.json().catch(() => ({}));
+          const rawInvMsg = invErr.detail || invErr.message || invErr.error || 'El código de invitación no es válido o ya fue utilizado';
+          throw new Error(typeof rawInvMsg === 'object' ? JSON.stringify(rawInvMsg) : rawInvMsg);
         }
 
-        // Redirección directa tras aceptar invitación
+        console.log("✅ Invitación aceptada. Redirigiendo a la red asignada...");
+
         if (rol === 'cuidador') {
           router.replace('/cuidador');
         } else if (rol === 'medico') {
           router.replace('/medico');
         } else {
-          // Si es familiar invitado, va al dashboard principal del paciente existente
+          // Co-Admin / Familiar invitado entra directo al Dashboard principal '/'
           router.replace('/');
         }
         return;
@@ -122,7 +128,7 @@ export default function CompletarPerfilScreen() {
 
       // 3. Setup automático para autocuidador
       if (rol === 'autonomo') {
-        await fetch(`${BASE_URL}/autocuidador/setup`, {
+        const autoRes = await fetch(`${BASE_URL}/autocuidador/setup`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
@@ -130,13 +136,18 @@ export default function CompletarPerfilScreen() {
           },
           body: JSON.stringify({ nombre }),
         });
+
+        if (!autoRes.ok) {
+          const autoErr = await autoRes.json().catch(() => ({}));
+          console.warn("⚠️ No se pudo completar el setup de autocuidador:", autoErr);
+        }
       }
 
-      // 4. Redirección cuando NO HAY invitación
+      // 4. Redirección cuando NO hay invitación (Creación de paciente o vista principal)
       switch (rol) {
         case 'familiar':
-          console.log("👑 Familiar Administrador (Sin invitación). Iniciando alta de paciente...");
-          router.replace('/perfil-paciente'); // Único caso que crea paciente nuevo
+          console.log("👑 Familiar Principal. Iniciando alta de paciente...");
+          router.replace('/perfil-paciente'); // Va a dar de alta al paciente
           break;
         case 'medico': 
           router.replace('/medico'); 
@@ -151,13 +162,26 @@ export default function CompletarPerfilScreen() {
           router.replace('/');
       }
     } catch (e: any) {
-      console.error("❌ Error en handleGuardar:", e);
-      setError(e.message || 'Error guardando perfil');
+      console.error("❌ Error en handleGuardarDefinitivo:", e);
+
+      // 🧼 Extracción limpia para prevenir [object Object] en pantalla
+      let mensajeError = 'Error al procesar la solicitud';
+
+      if (typeof e === 'string') {
+        mensajeError = e;
+      } else if (e?.message) {
+        mensajeError = typeof e.message === 'object' ? JSON.stringify(e.message) : e.message;
+      } else if (e?.detail) {
+        mensajeError = typeof e.detail === 'object' ? JSON.stringify(e.detail) : e.detail;
+      } else if (typeof e === 'object') {
+        mensajeError = JSON.stringify(e);
+      }
+
+      setError(mensajeError);
     } finally {
       setLoading(false);
     }
-  }; 
-
+  };
   const getRolTextoMensaje = () => {
     const rFound = ROLES.find(r => r.valor === rol);
     return rFound ? rFound.etiqueta : rol;
