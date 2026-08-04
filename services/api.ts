@@ -322,19 +322,19 @@ export const getGeocercas = async (pacienteId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/geocercas/${pacienteId}`);
   return res.json();
 };
-
 export const iniciarTurno = async (pacienteId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/turnos/iniciar`, {
     method: 'POST',
     body: JSON.stringify({ paciente_id: pacienteId }),
   });
   const data = await res.json();
-  if (data.error === 'sin_horario') {
-    return { sin_horario: true, mensaje: data.mensaje };
+  
+  // 💡 Si 'error' existe en el JSON devuelto por la API (sea cual sea la cadena de error)
+  if (data.error) {
+    return { sin_horario: true, mensaje: data.mensaje || "Acceso denegado por horario." };
   }
   return data;
 };
-
 export const eliminarGeocerca = async (geocercaId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/geocercas/${geocercaId}`, { method: 'DELETE' });
   return res.json();

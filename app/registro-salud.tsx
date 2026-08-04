@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getSignosRecientes, getToken, iniciarTurno } from '../services/api';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
@@ -154,37 +154,57 @@ useEffect(() => {
     }
   };
 
-  const avanzarAlTurno = async () => {
-    try {
-      if (momento === 'inicio_turno') {
-        await iniciarTurno(paciente.id);
-      }
+  // 💡 Asegúrate de incluir 'Alert' en tus imports de React Native:
+// import { Alert, ActivityIndicator, ScrollView, ... } from 'react-native';
 
-      if (params.modoSwitch === 'cuidador_familiar') {
-        console.log("🔙 Regresando al embebido → Consola");
-        router.replace({
-          pathname: '/',
-          params: {
-            refresh: String(Date.now()),
-            abrirModoCuidador: 'true',
-            pacienteIdConsola: paciente.id
-          }
-        });
-        return;
-      }
+const avanzarAlTurno = async () => {
+  try {
+    if (momento === 'inicio_turno') {
+      const resTurno = await iniciarTurno(paciente.id);
 
+      // 🛑 CANTERA DE SEGURIDAD: Si el backend rechaza por estar fuera de horario
+      if (resTurno?.sin_horario) {
+        Alert.alert(
+          "Turno No Permitido",
+          resTurno.mensaje || "No tienes un turno programado en este horario.",
+          [
+            { 
+              text: "Entendido", 
+              onPress: () => router.back() // 👈 Lo saca y regresa a la pantalla anterior
+            }
+          ]
+        );
+        return; // ⛔ Frena aquí y NO ejecuta la navegación a /cuidador
+      }
+    }
+
+    // ✅ Si el turno se inició correctamente o no es 'inicio_turno', entra al tablero
+    if (params.modoSwitch === 'cuidador_familiar') {
+      console.log("🔙 Regresando al embebido → Consola");
       router.replace({
-        pathname: '/cuidador' as any,
+        pathname: '/',
         params: {
-          vistaInicial: 'turno',
-          paciente: JSON.stringify(paciente),
-          modoSwitch: 'ninguno'
+          refresh: String(Date.now()),
+          abrirModoCuidador: 'true',
+          pacienteIdConsola: paciente.id
         }
       });
-    } catch (err) {
-      console.error(err);
+      return;
     }
-  };
+
+    router.replace({
+      pathname: '/cuidador' as any,
+      params: {
+        vistaInicial: 'turno',
+        paciente: JSON.stringify(paciente),
+        modoSwitch: 'ninguno'
+      }
+    });
+  } catch (err) {
+    console.error("❌ Error en avanzarAlTurno:", err);
+    Alert.alert("Error de Conexión", "No se pudo validar tu estado de turno.");
+  }
+};
 
   const momentoLabel: Record<string, string> = {
     inicio_turno: 'Verificación de Entrada',
