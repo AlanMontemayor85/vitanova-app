@@ -86,19 +86,21 @@ export default function RedCuidadoresScreen() {
   const [showInvFinTimePicker, setShowInvFinTimePicker] = useState(false);
 
   useEffect(() => {
-    const cargar = async () => {
-      try {
-        const data = await getEquipoPaciente(pacienteId);
-        if (data.equipo) setEquipo(data.equipo);
-        if (data.created_by) setCreatedById(data.created_by);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    cargar();
+    cargarEquipo();
   }, [pacienteId]);
+
+  const cargarEquipo = async () => {
+    try {
+      setLoading(true);
+      const data = await getEquipoPaciente(pacienteId);
+      if (data.equipo) setEquipo(data.equipo);
+      if (data.created_by) setCreatedById(data.created_by);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const familiares = equipo.filter(m => m.rol === 'familiar_principal' || m.rol === 'familiar_co_admin' || m.rol === 'familiar');
   const cuidadores = equipo.filter(m => m.rol === 'cuidador_contratado');
@@ -116,22 +118,18 @@ export default function RedCuidadoresScreen() {
       const diasNormalizados = diasSeleccionados.map(d => DIAS_MAPA[d.toLowerCase()] || d);
 
       await actualizarHorarioCuidador(pacienteId, editando.usuario_id, {
-        horario_inicio: horaInicio + ':00',
-        horario_fin: horaFin + ':00',
+        horario_inicio: horaInicio.length === 5 ? horaInicio + ':00' : horaInicio,
+        horario_fin: horaFin.length === 5 ? horaFin + ':00' : horaFin,
         dias_semana: diasNormalizados,
       });
+
+      // Eventos para actualizar otros módulos de la app
       DeviceEventEmitter.emit('RECARGAR_TAREAS');
       DeviceEventEmitter.emit('RECARGAR_CUIDADORES');
-      setEquipo(prev => prev.map(m =>
-        m.usuario_id === editando.usuario_id
-          ? { 
-              ...m, 
-              horario_inicio: horaInicio + ':00', 
-              horario_fin: horaFin + ':00', 
-              dias_semana: diasNormalizados 
-            }
-          : m
-      ));
+
+      // 🔄 1. Re-fetch directo para sincronizar con el estado real de la BD
+      await cargarEquipo();
+
       setEditando(null);
     } catch (e) {
       console.error(e);
@@ -155,11 +153,12 @@ export default function RedCuidadoresScreen() {
       mensaje: invMensaje.trim() || null,
     };
 
-    // Si es cuidador, adjuntamos los horarios al token
+    // Si es cuidador, adjuntamos los horarios normalizados
     if (invRol === 'cuidador_contratado') {
-      payloadInvitacion.horario_inicio = invHoraInicio + ':00';
-      payloadInvitacion.horario_fin = invHoraFin + ':00';
-      payloadInvitacion.dias_semana = invDiasSeleccionados;
+      const diasNormalizados = invDiasSeleccionados.map(d => DIAS_MAPA[d.toLowerCase()] || d);
+      payloadInvitacion.horario_inicio = invHoraInicio.length === 5 ? invHoraInicio + ':00' : invHoraInicio;
+      payloadInvitacion.horario_fin = invHoraFin.length === 5 ? invHoraFin + ':00' : invHoraFin;
+      payloadInvitacion.dias_semana = diasNormalizados;
     }
 
     console.log('🚀 [INVITACIÓN] Enviando payload:', payloadInvitacion);
