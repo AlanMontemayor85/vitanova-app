@@ -18,23 +18,31 @@ const COLORS = {
   amberPale: '#FFF4E0',
   red: '#D94F4F',
   redPale: '#FDEAEA',
+  blue: '#2B70C9',
+  bluePale: '#EBF3FC',
 };
 
 const TIPO_CONFIG: Record<string, { icon: string; color: string; bg: string }> = {
   SOS: { icon: '🚨', color: '#D94F4F', bg: '#FDEAEA' },
-  sos: { icon: '🚨', color: '#D94F4F', bg: '#FDEAEA' }, // 🛡️ Blindado
-  CAIDA: { icon: '⚠️', color: '#D4860A', bg: '#FFF4E0' }, // 🛡️ Blindado
+  sos: { icon: '🚨', color: '#D94F4F', bg: '#FDEAEA' },
+  CAIDA: { icon: '⚠️', color: '#D4860A', bg: '#FFF4E0' },
   caida: { icon: '⚠️', color: '#D4860A', bg: '#FFF4E0' },
   geocerca: { icon: '📍', color: '#D4860A', bg: '#FFF4E0' },
   medicamento: { icon: '💊', color: '#BF9A40', bg: '#F5EDD8' },
   dispositivo: { icon: '📱', color: '#8A8078', bg: '#F1EFE8' },
+  
+  // 🩸 ALERTAS CLÍNICAS Y DE SIGNOS VITALES
   signo_vital: { icon: '🩺', color: '#D94F4F', bg: '#FDEAEA' },
+  vitales: { icon: '🩺', color: '#D94F4F', bg: '#FDEAEA' },
+  spo2: { icon: '🫁', color: '#2B70C9', bg: '#EBF3FC' },
+  presion: { icon: '🩸', color: '#D94F4F', bg: '#FDEAEA' },
+  temperatura: { icon: '🌡️', color: '#D4860A', bg: '#FFF4E0' },
+  salud: { icon: '🏥', color: '#D94F4F', bg: '#FDEAEA' },
+  
   otro: { icon: '🔔', color: '#8A8078', bg: '#F1EFE8' },
 };
 
 export default function AlertasScreen() {
-
-  
   const params = useLocalSearchParams();
   const pacienteIdParam = params.pacienteId as string;
   const router = useRouter();
@@ -43,33 +51,28 @@ export default function AlertasScreen() {
   const [loading, setLoading] = useState(true);
   
   const userRol = (params.rol as string) || 'familiar';
+
   useEffect(() => {
-  const cargar = async () => {
-    try {
-      await loadStoredToken();
-      
-      // 🎯 Aquí obtenemos el rol. 
-      // Si tu función 'loadStoredToken' o algún servicio te da el usuario actual, haz algo como:
-      // const session = await getSessionData(); 
-      // setUserRol(session.rol); 
-      
-      const data = await getPacientes();
-      if (data.patients && data.patients.length > 0) {
-        const p = pacienteIdParam 
-          ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
-          : data.patients[0];
-        setPaciente(p);
-        const alertasData = await getAlertas(p.id);
-        if (alertasData.alertas) setAlertas(alertasData.alertas);
+    const cargar = async () => {
+      try {
+        await loadStoredToken();
+        const data = await getPacientes();
+        if (data.patients && data.patients.length > 0) {
+          const p = pacienteIdParam 
+            ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
+            : data.patients[0];
+          setPaciente(p);
+          const alertasData = await getAlertas(p.id);
+          if (alertasData.alertas) setAlertas(alertasData.alertas);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-  cargar();
-}, [pacienteIdParam]);
+    };
+    cargar();
+  }, [pacienteIdParam]);
 
   if (loading) {
     return (
@@ -79,15 +82,11 @@ export default function AlertasScreen() {
     );
   }
 
-  // 🕵️‍♂️ 1. Esto nos va a decir en la terminal de VS Code qué rol está leyendo realmente la app
-  console.log("🎯 EL ROL DETECTADO EN ESTA PANTALLA ES:", userRol);
-
-  // 🎯 2. FILTRADO ULTRA ESTRICTO:
-  // Si el rol es 'cuidador' (en minúsculas o mayúsculas), o si quieres hacer la prueba de fuego 
-  // para bloquearlos en lo que corriges el estado, fuerza el filtrado quitando el "if".
-  
+  // 🎯 FILTRADO POR ROL
+  // Si es cuidador, únicamente filtramos notas internas de auditoría '🔐'
+  // pero PERMITIMOS ver todas las alertas clínicas (SpO2, Presión, Temperatura) e inicios/cierres de turno.
   const alertasVisibles = (userRol?.toLowerCase() === 'cuidador')
-    ? alertas.filter(a => !a.descripcion?.includes('🔐') && !a.descripcion?.includes('⏳'))
+    ? alertas.filter(a => !a.descripcion?.includes('🔐'))
     : alertas;
 
   return (
@@ -104,8 +103,7 @@ export default function AlertasScreen() {
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-        {/* 🎯 2. CORRECCIÓN: Validamos usando el arreglo filtrado */}
-       {alertasVisibles.length === 0 ? (
+        {alertasVisibles.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyIcon}>✅</Text>
             <Text style={styles.emptyTitle}>Sin alertas</Text>
@@ -115,21 +113,43 @@ export default function AlertasScreen() {
           alertasVisibles.map((a) => {
             const tipoNormalizado = a.tipo?.toLowerCase();
             let config = TIPO_CONFIG[tipoNormalizado] ?? TIPO_CONFIG.otro;
+            const desc = a.descripcion || '';
 
-            /* 🎯 1. INTERCEPTOR AUDITORÍA DE DATOS: (Batería + 🔐) */
-            if (tipoNormalizado === 'bateria' && a.descripcion?.includes('🔐')) {
-              config = { icon: '🔐', color: '#4A4540', bg: '#F2F1ED' }; // Estilo gris/cacao ejecutivo
+            /* 🎯 INTERCEPTORES POR CONTENIDO / EMOJIS EN LA DESCRIPCIÓN */
+            
+            // 1. Auditoría
+            if (desc.includes('🔐')) {
+              config = { icon: '🔐', color: '#4A4540', bg: '#F2F1ED' };
+            }
+            // 2. Cierre de turno
+            else if (desc.includes('🏁') || desc.includes('🔒')) {
+              config = { icon: '🏁', color: COLORS.green, bg: COLORS.greenPale };
+            }
+            // 3. Inicio de turno
+            else if (desc.includes('⏳')) {
+              config = { icon: '⏳', color: COLORS.gold, bg: COLORS.goldPale };
+            }
+            // 🫁 4. Oxígeno / SpO2 Bajo
+            else if (desc.toLowerCase().includes('spo2') || desc.toLowerCase().includes('saturaci') || desc.includes('🫁')) {
+              config = { icon: '🫁', color: COLORS.blue, bg: COLORS.bluePale };
+            }
+            // 🩸 5. Presión Arterial (Alta o Baja)
+            else if (desc.toLowerCase().includes('presi') || desc.toLowerCase().includes('sistolica') || desc.includes('🩸')) {
+              config = { icon: '🩸', color: COLORS.red, bg: COLORS.redPale };
+            }
+            // 🌡️ 6. Temperatura / Fiebre / Febrícula / Hipotermia
+            else if (desc.toLowerCase().includes('temperatura') || desc.toLowerCase().includes('fiebre') || desc.toLowerCase().includes('febrícula') || desc.includes('🌡️') || desc.includes('🥶')) {
+              config = { icon: '🌡️', color: COLORS.amber, bg: COLORS.amberPale };
             }
 
-            /* 🎯 2. INTERCEPTOR CIERRE DE TURNO: (Batería + 🏁) */
-            if (tipoNormalizado === 'bateria' && a.descripcion?.includes('🏁')) {
-              config = { icon: '⏳', color: COLORS.green, bg: COLORS.greenPale }; // Verde de operación completada
-            }
-
-            /* 🎯 3. INTERCEPTOR INICIO DE TURNO: (Retiro + ⏳) */
-            if (tipoNormalizado === 'retiro' && a.descripcion?.includes('⏳')) {
-              config = { icon: '⏳', color: COLORS.gold, bg: COLORS.goldPale }; // Oro de operación en progreso
-            }
+            // Etiqueta dinámica de cabecera
+            const tituloTipo = desc.includes('🔐') ? 'AUDITORÍA' :
+              (desc.includes('🏁') || desc.includes('🔒')) ? 'TURNO CONCLUIDO' :
+              desc.includes('⏳') ? 'INICIO TURNO' :
+              (desc.toLowerCase().includes('spo2') || desc.toLowerCase().includes('saturaci')) ? 'SATURACIÓN SPO2' :
+              desc.toLowerCase().includes('presi') ? 'PRESIÓN ARTERIAL' :
+              (desc.toLowerCase().includes('temperatura') || desc.toLowerCase().includes('fiebre') || desc.toLowerCase().includes('febrícula')) ? 'TEMPERATURA' :
+              (a.tipo ? a.tipo.toUpperCase() : 'ALERTA');
 
             return (
               <View key={a.id} style={[styles.alertaCard, { backgroundColor: config.bg, borderColor: config.color + '40' }]}>
@@ -138,11 +158,8 @@ export default function AlertasScreen() {
                 </View>
                 <View style={styles.alertaContent}>
                   <View style={styles.alertaHeader}>
-                    {/* 🎯 TÍTULOS DINÁMICOS: Forzamos la etiqueta limpia según el emoji del búnker */}
                     <Text style={[styles.alertaTipo, { color: config.color }]}>
-                      {a.descripcion?.includes('🔐') ? 'AUDITORÍA' : 
-                       a.descripcion?.includes('🏁') ? 'TURNO CONCLUIDO' : 
-                       a.descripcion?.includes('⏳') ? 'INICIO TURNO' : a.tipo.toUpperCase()}
+                      {tituloTipo}
                     </Text>
                     <View style={[styles.severidadPill, {
                       backgroundColor: a.severidad === 'alta' ? COLORS.redPale :
@@ -151,7 +168,7 @@ export default function AlertasScreen() {
                       <Text style={[styles.severidadText, {
                         color: a.severidad === 'alta' ? COLORS.red :
                           a.severidad === 'media' ? COLORS.amber : COLORS.green
-                      }]}>{a.severidad}</Text>
+                      }]}>{a.severidad || 'media'}</Text>
                     </View>
                   </View>
                   
@@ -179,29 +196,56 @@ export default function AlertasScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.cream },
   header: {
-    backgroundColor: COLORS.cacao, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.cacao,
+    paddingTop: 50,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
   },
-  greeting: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: 2 },
-  userName: { fontSize: 20, fontWeight: '800', color: COLORS.white },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontSize: 18, color: COLORS.white },
-  body: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
-  emptyCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 40, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, marginTop: 20 },
-  emptyIcon: { fontSize: 48, marginBottom: 12 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textDark, marginBottom: 6 },
-  emptyText: { fontSize: 13, color: COLORS.textLight },
-  alertaCard: { borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, flexDirection: 'row', gap: 12 },
-  alertaIconWrap: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  alertaIcon: { fontSize: 22 },
+  backBtn: { marginRight: 15, padding: 5 },
+  backIcon: { color: COLORS.white, fontSize: 24, fontWeight: 'bold' },
+  greeting: { color: COLORS.gold, fontSize: 14, fontWeight: '600' },
+  userName: { color: COLORS.white, fontSize: 20, fontWeight: 'bold' },
+  body: { flex: 1, padding: 20 },
+  emptyCard: {
+    backgroundColor: COLORS.white,
+    padding: 30,
+    borderRadius: 16,
+    alignItems: 'center',
+    marginTop: 40,
+    borderColor: COLORS.border,
+    borderWidth: 1,
+  },
+  emptyIcon: { fontSize: 40, marginBottom: 10 },
+  emptyTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.textDark },
+  emptyText: { fontSize: 14, color: COLORS.textLight, marginTop: 4 },
+  alertaCard: {
+    flexDirection: 'row',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  alertaIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center', // 👈 ¡Listo!
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  alertaIcon: { fontSize: 20 },
   alertaContent: { flex: 1 },
-  alertaHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  alertaTipo: { fontSize: 11, fontWeight: '800', letterSpacing: 1 },
-  severidadPill: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-  severidadText: { fontSize: 9, fontWeight: '700' },
-  alertaDesc: { fontSize: 13, color: COLORS.textDark, marginBottom: 4 },
-  alertaFecha: { fontSize: 10, color: COLORS.textLight, marginBottom: 8 },
-  resolverBtn: { backgroundColor: COLORS.white, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, alignSelf: 'flex-start', borderWidth: 1, borderColor: COLORS.border },
-  resolverBtnText: { fontSize: 11, fontWeight: '600', color: COLORS.textDark },
-  resueltaText: { fontSize: 11, color: COLORS.green, fontWeight: '600' },
+  alertaHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  alertaTipo: { fontSize: 12, fontWeight: 'bold', letterSpacing: 0.5 },
+  severidadPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  severidadText: { fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' },
+  alertaDesc: { fontSize: 14, color: COLORS.textDark, marginBottom: 6, lineHeight: 20 },
+  alertaFecha: { fontSize: 11, color: COLORS.textLight },
 });
