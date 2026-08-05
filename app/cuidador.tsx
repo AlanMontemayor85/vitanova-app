@@ -156,6 +156,8 @@ export default function CuidadorScreen({
   const [ultimoCierre, setUltimoCierre] = useState<any>(null);
   const [alertaPeso, setAlertaPeso] = useState<any>(null);
 
+  const [alertas, setAlertas] = useState<any[]>([]);
+  const [ubicacion, setUbicacion] = useState<any>(null);
   const [estadoPaciente, setEstadoPaciente] = useState('bien');
   const [peso, setPeso] = useState(70.0);
   const [iniciando, setIniciando] = useState(false);
@@ -1197,70 +1199,90 @@ useEffect(() => {
 
 
 
-          {/* 🎯 ACCESOS RÁPIDOS DE CONTROL (Condicionados por UX) */}
-          <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Accesos rápidos de control</Text>
+         {/* 🎯 ACCESOS RÁPIDOS DE CONTROL (Condicionados por UX) */}
+        <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Accesos rápidos de control</Text>
 
-          {pacienteProp || pacienteActivo?.rol_en_equipo === 'familiar_principal' || pacienteActivo?.usuarioRol === 'familiar_principal' ? (
-            <View style={{
-              backgroundColor: COLORS.cream,
-              borderRadius: 12,
-              padding: 16,
-              marginBottom: 14,
-              borderWidth: 1,
-              borderColor: COLORS.border,
-              alignItems: 'center'
-            }}>
-              <Text style={{ fontSize: 18, marginBottom: 6 }}>👨‍👩‍👧</Text>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textDark, textAlign: 'center' }}>
-                Modo de Monitoreo Activo
-              </Text>
-              <Text style={{ fontSize: 10, color: COLORS.textLight, textAlign: 'center', marginTop: 2, lineHeight: 14 }}>
-                Para visualizar las gráficas, el mapa de ubicación o la red de cuidadores, por favor regrese al modo familiar usando el interruptor de arriba.
-              </Text>
-            </View>
-          ) : (
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
-              <TouchableOpacity 
-                style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }}
-                onPress={() => {
-                  router.push({
-                    pathname: '/red-cuidadores' as any,
-                    params: { pacienteId: pacienteActivo.id, pacienteNombre: pacienteActivo.nombre_completo, isCuidador: 'true' }
-                  });
-                }}
-              >
-                <Text style={{ fontSize: 20, marginBottom: 4 }}>💬</Text>
-                <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Cuidadores</Text>
-              </TouchableOpacity>
+        {pacienteProp || pacienteActivo?.rol_en_equipo === 'familiar_principal' || pacienteActivo?.usuarioRol === 'familiar_principal' ? (
+          <View style={{
+            backgroundColor: COLORS.cream,
+            borderRadius: 12,
+            padding: 16,
+            marginBottom: 14,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            alignItems: 'center'
+          }}>
+            <Text style={{ fontSize: 18, marginBottom: 6 }}>👨‍👩‍👧</Text>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textDark, textAlign: 'center' }}>
+              Modo de Monitoreo Activo
+            </Text>
+            <Text style={{ fontSize: 10, color: COLORS.textLight, textAlign: 'center', marginTop: 2, lineHeight: 14 }}>
+              Para visualizar las gráficas, el mapa de ubicación o la red de cuidadores, por favor regrese al modo familiar usando el interruptor de arriba.
+            </Text>
+          </View>
+        ) : (
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+            {/* 💬 Cuidadores */}
+            <TouchableOpacity 
+              style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }}
+              onPress={() => {
+                router.push({
+                  pathname: '/red-cuidadores' as any,
+                  params: { pacienteId: pacienteActivo?.id, pacienteNombre: pacienteActivo?.nombre_completo, isCuidador: 'true' }
+                });
+              }}
+            >
+              <Text style={{ fontSize: 20, marginBottom: 4 }}>💬</Text>
+              <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Cuidadores</Text>
+            </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
-                onPress={() => router.push({ pathname: '/alertas', params: { rol: 'cuidador' } })}
-              >
-                <Text style={{ fontSize: 20, marginBottom: 4 }}>⚠️</Text>
-                <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Alertas</Text>
-              </TouchableOpacity>
+            {/* ⚠️ Alertas - FIX: Pasa pacienteId y pacienteNombre */}
+            <TouchableOpacity 
+              style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
+              onPress={() => router.push({ 
+                pathname: '/alertas' as any, 
+                params: { 
+                  pacienteId: pacienteActivo?.id, 
+                  pacienteNombre: pacienteActivo?.nombre_completo,
+                  rol: 'cuidador' 
+                } 
+              })}
+            >
+              <Text style={{ fontSize: 20, marginBottom: 4 }}>⚠️</Text>
+              <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Alertas</Text>
+            </TouchableOpacity>
 
-              <TouchableOpacity style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} onPress={() => router.push('/mapa' as any)}>
-                <Text style={{ fontSize: 20, marginBottom: 4 }}>📍</Text>
-                <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Ubicación</Text>
-              </TouchableOpacity>
+            {/* 📍 Ubicación - FIX: Pasa pacienteId y pacienteNombre */}
+            <TouchableOpacity 
+              style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
+              onPress={() => router.push({
+                pathname: '/mapa' as any,
+                params: { 
+                  pacienteId: pacienteActivo?.id, 
+                  pacienteNombre: pacienteActivo?.nombre_completo 
+                }
+              })}
+            >
+              <Text style={{ fontSize: 20, marginBottom: 4 }}>📍</Text>
+              <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Ubicación</Text>
+            </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
-                onPress={() => router.push({
-                  pathname: '/grafica-signos' as any,
-                  params: { 
-                    pacienteId: pacienteActivo.id, 
-                    pacienteNombre: pacienteActivo.nombre_completo 
-                  }
-                })}
-              >
-                <Text style={{ fontSize: 20, marginBottom: 4 }}>📊</Text>
-                <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Gráficas</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+            {/* 📊 Gráficas */}
+            <TouchableOpacity 
+              style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
+              onPress={() => router.push({
+                pathname: '/grafica-signos' as any,
+                params: { 
+                  pacienteId: pacienteActivo?.id, 
+                  pacienteNombre: pacienteActivo?.nombre_completo 
+                }
+              })}
+            >
+              <Text style={{ fontSize: 20, marginBottom: 4 }}>📊</Text>
+              <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Gráficas</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
           {/* ========================================================== */}
           {/* 1. 📋 PLAN DE CUIDADOS DEL DÍA                             */}
