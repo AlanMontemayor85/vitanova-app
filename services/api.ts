@@ -108,8 +108,9 @@ export const login = async (email: string, password: string) => {
 // 🪐 RUTAS CONVERTIDAS AL GUARDIÁN DE AUTENTICACIÓN CENTRAL (fetchWithAuth)
 // ==============================================================================
 
-export const getPacientes = async () => {
+export const getPacientes = async (origen: string = 'desconocido') => {
   try {
+    console.log('📡 getPacientes desde:', origen);
     const res = await fetchWithAuth(`${BASE_URL}/medical/patients`);
     return await res.json();
   } catch (error) {

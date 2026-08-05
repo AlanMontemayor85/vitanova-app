@@ -319,7 +319,7 @@ useEffect(() => {
       try { 
         console.log("🔍 Rompiendo caché de navegación. Solicitando datos frescos al servidor...");
         
-        const data = await getPacientes(); 
+        const data = await getPacientes('entrar-paciente'); 
         if (data && data.patients) {
           const pFresco = data.patients.find((x: any) => x.id === pacienteActivo.id);
           if (pFresco && pFresco.peso_kg) {
@@ -363,7 +363,7 @@ useEffect(() => {
     const cargar = async () => {
       try {
         await loadStoredToken();
-        const data = await getPacientes();
+        const data = await getPacientes('cuidador-mount');
         if (data?.usuario_nombre) {
           setNombreUsuario(data.usuario_nombre);
         }
@@ -518,7 +518,7 @@ useFocusEffect(
   };
     const refrescarPacientes = async () => {
     try {
-      const data = await getPacientes();
+      const data = await getPacientes('lista');
       if (data?.patients) {
         setPacientes([...data.patients]);
         console.log(
@@ -914,7 +914,7 @@ useEffect(() => {
 
     const data = await res.json();
     if (data.status === 'ok') {
-      const pData = await getPacientes();
+      const pData = await getPacientes('cierre');
       if (pData.patients) setPacientes(pData.patients);
       // Reset campos de confort
       setDolorEva(0);
