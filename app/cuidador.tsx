@@ -421,7 +421,11 @@ useEffect(() => {
     }
   }, [params.vistaInicial, params.paciente]);
   // ── EFECTO: DETECTAR REGRESO DE REGISTRO-SALUD Y LEVANTAR CONSOLA ──
-  
+    useEffect(() => {
+    if (vista === 'lista') {
+      refrescarPacientes();
+    }
+  }, [vista]);
   useEffect(() => { vistaRef.current = vista; }, [vista]);
 
   useEffect(() => {
@@ -510,7 +514,20 @@ useFocusEffect(
     setEscalaRequerida(false); setEscalasLista([]);
     setSensibilidadCaidas('');
   };
-
+    const refrescarPacientes = async () => {
+    try {
+      const data = await getPacientes();
+      if (data?.patients) {
+        setPacientes([...data.patients]);
+        console.log(
+          '🔄 Lista pacientes:',
+          data.patients.map((x: any) => `${x.nombre_completo}: ${x.estado_turno}`)
+        );
+      }
+    } catch (e) {
+      console.error('❌ Error refrescando pacientes:', e);
+    }
+  };
   const manejarInicioTurno = async (p: any) => {
   if (esSwitchFamiliar) {
     console.log("👑 Familiar en switch → saltando validación de horario de cuidador");
@@ -575,7 +592,7 @@ useFocusEffect(
               await iniciarTurno(p.id);
 
               console.log("✅ Turno iniciado manualmente para:", p.nombre_completo);
-
+              await refrescarPacientes();
               setPacienteActivo({
                 ...p,
                 rol_en_equipo: esSwitchFamiliar ? 'familiar_principal' : (p.rol_en_equipo || 'cuidador_contratado'),
@@ -625,6 +642,7 @@ const irARegistroSalud = (p: any) => {
     },
   });
 };
+
 // ── Abrir directo en Consola cuando venimos del switch + registro-salud ──
 useEffect(() => {
   if (!esSwitchFamiliar) return;
@@ -1098,7 +1116,10 @@ useEffect(() => {
         {/* Renderizamos la barra operativa normal sin el botón extra del emoji familiar */}
         <View style={styles.header}>
           <TouchableOpacity 
-            onPress={() => setVista('lista')} 
+            onPress={async () => {
+              setVista('lista');
+              await refrescarPacientes();
+            }}
             style={styles.backBtn}
           >
             <Text style={styles.backIcon}>←</Text>
