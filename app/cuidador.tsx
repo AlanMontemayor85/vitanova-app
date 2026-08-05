@@ -287,7 +287,25 @@ const onHoraChange = (event: any, selectedDate?: Date) => {
       setCargandoSignos(false);
     }
   };
+   const lastFetchRef = useRef(0);
+    const refrescarPacientes = async (origen: string = 'lista') => {
+      const now = Date.now();
+      if (now - lastFetchRef.current < 8000) {
+        console.log('⏭️ Skip getPacientes', origen);
+        return;
+      }
+      lastFetchRef.current = now;
 
+      try {
+        const data = await getPacientes(origen);
+        if (data?.patients) {
+          setPacientes([...data.patients]);
+          if (data.usuario_nombre) setNombreUsuario(data.usuario_nombre);
+        }
+      } catch (e) {
+        console.error('❌ Error refrescando pacientes:', e);
+      }
+    };
 useEffect(() => {
     if (vista === 'turno' && pacienteActivo?.id) {
       
@@ -516,20 +534,7 @@ useFocusEffect(
     setEscalaRequerida(false); setEscalasLista([]);
     setSensibilidadCaidas('');
   };
-    const refrescarPacientes = async () => {
-    try {
-      const data = await getPacientes('lista');
-      if (data?.patients) {
-        setPacientes([...data.patients]);
-        console.log(
-          '🔄 Lista pacientes:',
-          data.patients.map((x: any) => `${x.nombre_completo}: ${x.estado_turno}`)
-        );
-      }
-    } catch (e) {
-      console.error('❌ Error refrescando pacientes:', e);
-    }
-  };
+    
   const manejarInicioTurno = async (p: any) => {
   if (esSwitchFamiliar) {
     console.log("👑 Familiar en switch → saltando validación de horario de cuidador");
