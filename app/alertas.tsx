@@ -1,5 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getAlertas, getPacientes, loadStoredToken } from '../services/api';
 
@@ -52,27 +52,40 @@ export default function AlertasScreen() {
   
   const userRol = (params.rol as string) || 'familiar';
 
-  useEffect(() => {
-    const cargar = async () => {
-      try {
-        await loadStoredToken();
-        const data = await getPacientes();
-        if (data.patients && data.patients.length > 0) {
-          const p = pacienteIdParam 
-            ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
-            : data.patients[0];
-          setPaciente(p);
-          const alertasData = await getAlertas(p.id);
-          if (alertasData.alertas) setAlertas(alertasData.alertas);
+  // 🎯 FIX: Usamos useFocusEffect para que SIEMPRE refresque las alertas al abrir la pantalla
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+      const cargar = async () => {
+        try {
+          await loadStoredToken();
+          const data = await getPacientes();
+          if (data.patients && data.patients.length > 0) {
+            const p = pacienteIdParam 
+              ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
+              : data.patients[0];
+            
+            if (isMounted) setPaciente(p);
+
+            const alertasData = await getAlertas(p.id);
+            if (isMounted && alertasData.alertas) {
+              setAlertas(alertasData.alertas);
+            }
+          }
+        } catch (e) {
+          console.error("❌ Error al cargar alertas:", e);
+        } finally {
+          if (isMounted) setLoading(false);
         }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    cargar();
-  }, [pacienteIdParam]);
+      };
+
+      cargar();
+
+      return () => {
+        isMounted = false;
+      };
+    }, [pacienteIdParam])
+  );
 
   if (loading) {
     return (
@@ -83,8 +96,6 @@ export default function AlertasScreen() {
   }
 
   // 🎯 FILTRADO POR ROL
-  // Si es cuidador, únicamente filtramos notas internas de auditoría '🔐'
-  // pero PERMITIMOS ver todas las alertas clínicas (SpO2, Presión, Temperatura) e inicios/cierres de turno.
   const alertasVisibles = (userRol?.toLowerCase() === 'cuidador')
     ? alertas.filter(a => !a.descripcion?.includes('🔐'))
     : alertas;
@@ -114,45 +125,46 @@ export default function AlertasScreen() {
             const tipoNormalizado = a.tipo?.toLowerCase();
             let config = TIPO_CONFIG[tipoNormalizado] ?? TIPO_CONFIG.otro;
             const desc = a.descripcion || '';
+            const descUpper = desc.toUpperCase();
 
-            /* 🎯 INTERCEPTORES POR CONTENIDO / EMOJIS EN LA DESCRIPCIÓN */
+            /* 🎯 INTERCEPTORES MEJORADOS POR TEXTO O EMOJIS */
             
             // 1. Auditoría
             if (desc.includes('🔐')) {
               config = { icon: '🔐', color: '#4A4540', bg: '#F2F1ED' };
             }
-            // 2. Cierre de turno
-            else if (desc.includes('🏁') || desc.includes('🔒')) {
+            // 2. Cierre de turno (Reconoce emojis 🏁/🔒 O palabras clave CIERRE/CONCLUIDO/FIN DE TURNO)
+            else if (desc.includes('🏁') || desc.includes('🔒') || descUpper.includes('CIERRE TURNO') || descUpper.includes('CONCLUIDO') || descUpper.includes('FIN TURNO')) {
               config = { icon: '🏁', color: COLORS.green, bg: COLORS.greenPale };
             }
-            // 3. Inicio de turno
-            else if (desc.includes('⏳')) {
+            // 3. Inicio de turno (Reconoce ⏳ O palabras clave INICIO TURNO)
+            else if (desc.includes('⏳') || descUpper.includes('INICIO TURNO')) {
               config = { icon: '⏳', color: COLORS.gold, bg: COLORS.goldPale };
             }
             // 🫁 4. Oxígeno / SpO2 Bajo
-            else if (desc.toLowerCase().includes('spo2') || desc.toLowerCase().includes('saturaci') || desc.includes('🫁')) {
+            else if (descUpper.includes('SPO2') || descUpper.includes('SATURACI') || desc.includes('🫁')) {
               config = { icon: '🫁', color: COLORS.blue, bg: COLORS.bluePale };
             }
-            // 🩸 5. Presión Arterial (Alta o Baja)
-            else if (desc.toLowerCase().includes('presi') || desc.toLowerCase().includes('sistolica') || desc.includes('🩸')) {
+            // 🩸 5. Presión Arterial
+            else if (descUpper.includes('PRESI') || descUpper.includes('SISTOLICA') || desc.includes('🩸')) {
               config = { icon: '🩸', color: COLORS.red, bg: COLORS.redPale };
             }
-            // 🌡️ 6. Temperatura / Fiebre / Febrícula / Hipotermia
-            else if (desc.toLowerCase().includes('temperatura') || desc.toLowerCase().includes('fiebre') || desc.toLowerCase().includes('febrícula') || desc.includes('🌡️') || desc.includes('🥶')) {
+            // 🌡️ 6. Temperatura
+            else if (descUpper.includes('TEMPERATURA') || descUpper.includes('FIEBRE') || descUpper.includes('FEBRÍCULA') || desc.includes('🌡️') || desc.includes('🥶')) {
               config = { icon: '🌡️', color: COLORS.amber, bg: COLORS.amberPale };
             }
 
-            // Etiqueta dinámica de cabecera
+            // Etiqueta dinámica de cabecera (Flexible a texto plano)
             const tituloTipo = desc.includes('🔐') ? 'AUDITORÍA' :
-              (desc.includes('🏁') || desc.includes('🔒')) ? 'TURNO CONCLUIDO' :
-              desc.includes('⏳') ? 'INICIO TURNO' :
-              (desc.toLowerCase().includes('spo2') || desc.toLowerCase().includes('saturaci')) ? 'SATURACIÓN SPO2' :
-              desc.toLowerCase().includes('presi') ? 'PRESIÓN ARTERIAL' :
-              (desc.toLowerCase().includes('temperatura') || desc.toLowerCase().includes('fiebre') || desc.toLowerCase().includes('febrícula')) ? 'TEMPERATURA' :
+              (desc.includes('🏁') || desc.includes('🔒') || descUpper.includes('CIERRE TURNO') || descUpper.includes('CONCLUIDO') || descUpper.includes('FIN TURNO')) ? 'TURNO CONCLUIDO' :
+              (desc.includes('⏳') || descUpper.includes('INICIO TURNO')) ? 'INICIO TURNO' :
+              (descUpper.includes('SPO2') || descUpper.includes('SATURACI')) ? 'SATURACIÓN SPO2' :
+              descUpper.includes('PRESI') ? 'PRESIÓN ARTERIAL' :
+              (descUpper.includes('TEMPERATURA') || descUpper.includes('FIEBRE') || descUpper.includes('FEBRÍCULA')) ? 'TEMPERATURA' :
               (a.tipo ? a.tipo.toUpperCase() : 'ALERTA');
 
             return (
-              <View key={a.id} style={[styles.alertaCard, { backgroundColor: config.bg, borderColor: config.color + '40' }]}>
+              <View key={a.id || Math.random().toString()} style={[styles.alertaCard, { backgroundColor: config.bg, borderColor: config.color + '40' }]}>
                 <View style={[styles.alertaIconWrap, { backgroundColor: config.color + '20' }]}>
                   <Text style={styles.alertaIcon}>{config.icon}</Text>
                 </View>
@@ -168,7 +180,7 @@ export default function AlertasScreen() {
                       <Text style={[styles.severidadText, {
                         color: a.severidad === 'alta' ? COLORS.red :
                           a.severidad === 'media' ? COLORS.amber : COLORS.green
-                      }]}>{a.severidad || 'media'}</Text>
+                      }]}>{a.severidad || 'baja'}</Text>
                     </View>
                   </View>
                   
@@ -177,10 +189,10 @@ export default function AlertasScreen() {
                   )}
                   
                   <Text style={styles.alertaFecha}>
-                    {new Date(a.created_at).toLocaleString('es-MX', {
+                    {a.created_at ? new Date(a.created_at).toLocaleString('es-MX', {
                       day: 'numeric', month: 'short',
                       hour: '2-digit', minute: '2-digit'
-                    })}
+                    }) : 'Hace un momento'}
                   </Text>
                 </View>
               </View>
@@ -231,7 +243,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    justifyContent: 'center', // 👈 ¡Listo!
+    justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
