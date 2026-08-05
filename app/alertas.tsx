@@ -59,7 +59,7 @@ export default function AlertasScreen() {
       const cargar = async () => {
         try {
           await loadStoredToken();
-          const data = await getPacientes();
+          const data = await getPacientes('alertas-focus');
           if (data.patients && data.patients.length > 0) {
             const p = pacienteIdParam 
               ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]

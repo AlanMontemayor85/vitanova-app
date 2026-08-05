@@ -73,7 +73,7 @@ export default function PerfilPacienteScreen() {
     try { 
       console.log("🔍 Rompiendo caché de navegación. Solicitando datos frescos al servidor...");
       
-      const data = await getPacientes(); 
+      const data = await getPacientes('perfil-paciente'); 
       if (data && data.patients) {
         const pFresco = data.patients.find((x: any) => x.id === paciente.id);
         if (pFresco && pFresco.peso_kg) {

@@ -76,7 +76,7 @@ export default function MedicamentosScreen() {
  useEffect(() => {
     const cargar = async () => {
       try {
-        const data = await getPacientes();
+        const data = await getPacientes('medicamentos');
 
         if (data.patients && data.patients.length > 0) {
           const p = pacienteIdParam

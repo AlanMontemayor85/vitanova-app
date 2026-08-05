@@ -32,7 +32,7 @@ export default function MapaScreen() {
   const cargarDatosIniciales = async () => {
     try { // 💡 Cambiado 'try:' por 'try {'
       await loadStoredToken();
-      const data = await getPacientes();
+      const data = await getPacientes('mapa-ubicacion');
       if (data.patients && data.patients.length > 0) {
         const p = pacienteIdParam
           ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]

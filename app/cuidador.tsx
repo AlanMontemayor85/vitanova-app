@@ -413,7 +413,7 @@ useEffect(() => {
           }
         });
 
-        getPacientes().then(data => {
+        getPacientes('vistaInicial-turno').then(data => {
           if (data.patients) setPacientes(data.patients);
         });
       } catch (e) {

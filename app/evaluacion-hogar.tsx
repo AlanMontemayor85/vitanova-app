@@ -53,7 +53,7 @@ export default function EvaluacionHogarScreen() {
 
       try {
         await loadStoredToken();
-        const data = await getPacientes();
+        const data = await getPacientes('escalas-eval');
         if (data.patients && data.patients.length > 0) {
           const p = pacienteIdParam
             ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
