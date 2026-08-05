@@ -690,20 +690,30 @@ useEffect(() => {
                 <View style={styles.turnoLeft}>
                   <View style={styles.turnoAvatar}>
                     <Text style={styles.turnoAvatarText}>
-                      {turnoResumen.cuidador_nombre?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                      {turnoResumen.cuidador_nombre
+                        ?.split(' ')
+                        .map((n: string) => n[0])
+                        .join('')
+                        .slice(0, 2)
+                        .toUpperCase()}
                     </Text>
                   </View>
                   <View>
                     <Text style={styles.turnoName}>{turnoResumen.cuidador_nombre}</Text>
                     <Text style={styles.turnoHora}>{turnoResumen.horario}</Text>
+                    {(turnoResumen.es_cobertura || turnoResumen.tipo_turno === 'familiar') && (
+                      <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '700', marginTop: 2 }}>
+                        👑 Cobertura familiar
+                      </Text>
+                    )}
                   </View>
                 </View>
                 <View style={styles.turnoProgress}>
-                <Text style={styles.turnoProgressText}>
-                  {`${Number(turnoResumen?.completadas || 0)}/${Number(turnoResumen?.total || 0)}`}
-                </Text>
-                <Text style={styles.turnoProgressLabel}>tareas</Text>
-              </View>
+                  <Text style={styles.turnoProgressText}>
+                    {`${Number(turnoResumen?.completadas || 0)}/${Number(turnoResumen?.total || 0)}`}
+                  </Text>
+                  <Text style={styles.turnoProgressLabel}>tareas</Text>
+                </View>
               </View>
             ) : (
               <View style={[styles.turnoCard, { justifyContent: 'center', marginTop: 8 }]}>
