@@ -155,7 +155,7 @@ export default function CuidadorScreen({
   const [notas, setNotas] = useState<any[]>([]);
   const [ultimoCierre, setUltimoCierre] = useState<any>(null);
   const [alertaPeso, setAlertaPeso] = useState<any>(null);
-
+  const [nombreUsuario, setNombreUsuario] = useState<string>('');
   const [alertas, setAlertas] = useState<any[]>([]);
   const [ubicacion, setUbicacion] = useState<any>(null);
   const [estadoPaciente, setEstadoPaciente] = useState('bien');
@@ -364,7 +364,9 @@ useEffect(() => {
       try {
         await loadStoredToken();
         const data = await getPacientes();
-        
+        if (data?.usuario_nombre) {
+          setNombreUsuario(data.usuario_nombre);
+        }
         if (data.patients) {
           // 🎯 Mantenemos el rol de familiar_principal si entramos desde el modo switch
           const pacientesMapeados = data.patients.map((p: any) => {
@@ -959,7 +961,9 @@ useEffect(() => {
             <View style={{ flex: 1 }}>
               <Text style={styles.greeting}>Bienvenido</Text>
               <Text style={styles.userName}>
-                {pacienteProp ? "Monitoreo Familiar" : "Personal Vitanova"}
+                {pacienteProp || esSwitchFamiliar
+                ? (nombreUsuario || 'Monitoreo Familiar')
+                : (nombreUsuario || 'Cuidador')}
               </Text>
             </View>
             <TouchableOpacity style={[styles.notifBtn, { marginRight: 8 }]} onPress={() => router.push('/aceptar-invitacion' as any)}>

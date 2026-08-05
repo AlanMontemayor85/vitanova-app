@@ -433,7 +433,7 @@ useEffect(() => {
           <Text style={styles.greeting}>
             {new Date().getHours() < 12 ? 'Buenos días' : new Date().getHours() < 19 ? 'Buenas tardes' : 'Buenas noches'}
           </Text>
-          <Text style={styles.userName}>{getUserNombre() ?? 'Familiar'}</Text>
+          <Text style={styles.userName}>{nombreUsuario || getUserNombre() || 'Familiar'}</Text>
         </View>
 
         {/* SWITCH MODO */}
