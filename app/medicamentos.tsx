@@ -130,11 +130,21 @@ export default function MedicamentosScreen() {
   const [invMinimo, setInvMinimo] = useState('0');
   const [invCaducidad, setInvCaducidad] = useState('');
   const [invNotas, setInvNotas] = useState('');
+  const [showCaducidadPicker, setShowCaducidadPicker] = useState(false);
 
   // --- Control de Eliminación e Importación ---
   const [confirmDelete, setConfirmDelete] = useState<{ tipo: 'med' | 'rutina'; id: string; nombre: string } | null>(null);
   const [importando, setImportando] = useState(false);
-
+  const formatearFechaMX = (fechaStr: string) => {
+  if (!fechaStr) return '';
+  // Si viene en formato YYYY-MM-DD
+  const partes = fechaStr.split('T')[0].split('-');
+  if (partes.length === 3) {
+    const [anio, mes, dia] = partes;
+    return `${dia}/${mes}/${anio}`; // Ejemplo: 15/12/2026
+  }
+  return fechaStr;
+};
   useEffect(() => {
     const cargar = async () => {
       try {
@@ -580,19 +590,29 @@ export default function MedicamentosScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* TABS */}
+      {/* TABS (Fix: Indicador interno sin desfase nativo en Android) */}
       <View style={styles.tabRow}>
-        <TouchableOpacity style={[styles.tab, tab === 'medicamentos' && styles.tabActive]} onPress={() => setTab('medicamentos')}>
-          <Text style={[styles.tabText, tab === 'medicamentos' && styles.tabTextActive]}>💊 Medicamentos</Text>
+        <TouchableOpacity style={styles.tab} onPress={() => setTab('medicamentos')}>
+          <Text style={[styles.tabText, tab === 'medicamentos' && styles.tabTextActive]}>
+            💊 Medicamentos
+          </Text>
+          {tab === 'medicamentos' && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.tab, tab === 'rutinas' && styles.tabActive]} onPress={() => setTab('rutinas')}>
-          <Text style={[styles.tabText, tab === 'rutinas' && styles.tabTextActive]}>📋 Rutinas</Text>
+
+        <TouchableOpacity style={styles.tab} onPress={() => setTab('rutinas')}>
+          <Text style={[styles.tabText, tab === 'rutinas' && styles.tabTextActive]}>
+            📋 Rutinas
+          </Text>
+          {tab === 'rutinas' && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.tab, tab === 'inventario' && styles.tabActive]} onPress={() => setTab('inventario')}>
-          <Text style={[styles.tabText, tab === 'inventario' && styles.tabTextActive]}>📦 Inventario</Text>
+
+        <TouchableOpacity style={styles.tab} onPress={() => setTab('inventario')}>
+          <Text style={[styles.tabText, tab === 'inventario' && styles.tabTextActive]}>
+            📦 Inventario
+          </Text>
+          {tab === 'inventario' && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
       </View>
-
       {/* ACCESO EXCEL MASIVO */}
       <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 0 }}>
         <TouchableOpacity
@@ -723,48 +743,120 @@ export default function MedicamentosScreen() {
           inventario.length === 0 ? (
             <View style={{ alignItems: 'center', marginTop: 40 }}>
               <Text style={{ fontSize: 40 }}>📦</Text>
-              <Text style={{ color: COLORS.textLight, marginTop: 8 }}>Sin ítems en despensa</Text>
+              <Text style={{ color: COLORS.textLight, marginTop: 8, fontSize: 14 }}>
+                Sin ítems en despensa
+              </Text>
             </View>
           ) : (
             inventario.map((item) => (
               <View key={item.id} style={styles.card}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '800', color: COLORS.textDark, fontSize: 15 }}>{item.nombre}</Text>
+                {/* 📝 DATOS DEL ÍTEM */}
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={{ fontWeight: '800', color: COLORS.textDark, fontSize: 15 }}>
+                    {item.nombre}
+                  </Text>
+
                   <Text style={{ color: COLORS.textLight, fontSize: 12, marginTop: 2 }}>
-                    {item.cantidad} {item.unidad}
+                    {item.cantidad} {item.unidad || 'piezas'}
                     {item.dias_cobertura != null ? ` · ~${item.dias_cobertura} días` : ''}
                   </Text>
+
+                  {/* 🗓️ FECHA DE CADUCIDAD (Día/Mes/Año) */}
+                  {item.fecha_caducidad ? (
+                    <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 2 }}>
+                      {`📅 Caduca: ${formatearFechaMX(item.fecha_caducidad)}`}
+                    </Text>
+                  ) : null}
+
+                  {/* 🚨 BADGES DE ALERTA DE STOCK Y CADUCIDAD */}
                   {item.bajo_stock && (
-                    <Text style={{ color: COLORS.red, fontSize: 11, fontWeight: '700', marginTop: 2 }}>Stock bajo</Text>
+                    <Text style={{ color: COLORS.red, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
+                      ⚠️ Stock bajo (Mínimo: {item.cantidad_minima})
+                    </Text>
                   )}
+
                   {item.estado_caducidad === 'vencido' && (
-                    <Text style={{ color: COLORS.red, fontSize: 11, marginTop: 2 }}>Vencido</Text>
+                    <Text style={{ color: COLORS.red, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
+                      🚫 Vencido
+                    </Text>
                   )}
+
                   {(item.estado_caducidad === 'proximo' || item.estado_caducidad === 'critico') && (
-                    <Text style={{ color: COLORS.gold, fontSize: 11, marginTop: 2 }}>Caduca pronto</Text>
+                    <Text style={{ color: COLORS.gold, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
+                      ⏳ Caduca pronto
+                    </Text>
                   )}
                 </View>
 
-                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                {/* 🎛️ CONTROLES: CONSUMIR / INCREMENTAR */}
+                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
                   <TouchableOpacity
                     onPress={async () => {
+                      if (item.cantidad <= 0) return;
                       await consumirItemInventario(item.id, 1);
                       const inv = await getInventario(paciente.id);
                       if (inv.items) setInventario(inv.items);
                     }}
-                    style={{ paddingHorizontal: 12, paddingVertical: 8, backgroundColor: COLORS.cream, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border }}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                      backgroundColor: COLORS.cream,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: COLORS.border,
+                    }}
                   >
-                    <Text style={{ fontWeight: '800', color: COLORS.cacao }}>−1</Text>
+                    <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>−1</Text>
                   </TouchableOpacity>
+
                   <TouchableOpacity
                     onPress={async () => {
                       await actualizarItemInventario(item.id, { cantidad: Number(item.cantidad) + 1 });
                       const inv = await getInventario(paciente.id);
                       if (inv.items) setInventario(inv.items);
                     }}
-                    style={{ paddingHorizontal: 12, paddingVertical: 8, backgroundColor: COLORS.cream, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border }}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                      backgroundColor: COLORS.cream,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: COLORS.border,
+                    }}
                   >
-                    <Text style={{ fontWeight: '800', color: COLORS.cacao }}>+1</Text>
+                    <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>+1</Text>
+                  </TouchableOpacity>
+
+                  {/* ✏️ BOTÓN EDITAR */}
+                  <TouchableOpacity
+                    onPress={() => {
+                      setInvEditando(item);
+                      setInvNombre(item.nombre || '');
+                      setInvTipo(item.tipo || 'medicamento');
+                      setInvCantidad(String(item.cantidad ?? 0));
+                      setInvUnidad(item.unidad || 'piezas');
+                      setInvMinimo(String(item.cantidad_minima ?? 0));
+                      setInvCaducidad(item.fecha_caducidad || '');
+                      setInvNotas(item.notas || '');
+                      setModalInvOpen(true);
+                    }}
+                    style={{ padding: 6, marginLeft: 2 }}
+                  >
+                    <Text style={{ color: COLORS.gold, fontSize: 16 }}>✏️</Text>
+                  </TouchableOpacity>
+
+                  {/* ✕ BOTÓN ELIMINAR */}
+                  <TouchableOpacity
+                    onPress={() => {
+                      setConfirmDelete({
+                        tipo: 'med', // reutiliza el confirm
+                        id: item.id,
+                        nombre: item.nombre,
+                      });
+                    }}
+                    style={{ padding: 6 }}
+                  >
+                    <Text style={{ color: COLORS.red, fontSize: 16, fontWeight: '800' }}>✕</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1243,7 +1335,47 @@ export default function MedicamentosScreen() {
                 value={invMinimo}
                 onChangeText={setInvMinimo}
               />
+              {/* 🗓️ FECHA DE CADUCIDAD CON DATETIMEPICKER NATIVO */}
+              <Text style={styles.label}>Fecha de caducidad (opcional)</Text>
+              
+              <TouchableOpacity
+                style={[
+                  styles.input,
+                  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }
+                ]}
+                onPress={() => setShowCaducidadPicker(true)}
+              >
+                <Text style={{ fontSize: 14, color: invCaducidad ? COLORS.textDark : COLORS.textLight }}>
+                  {invCaducidad ? `📅 ${invCaducidad}` : 'Seleccionar fecha de caducidad'}
+                </Text>
+                
+                {invCaducidad ? (
+                  <TouchableOpacity 
+                    onPress={() => setInvCaducidad('')}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={{ color: COLORS.red, fontWeight: '800', fontSize: 16 }}>✕</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </TouchableOpacity>
 
+              {/* Picker Nativo */}
+              {showCaducidadPicker && (
+                <DateTimePicker
+                  value={invCaducidad ? new Date(invCaducidad + 'T12:00:00') : new Date()}
+                  mode="date"
+                  display="default"
+                  onChange={(event, date) => {
+                    setShowCaducidadPicker(false);
+                    if (date) {
+                      const yyyy = date.getFullYear();
+                      const mm = String(date.getMonth() + 1).padStart(2, '0');
+                      const dd = String(date.getDate()).padStart(2, '0');
+                      setInvCaducidad(`${yyyy}-${mm}-${dd}`);
+                    }
+                  }}
+                />
+              )}
               <Text style={styles.label}>Notas adicionales</Text>
               <TextInput
                 style={[styles.input, { minHeight: 60, textAlignVertical: 'top' }]}
@@ -1373,10 +1505,10 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    justifyContent: 'center',
+    position: 'relative',
   },
   tabActive: {
     borderBottomColor: COLORS.gold,
@@ -1523,5 +1655,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: COLORS.white,
+  },
+  activeIndicator: {
+    position: 'absolute' as const, 
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: COLORS.gold,
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
   },
 });
