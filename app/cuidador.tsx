@@ -173,6 +173,7 @@ export default function CuidadorScreen({
   const [nuevaTareaTipo, setNuevaTareaTipo] = useState('otro');
   const [nuevaTareaHora, setNuevaTareaHora] = useState(''); // Ej. "11:30" o "" para incidental pura
   const vistaRef = useRef(vista);
+  const yaEntroConsolaRef = useRef(false);
   // Estado temporal para la sensibilidad de caídas recuperada del servidor
   const [sensibilidadCaidas, setSensibilidadCaidas] = useState('');
   const [notasExpandidas, setNotasExpandidas] = useState(false);
@@ -240,6 +241,29 @@ const onHoraChange = (event: any, selectedDate?: Date) => {
     setNuevaTareaHora(`${hrs}:${mins}`);
   }
 };
+const lastFetchRef = useRef(0);
+
+const refrescarPacientes = async (
+  origen: string = 'lista',
+  forzar: boolean = false
+) => {
+  const now = Date.now();
+  if (!forzar && now - lastFetchRef.current < 8000) {
+    console.log('⏭️ Skip getPacientes', origen);
+    return;
+  }
+  lastFetchRef.current = now;
+
+  try {
+    const data = await getPacientes(origen);
+    if (data?.patients) {
+      setPacientes([...data.patients]);
+      if (data.usuario_nombre) setNombreUsuario(data.usuario_nombre);
+    }
+  } catch (e) {
+    console.error('❌ Error refrescando pacientes:', e);
+  }
+};
   const sincronizarSignosReloj = async (pacienteId: string, forzarComando: boolean = false) => {
     if (!pacienteId) return;
     setCargandoSignos(true);
@@ -287,25 +311,7 @@ const onHoraChange = (event: any, selectedDate?: Date) => {
       setCargandoSignos(false);
     }
   };
-   const lastFetchRef = useRef(0);
-    const refrescarPacientes = async (origen: string = 'lista') => {
-      const now = Date.now();
-      if (now - lastFetchRef.current < 8000) {
-        console.log('⏭️ Skip getPacientes', origen);
-        return;
-      }
-      lastFetchRef.current = now;
-
-      try {
-        const data = await getPacientes(origen);
-        if (data?.patients) {
-          setPacientes([...data.patients]);
-          if (data.usuario_nombre) setNombreUsuario(data.usuario_nombre);
-        }
-      } catch (e) {
-        console.error('❌ Error refrescando pacientes:', e);
-      }
-    };
+   
 useEffect(() => {
     if (vista === 'turno' && pacienteActivo?.id) {
       
@@ -442,10 +448,10 @@ useEffect(() => {
   }, [params.vistaInicial, params.paciente]);
   // ── EFECTO: DETECTAR REGRESO DE REGISTRO-SALUD Y LEVANTAR CONSOLA ──
     useEffect(() => {
-    if (vista === 'lista') {
-      refrescarPacientes();
-    }
+    if (vista !== 'lista') return;
+    refrescarPacientes('lista', true); // forzar al entrar a lista
   }, [vista]);
+
   useEffect(() => { vistaRef.current = vista; }, [vista]);
 
   useEffect(() => {
@@ -454,27 +460,35 @@ useEffect(() => {
 
 useFocusEffect(
   useCallback(() => {
+    // Usuario eligió ver la lista → no forzar consola
+    if (vistaRef.current === 'lista') return;
+
     if (yaTransicionadoRef.current) return;
 
     if (pacienteActivo?.id && vistaRef.current !== 'turno') {
-      console.log("🔍 [FOCUS CHECK] Validando estatus de turno para:", pacienteActivo.nombre_completo);
+      console.log(
+        '🔍 [FOCUS CHECK] Validando estatus de turno para:',
+        pacienteActivo.nombre_completo
+      );
 
-      getTurnoActivo(pacienteActivo.id).then((turnoData) => {
-        if (turnoData?.turno && vistaRef.current !== 'turno') {
-          console.log("🎯 Turno activo confirmado. Transicionando a consola...");
-          yaTransicionadoRef.current = true;
-          setVista('turno');
-          setTurnoActivo(turnoData.turno);
-          turnoActivoRef.current = turnoData.turno;
-          cargarTurno(pacienteActivo.id).catch(err =>
-            console.log("⚠️ Carga de telemetría secundaria interrumpida:", err)
-          );
-        }
-      }).catch(err => console.log("Error pasivo en focus check:", err));
+      getTurnoActivo(pacienteActivo.id)
+        .then((turnoData) => {
+          // Por si cambió de vista mientras respondía el API
+          if (vistaRef.current === 'lista') return;
+
+          if (turnoData?.turno && vistaRef.current !== 'turno') {
+            console.log('🎯 Turno activo confirmado. Transicionando a consola...');
+            yaTransicionadoRef.current = true;
+            setVista('turno');
+            setTurnoActivo(turnoData.turno);
+            turnoActivoRef.current = turnoData.turno;
+            cargarTurno(pacienteActivo.id).catch((err) =>
+              console.log('⚠️ Carga de telemetría secundaria interrumpida:', err)
+            );
+          }
+        })
+        .catch((err) => console.log('Error pasivo en focus check:', err));
     }
-    // 👇 SOLO depende del id del paciente — así el callback no cambia de referencia
-    // cada vez que cambias de vista internamente, y useFocusEffect solo se
-    // re-dispara en eventos de foco reales (navegación), no en cada setState local.
   }, [pacienteActivo?.id])
 );
   const cargarTurno = async (pacienteId: string) => {
@@ -651,31 +665,40 @@ const irARegistroSalud = (p: any) => {
 };
 
 // ── Abrir directo en Consola cuando venimos del switch + registro-salud ──
+// (yaEntroConsolaRef debe existir arriba con los otros refs:
+//  const yaEntroConsolaRef = useRef(false); )
+
 useEffect(() => {
   if (!esSwitchFamiliar) return;
   if (initialVista !== 'turno' || !initialPacienteId) return;
+  if (yaEntroConsolaRef.current) return; // evita el bucle al cambiar `pacientes`
 
-  const p = pacientes.find((x: any) => x.id === initialPacienteId) || pacienteProp;
-  
+  const p =
+    pacientes.find((x: any) => x.id === initialPacienteId) || pacienteProp;
+
   if (p) {
-    console.log("🎯 Entrando directo a Consola:", p.nombre_completo);
+    yaEntroConsolaRef.current = true;
+    console.log('🎯 Entrando directo a Consola:', p.nombre_completo);
     setPacienteActivo({
       ...p,
       rol_en_equipo: 'familiar_principal',
-      usuarioRol: 'familiar_principal'
+      usuarioRol: 'familiar_principal',
     });
     cargarTurno(p.id);
     setVista('turno');
   }
 }, [esSwitchFamiliar, initialPacienteId, initialVista, pacientes]);
 
-  const guardarRegistroEspontaneo = async () => {
+const guardarRegistroEspontaneo = async () => {
   setGuardandoEspontaneo(true);
   try {
     const token = getToken();
     await fetch(`${BASE_URL}/registros/salud`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({
         paciente_id: pacienteActivo.id,
         momento: 'espontaneo',
@@ -683,18 +706,29 @@ useEffect(() => {
         hidratacion_vasos: hidratacion,
         estado_animo: estadoAnimo,
         alimentacion: alimentacion,
-        spo2: spo2Manual ? Number(spo2Manual) : (signosDispositivo?.spo2 !== '—' ? Number(signosDispositivo?.spo2) : null),
-        frecuencia_cardiaca: frecCard ? Number(frecCard) : (signosDispositivo?.fc !== '—' ? Number(signosDispositivo?.fc) : null),
+        spo2: spo2Manual
+          ? Number(spo2Manual)
+          : signosDispositivo?.spo2 !== '—'
+            ? Number(signosDispositivo?.spo2)
+            : null,
+        frecuencia_cardiaca: frecCard
+          ? Number(frecCard)
+          : signosDispositivo?.fc !== '—'
+            ? Number(signosDispositivo?.fc)
+            : null,
         presion_sistolica: presionSist ? Number(presionSist) : null,
         presion_diastolica: presionDiast ? Number(presionDiast) : null,
         temperatura: tempManual ? Number(tempManual) : null,
         glucosa: glucosa ? Number(glucosa) : null,
         observaciones: observaciones.trim() || null,
-      })
+      }),
     });
-    setPresionSist(''); setPresionDiast('');
-    setFrecCard(''); setSpo2Manual('');
-    setTempManual(''); setGlucosa('');
+    setPresionSist('');
+    setPresionDiast('');
+    setFrecCard('');
+    setSpo2Manual('');
+    setTempManual('');
+    setGlucosa('');
     setObservaciones('');
     setVista('turno');
     Alert.alert('✅ Registro guardado', 'Los datos de confort fueron actualizados.');
@@ -704,7 +738,6 @@ useEffect(() => {
     setGuardandoEspontaneo(false);
   }
 };
-
   const guardarNota = async () => {
     if (!notaTexto.trim()) return;
     setGuardandoNota(true);
@@ -966,9 +999,9 @@ useEffect(() => {
             <View style={{ flex: 1 }}>
               <Text style={styles.greeting}>Bienvenido</Text>
               <Text style={styles.userName}>
-                {pacienteProp || esSwitchFamiliar
-                ? (nombreUsuario || 'Monitoreo Familiar')
-                : (nombreUsuario || 'Cuidador')}
+                {esSwitchFamiliar
+                  ? (nombreUsuario || 'Monitoreo Familiar')
+                  : (nombreUsuario || 'Cuidador')}
               </Text>
             </View>
             <TouchableOpacity style={[styles.notifBtn, { marginRight: 8 }]} onPress={() => router.push('/aceptar-invitacion' as any)}>
@@ -1127,7 +1160,8 @@ useEffect(() => {
           <TouchableOpacity 
             onPress={async () => {
               setVista('lista');
-              await refrescarPacientes();
+              resetEstados();
+              await refrescarPacientes('lista', true);
             }}
             style={styles.backBtn}
           >
@@ -1145,87 +1179,87 @@ useEffect(() => {
           </View>
         </View>
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-        <View style={[styles.monitorCard, { marginHorizontal: 16, marginTop: 16, backgroundColor: COLORS.white, borderColor: COLORS.border }]}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <Text style={{ fontSize: 9, fontWeight: '800', color: COLORS.textLight }}>📡 TELEMETRÍA EN VIVO</Text>
-            <TouchableOpacity 
-              onPress={() => sincronizarSignosReloj(pacienteActivo.id, true)} 
-              disabled={cargandoSignos}
-              style={[styles.iniciarBtn, { paddingHorizontal: 10, paddingVertical: 4 }, cargandoSignos && { backgroundColor: COLORS.border }]}
-            >
-              <Text style={styles.iniciarBtnText}>{cargandoSignos ? "Inyectando Comando..." : "⚡ Sensa Ahora "}</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 4 }}>
-            <View style={{ alignItems: 'center' }}><Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.cacao }}>{signosDispositivo?.spo2 ?? "—"}%</Text><Text style={styles.monitorSubTextLabel}>SpO₂</Text></View>
-            <View style={{ width: 1, height: 24, backgroundColor: COLORS.border }} />
-            <View style={{ alignItems: 'center' }}><Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.cacao }}>{signosDispositivo?.presion ?? "—"}</Text><Text style={styles.monitorSubTextLabel}>Presión</Text></View>
-            <View style={{ width: 1, height: 24, backgroundColor: COLORS.border }} />
-            <View style={{ alignItems: 'center' }}><Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.red }}>{signosDispositivo?.fc ?? "—"}</Text><Text style={styles.monitorSubTextLabel}>Pulso (bpm)</Text></View>
-            <View style={{ width: 1, height: 24, backgroundColor: COLORS.border }} />
-            <View style={{ alignItems: 'center' }}>
-              {signosDispositivo?.temperatura && signosDispositivo.temperatura !== "—" ? (
-                <Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.green }}>
-                  {`${signosDispositivo.temperatura}°`}
-                </Text>
-              ) : (
-                <Text style={{ fontSize: 9, color: COLORS.gold, textAlign: 'center', fontWeight: '700' }}>
-                  {'Presiona\n"Sensa Ahora"'}
-                </Text>
-              )}
-              <Text style={styles.monitorSubTextLabel}>T. Corporal</Text>
+        {/* ⌚ SECCIÓN DE HARDWARE Y TELEMETRÍA (Solo visible si pacienteActivo tiene reloj IMEI) */}
+        {Boolean(pacienteActivo?.reloj_imei && pacienteActivo.reloj_imei.trim() !== '') && (
+          <>
+            {/* TARJETA 1: TELEMETRÍA EN VIVO */}
+            <View style={[styles.monitorCard, { marginHorizontal: 16, marginTop: 16, backgroundColor: COLORS.white, borderColor: COLORS.border }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <Text style={{ fontSize: 9, fontWeight: '800', color: COLORS.textLight }}>📡 TELEMETRÍA EN VIVO</Text>
+                <TouchableOpacity 
+                  onPress={() => sincronizarSignosReloj(pacienteActivo.id, true)} 
+                  disabled={cargandoSignos}
+                  style={[styles.iniciarBtn, { paddingHorizontal: 10, paddingVertical: 4 }, cargandoSignos && { backgroundColor: COLORS.border }]}
+                >
+                  <Text style={styles.iniciarBtnText}>{cargandoSignos ? "Inyectando Comando..." : "⚡ Sensa Ahora "}</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 4 }}>
+                <View style={{ alignItems: 'center' }}><Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.cacao }}>{signosDispositivo?.spo2 ?? "—"}%</Text><Text style={styles.monitorSubTextLabel}>SpO₂</Text></View>
+                <View style={{ width: 1, height: 24, backgroundColor: COLORS.border }} />
+                <View style={{ alignItems: 'center' }}><Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.cacao }}>{signosDispositivo?.presion ?? "—"}</Text><Text style={styles.monitorSubTextLabel}>Presión</Text></View>
+                <View style={{ width: 1, height: 24, backgroundColor: COLORS.border }} />
+                <View style={{ alignItems: 'center' }}><Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.red }}>{signosDispositivo?.fc ?? "—"}</Text><Text style={styles.monitorSubTextLabel}>Pulso (bpm)</Text></View>
+                <View style={{ width: 1, height: 24, backgroundColor: COLORS.border }} />
+                <View style={{ alignItems: 'center' }}>
+                  {signosDispositivo?.temperatura && signosDispositivo.temperatura !== "—" ? (
+                    <Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.green }}>
+                      {`${signosDispositivo.temperatura}°`}
+                    </Text>
+                  ) : (
+                    <Text style={{ fontSize: 9, color: COLORS.gold, textAlign: 'center', fontWeight: '700' }}>
+                      {'Presiona\n"Sensa Ahora"'}
+                    </Text>
+                  )}
+                  <Text style={styles.monitorSubTextLabel}>T. Corporal</Text>
+                </View>
+              </View>
             </View>
-          </View>
-        </View>
 
-        
-
-        
-
-        {/* TARJETA CONFIG RELOJ — Vista Cuidador (solo lectura) */}
-        {signosDispositivo?.reloj_config && (
-          <View style={{
-            backgroundColor: COLORS.white,
-            borderRadius: 12,
-            padding: 14,
-            marginTop: 8,
-            marginBottom: 4,
-            marginHorizontal: 16,
-            borderWidth: 1,
-            borderColor: COLORS.border,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 12
-          }}>
-            <Text style={{ fontSize: 24 }}>{'⚙️'}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textDark }}>
-                {'Configuración del reloj'}
-              </Text>
-              <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
-                {(() => {
-                  const config = signosDispositivo.reloj_config;
-                  if (!config.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
-                  if (config.sensibilidad === 1) return 'Detector de caídas: 🔴 Alta';
-                  if (config.sensibilidad === 2) return 'Detector de caídas: 🟠 Media';
-                  if (config.sensibilidad === 3) return 'Detector de caídas: 🟡 Estándar';
-                  return 'Detector de caídas: 🟢 Baja (recomendada)';
-                })()}
-              </Text>
-              <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 2 }}>
-                {(() => {
-                  const uc = signosDispositivo.reloj_config.ultima_configuracion;
-                  if (!uc) return 'Última sincronización: Sin registro aún';
-                  return `Última sincronización: ${new Date(uc).toLocaleDateString('es-MX', { 
-                    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
-                  })}`;
-                })()}
-              </Text>
-            </View>
-          </View>
+            {/* TARJETA 2: CONFIG RELOJ — Vista Cuidador (solo lectura) */}
+            {signosDispositivo?.reloj_config && (
+              <View style={{
+                backgroundColor: COLORS.white,
+                borderRadius: 12,
+                padding: 14,
+                marginTop: 8,
+                marginBottom: 4,
+                marginHorizontal: 16,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12
+              }}>
+                <Text style={{ fontSize: 24 }}>{'⚙️'}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textDark }}>
+                    {'Configuración del reloj'}
+                  </Text>
+                  <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
+                    {(() => {
+                      const config = signosDispositivo.reloj_config;
+                      if (!config.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
+                      if (config.sensibilidad === 1) return 'Detector de caídas: 🔴 Alta';
+                      if (config.sensibilidad === 2) return 'Detector de caídas: 🟠 Media';
+                      if (config.sensibilidad === 3) return 'Detector de caídas: 🟡 Estándar';
+                      return 'Detector de caídas: 🟢 Baja (recomendada)';
+                    })()}
+                  </Text>
+                  <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 2 }}>
+                    {(() => {
+                      const uc = signosDispositivo.reloj_config.ultima_configuracion;
+                      if (!uc) return 'Última sincronización: Sin registro aún';
+                      return `Última sincronización: ${new Date(uc).toLocaleDateString('es-MX', { 
+                        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
+                      })}`;
+                    })()}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </>
         )}
-
-
 
 
 
@@ -1282,20 +1316,32 @@ useEffect(() => {
               <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Alertas</Text>
             </TouchableOpacity>
 
-            {/* 📍 Ubicación - FIX: Pasa pacienteId y pacienteNombre */}
-            <TouchableOpacity 
-              style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
-              onPress={() => router.push({
-                pathname: '/mapa' as any,
-                params: { 
-                  pacienteId: pacienteActivo?.id, 
-                  pacienteNombre: pacienteActivo?.nombre_completo 
-                }
-              })}
-            >
-              <Text style={{ fontSize: 20, marginBottom: 4 }}>📍</Text>
-              <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Ubicación</Text>
-            </TouchableOpacity>
+            {/* 📍 Ubicación - Solo visible si el paciente tiene un reloj GPS activo */}
+            {Boolean(pacienteActivo?.reloj_imei && pacienteActivo.reloj_imei.trim() !== '') && (
+              <TouchableOpacity 
+                style={{ 
+                  flex: 1, 
+                  backgroundColor: COLORS.white, 
+                  borderRadius: 12, 
+                  padding: 10, 
+                  alignItems: 'center', 
+                  borderWidth: 1, 
+                  borderColor: COLORS.border 
+                }} 
+                onPress={() => router.push({
+                  pathname: '/mapa' as any,
+                  params: { 
+                    pacienteId: pacienteActivo?.id, 
+                    pacienteNombre: pacienteActivo?.nombre_completo 
+                  }
+                })}
+              >
+                <Text style={{ fontSize: 20, marginBottom: 4 }}>📍</Text>
+                <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>
+                  Ubicación
+                </Text>
+              </TouchableOpacity>
+            )}
 
             {/* 📊 Gráficas */}
             <TouchableOpacity 

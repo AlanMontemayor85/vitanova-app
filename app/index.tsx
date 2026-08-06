@@ -61,7 +61,7 @@ export default function HomeScreen() {
   const esPrincipal = miRol === 'familiar_principal';
   const esCoAdmin = miRol === 'familiar_co_admin';
   const esAdminRed = esPrincipal || esCoAdmin;
-
+  const isFirstFocus = useRef(true);
 // 📡 1. Función para jalar la telemetría más reciente del reloj
 const cargarSignosDispositivo = async (idToLoad?: string) => {
   const targetId = idToLoad || pacienteId;
@@ -390,22 +390,45 @@ useEffect(() => {
     setModoCuidadorFamiliar(true);
   }
 }, [params.abrirModoCuidador]);
+
+
 useFocusEffect(
   useCallback(() => {
-    // Se ejecuta al regresar del perfil
-    if (paciente?.id) {
-      getPacientes('focus-refresh').then((data) => {
-        if (data?.patients) {
-          const actualizado = data.patients.find((p: any) => p.id === paciente.id);
-          if (actualizado) {
-            setPaciente(actualizado); // Actualiza la data y renderiza si ya hay IMEI o no
-          }
-        }
-      }).catch(err => console.log("⚠️ Error al refrescar:", err));
+    // Primer focus = montaje inicial → lo deja el init
+    if (isFirstFocus.current) {
+      isFirstFocus.current = false;
+      return;
     }
-  }, [paciente?.id])
-);
 
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const token = await loadStoredToken();
+        if (!token || cancelled) return;
+
+        const idx = pacienteIndexRef.current ?? 0;
+        const data = await getPacientes('focus-refresh');
+        if (cancelled || !data?.patients?.length) return;
+        if (data.no_autenticado || data.detail === 'Token inválido o expirado') return;
+
+        const pacientesEstables = [...data.patients].sort((a, b) =>
+          String(a.id).localeCompare(String(b.id))
+        );
+        setPacientes(pacientesEstables);
+
+        const p = pacientesEstables[idx] || pacientesEstables[0];
+        setPaciente(p);
+      } catch (e) {
+        console.log('focus-refresh omitido:', e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [])
+);
 // 3️⃣ TERCER EFFECT: Polling asíncrono y autónomo para los signos vitales
 useEffect(() => {
   if (pacientes.length === 0) return;
@@ -496,59 +519,148 @@ useEffect(() => {
         /* 👨‍👩‍👧 MODO FAMILIAR (Tu interfaz normal con tarjeta de paciente, scroll, bottomNav y modal) */
         <>
           {/* PATIENT CARD */}
-          <View style={styles.patientCard}>
-            {pacientes.length > 1 && (
-              <TouchableOpacity onPress={() => {
+        <View style={{
+          backgroundColor: '#3D3732', // Tu color cacao oscuro actual
+          borderRadius: 16,
+          paddingVertical: 14,
+          paddingHorizontal: 12,
+          marginHorizontal: 16,
+          marginTop: 12,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+
+          {/* ⬅️ Flecha Izquierda */}
+          {pacientes.length > 1 ? (
+            <TouchableOpacity 
+              onPress={() => {
                 const newIndex = (pacienteIndex - 1 + pacientes.length) % pacientes.length;
                 setPacienteIndex(newIndex);
                 setPaciente(pacientes[newIndex]);
-                pacienteIndexRef.current = newIndex; // 👈 Sincronización exacta de la ref
-              }}>
-                <Text style={{ color: COLORS.gold, fontSize: 20, marginRight: 4 }}>‹</Text>
-              </TouchableOpacity>
-            )}
+                pacienteIndexRef.current = newIndex;
+              }}
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: 'rgba(191, 154, 64, 0.2)',
+              }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={{ color: COLORS.gold, fontSize: 20, fontWeight: '800', marginTop: -2 }}>‹</Text>
+            </TouchableOpacity>
+          ) : <View style={{ width: 32 }} />}
+
+          {/* 🎯 ÁREA CENTRAL: Avatar + Datos del Paciente */}
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', marginLeft: 8, marginRight: 8 }}>
+            
+            {/* Avatar Clicable */}
             <TouchableOpacity 
               onPress={() => router.push({
                 pathname: '/perfil-paciente' as any,
                 params: { paciente: JSON.stringify(paciente) }
               })}
-              style={styles.patientAvatar}
+              style={{
+                width: 46,
+                height: 46,
+                borderRadius: 23,
+                backgroundColor: COLORS.goldPale,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 10,
+                borderWidth: 1.5,
+                borderColor: COLORS.gold,
+              }}
             >
-              <Text style={styles.patientAvatarText}>{iniciales}</Text>
+              <Text style={{ color: COLORS.cacao, fontWeight: '800', fontSize: 16 }}>{iniciales}</Text>
             </TouchableOpacity>
-            <View style={styles.patientInfo}>
-              <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 }}>
-                Persona a tu cuidado
+
+            {/* Información Clínica */}
+            <View style={{ flex: 1, justifyContent: 'center' }}>
+              <Text style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)', fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                PERSONA A TU CUIDADO
               </Text>
-              {/* 🏷️ Badge discreta para Co-Administrador */}
-                {esCoAdmin && (
-                  <View style={{ backgroundColor: COLORS.gold, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8 }}>
-                    <Text style={{ fontSize: 8, fontWeight: '800', color: COLORS.cacao }}>⭐ CO-ADMIN</Text>
-                  </View>
-                )}
+
+              {esCoAdmin && (
+                <View style={{ backgroundColor: COLORS.gold, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, alignSelf: 'flex-start', marginVertical: 2 }}>
+                  <Text style={{ fontSize: 7, fontWeight: '800', color: COLORS.cacao }}>⭐ CO-ADMIN</Text>
+                </View>
+              )}
+
+              <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.white, marginTop: 1 }} numberOfLines={1}>
+                {nombre}
+              </Text>
               
-              <Text style={styles.patientName}>{nombre}</Text>
-              <Text style={styles.patientAge}>{condiciones}</Text>
+              <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 1 }} numberOfLines={1}>
+                {condiciones}
+              </Text>
+
               {pacientes.length > 1 && (
-                <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>{pacienteIndex + 1} de {pacientes.length}</Text>
+                <Text style={{ fontSize: 9, color: COLORS.gold, marginTop: 2, fontWeight: '700' }}>
+                  {pacienteIndex + 1} de {pacientes.length}
+                </Text>
               )}
             </View>
-            <View style={styles.statusPill}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusText}>Bien</Text>
-            </View>
-            {pacientes.length > 1 && (
-              <TouchableOpacity onPress={() => {
+          </View>
+
+          {/* 🟢 BADGE STATUS (Lado Derecho) */}
+          <View style={{ alignItems: 'flex-end', justifyContent: 'center', marginRight: 4 }}>
+            {(() => {
+              const tieneReloj = Boolean(paciente?.reloj_imei && paciente.reloj_imei.trim() !== '');
+              const textoEstado = paciente?.estado_salud || paciente?.estado || (tieneReloj ? 'Estable' : 'Manual');
+              const colorDot = paciente?.estado_salud === 'Alerta' 
+                ? COLORS.red 
+                : (tieneReloj ? COLORS.green : COLORS.gold);
+
+              return (
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(61, 170, 106, 0.15)', // Fondo translúcido verde suave
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: 'rgba(61, 170, 106, 0.3)',
+                }}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colorDot, marginRight: 5 }} />
+                  <Text style={{ color: colorDot, fontSize: 10, fontWeight: '800' }}>{textoEstado}</Text>
+                </View>
+              );
+            })()}
+          </View>
+
+          {/* ➡️ Flecha Derecha */}
+          {pacientes.length > 1 ? (
+            <TouchableOpacity 
+              onPress={() => {
                 const newIndex = (pacienteIndex + 1) % pacientes.length;
                 setPacienteIndex(newIndex);
                 setPaciente(pacientes[newIndex]);
-                pacienteIndexRef.current = newIndex; // 👈 Sincronización exacta de la ref
-              }}>
-                <Text style={{ color: COLORS.gold, fontSize: 20, marginLeft: 4 }}>›</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+                pacienteIndexRef.current = newIndex;
+              }}
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: 'rgba(191, 154, 64, 0.2)',
+              }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={{ color: COLORS.gold, fontSize: 20, fontWeight: '800', marginTop: -2 }}>›</Text>
+            </TouchableOpacity>
+          ) : <View style={{ width: 32 }} />}
 
+        </View>
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
             {/* ⌚ SOLO SE MUESTRA SI EL PACIENTE TIENE UN RELOJ VINCULADO (IMEI) */}
             {Boolean(paciente?.reloj_imei) && (
@@ -1004,29 +1116,41 @@ useEffect(() => {
               Icon: MapPin, 
               label: 'Mapa', 
               ruta: '/mapa', 
-              active: pathname === '/mapa' 
+              active: pathname === '/mapa',
+              requiereReloj: true // ⌚ Solo visible con hardware activo
             },
             { 
               Icon: Pill, 
               label: 'Medicam.', 
               ruta: '/medicamentos', 
-              active: pathname === '/medicamentos' 
+              active: pathname === '/medicamentos',
+              requiereReloj: false
             },                          
             { 
               Icon: Bell, 
               label: 'Alertas', 
               ruta: '/alertas', 
-              active: pathname === '/alertas' 
+              active: pathname === '/alertas',
+              requiereReloj: false
             },
             { 
               Icon: Calendar, 
               label: 'Calendario', 
               ruta: '/calendario', 
-              active: pathname === '/calendario' 
+              active: pathname === '/calendario',
+              requiereReloj: false
             },
-          ].map((item) => {
+          ]
+          // 🎯 FILTRO: Si el ítem requiere reloj y el paciente no tiene IMEI (es null/vacío), se oculta
+          .filter((item) => {
+            if (item.requiereReloj) {
+              return Boolean(paciente?.reloj_imei && paciente.reloj_imei.trim() !== '');
+            }
+            return true;
+          })
+          .map((item) => {
             const IconComponent = item.Icon;
-            const activeColor = item.active ? COLORS.gold : '#777777'; // Cambia el color del icono si está seleccionado
+            const activeColor = item.active ? COLORS.gold : '#777777';
 
             return (
               <TouchableOpacity

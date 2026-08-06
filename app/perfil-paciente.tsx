@@ -199,17 +199,17 @@ const guardar = async () => {
       };
 
       const dataPac = await actualizarPaciente(paciente?.id || 'nuevo', payloadPaciente);
-      const idActual = paciente?.id || dataPac?.paciente_id || dataPac?.id;
+      const idParaNavegar = String(paciente?.id || dataPac?.paciente_id || dataPac?.id || '');
 
       setExito(true);
-      
+
       setTimeout(() => {
-        const timestampRefresh = Date.now().toString();
-        router.replace({ 
-          pathname: '/', 
-          params: { refresh: timestampRefresh, pacienteId: idActual } 
-        });
-      }, 1200);
+        if (paciente?.id) {
+          router.back(); // conserva la posición del Index
+        } else {
+          router.replace('/');
+        }
+      }, 800);
 
     } catch (e: any) {
       console.error('❌ Fallo al guardar paciente:', e);

@@ -277,7 +277,65 @@ export const crearEvaluacion = async (data: object) => {
   });
   return res.json();
 };
+export const getInventario = async (pacienteId: string) => {
+  try {
+    const res = await fetchWithAuth(
+      `${BASE_URL}/pacientes/${pacienteId}/inventario`
+    );
+    return await res.json();
+  } catch (error) {
+    console.error('❌ getInventario:', error);
+    return { items: [], total: 0, error: String(error) };
+  }
+};
 
+export const crearItemInventario = async (
+  pacienteId: string,
+  data: {
+    tipo?: 'medicamento' | 'insumo' | 'otro';
+    nombre: string;
+    cantidad?: number;
+    unidad?: string;
+    fecha_caducidad?: string | null;
+    cantidad_minima?: number;
+    notas?: string | null;
+    medicamento_id?: string | null;
+  }
+) => {
+  const res = await fetchWithAuth(
+    `${BASE_URL}/pacientes/${pacienteId}/inventario`,
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }
+  );
+  return res.json();
+};
+
+export const actualizarItemInventario = async (
+  itemId: string,
+  data: Record<string, any>
+) => {
+  const res = await fetchWithAuth(`${BASE_URL}/inventario/${itemId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  return res.json();
+};
+
+export const consumirItemInventario = async (
+  itemId: string,
+  cantidad: number = 1
+) => {
+  const res = await fetchWithAuth(
+    `${BASE_URL}/inventario/${itemId}/consumir`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ cantidad }),
+    }
+  );
+  return res.json();
+};
 export const getEvaluaciones = async (pacienteId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/evaluaciones/hogar/${pacienteId}`);
   return res.json();
