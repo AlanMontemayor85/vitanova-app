@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { Bell, Calendar, MapPin, Pill } from 'lucide-react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, DeviceEventEmitter, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getHoyLocalISO, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
@@ -390,7 +390,21 @@ useEffect(() => {
     setModoCuidadorFamiliar(true);
   }
 }, [params.abrirModoCuidador]);
-
+useFocusEffect(
+  useCallback(() => {
+    // Se ejecuta al regresar del perfil
+    if (paciente?.id) {
+      getPacientes('focus-refresh').then((data) => {
+        if (data?.patients) {
+          const actualizado = data.patients.find((p: any) => p.id === paciente.id);
+          if (actualizado) {
+            setPaciente(actualizado); // Actualiza la data y renderiza si ya hay IMEI o no
+          }
+        }
+      }).catch(err => console.log("⚠️ Error al refrescar:", err));
+    }
+  }, [paciente?.id])
+);
 
 // 3️⃣ TERCER EFFECT: Polling asíncrono y autónomo para los signos vitales
 useEffect(() => {
