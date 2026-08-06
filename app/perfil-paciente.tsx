@@ -79,18 +79,31 @@ export default function PerfilPacienteScreen() {
       try { 
         console.log("🔍 Rompiendo caché de navegación. Solicitando datos frescos al servidor...");
         
-        const data = await getPacientes('perfil-paciente'); 
+        const data = await getPacientes('perfil-paciente');
         if (data && data.patients) {
           const pFresco = data.patients.find((x: any) => x.id === paciente.id);
-          if (pFresco && pFresco.peso_kg) {
-            setPesoInput(pFresco.peso_kg.toString());
-          }
-          if (pFresco.telefono_medico !== undefined) {
-            setTelefonoMedico(pFresco.telefono_medico ?? '');
-          }
-          if (pFresco.reloj_imei) {
-            setTieneReloj(Boolean(pFresco.reloj_imei.trim()));
-            setImei(pFresco.reloj_imei);
+          if (pFresco) {
+            if (pFresco.peso_kg) {
+              setPesoInput(pFresco.peso_kg.toString());
+            }
+            if (pFresco.telefono_medico !== undefined) {
+              setTelefonoMedico(pFresco.telefono_medico ?? '');
+            }
+
+            const imeiFresco = (pFresco.reloj_imei || '').trim();
+            if (imeiFresco) {
+              setTieneReloj(true);
+              setImei(imeiFresco);
+              setSos1(pFresco.reloj_sos1 ?? '');
+              setSos2(pFresco.reloj_sos2 ?? '');
+              setSos3(pFresco.reloj_sos3 ?? '');
+            } else {
+              setTieneReloj(false);
+              setImei('');
+              setSos1('');
+              setSos2('');
+              setSos3('');
+            }
           }
         }
       
@@ -354,9 +367,33 @@ const guardar = async () => {
           </View>
           <TouchableOpacity
             onPress={() => {
-              const nuevoEstado = !tieneReloj;
-              console.log(`🔘 [SWITCH RELOJ] Monitoreo: ${nuevoEstado ? 'ACTIVADO ⌚' : 'DESACTIVADO 📋 (Modo Manual)'}`);
-              setTieneReloj(nuevoEstado);
+              if (tieneReloj) {
+                // Está ON → quiere apagar
+                Alert.alert(
+                  'Desactivar reloj',
+                  'Se quitará el vínculo del dispositivo en este paciente. Al guardar, se borrarán de la ficha el ID del reloj y los números SOS. El historial clínico no se elimina.\n\n¿Continuar?',
+                  [
+                    { text: 'Cancelar', style: 'cancel' },
+                    {
+                      text: 'Sí, desactivar',
+                      style: 'destructive',
+                      onPress: () => {
+                        console.log('🔘 [SWITCH RELOJ] DESACTIVADO 📋 (Modo Manual)');
+                        setTieneReloj(false);
+                        // Opcional: limpiar campos en pantalla
+                        // setImei('');
+                        // setSos1('');
+                        // setSos2('');
+                        // setSos3('');
+                      },
+                    },
+                  ]
+                );
+              } else {
+                // Está OFF → activar sin alerta
+                console.log('🔘 [SWITCH RELOJ] ACTIVADO ⌚');
+                setTieneReloj(true);
+              }
             }}
             style={{
               width: 50,
@@ -367,13 +404,15 @@ const guardar = async () => {
               paddingHorizontal: 3,
             }}
           >
-            <View style={{
-              width: 22,
-              height: 22,
-              borderRadius: 11,
-              backgroundColor: COLORS.white,
-              alignSelf: tieneReloj ? 'flex-end' : 'flex-start',
-            }} />
+            <View
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 11,
+                backgroundColor: COLORS.white,
+                alignSelf: tieneReloj ? 'flex-end' : 'flex-start',
+              }}
+            />
           </TouchableOpacity>
         </View>
 
