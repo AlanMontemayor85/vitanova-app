@@ -536,148 +536,151 @@ useEffect(() => {
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+{/* ⌚ SOLO SE MUESTRA SI EL PACIENTE TIENE UN RELOJ VINCULADO (IMEI) */}
+            {Boolean(paciente?.reloj_imei) && (
+              <>
+                {/* VITALS CON TELEMETRÍA EN VIVO */}
+                <View style={styles.vitalsContainer}>
+                  <View style={styles.vitalsHeaderRow}>
+                    <Text style={styles.sectionTitle}>Estatus y Parámetros</Text>
+                    <TouchableOpacity 
+                      style={[styles.btnMedir, midiendo && styles.btnMedirDesactivado]} 
+                      onPress={ejecutarMedicionRemota}
+                      disabled={midiendo}
+                    >
+                      <Text style={styles.btnMedirText}>
+                        {midiendo ? "Leyendo... ⏳" : "🔄 Sensa Reloj"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
 
-            {/* VITALS CON TELEMETRÍA EN VIVO */}
-            <View style={styles.vitalsContainer}>
-              <View style={styles.vitalsHeaderRow}>
-                <Text style={styles.sectionTitle}>Estatus y Parámetros</Text>
-                <TouchableOpacity 
-                  style={[styles.btnMedir, midiendo && styles.btnMedirDesactivado]} 
-                  onPress={ejecutarMedicionRemota}
-                  disabled={midiendo}
-                >
-                  <Text style={styles.btnMedirText}>
-                    {midiendo ? "Leyendo... ⏳" : "🔄 Sensa Reloj"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+                  {/* FILA 1: ESTADO GENERAL DE BIENESTAR, TEMPERATURA Y PESO */}
+                  <View style={[styles.vitalsRow, { marginBottom: 8 }]}>
+                    <View style={styles.vitalCard}>
+                      <Text style={[styles.vitalVal, { fontSize: 22, lineHeight: 26,
+                        color: signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'critica' ? COLORS.red 
+                          : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'regular' ? COLORS.amber 
+                          : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'buena' ? COLORS.green
+                          : '#8E8E93'
+                      }]}>
+                        {signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'critica' ? '😟' 
+                          : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'regular' ? '😐' 
+                          : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'buena' ? '😊' 
+                          : '—'} 
+                      </Text>
+                      <Text style={styles.vitalLabel}>Condición</Text>
+                    </View>
 
-              {/* FILA 1: ESTADO GENERAL DE BIENESTAR, TEMPERATURA Y PESO */}
-              <View style={[styles.vitalsRow, { marginBottom: 8 }]}>
-                <View style={styles.vitalCard}>
-                  <Text style={[styles.vitalVal, { fontSize: 22, lineHeight: 26,
-                    color: signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'critica' ? COLORS.red 
-                      : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'regular' ? COLORS.amber 
-                      : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'buena' ? COLORS.green
-                      : '#8E8E93'
-                  }]}>
-                    {signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'critica' ? '😟' 
-                      : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'regular' ? '😐' 
-                      : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'buena' ? '😊' 
-                      : '—'} 
-                  </Text>
-                  <Text style={styles.vitalLabel}>Condición</Text>
+                    <View style={styles.vitalCard}>
+                      <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.bphrt ? COLORS.green : COLORS.textLight }]}>
+                        {signosDispositivo?.frescura?.bphrt && signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
+                          ? `${signosDispositivo.temperatura}°` : '—'}
+                      </Text>
+                      <Text style={styles.vitalLabel}>Temp. Corp.</Text>
+                    </View>
+
+                    <View style={styles.vitalCard}>
+                      <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
+                        {signosDispositivo?.peso && signosDispositivo?.peso !== "—"
+                          ? signosDispositivo.peso.replace(" kg", "") 
+                          : (ultimoCierre?.peso_kg ? `${ultimoCierre.peso_kg}` : '—')}
+                      </Text>
+                      <Text style={styles.vitalLabel}>Peso</Text>
+                    </View>
+                  </View>
+
+                  {/* FILA 2: TELEMETRÍA PURA DEL HARDWARE */}
+                  <View style={styles.vitalsRow}>
+                    <View style={styles.vitalCard}>
+                      <Text style={styles.vitalVal}>
+                        {signosDispositivo?.frescura?.spo2 && signosDispositivo?.spo2 !== "—" 
+                          ? signosDispositivo?.spo2 : '—'}
+                      </Text>
+                      <Text style={styles.vitalUnit}>%</Text>
+                      <Text style={styles.vitalLabel}>SpO₂</Text>
+                    </View>
+
+                    <View style={styles.vitalCard}>
+                      <Text style={styles.vitalVal}>
+                        {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
+                          ? signosDispositivo?.presion.split('/')[0] : '—'}
+                        <Text style={styles.vitalValSmall}>
+                          {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
+                            ? `/${signosDispositivo?.presion.split('/')[1]}` : ''}
+                        </Text>
+                      </Text>
+                      <Text style={styles.vitalLabel}>Presión</Text>
+                    </View>
+
+                    <View style={styles.vitalCard}>
+                      <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.bphrt ? COLORS.red : COLORS.textLight }]}>
+                        {signosDispositivo?.frescura?.bphrt && signosDispositivo?.fc !== "—" 
+                          ? signosDispositivo?.fc : '—'}
+                      </Text>
+                      <Text style={styles.vitalUnit}>bpm</Text>
+                      <Text style={styles.vitalLabel}>F. Card.</Text>
+                    </View>
+                  </View>
                 </View>
 
-                <View style={styles.vitalCard}>
-                  <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.bphrt ? COLORS.green : COLORS.textLight }]}>
-                    {signosDispositivo?.frescura?.bphrt && signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
-                      ? `${signosDispositivo.temperatura}°` : '—'}
-                  </Text>
-                  <Text style={styles.vitalLabel}>Temp. Corp.</Text>
-                </View>
-
-                <View style={styles.vitalCard}>
-                  <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
-                    {signosDispositivo?.peso && signosDispositivo?.peso !== "—"
-                      ? signosDispositivo.peso.replace(" kg", "") 
-                      : (ultimoCierre?.peso_kg ? `${ultimoCierre.peso_kg}` : '—')}
-                  </Text>
-                  <Text style={styles.vitalLabel}>Peso</Text>
-                </View>
-              </View>
-
-              {/* FILA 2: TELEMETRÍA PURA DEL HARDWARE */}
-              <View style={styles.vitalsRow}>
-                <View style={styles.vitalCard}>
-                  <Text style={styles.vitalVal}>
-                    {signosDispositivo?.frescura?.spo2 && signosDispositivo?.spo2 !== "—" 
-                      ? signosDispositivo?.spo2 : '—'}
-                  </Text>
-                  <Text style={styles.vitalUnit}>%</Text>
-                  <Text style={styles.vitalLabel}>SpO₂</Text>
-                </View>
-
-                <View style={styles.vitalCard}>
-                  <Text style={styles.vitalVal}>
-                    {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
-                      ? signosDispositivo?.presion.split('/')[0] : '—'}
-                    <Text style={styles.vitalValSmall}>
-                      {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
-                        ? `/${signosDispositivo?.presion.split('/')[1]}` : ''}
-                    </Text>
-                  </Text>
-                  <Text style={styles.vitalLabel}>Presión</Text>
-                </View>
-
-                <View style={styles.vitalCard}>
-                  <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.bphrt ? COLORS.red : COLORS.textLight }]}>
-                    {signosDispositivo?.frescura?.bphrt && signosDispositivo?.fc !== "—" 
-                      ? signosDispositivo?.fc : '—'}
-                  </Text>
-                  <Text style={styles.vitalUnit}>bpm</Text>
-                  <Text style={styles.vitalLabel}>F. Card.</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* TARJETA CONFIG RELOJ */}
-            {signosDispositivo?.reloj_config && (
-              <View style={{
-                backgroundColor: COLORS.white,
-                borderRadius: 12,
-                padding: 14,
-                marginTop: 8,
-                marginBottom: 4,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 12
-              }}>
-                <Text style={{ fontSize: 24 }}>{'⚙️'}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textDark }}>
-                    {'Configuración del reloj'}
-                  </Text>
-                  <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
-                    {(() => {
-                      const config = signosDispositivo.reloj_config;
-                      if (!config.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
-                      if (config.sensibilidad === 1) return 'Detector de caídas: 🔴 Alta';
-                      if (config.sensibilidad === 2) return 'Detector de caídas: 🟠 Media';
-                      if (config.sensibilidad === 3) return 'Detector de caídas: 🟡 Estándar';
-                      return 'Detector de caídas: 🟢 Baja (recomendada)';
-                    })()}
-                  </Text>
-                  <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 2 }}>
-                    {(() => {
-                      const uc = signosDispositivo.reloj_config.ultima_configuracion;
-                      if (!uc) return 'Última sincronización: Sin registro aún';
-                      return `Última sincronización: ${new Date(uc).toLocaleDateString('es-MX', { 
-                        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
-                      })}`;
-                    })()}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => router.push({
-                    pathname: '/perfil-paciente' as any,
-                    params: { paciente: JSON.stringify(paciente) }
-                  })}
-                  style={{
-                    backgroundColor: COLORS.goldPale,
-                    borderRadius: 8,
-                    padding: 8,
+                {/* TARJETA CONFIG RELOJ */}
+                {signosDispositivo?.reloj_config && (
+                  <View style={{
+                    backgroundColor: COLORS.white,
+                    borderRadius: 12,
+                    padding: 14,
+                    marginTop: 8,
+                    marginBottom: 4,
                     borderWidth: 1,
-                    borderColor: COLORS.gold
-                  }}
-                >
-                  <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '700' }}>{'Ajustar'}</Text>
-                </TouchableOpacity>
-              </View>
+                    borderColor: COLORS.border,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12
+                  }}>
+                    <Text style={{ fontSize: 24 }}>{'⚙️'}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textDark }}>
+                        {'Configuración del reloj'}
+                      </Text>
+                      <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
+                        {(() => {
+                          const config = signosDispositivo.reloj_config;
+                          if (!config.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
+                          if (config.sensibilidad === 1) return 'Detector de caídas: 🔴 Alta';
+                          if (config.sensibilidad === 2) return 'Detector de caídas: 🟠 Media';
+                          if (config.sensibilidad === 3) return 'Detector de caídas: 🟡 Estándar';
+                          return 'Detector de caídas: 🟢 Baja (recomendada)';
+                        })()}
+                      </Text>
+                      <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 2 }}>
+                        {(() => {
+                          const uc = signosDispositivo.reloj_config.ultima_configuracion;
+                          if (!uc) return 'Última sincronización: Sin registro aún';
+                          return `Última sincronización: ${new Date(uc).toLocaleDateString('es-MX', { 
+                            day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
+                          })}`;
+                        })()}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => router.push({
+                        pathname: '/perfil-paciente' as any,
+                        params: { paciente: JSON.stringify(paciente) }
+                      })}
+                      style={{
+                        backgroundColor: COLORS.goldPale,
+                        borderRadius: 8,
+                        padding: 8,
+                        borderWidth: 1,
+                        borderColor: COLORS.gold
+                      }}
+                    >
+                      <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '700' }}>{'Ajustar'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
             )}
-
             {/* ======================================================== */}
             {/* ⚡ SECCIÓN 1: TURNO ACTIVO DE CUIDADO                    */}
             {/* ======================================================== */}
