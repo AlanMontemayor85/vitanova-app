@@ -140,28 +140,33 @@ export default function PerfilPacienteScreen() {
       setSincronizandoHardware(false);
     }
   };
-
-  const guardar = async () => {
+const guardar = async () => {
     if (!nombre.trim()) { 
       setError('El nombre es obligatorio'); 
       return; 
     }
-    
-    // Validación de IMEI solo si el modo reloj está encendido
-    if (tieneReloj && imei.trim() && imei.trim().length < 10) {
-      setError('El Device ID del reloj no parece válido (deben ser 10 dígitos)');
+
+    // 🎯 VALIDACIÓN: Solo exigimos IMEI si activa explícitamente el Modo Reloj
+    if (tieneReloj && (!imei.trim() || imei.trim().length < 10)) {
+      setError('Por favor ingresa un Device ID / IMEI válido para activar el monitoreo (mínimo 10 dígitos)');
       return;
     }
 
     setGuardando(true);
     setError('');
-    setExito(false);
+
+    // 🎯 LÓGICA DE CONTROL:
+    // - Si tieneReloj === true  -> Guarda/Actualiza el IMEI escrito en la BD.
+    // - Si tieneReloj === false -> Envía NULL a la BD para pausar la telemetría en Home.
+    const payloadReloj = tieneReloj ? imei.trim() : null;
+
+    console.log("💾 [GUARDAR PACIENTE] Procesando estado de monitoreo...");
+    console.log(` ├─ Switch activo: ${tieneReloj}`);
+    console.log(` ├─ IMEI en caja de texto: "${imei}"`);
+    console.log(` └─ Payload enviado a BD (reloj_imei): ${payloadReloj}`);
 
     try {
-      console.log("📡 Enviando datos clínicos a Railway...");
-      
-      // 🎯 SI TIENE RELOJ DESACTIVADO, ENVIAMOS NULLS A LOS CAMPOS DE DISPOSITIVO
-      const dataPac = await actualizarPaciente(paciente?.id || 'nuevo', {
+      const payloadPaciente = {
         nombre_completo: nombre.trim(),
         condiciones_medicas: condiciones,
         medico_tratante: medico.trim() || null,
@@ -172,43 +177,34 @@ export default function PerfilPacienteScreen() {
         telefono_aseguradora: telefonoAseguradora.trim() || null,
         telefono_ambulancia: telefonoAmbulancia.trim() || null,
         telefono_medico: telefonoMedico.trim() || null,
-        // Campos condicionales del Reloj
-        reloj_imei: tieneReloj ? (imei.trim() || null) : null,
+        
+        // Asignación de parámetros de hardware
+        reloj_imei: payloadReloj,
         reloj_sos1: tieneReloj ? (sos1.trim() || null) : null,
         reloj_sos2: tieneReloj ? (sos2.trim() || null) : null,
         reloj_sos3: tieneReloj ? (sos3.trim() || null) : null,
-      });
-      
-      const idActual = paciente?.id || dataPac?.paciente_id || dataPac?.id || (dataPac?.data && dataPac.data[0]?.id);
-      
-      console.log(`✅ Registro procesado en base de datos. ID Paciente: ${idActual}`);
-      
-      // Sincronización Redis solo si tiene reloj activo
-      if (tieneReloj && idActual && imei.trim() && (sos1.trim() || sos2.trim())) {
-        console.log("⚡ Disparando hilos de red en Redis para sincronización de hardware...");
-        await ejecutarSincronizacionReloj(idActual).catch(err => 
-          console.log("⚠️ Registro guardado, pero Redis reportó retraso:", err)
-        );
-      }
+      };
+
+      const dataPac = await actualizarPaciente(paciente?.id || 'nuevo', payloadPaciente);
+      const idActual = paciente?.id || dataPac?.paciente_id || dataPac?.id;
 
       setExito(true);
       
       setTimeout(() => {
-        if (!paciente) {
-          router.replace('/'); 
-        } else {
-          router.back();
-        }
+        const timestampRefresh = Date.now().toString();
+        router.replace({ 
+          pathname: '/', 
+          params: { refresh: timestampRefresh, pacienteId: idActual } 
+        });
       }, 1200);
 
     } catch (e: any) {
-      console.error('❌ Fallo crítico en guardar paciente:', e);
-      setError(e.message || 'Error al guardar los datos del paciente');
+      console.error('❌ Fallo al guardar paciente:', e);
+      setError(e.message || 'Error al guardar los cambios');
     } finally {
       setGuardando(false);
     }
   };
-
   const desactivar = async () => {
     if (!paciente?.id) return;
     setGuardando(true);
@@ -357,7 +353,11 @@ export default function PerfilPacienteScreen() {
             </Text>
           </View>
           <TouchableOpacity
-            onPress={() => setTieneReloj(!tieneReloj)}
+            onPress={() => {
+              const nuevoEstado = !tieneReloj;
+              console.log(`🔘 [SWITCH RELOJ] Monitoreo: ${nuevoEstado ? 'ACTIVADO ⌚' : 'DESACTIVADO 📋 (Modo Manual)'}`);
+              setTieneReloj(nuevoEstado);
+            }}
             style={{
               width: 50,
               height: 28,
