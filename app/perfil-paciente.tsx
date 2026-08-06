@@ -38,6 +38,7 @@ export default function PerfilPacienteScreen() {
   const [error, setError] = useState('');
   const [exito, setExito] = useState(false);
   const [telefonoMedico, setTelefonoMedico] = useState(paciente?.telefono_medico ?? '');
+  
   // Estados Base Existentes
   const [nombre, setNombre] = useState(paciente?.nombre_completo ?? '');
   const [medico, setMedico] = useState(paciente?.medico_tratante ?? '');
@@ -48,7 +49,11 @@ export default function PerfilPacienteScreen() {
   const [nombreAseguradora, setNombreAseguradora] = useState(paciente?.nombre_aseguradora ?? '');
   const [telefonoAseguradora, setTelefonoAseguradora] = useState(paciente?.telefono_aseguradora ?? '');
   const [telefonoAmbulancia, setTelefonoAmbulancia] = useState(paciente?.telefono_ambulancia ?? '');
-  
+
+  // ⌚ SWITCH MAESTRO DE HARDWARE (Se activa automáticamente si el paciente ya tiene IMEI)
+  const [tieneReloj, setTieneReloj] = useState<boolean>(
+    Boolean(paciente?.reloj_imei && paciente.reloj_imei.trim() !== '')
+  );
 
   // 📡 Parámetros Estructurales del Reloj GPS
   const [imei, setImei] = useState(paciente?.reloj_imei ?? '');
@@ -59,88 +64,82 @@ export default function PerfilPacienteScreen() {
     paciente?.sensibilidad_caidas?.toString() ?? '3'
   );
   const [caidaActiva, setCaidaActiva] = useState<boolean>(true);
+
   const toggleCondicion = (c: string) => {
     setCondiciones(prev =>
       prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]
     );
   };
-  // ⚖️ Sincronizador Maestro de la Ficha Clínica (Rompe el caché de la navegación)
-  useEffect(() => {
-  const refrescarDatosAlEntrar = async () => {
-    if (!paciente?.id) return;
-    
-    // CORREGIDO: Se cambiaron los dos puntos ":" por la llave de apertura "{"
-    try { 
-      console.log("🔍 Rompiendo caché de navegación. Solicitando datos frescos al servidor...");
-      
-      const data = await getPacientes('perfil-paciente'); 
-      if (data && data.patients) {
-        const pFresco = data.patients.find((x: any) => x.id === paciente.id);
-        if (pFresco && pFresco.peso_kg) {
-          console.log("⚖️ Peso real recuperado de la BD:", pFresco.peso_kg);
-          setPesoInput(pFresco.peso_kg.toString());
-        }
-        if (pFresco.telefono_medico !== undefined) {
-          setTelefonoMedico(pFresco.telefono_medico ?? '');
-        }
-      }
-    
-      // ← Cargar sensibilidad real del dispositivo
-      // NOTA: Si getToken() es una promesa/asíncrono, asegúrate de ponerle "await"
-      const token = await getToken(); 
-      const resDisp = await fetch(
-        `${BASE_URL}/pacientes/${paciente.id}/config-reloj`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const dataDisp = await resDisp.json();
-      console.log("⚙️ Config reloj cargada:", JSON.stringify(dataDisp));
-      if (dataDisp?.sensibilidad_caidas) {
-        setSensibilidadCaidas(dataDisp.sensibilidad_caidas.toString());
-        console.log("⚙️ Sensibilidad cargada:", dataDisp.sensibilidad_caidas);
-      }
-      if (dataDisp && 'caida_activa' in dataDisp) {
-        setCaidaActiva(Boolean(dataDisp.caida_activa));
-      }
 
-    } catch (err) {
-      console.log("⚠️ Error sincronizando datos en segundo plano:", err);
+  // ⚖️ Sincronizador Maestro de la Ficha Clínica
+  useEffect(() => {
+    const refrescarDatosAlEntrar = async () => {
+      if (!paciente?.id) return;
+      
+      try { 
+        console.log("🔍 Rompiendo caché de navegación. Solicitando datos frescos al servidor...");
+        
+        const data = await getPacientes('perfil-paciente'); 
+        if (data && data.patients) {
+          const pFresco = data.patients.find((x: any) => x.id === paciente.id);
+          if (pFresco && pFresco.peso_kg) {
+            setPesoInput(pFresco.peso_kg.toString());
+          }
+          if (pFresco.telefono_medico !== undefined) {
+            setTelefonoMedico(pFresco.telefono_medico ?? '');
+          }
+          if (pFresco.reloj_imei) {
+            setTieneReloj(Boolean(pFresco.reloj_imei.trim()));
+            setImei(pFresco.reloj_imei);
+          }
+        }
+      
+        const token = await getToken(); 
+        const resDisp = await fetch(
+          `${BASE_URL}/pacientes/${paciente.id}/config-reloj`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const dataDisp = await resDisp.json();
+        if (dataDisp?.sensibilidad_caidas) {
+          setSensibilidadCaidas(dataDisp.sensibilidad_caidas.toString());
+        }
+        if (dataDisp && 'caida_activa' in dataDisp) {
+          setCaidaActiva(Boolean(dataDisp.caida_activa));
+        }
+
+      } catch (err) {
+        console.log("⚠️ Error sincronizando datos en segundo plano:", err);
+      }
+    };
+
+    refrescarDatosAlEntrar();
+  }, [paciente?.id, params?.refresh]);
+
+  // 📡 Disparador del Bus de Comandos por Redis
+  const ejecutarSincronizacionReloj = async (targetId: string) => {
+    try {
+      setSincronizandoHardware(true);
+      const res = await configurarReloj(targetId, sensibilidadCaidas);
+      const argFalldown = caidaActiva ? '1,1' : '0,0';
+      await configurarReloj(targetId, undefined, 'FALLDOWN', argFalldown);
+      
+      if (res && res.success) {
+        Alert.alert(
+          '📡 Conexión Establecida',
+          `El perfil se guardó y se transmitieron las tramas de control al reloj (IMEI: ${imei.trim()}) de forma exitosa.`
+        );
+      } else {
+        Alert.alert(
+          '⚠️ Registro Guardado Localmente',
+          res?.detail || 'El reloj no respondió al empuje inicial de comandos por estar fuera de línea.'
+        );
+      }
+    } catch (hwErr) {
+      console.log('⚠️ Falla pasiva de bus de comandos de hardware:', hwErr);
+    } finally {
+      setSincronizandoHardware(false);
     }
   };
-
-  refrescarDatosAlEntrar();
-}, [paciente?.id, params?.refresh]); // Agregué el optional chaining "params?.refresh" por seguridad
-  
-  
-  // Reacciona al ID del paciente o al refresh de la Home
-  // 📡 FUNCIÓN TÁCTICA: Disparador del Bus de Comandos por Redis
-  const ejecutarSincronizacionReloj = async (targetId: string) => {
-  try {
-    setSincronizandoHardware(true);
-    
-    // 1. Manda sensibilidad de caídas
-    const res = await configurarReloj(targetId, sensibilidadCaidas);
-    
-    // 2. ← AGREGAR: Manda estado activo/desactivado del detector
-    const argFalldown = caidaActiva ? '1,1' : '0,0';
-    await configurarReloj(targetId, undefined, 'FALLDOWN', argFalldown);
-    
-    if (res && res.success) {
-      Alert.alert(
-        '📡 Conexión Establecida',
-        `El perfil se guardó y se transmitieron las tramas de control al reloj (IMEI: ${imei.trim()}) de forma exitosa.`
-      );
-    } else {
-      Alert.alert(
-        '⚠️ Registro Guardado Localmente',
-        res?.detail || 'El reloj no respondió al empuje inicial de comandos por estar fuera de línea.'
-      );
-    }
-  } catch (hwErr) {
-    console.log('⚠️ Falla pasiva de bus de comandos de hardware:', hwErr);
-  } finally {
-    setSincronizandoHardware(false);
-  }
-};
 
   const guardar = async () => {
     if (!nombre.trim()) { 
@@ -148,7 +147,8 @@ export default function PerfilPacienteScreen() {
       return; 
     }
     
-    if (imei.trim() && imei.trim().length < 10) {
+    // Validación de IMEI solo si el modo reloj está encendido
+    if (tieneReloj && imei.trim() && imei.trim().length < 10) {
       setError('El Device ID del reloj no parece válido (deben ser 10 dígitos)');
       return;
     }
@@ -158,9 +158,9 @@ export default function PerfilPacienteScreen() {
     setExito(false);
 
     try {
-      console.log("📡 Enviando datos clínicos y de hardware a Railway...");
-      console.log("📱 Guardando telefono_medico:", telefonoMedico);
-      // 1. Guardamos o actualizamos la entidad en Supabase mediante Railway
+      console.log("📡 Enviando datos clínicos a Railway...");
+      
+      // 🎯 SI TIENE RELOJ DESACTIVADO, ENVIAMOS NULLS A LOS CAMPOS DE DISPOSITIVO
       const dataPac = await actualizarPaciente(paciente?.id || 'nuevo', {
         nombre_completo: nombre.trim(),
         condiciones_medicas: condiciones,
@@ -169,39 +169,34 @@ export default function PerfilPacienteScreen() {
         peso_kg: pesoInput ? parseFloat(pesoInput) : null,
         telefono_emergencia: telefonoEmergencia.trim() || null,
         nombre_aseguradora: nombreAseguradora.trim() || null,
-        telefono_aseguradora: telefonoAseguradora.trim() || null, // Valida si en tu API es telefono_aseguradora o telefono_ura
+        telefono_aseguradora: telefonoAseguradora.trim() || null,
         telefono_ambulancia: telefonoAmbulancia.trim() || null,
         telefono_medico: telefonoMedico.trim() || null,
-        reloj_imei: imei.trim() || null,
-        reloj_sos1: sos1.trim() || null,
-        reloj_sos2: sos2.trim() || null,
-        reloj_sos3: sos3.trim() || null,
+        // Campos condicionales del Reloj
+        reloj_imei: tieneReloj ? (imei.trim() || null) : null,
+        reloj_sos1: tieneReloj ? (sos1.trim() || null) : null,
+        reloj_sos2: tieneReloj ? (sos2.trim() || null) : null,
+        reloj_sos3: tieneReloj ? (sos3.trim() || null) : null,
       });
       
-      // 2. Extracción segura del ID generado por Postgres
-      // Soportamos si tu API mapea el id directo, en .paciente_id o en un arreglo .data
       const idActual = paciente?.id || dataPac?.paciente_id || dataPac?.id || (dataPac?.data && dataPac.data[0]?.id);
       
       console.log(`✅ Registro procesado en base de datos. ID Paciente: ${idActual}`);
       
-      // 3. 🚀 ENLACE EN CALIENTE VÍA REDIS
-      if (idActual && imei.trim() && (sos1.trim() || sos2.trim())) {
+      // Sincronización Redis solo si tiene reloj activo
+      if (tieneReloj && idActual && imei.trim() && (sos1.trim() || sos2.trim())) {
         console.log("⚡ Disparando hilos de red en Redis para sincronización de hardware...");
         await ejecutarSincronizacionReloj(idActual).catch(err => 
           console.log("⚠️ Registro guardado, pero Redis reportó retraso:", err)
         );
       }
 
-      // Activamos el estado visual de éxito para tus componentes de la interfaz
       setExito(true);
       
-      // 4. REDIRECCIÓN CENTRALIZADA CON RETARDO (UX limpia)
       setTimeout(() => {
         if (!paciente) {
-          console.log("🏁 Onboarding inicial completado. Catapultando a Home...");
           router.replace('/'); 
         } else {
-          console.log("🔄 Edición finalizada. Retornando en la pila...");
           router.back();
         }
       }, 1200);
@@ -226,14 +221,11 @@ export default function PerfilPacienteScreen() {
       setGuardando(false);
     }
   };
- console.log("🔄 [RENDER] caidaActiva:", caidaActiva);
- console.log("🔍 sensibilidadCaidas:", sensibilidadCaidas, typeof sensibilidadCaidas);
- console.log("📱 paciente completo:", JSON.stringify(paciente));
- return (
+
+  return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
       
-      {/* HEADER ORIGINAL (Dejado limpio para evitar colisiones visuales) */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={styles.greeting}>Configuración de Paciente</Text>
@@ -243,7 +235,7 @@ export default function PerfilPacienteScreen() {
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
 
-        {/* 🔄 REINICIAR REGISTRO DESDE EL LOGIN (BARRIDO DE SUPABASE) */}
+        {/* REINICIAR REGISTRO */}
         <TouchableOpacity 
           onPress={async () => {
             Alert.alert(
@@ -255,18 +247,11 @@ export default function PerfilPacienteScreen() {
                   text: 'Sí, reiniciar',
                   style: 'destructive',
                   onPress: async () => {
-                    console.log("📡 Solicitando purga de perfil a Railway...");
                     try {
-                      // 1. Le avisamos al backend que destruya nuestro rol trunco
                       await reiniciarRegistroServidor();
-                      
-                      // 2. Esterilizamos el almacenamiento local del cel
                       await clearToken(); 
-                      
-                      console.log("🧼 Redirección limpia al Login efectuada.");
                       router.replace('/login'); 
                     } catch (err) {
-                      console.error("Fallo operativo en reset, forzando salida:", err);
                       await clearToken();
                       router.replace('/login');
                     }
@@ -292,7 +277,7 @@ export default function PerfilPacienteScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* INICIO DE TU FORMULARIO DE HARDWARE Y CLÍNICA */}
+        {/* FORMULARIO CLÍNICO BASE */}
         <Text style={styles.label}>Nombre completo *</Text>
         <TextInput
           style={styles.input}
@@ -310,7 +295,7 @@ export default function PerfilPacienteScreen() {
           onChangeText={setTalla}
           keyboardType="numeric"
         />
-        {/* ⚖️ Input de Peso Clínico Unificado */}
+        
         <View style={{ marginBottom: 16, width: '100%' }}>
           <Text style={{ fontSize: 14, fontWeight: '700', color: '#4A4540', marginBottom: 6 }}>
             Peso Actual (kg)
@@ -332,6 +317,7 @@ export default function PerfilPacienteScreen() {
             onChangeText={setPesoInput}
           />
         </View>
+
         <Text style={styles.label}>Condiciones médicas</Text>
         <View style={styles.condicionesGrid}>
           {CONDICIONES.map(c => (
@@ -346,91 +332,37 @@ export default function PerfilPacienteScreen() {
             </TouchableOpacity>
           ))}
         </View>
-        {/* 📡 SECCIÓN TÁCTICA: CONFIGURACIÓN DE DISPOSITIVO VITANOVA (RELOJ GPS) */}
-        <View style={styles.seccionReloj}>
-          <Text style={styles.relojTitulo}>⌚ Enlace y Configuración del Reloj Vitanova</Text>
-        </View>
 
-        <Text style={styles.label}>Número ID De Dispositivo / ID del Localizador GPS</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Código de 10 a 15 dígitos grabado en el reloj"
-          placeholderTextColor={COLORS.textLight}
-          value={imei}
-          onChangeText={setImei}
-          keyboardType="numeric"
-        />
-
-        <Text style={styles.label}>Número SOS Principal (Botón de pánico del Reloj)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Celular al que llamará el reloj en una emergencia"
-          placeholderTextColor={COLORS.textLight}
-          value={sos1}
-          onChangeText={setSos1}
-          keyboardType="phone-pad"
-        />
-
-        <Text style={styles.label}>Número SOS Secundario (Respaldo)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Segundo contacto de emergencia para el hardware"
-          placeholderTextColor={COLORS.textLight}
-          value={sos2}
-          onChangeText={setSos2}
-          keyboardType="phone-pad"
-        />
-        <Text style={styles.label}>Número SOS 3 (Tercer contacto)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Tercer contacto de emergencia"
-          placeholderTextColor={COLORS.textLight}
-          value={sos3}
-          onChangeText={setSos3}
-          keyboardType="phone-pad"
-        />
-      
-        {/* CONFIGURACIÓN AVANZADA DEL RELOJ */}
-        <View style={[styles.seccionReloj, { marginTop: 16 }]}>
-          <Text style={styles.relojTitulo}>⚙️ Parámetros del Sensor de Caídas</Text>
-        </View>
-        {/* TOGGLE DETECTOR DE CAÍDAS */}
+        {/* ⌚ CARD SELECTOR: TIPO DE MONITOREO (CON RELOJ / ASISTIDO MANUAL) */}
         <View style={{
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
-          backgroundColor: COLORS.white,
+          backgroundColor: tieneReloj ? COLORS.goldPale : COLORS.white,
           borderRadius: 12,
-          borderWidth: 1,
-          borderColor: COLORS.border,
+          borderWidth: 2,
+          borderColor: tieneReloj ? COLORS.gold : COLORS.border,
           padding: 16,
+          marginTop: 12,
           marginBottom: 16
         }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 13, fontWeight: '800', color: COLORS.textDark }}>
-              {'🛡️ Detector de caídas'}
+          <View style={{ flex: 1, marginRight: 10 }}>
+            <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.textDark }}>
+              ⌚ Monitoreo con Reloj Vitanova
             </Text>
             <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 2 }}>
-              {caidaActiva ? 'Activo — el reloj detecta caídas' : 'Desactivado — sin alertas de caída'}
+              {tieneReloj 
+                ? 'Reloj vinculado — Telemetría y signos vitales en tiempo real' 
+                : 'Modo Asistido Manual — Sin dispositivo wearable configurado'}
             </Text>
           </View>
           <TouchableOpacity
-            onPress={async () => {
-              const nuevoEstado = !caidaActiva;
-              setCaidaActiva(nuevoEstado); // cambia visualmente de inmediato
-              try {
-                const arg = nuevoEstado ? '1,1' : '0,0';
-                await configurarReloj(paciente.id, undefined, 'FALLDOWN', arg);
-                // No revertimos aunque falle — se aplicará en la próxima sincronización al guardar
-              } catch {
-                console.log('⚠️ Toggle guardado localmente, se aplicará al sincronizar');
-              }
-            }}
+            onPress={() => setTieneReloj(!tieneReloj)}
             style={{
               width: 50,
               height: 28,
               borderRadius: 14,
-              backgroundColor: caidaActiva ? COLORS.green : COLORS.border,
+              backgroundColor: tieneReloj ? COLORS.green : COLORS.border,
               justifyContent: 'center',
               paddingHorizontal: 3,
             }}
@@ -440,68 +372,179 @@ export default function PerfilPacienteScreen() {
               height: 22,
               borderRadius: 11,
               backgroundColor: COLORS.white,
-              alignSelf: caidaActiva ? 'flex-end' : 'flex-start',
+              alignSelf: tieneReloj ? 'flex-end' : 'flex-start',
             }} />
           </TouchableOpacity>
         </View>
-        <Text style={styles.label}>Sensibilidad del detector de caídas</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-          {[
-            { val: '1', label: '🔴 Alta', desc: 'Detecta mínimo movimiento' },
-            { val: '2', label: '🟠 Media', desc: 'Para adultos muy frágiles' },
-            { val: '3', label: '🟡 Estándar', desc: 'Uso normal' },
-            { val: '4', label: '🟢 Baja', desc: 'Recomendada ✓' },
-          ].map((op) => (
-            <TouchableOpacity
-              key={op.val}
-              style={{
-                width: '48%',
-                padding: 10,
-                borderRadius: 10,
-                borderWidth: 2,
-                borderColor: sensibilidadCaidas === op.val ? COLORS.gold : COLORS.border,
-                backgroundColor: sensibilidadCaidas === op.val ? COLORS.goldPale : COLORS.white,
-                alignItems: 'center',
-              }}
-              onPress={() => setSensibilidadCaidas(op.val)}
-            >
-              <Text style={{ fontSize: 12, fontWeight: '800', color: sensibilidadCaidas === op.val ? COLORS.gold : COLORS.textLight }}>
-                {op.label}
-              </Text>
-              <Text style={{ fontSize: 9, color: COLORS.textLight, textAlign: 'center', marginTop: 2 }}>
-                {op.desc}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
 
-        {/* Sincronización discreta */}
-        {paciente?.id && imei.trim() ? (
-          <TouchableOpacity
-            style={{ 
-              alignSelf: 'center',
-              paddingHorizontal: 16, 
-              paddingVertical: 8,
-              borderRadius: 20,
+        {/* 📡 SECCIÓN DESPLEGABLE: CONFIGURACIÓN DEL RELOJ (Solo visible si tieneReloj === true) */}
+        {tieneReloj && (
+          <View style={{
+            backgroundColor: '#FAFAF7',
+            padding: 14,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            marginBottom: 16
+          }}>
+            <View style={styles.seccionReloj}>
+              <Text style={styles.relojTitulo}>⌚ Enlace y Configuración del Reloj Vitanova</Text>
+            </View>
+
+            <Text style={styles.label}>Número ID De Dispositivo / ID del Localizador GPS</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Código de 10 a 15 dígitos grabado en el reloj"
+              placeholderTextColor={COLORS.textLight}
+              value={imei}
+              onChangeText={setImei}
+              keyboardType="numeric"
+            />
+
+            <Text style={styles.label}>Número SOS Principal (Botón de pánico del Reloj)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Celular al que llamará el reloj en una emergencia"
+              placeholderTextColor={COLORS.textLight}
+              value={sos1}
+              onChangeText={setSos1}
+              keyboardType="phone-pad"
+            />
+
+            <Text style={styles.label}>Número SOS Secundario (Respaldo)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Segundo contacto de emergencia para el hardware"
+              placeholderTextColor={COLORS.textLight}
+              value={sos2}
+              onChangeText={setSos2}
+              keyboardType="phone-pad"
+            />
+
+            <Text style={styles.label}>Número SOS 3 (Tercer contacto)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Tercer contacto de emergencia"
+              placeholderTextColor={COLORS.textLight}
+              value={sos3}
+              onChangeText={setSos3}
+              keyboardType="phone-pad"
+            />
+          
+            {/* SENSOR DE CAÍDAS */}
+            <View style={[styles.seccionReloj, { marginTop: 16 }]}>
+              <Text style={styles.relojTitulo}>⚙️ Parámetros del Sensor de Caídas</Text>
+            </View>
+
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: COLORS.white,
+              borderRadius: 12,
               borderWidth: 1,
               borderColor: COLORS.border,
-              marginBottom: 16,
-              opacity: (guardando || sincronizandoHardware) ? 0.5 : 1
-            }}
-            onPress={() => ejecutarSincronizacionReloj(paciente.id)}
-            disabled={guardando || sincronizandoHardware}
-          >
-            {sincronizandoHardware ? (
-              <ActivityIndicator size="small" color={COLORS.textLight} />
-            ) : (
-              <Text style={{ fontSize: 11, color: COLORS.textLight }}>
-                {'⚙️ Sincronizar configuración con reloj'}
-              </Text>
-            )}
-          </TouchableOpacity>
-        ) : null}
+              padding: 16,
+              marginBottom: 16
+            }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: COLORS.textDark }}>
+                  🛡️ Detector de caídas
+                </Text>
+                <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 2 }}>
+                  {caidaActiva ? 'Activo — el reloj detecta caídas' : 'Desactivado — sin alertas de caída'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={async () => {
+                  const nuevoEstado = !caidaActiva;
+                  setCaidaActiva(nuevoEstado);
+                  try {
+                    const arg = nuevoEstado ? '1,1' : '0,0';
+                    await configurarReloj(paciente.id, undefined, 'FALLDOWN', arg);
+                  } catch {
+                    console.log('⚠️ Toggle guardado localmente, se aplicará al sincronizar');
+                  }
+                }}
+                style={{
+                  width: 50,
+                  height: 28,
+                  borderRadius: 14,
+                  backgroundColor: caidaActiva ? COLORS.green : COLORS.border,
+                  justifyContent: 'center',
+                  paddingHorizontal: 3,
+                }}
+              >
+                <View style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 11,
+                  backgroundColor: COLORS.white,
+                  alignSelf: caidaActiva ? 'flex-end' : 'flex-start',
+                }} />
+              </TouchableOpacity>
+            </View>
 
-        {/* CLÍNICA BASE */}
+            <Text style={styles.label}>Sensibilidad del detector de caídas</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+              {[
+                { val: '1', label: '🔴 Alta', desc: 'Detecta mínimo movimiento' },
+                { val: '2', label: '🟠 Media', desc: 'Para adultos muy frágiles' },
+                { val: '3', label: '🟡 Estándar', desc: 'Uso normal' },
+                { val: '4', label: '🟢 Baja', desc: 'Recomendada ✓' },
+              ].map((op) => (
+                <TouchableOpacity
+                  key={op.val}
+                  style={{
+                    width: '48%',
+                    padding: 10,
+                    borderRadius: 10,
+                    borderWidth: 2,
+                    borderColor: sensibilidadCaidas === op.val ? COLORS.gold : COLORS.border,
+                    backgroundColor: sensibilidadCaidas === op.val ? COLORS.goldPale : COLORS.white,
+                    alignItems: 'center',
+                  }}
+                  onPress={() => setSensibilidadCaidas(op.val)}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: sensibilidadCaidas === op.val ? COLORS.gold : COLORS.textLight }}>
+                    {op.label}
+                  </Text>
+                  <Text style={{ fontSize: 9, color: COLORS.textLight, textAlign: 'center', marginTop: 2 }}>
+                    {op.desc}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* BOTÓN SINCRONIZAR VÍA REDIS */}
+            {paciente?.id && imei.trim() ? (
+              <TouchableOpacity
+                style={{ 
+                  alignSelf: 'center',
+                  paddingHorizontal: 16, 
+                  paddingVertical: 8,
+                  borderRadius: 20,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  marginBottom: 8,
+                  opacity: (guardando || sincronizandoHardware) ? 0.5 : 1
+                }}
+                onPress={() => ejecutarSincronizacionReloj(paciente.id)}
+                disabled={guardando || sincronizandoHardware}
+              >
+                {sincronizandoHardware ? (
+                  <ActivityIndicator size="small" color={COLORS.textLight} />
+                ) : (
+                  <Text style={{ fontSize: 11, color: COLORS.textLight }}>
+                    ⚙️ Sincronizar configuración con reloj
+                  </Text>
+                )}
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        )}
+
+        {/* INFORMACIÓN MÉDICA GENERAL */}
         <View style={styles.seccionClinica}>
           <Text style={styles.clinicaTitulo}>📋 Información Médica General</Text>
         </View>
@@ -514,18 +557,16 @@ export default function PerfilPacienteScreen() {
           value={medico}
           onChangeText={setMedico}
         />
-       <Text style={styles.label}>Teléfono del médico</Text>
+        <Text style={styles.label}>Teléfono del médico</Text>
         <TextInput
           style={styles.input}
           placeholder="Ej. 8112345678"
           placeholderTextColor={COLORS.textLight}
           value={telefonoMedico}
-          onChangeText={(text) => {
-            console.log("📱 telefonoMedico cambiando a:", text);
-            setTelefonoMedico(text);
-          }}
+          onChangeText={setTelefonoMedico}
           keyboardType="phone-pad"
         />
+
         {/* SECCIÓN EMERGENCIAS */}
         <View style={styles.seccionEmergencia}>
           <Text style={styles.seccionTitulo}>🚨 Contactos de asistencia / Ambulancia</Text>
@@ -583,7 +624,7 @@ export default function PerfilPacienteScreen() {
             : <Text style={styles.btnText}>{paciente ? 'Guardar cambios' : 'Finalizar Registro Vitanova'}</Text>
           }
         </TouchableOpacity>
-        {/* ← AGREGAR botón cancelar */}
+
         <TouchableOpacity
           style={{ 
             padding: 14, 
@@ -596,9 +637,9 @@ export default function PerfilPacienteScreen() {
           }}
           onPress={() => {
             if (paciente) {
-              router.back(); // tiene registro → regresar al index
+              router.back();
             } else {
-              router.replace('/login'); // registro nuevo → ir al login
+              router.replace('/login');
             }
           }}
         >
@@ -631,7 +672,6 @@ export default function PerfilPacienteScreen() {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.cream },
   header: {
