@@ -53,92 +53,82 @@ export default function HomeScreen() {
   const pacienteId = paciente?.id;
   const [modoCuidadorFamiliar, setModoCuidadorFamiliar] = useState(false);
   const pacienteIndexRef = useRef(0);
-  const modoSwitchParam = params.modoSwitch;
+  const modoSwitchParam = params.modoSwitch; // Puede ser 'familiar', 'ninguno', etc.
   const pacienteIdParam = params.pacienteId;
   const [notasExpandidas, setNotasExpandidas] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-
   const miRol = paciente?.mi_rol || paciente?.equipo?.find((m: any) => m.es_usuario_actual)?.rol;
   const esPrincipal = miRol === 'familiar_principal';
   const esCoAdmin = miRol === 'familiar_co_admin';
   const esAdminRed = esPrincipal || esCoAdmin;
 
-  // ⌚ REGLA MAESTRA: Evalúa si el paciente activo cuenta con un reloj configurado
-  const tieneReloj = Boolean(
-    (paciente?.reloj_imei && paciente.reloj_imei.trim() !== '') ||
-    (paciente?.device_id && paciente.device_id.trim() !== '')
-  );
-
-  // 📡 1. Cargar telemetría (Blindado con Guard Clause si no hay reloj)
-  const cargarSignosDispositivo = async (idToLoad?: string) => {
-    // 🛑 Si el paciente opera en Modo Asistido Manual, no solicitamos telemetría
-    if (!tieneReloj) return;
-
-    const targetId = idToLoad || pacienteId;
-    if (!targetId) return;
-    
-    try {
-      const res = await getSignosRecientes(targetId);
-      if (res && res.success) {
-        console.log(`📥 [INDEX] Telemetría fresca guardada para el paciente: ${targetId}`);
-        setSignosDispositivo(res);
-        await AsyncStorage.setItem(`@vitals_${targetId}`, JSON.stringify(res));
-      }
-    } catch (error) {
-      console.log("⚠️ Error cargando signos vitales:", error);
-    }
-  };
-
-  // ⚡ 2. Ejecutar Medición Remota
-  const ejecutarMedicionRemota = async () => {
-    if (!tieneReloj) {
-      alert("⚠️ Este paciente está en Modo Asistido Manual (Sin Reloj).");
-      return;
-    }
-
-    const idReal = paciente?.id || paciente?.paciente_id || pacienteId;
-
-    if (!idReal || midiendo) {
-      console.warn("⚠️ Abortando medición: El ID del paciente llegó vacío:", idReal);
-      return;
-    }
-    
-    setMidiendo(true);
-    try {
-      await forzarMedicionSignos(idReal);
-      alert("📡 Solicitud enviada. El reloj comenzará la lectura en unos segundos...");
+// 📡 1. Función para jalar la telemetría más reciente del reloj
+const cargarSignosDispositivo = async (idToLoad?: string) => {
+  const targetId = idToLoad || pacienteId;
+  if (!targetId) return;
+  
+  try {
+    const res = await getSignosRecientes(targetId);
+    if (res && res.success) {
+      console.log(`📥 [INDEX] Telemetría fresca guardada para el paciente: ${targetId}`);
+      setSignosDispositivo(res);
       
-      setTimeout(async () => {
-        await cargarSignosDispositivo();
-        setMidiendo(false);
-      }, 15000);
-    } catch (error) {
-      console.error("❌ Error al inyectar comando desde la app familiar:", error);
+      // 💾 Guardamos respaldo local persistente
+      await AsyncStorage.setItem(`@vitals_${targetId}`, JSON.stringify(res));
+    }
+  } catch (error) {
+    console.log("⚠️ Error cargando signos vitales:", error);
+  }
+};
+
+// ⚡ 2. Función para disparar la ráfaga 'hrtstart' por Redis (Alineada para Index)
+const ejecutarMedicionRemota = async () => {
+  // 🎯 CONCILIACIÓN DE LLAVES: Usamos el ID real de tu pantalla index
+  const idReal = paciente?.id || paciente?.paciente_id || pacienteId;
+
+  if (!idReal || midiendo) {
+    console.warn("⚠️ Abortando medición: El ID del paciente llegó vacío:", idReal);
+    return;
+  }
+  
+  setMidiendo(true);
+  try {
+    // Mandamos el ID real validado
+    await forzarMedicionSignos(idReal);
+    alert("📡 Solicitud enviada. El reloj comenzará la lectura en unos segundos...");
+    
+    // Polling táctico: Esperamos 15 segundos a que el reloj mida y mande los datos a Supabase, luego refrescamos
+    setTimeout(async () => {
+      await cargarSignosDispositivo();
       setMidiendo(false);
-    }
-  };
+    }, 15000);
+  } catch (error) {
+    console.error("❌ Error al inyectar comando desde la app familiar:", error);
+    setMidiendo(false);
+  }
+};
+const handleCalibrarReloj = async () => {
+  const idReal = paciente?.id || paciente?.paciente_id || pacienteId;
+  if (!idReal) {
+    alert("⚠️ No se pudo determinar el ID del paciente.");
+    return;
+  }
 
-  const handleCalibrarReloj = async () => {
-    if (!tieneReloj) return;
-
-    const idReal = paciente?.id || paciente?.paciente_id || pacienteId;
-    if (!idReal) {
-      alert("⚠️ No se pudo determinar el ID del paciente.");
-      return;
+  try {
+    // Mandamos el ID y por defecto se va con "2" (Sensibilidad Estándar)
+    const res = await calibrarAcelerometroReloj(idReal, "2");
+    
+    // 🎯 VALIDACIÓN CORREGIDA: Cambiamos res.success por res.status === 'ok'
+    if (res && (res.status === 'ok' || res.success)) {
+      alert("⚙️ ¡Comando enviado! El acelerómetro se calibró a nivel estándar (Nivel 2).");
+    } else {
+      alert(`⚠️ API respondió con error: ${res.detail || res.detail || 'No se pudo aplicar'}`);
     }
-
-    try {
-      const res = await calibrarAcelerometroReloj(idReal, "2");
-      if (res && (res.status === 'ok' || res.success)) {
-        alert("⚙️ ¡Comando enviado! El acelerómetro se calibró a nivel estándar (Nivel 2).");
-      } else {
-        alert(`⚠️ API respondió con error: ${res.detail || 'No se pudo aplicar'}`);
-      }
-    } catch (error) {
-      console.error("❌ Error al calibrar desde index:", error);
-      alert("Error de red al conectar con el servidor.");
-    }
-  };
+  } catch (error) {
+    console.error("❌ Error al calibrar desde index:", error);
+    alert("Error de red al conectar con el servidor.");
+  }
+};
 // 🎯 INTERCEPTOR OPERATIVO: Normalización y saneamiento de estado de Turno
 const corregirResumenTurno = (turnoOriginal: any, listadoMedicamentos: any[], listadoTareas: any[]) => {
   if (!turnoOriginal) return null;
