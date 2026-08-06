@@ -536,7 +536,7 @@ useEffect(() => {
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-{/* ⌚ SOLO SE MUESTRA SI EL PACIENTE TIENE UN RELOJ VINCULADO (IMEI) */}
+            {/* ⌚ SOLO SE MUESTRA SI EL PACIENTE TIENE UN RELOJ VINCULADO (IMEI) */}
             {Boolean(paciente?.reloj_imei) && (
               <>
                 {/* VITALS CON TELEMETRÍA EN VIVO */}
