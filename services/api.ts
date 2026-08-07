@@ -219,7 +219,46 @@ export const desactivarMedicamento = async (medicamentoId: string) => {
 
   return JSON.parse(textResponse);
 };
+// 🔗 Vincular paciente a un grupo familiar / hogar
+export const vincularPacientesHogar = async (pacientePrincipalId: string, pacienteAVincularId: string) => {
+  try {
+    const token = await getToken();
+    const res = await fetch(`${BASE_URL}/pacientes/vincular-hogar`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        paciente_principal_id: pacientePrincipalId,
+        paciente_a_vincular_id: pacienteAVincularId,
+      }),
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('❌ Error al vincular pacientes:', err);
+    return { status: 'error' };
+  }
+};
 
+// 🔓 Desvincular paciente del grupo familiar
+export const desvincularPacienteHogar = async (pacienteId: string) => {
+  try {
+    const token = await getToken();
+    const res = await fetch(`${BASE_URL}/pacientes/desvincular-hogar`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ paciente_id: pacienteId }),
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('❌ Error al desvincular paciente:', err);
+    return { status: 'error' };
+  }
+};
 export const getTareasRecurrentes = async (pacienteId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/tareas-recurrentes/${pacienteId}`);
   return res.json();

@@ -5,13 +5,14 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   DeviceEventEmitter,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import * as XLSX from 'xlsx';
 
@@ -136,10 +137,12 @@ export default function MedicamentosScreen() {
   const [invCaducidad, setInvCaducidad] = useState('');
   const [invNotas, setInvNotas] = useState('');
   const [esCuidador, setEsCuidador] = useState<boolean>(false);
+  const [invDosis, setInvDosis] = useState<string>('');
+  const [showDatePickerInv, setShowDatePickerInv] = useState<boolean>(false);
   // --- Control de Eliminación e Importación ---
   const [confirmDelete, setConfirmDelete] = useState<{ tipo: 'med' | 'rutina'; id: string; nombre: string } | null>(null);
   const [importando, setImportando] = useState(false);
-
+  const [invEsCompartido, setInvEsCompartido] = useState<boolean>(false);
   useEffect(() => {
     const cargar = async () => {
       try {
@@ -286,6 +289,7 @@ export default function MedicamentosScreen() {
   const resetFormularioInventario = () => {
     setInvEditando(null);
     setInvNombre('');
+    setInvDosis('');
     setInvTipo('medicamento');
     setInvCantidad('0');
     setInvUnidad('piezas');
@@ -306,6 +310,7 @@ export default function MedicamentosScreen() {
       cantidad_minima: Number(invMinimo) || 0,
       fecha_caducidad: invCaducidad.trim() || null,
       notas: invNotas.trim() || null,
+      es_compartido: invEsCompartido,
     };
 
     try {
@@ -521,6 +526,7 @@ export default function MedicamentosScreen() {
     setInvMinimo(String(item.cantidad_minima ?? 0));
     setInvCaducidad(item.fecha_caducidad || '');
     setInvNotas(item.notas || '');
+    setInvEsCompartido(!!item.es_compartido);
     setModalInvOpen(true);
   };
   const eliminarMedicamento = async (id: string) => {
@@ -776,91 +782,117 @@ export default function MedicamentosScreen() {
           )
         )}
 
-       {tab === 'inventario' && (
-          inventario.length === 0 ? (
-            <View style={{ alignItems: 'center', marginTop: 40 }}>
-              <Text style={{ fontSize: 40 }}>📦</Text>
-              <Text style={{ color: COLORS.textLight, marginTop: 8 }}>
-                {esCuidador ? 'Sin medicamentos activos registrados' : 'Sin ítems en despensa'}
-              </Text>
-            </View>
-          ) : (
-            inventario.map((item) => (
-              <View key={item.id} style={styles.card}>
-                
-                {/* 📄 Datos del Ítem (flex: 1 con numberOfLines para evitar desbordes) */}
-                <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text style={{ fontWeight: '800', color: COLORS.textDark, fontSize: 15 }} numberOfLines={1}>
-                    {item.nombre}
-                  </Text>
-                  <Text style={{ color: COLORS.textLight, fontSize: 12, marginTop: 2 }}>
-                    Stock: <Text style={{ fontWeight: '800', color: COLORS.cacao }}>{item.cantidad} {item.unidad}</Text>
-                    {item.dias_cobertura != null ? ` · ~${item.dias_cobertura}d` : ''}
-                  </Text>
+      {tab === 'inventario' && (
+  inventario.length === 0 ? (
+    <View style={{ alignItems: 'center', marginTop: 40 }}>
+      <Text style={{ fontSize: 40 }}>📦</Text>
+      <Text style={{ color: COLORS.textLight, marginTop: 8 }}>
+        {esCuidador ? 'Sin medicamentos activos registrados' : 'Sin ítems en despensa'}
+      </Text>
+    </View>
+  ) : (
+    inventario.map((item) => (
+      <View key={item.id} style={styles.card}>
+        
+        {/* 📄 Datos del Ítem */}
+        <View style={{ flex: 1, marginRight: 8 }}>
+          
+          {/* Nombre + Dosis/Presentación */}
+          <Text style={{ fontWeight: '800', color: COLORS.textDark, fontSize: 15 }} numberOfLines={1}>
+            {item.nombre} {item.dosis ? `• ${item.dosis}` : ''}
+          </Text>
 
-                  {item.bajo_stock && (
-                    <Text style={{ color: COLORS.red, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
-                      ⚠️ Stock bajo
-                    </Text>
-                  )}
-                  {item.estado_caducidad === 'vencido' && (
-                    <Text style={{ color: COLORS.red, fontSize: 11, marginTop: 2 }}>Vencido</Text>
-                  )}
-                </View>
+          {/* Stock y Días de Cobertura */}
+          <Text style={{ color: COLORS.textLight, fontSize: 12, marginTop: 2 }}>
+            Stock: <Text style={{ fontWeight: '800', color: COLORS.cacao }}>{item.cantidad} {item.unidad}</Text>
+            {item.dias_cobertura != null ? ` · ~${item.dias_cobertura}d` : ''}
+          </Text>
 
-                {/* 🛠️ Acciones de Control (Alineadas horizontalmente) */}
-                {!esCuidador && (
-                  <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                    <TouchableOpacity
-                      onPress={async () => {
-                        await consumirItemInventario(item.id, 1);
-                        const inv = await getInventario(paciente.id);
-                        if (inv.items) setInventario(inv.items);
-                      }}
-                      style={{
-                        paddingHorizontal: 10,
-                        paddingVertical: 6,
-                        backgroundColor: COLORS.cream,
-                        borderRadius: 6,
-                        borderWidth: 1,
-                        borderColor: COLORS.border,
-                      }}
-                    >
-                      <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>−1</Text>
-                    </TouchableOpacity>
+          {/* 📅 Caducidad */}
+          {item.fecha_caducidad && (
+            <Text style={{ color: COLORS.textLight, fontSize: 11, marginTop: 2 }}>
+              🗓️ Caduca: <Text style={{ fontWeight: '600', color: COLORS.textDark }}>{item.fecha_caducidad}</Text>
+            </Text>
+          )}
 
-                    <TouchableOpacity
-                      onPress={async () => {
-                        await actualizarItemInventario(item.id, { cantidad: Number(item.cantidad) + 1 });
-                        const inv = await getInventario(paciente.id);
-                        if (inv.items) setInventario(inv.items);
-                      }}
-                      style={{
-                        paddingHorizontal: 10,
-                        paddingVertical: 6,
-                        backgroundColor: COLORS.cream,
-                        borderRadius: 6,
-                        borderWidth: 1,
-                        borderColor: COLORS.border,
-                      }}
-                    >
-                      <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>+1</Text>
-                    </TouchableOpacity>
+          {/* ⚠️ Badges de Alerta */}
+          {item.bajo_stock && (
+            <Text style={{ color: COLORS.red, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
+              ⚠️ Stock bajo
+            </Text>
+          )}
+          {item.estado_caducidad === 'vencido' && (
+            <Text style={{ color: COLORS.red, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
+              ⛔ Producto vencido
+            </Text>
+          )}
+          {item.estado_caducidad === 'por_vencer' && (
+            <Text style={{ color: '#E65100', fontSize: 11, fontWeight: '700', marginTop: 2 }}>
+              ⏳ Por vencer pronto
+            </Text>
+          )}
 
-                    {/* ✏️ Botón Editar Ítem */}
-                    <TouchableOpacity
-                      onPress={() => abrirEdicionInventario(item)}
-                      style={{ padding: 6, marginLeft: 2 }}
-                    >
-                      <Text style={{ color: COLORS.gold, fontSize: 16 }}>✏️</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
+          {/* 🏠 Indicador de Insumo Compartido */}
+          {item.es_compartido && (
+            <Text style={{ color: COLORS.gold, fontSize: 10, fontWeight: '700', marginTop: 2 }}>
+              🏠 Compartido en casa
+            </Text>
+          )}
+        </View>
 
-              </View>
-            ))
-          )
+        {/* 🛠️ Acciones de Control (Solo Familiar / Admin) */}
+        {!esCuidador && (
+          <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+            <TouchableOpacity
+              onPress={async () => {
+                await consumirItemInventario(item.id, 1);
+                const inv = await getInventario(paciente.id);
+                if (inv.items) setInventario(inv.items);
+              }}
+              style={{
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                backgroundColor: COLORS.cream,
+                borderRadius: 6,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+              }}
+            >
+              <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>−1</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={async () => {
+                await actualizarItemInventario(item.id, { cantidad: Number(item.cantidad) + 1 });
+                const inv = await getInventario(paciente.id);
+                if (inv.items) setInventario(inv.items);
+              }}
+              style={{
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                backgroundColor: COLORS.cream,
+                borderRadius: 6,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+              }}
+            >
+              <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>+1</Text>
+            </TouchableOpacity>
+
+            {/* ✏️ Botón Editar Ítem */}
+            <TouchableOpacity
+              onPress={() => abrirEdicionInventario(item)}
+              style={{ padding: 6, marginLeft: 2 }}
+            >
+              <Text style={{ color: COLORS.gold, fontSize: 16 }}>✏️</Text>
+            </TouchableOpacity>
+          </View>
         )}
+
+      </View>
+    ))
+  )
+)}
         <View style={{ height: 40 }} />
       </ScrollView>
 
@@ -1329,109 +1361,186 @@ export default function MedicamentosScreen() {
         </View>
       )}
 
-      {/* MODAL INVENTARIO */}
-      {modalInvOpen && (
-        <View style={styles.modalOverlay}>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>
-                {invEditando ? 'Editar artículo' : 'Nuevo ítem en inventario'}
+     {/* 📦 MODAL INVENTARIO */}
+{modalInvOpen && (
+  <View style={styles.modalOverlay}>
+    <ScrollView 
+      contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: 20 }}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={[styles.modalCard, { backgroundColor: COLORS.white || '#FFFFFF', borderRadius: 16, padding: 20 }]}>
+        <Text style={styles.modalTitle}>
+          {invEditando ? '✏️ Editar artículo' : '📦 Nuevo ítem en inventario'}
+        </Text>
+
+        {/* 1. Nombre del Ítem */}
+        <Text style={styles.label}>Nombre del ítem *</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ej. Paracetamol, Pañales Adulto, Gasas"
+          placeholderTextColor={COLORS.textLight}
+          value={invNombre}
+          onChangeText={setInvNombre}
+          autoFocus
+        />
+
+        {/* 2. Dosis / Presentación (NUEVO E IMPRESCINDIBLE) */}
+        <Text style={styles.label}>Dosis / Presentación</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ej. 500 mg, 10 mg / 5 ml, Talla M"
+          placeholderTextColor={COLORS.textLight}
+          value={invDosis}
+          onChangeText={setInvDosis}
+        />
+
+        {/* 3. Categoría */}
+        <Text style={styles.label}>Categoría</Text>
+        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+          {[
+            { id: 'medicamento', label: '💊 Medicamento' },
+            { id: 'insumo', label: '🩹 Insumo' },
+            { id: 'otro', label: '📦 Otro' },
+          ].map(item => (
+            <TouchableOpacity
+              key={item.id}
+              style={[styles.chipBtn, invTipo === item.id && styles.chipBtnActive]}
+              onPress={() => setInvTipo(item.id as any)}
+            >
+              <Text style={[styles.chipBtnText, invTipo === item.id && styles.chipBtnTextActive]}>
+                {item.label}
               </Text>
-
-              <Text style={styles.label}>Nombre del ítem *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ej. Tiras reactivas, Pañales, Gasas"
-                placeholderTextColor={COLORS.textLight}
-                value={invNombre}
-                onChangeText={setInvNombre}
-                autoFocus
-              />
-
-              <Text style={styles.label}>Categoría</Text>
-              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
-                {[
-                  { id: 'medicamento', label: '💊 Medicamento' },
-                  { id: 'insumo', label: '🩹 Insumo' },
-                  { id: 'otro', label: '📦 Otro' },
-                ].map(item => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[styles.chipBtn, invTipo === item.id && styles.chipBtnActive]}
-                    onPress={() => setInvTipo(item.id as any)}
-                  >
-                    <Text style={[styles.chipBtnText, invTipo === item.id && styles.chipBtnTextActive]}>
-                      {item.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.label}>Cantidad Actual</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="0"
-                    placeholderTextColor={COLORS.textLight}
-                    keyboardType="numeric"
-                    value={invCantidad}
-                    onChangeText={setInvCantidad}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.label}>Unidad</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="piezas, cajas, ml"
-                    placeholderTextColor={COLORS.textLight}
-                    value={invUnidad}
-                    onChangeText={setInvUnidad}
-                  />
-                </View>
-              </View>
-
-              <Text style={styles.label}>Mínimo en Stock (Alerta)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ej. 5 (Avisa cuando quede menos)"
-                placeholderTextColor={COLORS.textLight}
-                keyboardType="numeric"
-                value={invMinimo}
-                onChangeText={setInvMinimo}
-              />
-
-              <Text style={styles.label}>Notas adicionales</Text>
-              <TextInput
-                style={[styles.input, { minHeight: 60, textAlignVertical: 'top' }]}
-                placeholder="Ubicación o instrucciones de compra..."
-                placeholderTextColor={COLORS.textLight}
-                multiline
-                value={invNotas}
-                onChangeText={setInvNotas}
-              />
-
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, { backgroundColor: COLORS.cream }]}
-                  onPress={() => setModalInvOpen(false)}
-                >
-                  <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]}
-                  onPress={guardarInventario}
-                  disabled={guardandoInv}
-                >
-                  <Text style={styles.modalBtnText}>
-                    {guardandoInv ? 'Guardando...' : 'Guardar en Inventario'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </ScrollView>
+            </TouchableOpacity>
+          ))}
         </View>
-      )}
+
+        {/* 4. Cantidad y Unidad */}
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.label}>Cantidad Actual</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0"
+              placeholderTextColor={COLORS.textLight}
+              keyboardType="numeric"
+              value={invCantidad}
+              onChangeText={setInvCantidad}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.label}>Unidad</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="piezas, tabletas, ml"
+              placeholderTextColor={COLORS.textLight}
+              value={invUnidad}
+              onChangeText={setInvUnidad}
+            />
+          </View>
+        </View>
+
+        {/* 5. Mínimo en Stock y Fecha de Caducidad */}
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.label}>Mínimo Stock</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ej. 5"
+              placeholderTextColor={COLORS.textLight}
+              keyboardType="numeric"
+              value={invMinimo}
+              onChangeText={setInvMinimo}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+  <Text style={styles.label}>Fecha Caducidad</Text>
+  <TouchableOpacity
+    style={[styles.input, { justifyContent: 'center' }]}
+    onPress={() => setShowDatePickerInv(true)}
+  >
+    <Text style={{ color: invCaducidad ? COLORS.textDark : COLORS.textLight }}>
+      {invCaducidad ? `🗓️ ${invCaducidad}` : 'Seleccionar fecha...'}
+    </Text>
+  </TouchableOpacity>
+
+  {/* Componente DatePicker (Si usas @react-native-community/datetimepicker) */}
+  {showDatePickerInv && (
+    <DateTimePicker
+      value={invCaducidad ? new Date(invCaducidad) : new Date()}
+      mode="date"
+      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+      onChange={(event, selectedDate) => {
+        setShowDatePickerInv(false);
+        if (selectedDate) {
+          const formattedDate = selectedDate.toISOString().split('T')[0];
+          setInvCaducidad(formattedDate);
+        }
+      }}
+    />
+  )}
+</View>
+        </View>
+
+        {/* 6. Casilla de Insumo Compartido (NUEVO) */}
+        {invTipo !== 'medicamento' && (
+          <TouchableOpacity
+            style={{ 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              backgroundColor: invEsCompartido ? '#E8F5E9' : '#F5F5F5', 
+              padding: 10, 
+              borderRadius: 8, 
+              marginVertical: 10,
+              borderWidth: 1,
+              borderColor: invEsCompartido ? COLORS.gold : '#E0E0E0'
+            }}
+            onPress={() => setInvEsCompartido(!invEsCompartido)}
+          >
+            <Text style={{ fontSize: 18, marginRight: 8 }}>
+              {invEsCompartido ? '☑️' : '⬛'}
+            </Text>
+            <Text style={{ color: COLORS.textDark, fontWeight: '600', fontSize: 13 }}>
+              Insumo compartido del hogar 🏠
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* 7. Notas adicionales */}
+        <Text style={styles.label}>Notas adicionales</Text>
+        <TextInput
+          style={[styles.input, { minHeight: 50, textAlignVertical: 'top' }]}
+          placeholder="Ubicación en repisa o instrucciones de compra..."
+          placeholderTextColor={COLORS.textLight}
+          multiline
+          value={invNotas}
+          onChangeText={setInvNotas}
+        />
+
+        {/* Botones de Acción */}
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
+          <TouchableOpacity
+            style={[styles.modalBtn, { backgroundColor: COLORS.cream || '#E0E0E0' }]}
+            onPress={() => {
+              setModalInvOpen(false);
+              resetFormularioInventario();
+            }}
+          >
+            <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]}
+            onPress={guardarInventario}
+            disabled={guardandoInv}
+          >
+            <Text style={styles.modalBtnText}>
+              {guardandoInv ? 'Guardando...' : 'Guardar en Inventario'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScrollView>
+  </View>
+)}
 
       {/* MODAL CONFIRMACIÓN ELIMINAR */}
       {confirmDelete && (
