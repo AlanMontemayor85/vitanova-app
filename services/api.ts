@@ -352,10 +352,12 @@ export const crearItemInventario = async (
   data: {
     tipo?: 'medicamento' | 'insumo' | 'otro';
     nombre: string;
+    dosis?: string | null;           
     cantidad?: number;
     unidad?: string;
     fecha_caducidad?: string | null;
     cantidad_minima?: number;
+    es_compartido?: boolean;         
     notas?: string | null;
     medicamento_id?: string | null;
   }
@@ -369,7 +371,6 @@ export const crearItemInventario = async (
   );
   return res.json();
 };
-
 export const actualizarItemInventario = async (
   itemId: string,
   data: Record<string, any>

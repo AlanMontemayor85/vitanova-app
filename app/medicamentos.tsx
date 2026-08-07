@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   DeviceEventEmitter,
   Platform,
   ScrollView,
@@ -299,44 +300,70 @@ export default function MedicamentosScreen() {
   };
 
   const guardarInventario = async () => {
-    if (!paciente?.id || !invNombre.trim()) return;
-    setGuardandoInv(true);
+  // 1. Obtener ID del paciente de forma segura
+  const idPacienteActual = paciente?.id;
 
+  if (!idPacienteActual) {
+    Alert.alert('Error', 'No se detectó un paciente seleccionado.');
+    return;
+  }
+
+  // 2. Validación básica
+  if (!invNombre.trim()) {
+    Alert.alert('Campo requerido', 'Por favor ingresa el nombre del ítem.');
+    return;
+  }
+
+  setGuardandoInv(true);
+
+  try {
+    // 3. Payload listo para el backend
     const payload = {
-      tipo: invTipo,
+      paciente_id: idPacienteActual,
       nombre: invNombre.trim(),
+      dosis: invDosis.trim() || null,
+      tipo: invTipo,
       cantidad: Number(invCantidad) || 0,
       unidad: invUnidad.trim() || 'piezas',
       cantidad_minima: Number(invMinimo) || 0,
       fecha_caducidad: invCaducidad.trim() || null,
-      notas: invNotas.trim() || null,
       es_compartido: invEsCompartido,
+      notas: invNotas.trim() || null,
     };
 
-    try {
-      if (invEditando?.id) {
-        // ✏️ MODO EDICIÓN
-        await actualizarItemInventario(invEditando.id, payload);
-      } else {
-        // ✨ MODO CREACIÓN
-        await crearItemInventario(paciente.id, payload);
-      }
+    console.log("📦 [GUARDANDO INVENTARIO] Payload:", payload);
 
-      // Refrescamos la lista local tirando de la API
-      const inv = await getInventario(paciente.id);
-      if (inv?.items) setInventario(inv.items);
-
-      // Cierre de modal y reset de estados
-      setModalInvOpen(false);
-      resetFormularioInventario();
-    } catch (e) {
-      console.error('❌ Error al guardar inventario:', e);
-      alert('Ocurrió un error al guardar en el inventario. Inténtalo de nuevo.');
-    } finally {
-      setGuardandoInv(false);
+    let res;
+    if (invEditando) {
+      res = await actualizarItemInventario(invEditando.id, payload);
+    } else {
+      res = await crearItemInventario(idPacienteActual, payload);
     }
-  };
 
+    console.log("✅ [INVENTARIO GUARDADO] Respuesta:", res);
+
+    // 4. Refrescar lista de inventario
+    const invFrescor = await getInventario(idPacienteActual);
+    const listaActualizada = invFrescor?.items || (Array.isArray(invFrescor) ? invFrescor : []);
+    setInventario(listaActualizada);
+
+    // 5. Cerrar y resetear
+    setModalInvOpen(false);
+    resetFormularioInventario();
+
+    Alert.alert(
+      '✅ Éxito', 
+      invEditando ? 'Artículo actualizado correctamente.' : 'Artículo agregado al inventario.'
+    );
+
+  } catch (error: any) {
+    console.error("❌ Error al guardar inventario:", error);
+    Alert.alert('Error', `No se pudo guardar el ítem: ${error.message || 'Error de conexión'}`);
+  } finally {
+    setGuardandoInv(false);
+  }
+  };
+  
   const importarDesdeExcel = async () => {
     if (!paciente?.id) return;
 
