@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   DeviceEventEmitter,
+  Modal,
   Platform,
   ScrollView,
   StatusBar,
@@ -30,7 +31,7 @@ import {
   getInventario,
   getMedicamentos,
   getPacientes,
-  getTareasRecurrentes, sugerirDosisHistorica
+  getTareasRecurrentes, sugerirDosisHistorica, vincularPacientesHogar
 } from '../services/api';
 
 const COLORS = {
@@ -145,7 +146,10 @@ export default function MedicamentosScreen() {
   const [importando, setImportando] = useState(false);
   const [invEsCompartido, setInvEsCompartido] = useState<boolean>(false);
   const [dosisSugeridas, setDosisSugeridas] = useState<string[]>([]);
-
+  const [modalVincularOpen, setModalVincularOpen] = useState(false);
+  const [procesandoVinculo, setProcesandoVinculo] = useState(false);
+  const [listaPacientes, setListaPacientes] = useState<any[]>([]);
+  
   useEffect(() => {
     const cargar = async () => {
       try {
@@ -155,7 +159,7 @@ export default function MedicamentosScreen() {
           setLoading(false);
           return;
         }
-
+        setListaPacientes(data.patients);
         const p = pacienteIdParam
           ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
           : data.patients[0];
@@ -198,24 +202,66 @@ export default function MedicamentosScreen() {
       prev.includes(diaId) ? prev.filter(d => d !== diaId) : [...prev, diaId].sort()
     );
   };
-  const handlePressAgregar = () => {
+  const handleVincularPacientes = async (pacienteDestinoId: string) => {
+  if (!paciente?.id || !pacienteDestinoId) return;
+
+  setProcesandoVinculo(true);
+  try {
+    const res = await vincularPacientesHogar(paciente.id, pacienteDestinoId);
+
+    if (res.status === 'ok') {
+      Alert.alert(
+        '🏠 ¡Hogar Vinculado!',
+        'Los insumos compartidos (como pañales o gasas) ahora estarán sincronizados entre ambos pacientes.'
+      );
+      
+      // Refrescamos el inventario actual para reflejar los insumos del nuevo hogar
+      const invData = await getInventario(paciente.id);
+      if (invData?.items) setInventario(invData.items);
+      
+      setModalVincularOpen(false);
+    } else {
+      Alert.alert('Error', res.detail || 'No se pudo vincular el hogar.');
+    }
+  } catch (error) {
+    console.error('Error vinculando pacientes:', error);
+    Alert.alert('Error', 'Hubo un fallo de conexión al vincular.');
+  } finally {
+    setProcesandoVinculo(false);
+  }
+ };
+ const handlePressAgregar = () => {
   if (tab === 'medicamentos') {
-    // 💊 Reemplaza 'setModalMedOpen' por el estado real de tu modal de medicamentos
-    // Ejemplos comunes: setModalVisible(true), setModalMedVisible(true), etc.
+    resetFormularioMedicamento(); // 👈 Llama la limpieza primero
     setModalOpen(true); 
 
   } else if (tab === 'rutinas') {
-    // 📋 Reemplaza 'setModalRutinaOpen' por el estado real de tu modal de rutinas
-    // Ejemplos comunes: setModalTareaOpen(true), setModalRutinaVisible(true), etc.
+    setRutinaEditando?.(null);
+    setRutinaDesc?.('');
+    setRutinaHora?.('09:00');
+    resetControlesTiempo();
     setModalRutinaOpen(true); 
 
   } else if (tab === 'inventario') {
-    // 📦 Este sí está correcto porque ya lo teníamos declarado
     resetFormularioInventario();
     setDosisSugeridas([]);
     setModalInvOpen(true);
   }
 };
+
+const resetFormularioMedicamento = () => {
+  setMedicamentoEditando(null); 
+  setNombre('');                
+  setDosis('');
+  setFrecuencia('cada 12 horas');
+  setVia('oral');
+  setIndicaciones('');
+  setHorariosArray(['08:00']);
+  setCantidadInicial('0');
+  setSugerencias([]);
+  resetControlesTiempo();
+};
+
   const guardarMedicamento = async () => {
     if (!nombre.trim() || !dosis.trim() || !paciente?.id) return;
     setGuardando(true);
@@ -887,7 +933,7 @@ export default function MedicamentosScreen() {
             </Text>
           )}
         </View>
-
+           
         {/* 🛠️ Acciones de Control (Solo Familiar / Admin) */}
         {!esCuidador && (
           <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
@@ -943,7 +989,7 @@ export default function MedicamentosScreen() {
 )}
         <View style={{ height: 40 }} />
       </ScrollView>
-
+       
       {/* MODAL MEDICAMENTO */}
       {modalOpen && (
         <View style={styles.modalOverlay}>
@@ -1408,7 +1454,7 @@ export default function MedicamentosScreen() {
           </ScrollView>
         </View>
       )}
-
+      
      {/* 📦 MODAL INVENTARIO */}
 {modalInvOpen && (
   <View style={styles.modalOverlay}>
@@ -1589,7 +1635,56 @@ export default function MedicamentosScreen() {
     </ScrollView>
   </View>
 )}
+{/* 🏠 MODAL DE VINCULACIÓN DE HOGAR */}
+<Modal visible={modalVincularOpen} transparent animationType="slide">
+  <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
+    <View style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20 }}>
+      
+      <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 8 }}>
+        🏠 Compartir Despensa del Hogar
+      </Text>
+      
+      <Text style={{ fontSize: 13, color: '#666', marginBottom: 16 }}>
+        Selecciona con qué paciente deseas vincular a <Text style={{ fontWeight: 'bold' }}>{paciente?.nombre_completo}</Text> para compartir insumos comunes.
+      </Text>
 
+      {/* Lista de otros pacientes (excluyendo al paciente actual) */}
+      {listaPacientes
+        .filter((p: any) => p.id !== paciente?.id)
+        .map((p: any) => (
+          <TouchableOpacity
+            key={p.id}
+            disabled={procesandoVinculo}
+            onPress={() => handleVincularPacientes(p.id)}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#F5F5F5',
+              padding: 14,
+              borderRadius: 10,
+              marginBottom: 10,
+            }}
+          >
+            <Text style={{ fontSize: 20, marginRight: 10 }}>👤</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, fontWeight: '600', color: '#333' }}>{p.nombre_completo}</Text>
+              <Text style={{ fontSize: 12, color: '#888' }}>Tocar para vincular hogar</Text>
+            </View>
+            {procesandoVinculo && <ActivityIndicator color="#007AFF" />}
+          </TouchableOpacity>
+        ))}
+
+      {/* Botón Cancelar */}
+      <TouchableOpacity
+        onPress={() => setModalVincularOpen(false)}
+        style={{ marginTop: 10, padding: 12, alignItems: 'center' }}
+      >
+        <Text style={{ color: '#888', fontWeight: 'bold' }}>Cancelar</Text>
+      </TouchableOpacity>
+
+    </View>
+  </View>
+</Modal>
       {/* MODAL CONFIRMACIÓN ELIMINAR */}
       {confirmDelete && (
         <View style={styles.modalOverlay}>
