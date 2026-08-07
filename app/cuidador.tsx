@@ -2259,89 +2259,96 @@ if (vista === 'espontaneo' && pacienteActivo) {
               ))}
             </View>
 
-            {/* 📦 INSUMOS Y CONSUMO DE INVENTARIO EN EL TURNO */}
-            <Text style={styles.sectionTitle}>📦 Insumos consumidos en este turno</Text>
-            
-            {inventarioHogar.length === 0 ? (
-              <View style={{ backgroundColor: COLORS.white, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, marginBottom: 16 }}>
-                <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
-                  Sin insumos registrados en el inventario del hogar.
-                </Text>
-              </View>
-            ) : (
-              <View style={{ gap: 8, marginBottom: 16 }}>
-                {inventarioHogar.map((item) => {
-                  const usado = consumosTurno[item.id] || 0;
+            {/* 📦 INSUMOS CONSUMIDOS EN ESTE TURNO */}
+        <Text style={{ fontSize: 13, fontWeight: '800', color: COLORS.textDark, marginTop: 16, marginBottom: 8 }}>
+          📦 Insumos consumidos en este turno
+        </Text>
 
-                  return (
-                    <View
-                      key={item.id}
+        {!inventarioHogar || inventarioHogar.length === 0 ? (
+          <View style={{
+            backgroundColor: COLORS.white,
+            borderRadius: 12,
+            padding: 16,
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            marginBottom: 16
+          }}>
+            <Text style={{ color: COLORS.textLight, fontSize: 12 }}>
+              Sin insumos registrados en el inventario del hogar.
+            </Text>
+          </View>
+        ) : (
+          <View style={{ gap: 8, marginBottom: 16 }}>
+            {inventarioHogar.map((item: any) => {
+              const usandose = consumosTurno[item.id] || 0;
+
+              return (
+                <View 
+                  key={item.id} 
+                  style={{
+                    backgroundColor: COLORS.white,
+                    borderRadius: 12,
+                    padding: 12,
+                    borderWidth: 1,
+                    borderColor: COLORS.border,
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <Text style={{ fontWeight: '800', color: COLORS.textDark, fontSize: 13 }}>
+                      {item.nombre}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 2 }}>
+                      Disponible: {item.cantidad} {item.unidad}
+                    </Text>
+                  </View>
+
+                  {/* Botones de consumo (-1 / +1) */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <TouchableOpacity
+                      onPress={() => cambiarConsumoItem(item.id, -1)}
                       style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        backgroundColor: COLORS.white,
-                        borderRadius: 12,
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        backgroundColor: COLORS.cream,
+                        borderRadius: 8,
                         borderWidth: 1,
-                        borderColor: usado > 0 ? COLORS.gold : COLORS.border,
-                        padding: 12,
+                        borderColor: COLORS.border,
                       }}
                     >
-                      {/* Información del Ítem */}
-                      <View style={{ flex: 1, marginRight: 8 }}>
-                        <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.textDark }}>
-                          {item.nombre}
-                        </Text>
-                        <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 2 }}>
-                          {`Disponible: ${item.cantidad} ${item.unidad || 'piezas'}`}
-                        </Text>
-                      </View>
+                      <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 14 }}>−1</Text>
+                    </TouchableOpacity>
 
-                      {/* Botones de Control − / + */}
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <TouchableOpacity
-                          onPress={() => cambiarConsumoItem(item.id, -1)}
-                          disabled={usado === 0}
-                          style={{
-                            width: 34,
-                            height: 34,
-                            borderRadius: 8,
-                            backgroundColor: usado > 0 ? COLORS.goldPale : COLORS.cream,
-                            borderWidth: 1,
-                            borderColor: usado > 0 ? COLORS.gold : COLORS.border,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            opacity: usado === 0 ? 0.4 : 1,
-                          }}
-                        >
-                          <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.cacao }}>−</Text>
-                        </TouchableOpacity>
+                    <Text style={{ fontWeight: '800', fontSize: 14, minWidth: 20, textAlign: 'center', color: COLORS.cacao }}>
+                      {usandose}
+                    </Text>
 
-                        <View style={{ minWidth: 28, alignItems: 'center' }}>
-                          <Text style={{ fontSize: 14, fontWeight: '800', color: usado > 0 ? COLORS.gold : COLORS.textDark }}>
-                            {usado > 0 ? `−${usado}` : '0'}
-                          </Text>
-                        </View>
-
-                        <TouchableOpacity
-                          onPress={() => cambiarConsumoItem(item.id, 1)}
-                          style={{
-                            width: 34,
-                            height: 34,
-                            borderRadius: 8,
-                            backgroundColor: COLORS.gold,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.white }}>+</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (usandose < item.cantidad) {
+                          cambiarConsumoItem(item.id, 1);
+                        }
+                      }}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        backgroundColor: COLORS.cream,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: COLORS.border,
+                      }}
+                    >
+                      <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 14 }}>+1</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
 
             {/* OBSERVACIONES */}
             <Text style={styles.sectionTitle}>Observaciones del turno</Text>
