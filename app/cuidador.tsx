@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import {
   agregarTareaManual, clearToken, completarActividad, completarMedicamento,
+  consumirItemInventario,
   detectarCambiosTurno,
   getAlertaPeso,
   getNotasTurno,
@@ -174,6 +175,18 @@ export default function CuidadorScreen({
   const [nuevaTareaHora, setNuevaTareaHora] = useState(''); // Ej. "11:30" o "" para incidental pura
   const vistaRef = useRef(vista);
   const yaEntroConsolaRef = useRef(false);
+  // 📦 2. Estados para el inventario en el cierre de turno
+  const [inventarioHogar, setInventarioHogar] = useState<any[]>([]);
+  const [consumosTurno, setConsumosTurno] = useState<Record<string, number>>({});
+
+  // 🎯 3. AQUÍ VA ESTA FUNCIÓN HELPER:
+  const cambiarConsumoItem = (itemId: string, delta: number) => {
+    setConsumosTurno((prev: Record<string, number>) => {
+      const actual = prev[itemId] || 0;
+      const nuevo = Math.max(0, actual + delta);
+      return { ...prev, [itemId]: nuevo };
+    });
+  };
   // Estado temporal para la sensibilidad de caídas recuperada del servidor
   const [sensibilidadCaidas, setSensibilidadCaidas] = useState('');
   const [notasExpandidas, setNotasExpandidas] = useState(false);
@@ -888,6 +901,19 @@ const guardarRegistroEspontaneo = async () => {
 
   const ejecutarCierre = async () => {
   try {
+    // 📦 1. PROCESAR CONSUMOS DE INVENTARIO DEL TURNO (Descontar en BD)
+    for (const [itemId, cantidadUsada] of Object.entries(consumosTurno)) {
+      if (cantidadUsada > 0) {
+        try {
+          // Usa el helper que llama a POST /inventario/{item_id}/consumir
+          await consumirItemInventario(itemId, cantidadUsada);
+        } catch (invErr) {
+          console.error(`❌ Error al consumir item ${itemId} en cierre:`, invErr);
+        }
+      }
+    }
+
+    // 2. CONSOLIDACIÓN DE NOTAS (Código existente)
     const notasRes = await fetch(`${BASE_URL}/notas?paciente_id=${pacienteActivo.id}`, {
       headers: { Authorization: `Bearer ${getToken()}` }
     });
@@ -924,6 +950,7 @@ const guardarRegistroEspontaneo = async () => {
       _diastolica = parseInt(partes[1], 10) || null;
     }
 
+    // 3. REGISTRO FINAL DE CIERRE EN BACKEND
     const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
@@ -941,7 +968,6 @@ const guardarRegistroEspontaneo = async () => {
         barthel_scores: barthelTocado ? barthelScores : null, 
         barthel_total: barthelTocado ? barthelTotal : null, 
         barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
-        // ← AGREGAR campos de confort:
         dolor_eva: dolorEva,
         estado_animo: estadoAnimo || null,
         hidratacion_vasos: hidratacion || null,
@@ -954,15 +980,18 @@ const guardarRegistroEspontaneo = async () => {
     if (data.status === 'ok') {
       const pData = await getPacientes('cierre');
       if (pData.patients) setPacientes(pData.patients);
-      // Reset campos de confort
+      
+      // Reset de campos de confort e inventario
       setDolorEva(0);
       setEstadoAnimo('');
       setHidratacion(0);
       setAlimentacion('');
       setObservaciones('');
+      setConsumosTurno({}); // 👈 Reseteamos el contador local de consumos
       resetEstados(); 
       setVista('lista');
-      Alert.alert('✅ Turno Cerrado', 'La bitácora del día se ha consolidado con éxito.');
+      
+      Alert.alert('✅ Turno Cerrado', 'La bitácora del día se ha consolidado y el inventario fue actualizado con éxito.');
       router.replace({
         pathname: '/' as any,
         params: { 
@@ -2205,6 +2234,90 @@ if (vista === 'espontaneo' && pacienteActivo) {
                 </TouchableOpacity>
               ))}
             </View>
+
+            {/* 📦 INSUMOS Y CONSUMO DE INVENTARIO EN EL TURNO */}
+            <Text style={styles.sectionTitle}>📦 Insumos consumidos en este turno</Text>
+            
+            {inventarioHogar.length === 0 ? (
+              <View style={{ backgroundColor: COLORS.white, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, marginBottom: 16 }}>
+                <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
+                  Sin insumos registrados en el inventario del hogar.
+                </Text>
+              </View>
+            ) : (
+              <View style={{ gap: 8, marginBottom: 16 }}>
+                {inventarioHogar.map((item) => {
+                  const usado = consumosTurno[item.id] || 0;
+
+                  return (
+                    <View
+                      key={item.id}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        backgroundColor: COLORS.white,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: usado > 0 ? COLORS.gold : COLORS.border,
+                        padding: 12,
+                      }}
+                    >
+                      {/* Información del Ítem */}
+                      <View style={{ flex: 1, marginRight: 8 }}>
+                        <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.textDark }}>
+                          {item.nombre}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 2 }}>
+                          {`Disponible: ${item.cantidad} ${item.unidad || 'piezas'}`}
+                        </Text>
+                      </View>
+
+                      {/* Botones de Control − / + */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <TouchableOpacity
+                          onPress={() => cambiarConsumoItem(item.id, -1)}
+                          disabled={usado === 0}
+                          style={{
+                            width: 34,
+                            height: 34,
+                            borderRadius: 8,
+                            backgroundColor: usado > 0 ? COLORS.goldPale : COLORS.cream,
+                            borderWidth: 1,
+                            borderColor: usado > 0 ? COLORS.gold : COLORS.border,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: usado === 0 ? 0.4 : 1,
+                          }}
+                        >
+                          <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.cacao }}>−</Text>
+                        </TouchableOpacity>
+
+                        <View style={{ minWidth: 28, alignItems: 'center' }}>
+                          <Text style={{ fontSize: 14, fontWeight: '800', color: usado > 0 ? COLORS.gold : COLORS.textDark }}>
+                            {usado > 0 ? `−${usado}` : '0'}
+                          </Text>
+                        </View>
+
+                        <TouchableOpacity
+                          onPress={() => cambiarConsumoItem(item.id, 1)}
+                          style={{
+                            width: 34,
+                            height: 34,
+                            borderRadius: 8,
+                            backgroundColor: COLORS.gold,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.white }}>+</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
 
             {/* OBSERVACIONES */}
             <Text style={styles.sectionTitle}>Observaciones del turno</Text>
