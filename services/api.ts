@@ -381,7 +381,12 @@ export const actualizarItemInventario = async (
   });
   return res.json();
 };
-
+export const sugerirDosisHistorica = async (pacienteId: string, nombre: string) => {
+  const res = await fetchWithAuth(
+    `${BASE_URL}/pacientes/${pacienteId}/sugerir-dosis?nombre=${encodeURIComponent(nombre)}`
+  );
+  return res.json();
+};
 export const consumirItemInventario = async (
   itemId: string,
   cantidad: number = 1
@@ -399,7 +404,30 @@ export const getEvaluaciones = async (pacienteId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/evaluaciones/hogar/${pacienteId}`);
   return res.json();
 };
+// 1. Consumir medicamento aplicando la regla FEFO (descuento inteligente por caducidad)
+export const consumirMedicamentoFEFO = async (
+  pacienteId: string,
+  nombreMedicamento: string,
+  cantidad: number = 1.0
+) => {
+  const res = await fetchWithAuth(
+    `${BASE_URL}/pacientes/${pacienteId}/consumir-medicamento?nombre_medicamento=${encodeURIComponent(
+      nombreMedicamento
+    )}&cantidad_a_descontar=${cantidad}`,
+    {
+      method: 'POST',
+    }
+  );
+  return res.json();
+};
 
+// 2. Buscar si existe stock previo en el botiquín antes de crear la receta
+export const buscarStockExistente = async (pacienteId: string, nombre: string) => {
+  const res = await fetchWithAuth(
+    `${BASE_URL}/pacientes/${pacienteId}/sugerir-dosis?nombre=${encodeURIComponent(nombre)}`
+  );
+  return res.json();
+};
 export const verificarEscalas = async (pacienteId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/escalas/verificar/${pacienteId}`);
   return res.json();

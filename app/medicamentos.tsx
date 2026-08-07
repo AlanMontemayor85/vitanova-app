@@ -30,7 +30,7 @@ import {
   getInventario,
   getMedicamentos,
   getPacientes,
-  getTareasRecurrentes,
+  getTareasRecurrentes, sugerirDosisHistorica
 } from '../services/api';
 
 const COLORS = {
@@ -144,6 +144,8 @@ export default function MedicamentosScreen() {
   const [confirmDelete, setConfirmDelete] = useState<{ tipo: 'med' | 'rutina'; id: string; nombre: string } | null>(null);
   const [importando, setImportando] = useState(false);
   const [invEsCompartido, setInvEsCompartido] = useState<boolean>(false);
+  const [dosisSugeridas, setDosisSugeridas] = useState<string[]>([]);
+
   useEffect(() => {
     const cargar = async () => {
       try {
@@ -196,7 +198,24 @@ export default function MedicamentosScreen() {
       prev.includes(diaId) ? prev.filter(d => d !== diaId) : [...prev, diaId].sort()
     );
   };
+  const handlePressAgregar = () => {
+  if (tab === 'medicamentos') {
+    // 💊 Reemplaza 'setModalMedOpen' por el estado real de tu modal de medicamentos
+    // Ejemplos comunes: setModalVisible(true), setModalMedVisible(true), etc.
+    setModalOpen(true); 
 
+  } else if (tab === 'rutinas') {
+    // 📋 Reemplaza 'setModalRutinaOpen' por el estado real de tu modal de rutinas
+    // Ejemplos comunes: setModalTareaOpen(true), setModalRutinaVisible(true), etc.
+    setModalRutinaOpen(true); 
+
+  } else if (tab === 'inventario') {
+    // 📦 Este sí está correcto porque ya lo teníamos declarado
+    resetFormularioInventario();
+    setDosisSugeridas([]);
+    setModalInvOpen(true);
+  }
+};
   const guardarMedicamento = async () => {
     if (!nombre.trim() || !dosis.trim() || !paciente?.id) return;
     setGuardando(true);
@@ -298,7 +317,36 @@ export default function MedicamentosScreen() {
     setInvCaducidad('');
     setInvNotas('');
   };
+  const manejarCambioNombre = async (texto: string) => {
+  setInvNombre(texto);
 
+  const idPacienteActual = paciente?.id;
+
+  if (texto.trim().length >= 3 && idPacienteActual) {
+    try {
+      // 🎯 Usamos el servicio importado de api.ts
+      const data = await sugerirDosisHistorica(idPacienteActual, texto);
+
+      if (data?.historico && data.historico.length > 0) {
+        setDosisSugeridas(data.historico);
+        
+        // Autocompleta la dosis solo si no se ha escrito nada
+        setInvDosis((dosisActual) => {
+          if (!dosisActual && data.dosis_sugerida) {
+            return data.dosis_sugerida;
+          }
+          return dosisActual;
+        });
+      } else {
+        setDosisSugeridas([]);
+      }
+    } catch (e) {
+      console.log("⚠️ Error al buscar sugerencia de dosis:", e);
+    }
+  } else {
+    setDosisSugeridas([]);
+  }
+};
   const guardarInventario = async () => {
   // 1. Obtener ID del paciente de forma segura
   const idPacienteActual = paciente?.id;
@@ -547,6 +595,7 @@ export default function MedicamentosScreen() {
   const abrirEdicionInventario = (item: any) => {
     setInvEditando(item);
     setInvNombre(item.nombre || '');
+    setInvDosis(item.dosis || '');
     setInvTipo(item.tipo || 'medicamento');
     setInvCantidad(String(item.cantidad ?? 0));
     setInvUnidad(item.unidad || 'piezas');
@@ -567,7 +616,7 @@ export default function MedicamentosScreen() {
       console.error(e);
     }
   };
-
+  
   const eliminarRutina = async (id: string) => {
     if (!paciente?.id) return;
     try {
@@ -610,7 +659,7 @@ export default function MedicamentosScreen() {
     );
   }
 
-  return (
+ return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
 
@@ -619,42 +668,14 @@ export default function MedicamentosScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
+
         <View style={{ flex: 1 }}>
           <Text style={styles.headerSub}>Cuidado del Paciente</Text>
           <Text style={styles.headerTitle}>{paciente?.nombre_completo ?? 'Paciente'}</Text>
         </View>
 
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={() => {
-            resetControlesTiempo();
-            if (tab === 'medicamentos') {
-              setMedicamentoEditando(null);
-              setNombre('');
-              setDosis('');
-              setHorariosArray(['08:00']);
-              setIndicaciones('');
-              setCantidadInicial('0');
-              setSugerencias([]);
-              setModalOpen(true);
-            } else if (tab === 'rutinas') {
-              setRutinaEditando(null);
-              setRutinaDesc('');
-              setRutinaHora('09:00');
-              setModalRutinaOpen(true);
-            } else if (tab === 'inventario') {
-              setInvEditando(null);
-              setInvNombre('');
-              setInvTipo('medicamento');
-              setInvCantidad('0');
-              setInvUnidad('piezas');
-              setInvMinimo('0');
-              setInvCaducidad('');
-              setInvNotas('');
-              setModalInvOpen(true);
-            }
-          }}
-        >
+        {/* Botón Agregar único con handlePressAgregar */}
+        <TouchableOpacity style={styles.addBtn} onPress={handlePressAgregar}>
           <Text style={styles.addBtnText}>+ Agregar</Text>
         </TouchableOpacity>
       </View>
