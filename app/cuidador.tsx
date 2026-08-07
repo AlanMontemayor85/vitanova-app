@@ -18,6 +18,7 @@ import {
   consumirItemInventario,
   detectarCambiosTurno,
   getAlertaPeso,
+  getInventario,
   getNotasTurno,
   getPacientes,
   getSignosRecientes,
@@ -347,7 +348,30 @@ useEffect(() => {
       return () => clearInterval(interval);
     }
   }, [vista, pacienteActivo?.id]);
+  // 📦 CARGA DE INVENTARIO DEL HOGAR AL ABRIR EL CIERRE DE TURNO
+  useEffect(() => {
+    const cargarInventarioHogar = async () => {
+      if (vista === 'cierre' && pacienteActivo?.id) {
+        try {
+          console.log("📦 [CIERRE TURNO] Solicitando inventario para:", pacienteActivo.id);
+          const res = await getInventario(pacienteActivo.id);
 
+          // 🎯 FIX CLAVE: Extraer .items del objeto devuelto por la API
+          const listaItems = res?.items || (Array.isArray(res) ? res : []);
+
+          // Filtramos solo insumos que tengan existencia mayor a 0
+          const conStock = listaItems.filter((item: any) => Number(item.cantidad) > 0);
+
+          console.log(`✅ [CIERRE TURNO] ${conStock.length} ítems de inventario cargados.`);
+          setInventarioHogar(conStock);
+        } catch (err) {
+          console.error("❌ Error cargando inventario en cierre:", err);
+        }
+      }
+    };
+
+    cargarInventarioHogar();
+  }, [vista, pacienteActivo?.id]);
   // ── EFECTO: REFRESCAR CONFIGURACIONES AL ENTRAR AL PACIENTE ──
   useEffect(() => {
     const refrescarDatosAlEntrar = async () => {
