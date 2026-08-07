@@ -184,8 +184,8 @@ export const getMedicamentos = async (pacienteId: string) => {
 };
 
 export const crearMedicamento = async (pacienteId: string, data: any) => {
-  // 🎯 FIX: Se propaga el objeto completo (data) para incluir los campos de tiempo y recurrencia
-  const res = await fetchWithAuth(`${BASE_URL}/medicamentos`, {
+  // 🎯 FIX: Se propaga el objeto completo (data) para incluir paciente_id y campos de tiempo
+  const response = await fetchWithAuth(`${BASE_URL}/medicamentos`, {
     method: 'POST',
     body: JSON.stringify({
       paciente_id: pacienteId,
@@ -193,12 +193,31 @@ export const crearMedicamento = async (pacienteId: string, data: any) => {
       activo: true,
     }),
   });
-  return res.json();
+
+  // 🛡️ Lectura defensiva para evitar crash de JSON.parse
+  const textResponse = await response.text();
+
+  if (!response.ok) {
+    console.error(`❌ [ERROR ${response.status} CREAR MEDICAMENTO]:`, textResponse);
+    throw new Error(`Error ${response.status}: ${textResponse}`);
+  }
+
+  return JSON.parse(textResponse);
 };
 
 export const desactivarMedicamento = async (medicamentoId: string) => {
-  const res = await fetchWithAuth(`${BASE_URL}/medicamentos/${medicamentoId}/desactivar`, { method: 'PATCH' });
-  return res.json();
+  const response = await fetchWithAuth(`${BASE_URL}/medicamentos/${medicamentoId}/desactivar`, { 
+    method: 'PATCH' 
+  });
+
+  const textResponse = await response.text();
+
+  if (!response.ok) {
+    console.error(`❌ [ERROR ${response.status} DESACTIVAR MEDICAMENTO]:`, textResponse);
+    throw new Error(`Error ${response.status}: ${textResponse}`);
+  }
+
+  return JSON.parse(textResponse);
 };
 
 export const getTareasRecurrentes = async (pacienteId: string) => {

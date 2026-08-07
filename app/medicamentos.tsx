@@ -87,6 +87,11 @@ export default function MedicamentosScreen() {
   const [frecuencia, setFrecuencia] = useState('cada 12 horas');
   const [via, setVia] = useState('oral');
   const [indicaciones, setIndicaciones] = useState('');
+  const [cantidadInicial, setCantidadInicial] = useState('0'); // 📦 Stock para Inventario
+  const [unidadMedida, setUnidadMedida] = useState('piezas');
+
+  // Autocompletado desde Inventario
+  const [sugerencias, setSugerencias] = useState<any[]>([]);
 
   // --- Temporalidad y Recurrencia ---
   const getHoyISO = () => {
@@ -130,21 +135,11 @@ export default function MedicamentosScreen() {
   const [invMinimo, setInvMinimo] = useState('0');
   const [invCaducidad, setInvCaducidad] = useState('');
   const [invNotas, setInvNotas] = useState('');
-  const [showCaducidadPicker, setShowCaducidadPicker] = useState(false);
-
+  const [esCuidador, setEsCuidador] = useState<boolean>(false);
   // --- Control de Eliminación e Importación ---
   const [confirmDelete, setConfirmDelete] = useState<{ tipo: 'med' | 'rutina'; id: string; nombre: string } | null>(null);
   const [importando, setImportando] = useState(false);
-  const formatearFechaMX = (fechaStr: string) => {
-  if (!fechaStr) return '';
-  // Si viene en formato YYYY-MM-DD
-  const partes = fechaStr.split('T')[0].split('-');
-  if (partes.length === 3) {
-    const [anio, mes, dia] = partes;
-    return `${dia}/${mes}/${anio}`; // Ejemplo: 15/12/2026
-  }
-  return fechaStr;
-};
+
   useEffect(() => {
     const cargar = async () => {
       try {
@@ -199,10 +194,11 @@ export default function MedicamentosScreen() {
   };
 
   const guardarMedicamento = async () => {
-    if (!nombre.trim() || !dosis.trim()) return;
+    if (!nombre.trim() || !dosis.trim() || !paciente?.id) return;
     setGuardando(true);
 
     const payload = {
+      paciente_id: paciente.id, // 👈 CRÍTICO: FastAPI exige este campo en MedicamentoCreate
       nombre: nombre.trim(),
       dosis: dosis.trim(),
       frecuencia,
@@ -212,6 +208,8 @@ export default function MedicamentosScreen() {
       fecha_inicio: fechaInicio,
       fecha_fin: esPermanente ? null : (fechaFin || null),
       dias_semana: diasSemana.length === 0 ? null : diasSemana,
+      cantidad_inicial: Number(cantidadInicial) || 0,
+      unidad_medida: unidadMedida || 'piezas',
     };
 
     try {
@@ -220,8 +218,16 @@ export default function MedicamentosScreen() {
       } else {
         await crearMedicamento(paciente.id, payload);
       }
-      const meds = await getMedicamentos(paciente.id);
+      
+      // Refrescamos Medicamentos e Inventario simultáneamente
+      const [meds, inv] = await Promise.all([
+        getMedicamentos(paciente.id),
+        getInventario(paciente.id)
+      ]);
+      
       if (meds.medicamentos) setMedicamentos(meds.medicamentos);
+      if (inv.items) setInventario(inv.items);
+
       DeviceEventEmitter.emit('RECARGAR_TAREAS');
 
       setModalOpen(false);
@@ -232,6 +238,8 @@ export default function MedicamentosScreen() {
       setVia('oral');
       setIndicaciones('');
       setHorariosArray(['08:00']);
+      setCantidadInicial('0');
+      setSugerencias([]);
       resetControlesTiempo();
     } catch (e) {
       console.error('Error al guardar medicamento:', e);
@@ -275,40 +283,50 @@ export default function MedicamentosScreen() {
       setGuardandoRutina(false);
     }
   };
+  const resetFormularioInventario = () => {
+    setInvEditando(null);
+    setInvNombre('');
+    setInvTipo('medicamento');
+    setInvCantidad('0');
+    setInvUnidad('piezas');
+    setInvMinimo('0');
+    setInvCaducidad('');
+    setInvNotas('');
+  };
 
   const guardarInventario = async () => {
     if (!paciente?.id || !invNombre.trim()) return;
     setGuardandoInv(true);
 
+    const payload = {
+      tipo: invTipo,
+      nombre: invNombre.trim(),
+      cantidad: Number(invCantidad) || 0,
+      unidad: invUnidad.trim() || 'piezas',
+      cantidad_minima: Number(invMinimo) || 0,
+      fecha_caducidad: invCaducidad.trim() || null,
+      notas: invNotas.trim() || null,
+    };
+
     try {
-      if (invEditando) {
-        await actualizarItemInventario(invEditando.id, {
-          tipo: invTipo,
-          nombre: invNombre.trim(),
-          cantidad: Number(invCantidad) || 0,
-          unidad: invUnidad || 'piezas',
-          cantidad_minima: Number(invMinimo) || 0,
-          fecha_caducidad: invCaducidad.trim() || null,
-          notas: invNotas.trim() || null,
-        });
+      if (invEditando?.id) {
+        // ✏️ MODO EDICIÓN
+        await actualizarItemInventario(invEditando.id, payload);
       } else {
-        await crearItemInventario(paciente.id, {
-          tipo: invTipo,
-          nombre: invNombre.trim(),
-          cantidad: Number(invCantidad) || 0,
-          unidad: invUnidad || 'piezas',
-          cantidad_minima: Number(invMinimo) || 0,
-          fecha_caducidad: invCaducidad.trim() || null,
-          notas: invNotas.trim() || null,
-        });
+        // ✨ MODO CREACIÓN
+        await crearItemInventario(paciente.id, payload);
       }
 
+      // Refrescamos la lista local tirando de la API
       const inv = await getInventario(paciente.id);
-      if (inv.items) setInventario(inv.items);
+      if (inv?.items) setInventario(inv.items);
+
+      // Cierre de modal y reset de estados
       setModalInvOpen(false);
-      setInvEditando(null);
+      resetFormularioInventario();
     } catch (e) {
-      console.error('Error al guardar inventario:', e);
+      console.error('❌ Error al guardar inventario:', e);
+      alert('Ocurrió un error al guardar en el inventario. Inténtalo de nuevo.');
     } finally {
       setGuardandoInv(false);
     }
@@ -441,10 +459,16 @@ export default function MedicamentosScreen() {
         }
       }
 
-      const meds = await getMedicamentos(paciente.id);
+      const [meds, rutinas, inv] = await Promise.all([
+        getMedicamentos(paciente.id),
+        getTareasRecurrentes(paciente.id),
+        getInventario(paciente.id),
+      ]);
+
       if (meds.medicamentos) setMedicamentos(meds.medicamentos);
-      const rutinas = await getTareasRecurrentes(paciente.id);
       if (rutinas.tareas) setTareasRec(rutinas.tareas);
+      if (inv.items) setInventario(inv.items);
+
       DeviceEventEmitter.emit('RECARGAR_TAREAS');
       alert('📊 ¡Itinerario importado e integrado con éxito!');
     } catch (error) {
@@ -487,7 +511,18 @@ export default function MedicamentosScreen() {
 
     setModalRutinaOpen(true);
   };
-
+  // ✏️ Carga los datos del ítem seleccionado y abre el modal en modo edición
+  const abrirEdicionInventario = (item: any) => {
+    setInvEditando(item);
+    setInvNombre(item.nombre || '');
+    setInvTipo(item.tipo || 'medicamento');
+    setInvCantidad(String(item.cantidad ?? 0));
+    setInvUnidad(item.unidad || 'piezas');
+    setInvMinimo(String(item.cantidad_minima ?? 0));
+    setInvCaducidad(item.fecha_caducidad || '');
+    setInvNotas(item.notas || '');
+    setModalInvOpen(true);
+  };
   const eliminarMedicamento = async (id: string) => {
     if (!paciente?.id) return;
     try {
@@ -556,7 +591,6 @@ export default function MedicamentosScreen() {
           <Text style={styles.headerTitle}>{paciente?.nombre_completo ?? 'Paciente'}</Text>
         </View>
 
-        {/* 🎯 BOTÓN "+ AGREGAR" CON LÓGICA TRIPLE POR PESTAÑA */}
         <TouchableOpacity
           style={styles.addBtn}
           onPress={() => {
@@ -567,6 +601,8 @@ export default function MedicamentosScreen() {
               setDosis('');
               setHorariosArray(['08:00']);
               setIndicaciones('');
+              setCantidadInicial('0');
+              setSugerencias([]);
               setModalOpen(true);
             } else if (tab === 'rutinas') {
               setRutinaEditando(null);
@@ -590,7 +626,7 @@ export default function MedicamentosScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* TABS (Fix: Indicador interno sin desfase nativo en Android) */}
+      {/* TABS (Sin desfase) */}
       <View style={styles.tabRow}>
         <TouchableOpacity style={styles.tab} onPress={() => setTab('medicamentos')}>
           <Text style={[styles.tabText, tab === 'medicamentos' && styles.tabTextActive]}>
@@ -613,6 +649,7 @@ export default function MedicamentosScreen() {
           {tab === 'inventario' && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
       </View>
+
       {/* ACCESO EXCEL MASIVO */}
       <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 0 }}>
         <TouchableOpacity
@@ -739,126 +776,87 @@ export default function MedicamentosScreen() {
           )
         )}
 
-        {tab === 'inventario' && (
+       {tab === 'inventario' && (
           inventario.length === 0 ? (
             <View style={{ alignItems: 'center', marginTop: 40 }}>
               <Text style={{ fontSize: 40 }}>📦</Text>
-              <Text style={{ color: COLORS.textLight, marginTop: 8, fontSize: 14 }}>
-                Sin ítems en despensa
+              <Text style={{ color: COLORS.textLight, marginTop: 8 }}>
+                {esCuidador ? 'Sin medicamentos activos registrados' : 'Sin ítems en despensa'}
               </Text>
             </View>
           ) : (
             inventario.map((item) => (
               <View key={item.id} style={styles.card}>
-                {/* 📝 DATOS DEL ÍTEM */}
+                
+                {/* 📄 Datos del Ítem (flex: 1 con numberOfLines para evitar desbordes) */}
                 <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text style={{ fontWeight: '800', color: COLORS.textDark, fontSize: 15 }}>
+                  <Text style={{ fontWeight: '800', color: COLORS.textDark, fontSize: 15 }} numberOfLines={1}>
                     {item.nombre}
                   </Text>
-
                   <Text style={{ color: COLORS.textLight, fontSize: 12, marginTop: 2 }}>
-                    {item.cantidad} {item.unidad || 'piezas'}
-                    {item.dias_cobertura != null ? ` · ~${item.dias_cobertura} días` : ''}
+                    Stock: <Text style={{ fontWeight: '800', color: COLORS.cacao }}>{item.cantidad} {item.unidad}</Text>
+                    {item.dias_cobertura != null ? ` · ~${item.dias_cobertura}d` : ''}
                   </Text>
 
-                  {/* 🗓️ FECHA DE CADUCIDAD (Día/Mes/Año) */}
-                  {item.fecha_caducidad ? (
-                    <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 2 }}>
-                      {`📅 Caduca: ${formatearFechaMX(item.fecha_caducidad)}`}
-                    </Text>
-                  ) : null}
-
-                  {/* 🚨 BADGES DE ALERTA DE STOCK Y CADUCIDAD */}
                   {item.bajo_stock && (
                     <Text style={{ color: COLORS.red, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
-                      ⚠️ Stock bajo (Mínimo: {item.cantidad_minima})
+                      ⚠️ Stock bajo
                     </Text>
                   )}
-
                   {item.estado_caducidad === 'vencido' && (
-                    <Text style={{ color: COLORS.red, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
-                      🚫 Vencido
-                    </Text>
-                  )}
-
-                  {(item.estado_caducidad === 'proximo' || item.estado_caducidad === 'critico') && (
-                    <Text style={{ color: COLORS.gold, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
-                      ⏳ Caduca pronto
-                    </Text>
+                    <Text style={{ color: COLORS.red, fontSize: 11, marginTop: 2 }}>Vencido</Text>
                   )}
                 </View>
 
-                {/* 🎛️ CONTROLES: CONSUMIR / INCREMENTAR */}
-                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                  <TouchableOpacity
-                    onPress={async () => {
-                      if (item.cantidad <= 0) return;
-                      await consumirItemInventario(item.id, 1);
-                      const inv = await getInventario(paciente.id);
-                      if (inv.items) setInventario(inv.items);
-                    }}
-                    style={{
-                      paddingHorizontal: 10,
-                      paddingVertical: 6,
-                      backgroundColor: COLORS.cream,
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: COLORS.border,
-                    }}
-                  >
-                    <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>−1</Text>
-                  </TouchableOpacity>
+                {/* 🛠️ Acciones de Control (Alineadas horizontalmente) */}
+                {!esCuidador && (
+                  <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                    <TouchableOpacity
+                      onPress={async () => {
+                        await consumirItemInventario(item.id, 1);
+                        const inv = await getInventario(paciente.id);
+                        if (inv.items) setInventario(inv.items);
+                      }}
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        backgroundColor: COLORS.cream,
+                        borderRadius: 6,
+                        borderWidth: 1,
+                        borderColor: COLORS.border,
+                      }}
+                    >
+                      <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>−1</Text>
+                    </TouchableOpacity>
 
-                  <TouchableOpacity
-                    onPress={async () => {
-                      await actualizarItemInventario(item.id, { cantidad: Number(item.cantidad) + 1 });
-                      const inv = await getInventario(paciente.id);
-                      if (inv.items) setInventario(inv.items);
-                    }}
-                    style={{
-                      paddingHorizontal: 10,
-                      paddingVertical: 6,
-                      backgroundColor: COLORS.cream,
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: COLORS.border,
-                    }}
-                  >
-                    <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>+1</Text>
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={async () => {
+                        await actualizarItemInventario(item.id, { cantidad: Number(item.cantidad) + 1 });
+                        const inv = await getInventario(paciente.id);
+                        if (inv.items) setInventario(inv.items);
+                      }}
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        backgroundColor: COLORS.cream,
+                        borderRadius: 6,
+                        borderWidth: 1,
+                        borderColor: COLORS.border,
+                      }}
+                    >
+                      <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>+1</Text>
+                    </TouchableOpacity>
 
-                  {/* ✏️ BOTÓN EDITAR */}
-                  <TouchableOpacity
-                    onPress={() => {
-                      setInvEditando(item);
-                      setInvNombre(item.nombre || '');
-                      setInvTipo(item.tipo || 'medicamento');
-                      setInvCantidad(String(item.cantidad ?? 0));
-                      setInvUnidad(item.unidad || 'piezas');
-                      setInvMinimo(String(item.cantidad_minima ?? 0));
-                      setInvCaducidad(item.fecha_caducidad || '');
-                      setInvNotas(item.notas || '');
-                      setModalInvOpen(true);
-                    }}
-                    style={{ padding: 6, marginLeft: 2 }}
-                  >
-                    <Text style={{ color: COLORS.gold, fontSize: 16 }}>✏️</Text>
-                  </TouchableOpacity>
+                    {/* ✏️ Botón Editar Ítem */}
+                    <TouchableOpacity
+                      onPress={() => abrirEdicionInventario(item)}
+                      style={{ padding: 6, marginLeft: 2 }}
+                    >
+                      <Text style={{ color: COLORS.gold, fontSize: 16 }}>✏️</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
 
-                  {/* ✕ BOTÓN ELIMINAR */}
-                  <TouchableOpacity
-                    onPress={() => {
-                      setConfirmDelete({
-                        tipo: 'med', // reutiliza el confirm
-                        id: item.id,
-                        nombre: item.nombre,
-                      });
-                    }}
-                    style={{ padding: 6 }}
-                  >
-                    <Text style={{ color: COLORS.red, fontSize: 16, fontWeight: '800' }}>✕</Text>
-                  </TouchableOpacity>
-                </View>
               </View>
             ))
           )
@@ -875,11 +873,78 @@ export default function MedicamentosScreen() {
                 {medicamentoEditando ? 'Editar medicamento' : 'Nuevo medicamento'}
               </Text>
 
-              <Text style={styles.label}>Nombre *</Text>
-              <TextInput style={styles.input} placeholder="Ej: Metformina" placeholderTextColor={COLORS.textLight} value={nombre} onChangeText={setNombre} autoFocus />
+              <Text style={styles.label}>Nombre del medicamento *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ej: Metformina, Omega 3..."
+                placeholderTextColor={COLORS.textLight}
+                value={nombre}
+                onChangeText={(texto) => {
+                  setNombre(texto);
+                  // 💡 Autocompletado desde Inventario
+                  if (texto.trim().length > 1) {
+                    const coincides = inventario.filter(i =>
+                      i.nombre.toLowerCase().includes(texto.toLowerCase().trim())
+                    );
+                    setSugerencias(coincides);
+                  } else {
+                    setSugerencias([]);
+                  }
+                }}
+                autoFocus
+              />
+
+              {/* 💡 Sugerencias de Autocompletado */}
+              {sugerencias.length > 0 && (
+                <View style={{ backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.gold, borderRadius: 8, marginTop: 4, maxHeight: 110 }}>
+                  <ScrollView nestedScrollEnabled>
+                    {sugerencias.map((sug) => (
+                      <TouchableOpacity
+                        key={sug.id}
+                        onPress={() => {
+                          setNombre(sug.nombre);
+                          setSugerencias([]);
+                        }}
+                        style={{ padding: 10, borderBottomWidth: 1, borderBottomColor: COLORS.cream }}
+                      >
+                        <Text style={{ fontSize: 13, color: COLORS.textDark, fontWeight: '700' }}>
+                          📦 {sug.nombre} <Text style={{ fontSize: 11, color: COLORS.textLight }}>(En stock: {sug.cantidad} {sug.unidad})</Text>
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
 
               <Text style={styles.label}>Dosis *</Text>
               <TextInput style={styles.input} placeholder="Ej: 500mg" placeholderTextColor={COLORS.textLight} value={dosis} onChangeText={setDosis} />
+
+              {/* 📦 Stock Inicial Opcional para Inventario */}
+              {!medicamentoEditando && (
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Stock en casa (Opcional)</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Ej. 30"
+                      placeholderTextColor={COLORS.textLight}
+                      keyboardType="numeric"
+                      value={cantidadInicial}
+                      onChangeText={setCantidadInicial}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Unidad</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="tabletas, frascos"
+                      placeholderTextColor={COLORS.textLight}
+                      value={unidadMedida}
+                      onChangeText={setUnidadMedida}
+                    />
+                  </View>
+                </View>
+              )}
 
               <Text style={styles.label}>Frecuencia</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
@@ -1264,7 +1329,7 @@ export default function MedicamentosScreen() {
         </View>
       )}
 
-      {/* 🎯 MODAL INVENTARIO AGREGADO COMPLETO */}
+      {/* MODAL INVENTARIO */}
       {modalInvOpen && (
         <View style={styles.modalOverlay}>
           <ScrollView showsVerticalScrollIndicator={false}>
@@ -1335,47 +1400,7 @@ export default function MedicamentosScreen() {
                 value={invMinimo}
                 onChangeText={setInvMinimo}
               />
-              {/* 🗓️ FECHA DE CADUCIDAD CON DATETIMEPICKER NATIVO */}
-              <Text style={styles.label}>Fecha de caducidad (opcional)</Text>
-              
-              <TouchableOpacity
-                style={[
-                  styles.input,
-                  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }
-                ]}
-                onPress={() => setShowCaducidadPicker(true)}
-              >
-                <Text style={{ fontSize: 14, color: invCaducidad ? COLORS.textDark : COLORS.textLight }}>
-                  {invCaducidad ? `📅 ${invCaducidad}` : 'Seleccionar fecha de caducidad'}
-                </Text>
-                
-                {invCaducidad ? (
-                  <TouchableOpacity 
-                    onPress={() => setInvCaducidad('')}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Text style={{ color: COLORS.red, fontWeight: '800', fontSize: 16 }}>✕</Text>
-                  </TouchableOpacity>
-                ) : null}
-              </TouchableOpacity>
 
-              {/* Picker Nativo */}
-              {showCaducidadPicker && (
-                <DateTimePicker
-                  value={invCaducidad ? new Date(invCaducidad + 'T12:00:00') : new Date()}
-                  mode="date"
-                  display="default"
-                  onChange={(event, date) => {
-                    setShowCaducidadPicker(false);
-                    if (date) {
-                      const yyyy = date.getFullYear();
-                      const mm = String(date.getMonth() + 1).padStart(2, '0');
-                      const dd = String(date.getDate()).padStart(2, '0');
-                      setInvCaducidad(`${yyyy}-${mm}-${dd}`);
-                    }
-                  }}
-                />
-              )}
               <Text style={styles.label}>Notas adicionales</Text>
               <TextInput
                 style={[styles.input, { minHeight: 60, textAlignVertical: 'top' }]}
@@ -1510,9 +1535,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
-  tabActive: {
-    borderBottomColor: COLORS.gold,
-  },
   tabText: {
     fontSize: 12,
     fontWeight: '600',
@@ -1521,6 +1543,16 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: COLORS.gold,
     fontWeight: '800',
+  },
+  activeIndicator: {
+    position: 'absolute' as const,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: COLORS.gold,
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
   },
   body: {
     flex: 1,
@@ -1655,15 +1687,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: COLORS.white,
-  },
-  activeIndicator: {
-    position: 'absolute' as const, 
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 3,
-    backgroundColor: COLORS.gold,
-    borderTopLeftRadius: 3,
-    borderTopRightRadius: 3,
   },
 });

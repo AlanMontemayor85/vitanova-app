@@ -349,6 +349,8 @@ useEffect(() => {
     }
   }, [vista, pacienteActivo?.id]);
   // 📦 CARGA DE INVENTARIO DEL HOGAR AL ABRIR EL CIERRE DE TURNO
+  // 📦 CARGA DE INVENTARIO DEL HOGAR AL ABRIR EL CIERRE DE TURNO
+  // 📦 CARGA DE INVENTARIO DEL HOGAR AL ABRIR EL CIERRE DE TURNO
   useEffect(() => {
     const cargarInventarioHogar = async () => {
       if (vista === 'cierre' && pacienteActivo?.id) {
@@ -356,14 +358,15 @@ useEffect(() => {
           console.log("📦 [CIERRE TURNO] Solicitando inventario para:", pacienteActivo.id);
           const res = await getInventario(pacienteActivo.id);
 
-          // 🎯 FIX CLAVE: Extraer .items del objeto devuelto por la API
           const listaItems = res?.items || (Array.isArray(res) ? res : []);
 
-          // Filtramos solo insumos que tengan existencia mayor a 0
-          const conStock = listaItems.filter((item: any) => Number(item.cantidad) > 0);
+          // 🎯 FILTRO CORREGIDO: Excluimos 'medicamento' para evitar doble descuento
+          const soloInsumosLibres = listaItems.filter((item: any) => 
+            Number(item.cantidad) > 0 && item.tipo !== 'medicamento'
+          );
 
-          console.log(`✅ [CIERRE TURNO] ${conStock.length} ítems de inventario cargados.`);
-          setInventarioHogar(conStock);
+          console.log(`✅ [CIERRE TURNO] ${soloInsumosLibres.length} insumos libres cargados.`);
+          setInventarioHogar(soloInsumosLibres);
         } catch (err) {
           console.error("❌ Error cargando inventario en cierre:", err);
         }
