@@ -400,7 +400,6 @@ export const consumirItemInventario = async (
   );
   return res.json();
 };
-// Eliminar un ítem del inventario
 export const eliminarItemInventario = async (itemId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/inventario/${itemId}`, {
     method: 'DELETE',

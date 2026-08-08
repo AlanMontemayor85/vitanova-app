@@ -266,6 +266,7 @@ const inventarioAgrupado = useMemo(() => {
 
 const resetFormularioMedicamento = () => {
   setMedicamentoEditando(null); 
+  setInventarioId(null);
   setNombre('');                
   setDosis('');
   setFrecuencia('cada 12 horas');
@@ -494,21 +495,7 @@ const resetFormularioMedicamento = () => {
   }
  };
   
-const ejecutarEliminacion = async () => {
-  if (!confirmDelete || confirmDelete.tipo !== 'inventario') return;
 
-  try {
-    // 1. Borrado en backend
-    await eliminarItemInventario(confirmDelete.id);
-
-    // 2. Limpieza inmediata en la pantalla
-    setInventario((prev) => prev.filter((item) => item.id !== confirmDelete.id));
-  } catch (error) {
-    console.error('Error al eliminar ítem del inventario:', error);
-  } finally {
-    setConfirmDelete(null);
-  }
-};
   const importarDesdeExcel = async () => {
     if (!paciente?.id) return;
 
@@ -725,7 +712,36 @@ const ejecutarEliminacion = async () => {
       console.error(e);
     }
   };
+ const eliminarInventario = async (id: string) => {
+    if (!paciente?.id) return;
+    try {
+      await eliminarItemInventario(id); // 👈 Petición a api.ts (DELETE /inventario/{id})
+      const inv = await getInventario(paciente.id);
+      if (inv.items) setInventario(inv.items);
+      DeviceEventEmitter.emit('RECARGAR_TAREAS');
+    } catch (e) {
+      console.error("Error al eliminar item de inventario:", e);
+    }
+  }; 
+const ejecutarEliminacion = async () => {
+  if (!confirmDelete) return;
 
+  try {
+    if (confirmDelete.tipo === 'inventario') {
+      await eliminarInventario(confirmDelete.id);
+
+    } else if (confirmDelete.tipo === 'med') {
+      await eliminarMedicamento(confirmDelete.id);
+
+    } else if (confirmDelete.tipo === 'rutina') {
+      await eliminarRutina(confirmDelete.id); 
+    }
+  } catch (error) {
+    console.error(`Error al eliminar ${confirmDelete.tipo}:`, error);
+  } finally {
+    setConfirmDelete(null);
+  }
+};
   const onMedicamentoTimeChange = (event: any, selectedDate?: Date) => {
     setShowTimePicker(false);
     if (selectedDate) {
@@ -1055,306 +1071,326 @@ const ejecutarEliminacion = async () => {
     </ScrollView>
        
       {/* MODAL MEDICAMENTO */}
-      {modalOpen && (
-        <View style={styles.modalOverlay}>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>
-                {medicamentoEditando ? 'Editar medicamento' : 'Nuevo medicamento'}
-              </Text>
+{modalOpen && (
+  <View style={styles.modalOverlay}>
+    <ScrollView showsVerticalScrollIndicator={false}>
+      <View style={styles.modalCard}>
+        <Text style={styles.modalTitle}>
+          {medicamentoEditando ? 'Editar medicamento' : 'Nuevo medicamento'}
+        </Text>
 
-              <Text style={styles.label}>Nombre del medicamento *</Text>
+        <Text style={styles.label}>Nombre del medicamento *</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ej: Metformina, Omega 3..."
+          placeholderTextColor={COLORS.textLight}
+          value={nombre}
+          onChangeText={(texto) => {
+            setNombre(texto);
+            // 💡 Autocompletado desde Inventario
+            if (texto.trim().length > 1) {
+              const coincides = inventario.filter(i =>
+                i.nombre.toLowerCase().includes(texto.toLowerCase().trim())
+              );
+              setSugerencias(coincides);
+            } else {
+              setSugerencias([]);
+            }
+          }}
+          autoFocus
+        />
+
+        {/* 💡 Sugerencias de Autocompletado (HERENCIA COMPLETA) */}
+        {sugerencias.length > 0 && (
+          <View style={{ backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.gold, borderRadius: 8, marginTop: 4, maxHeight: 140 }}>
+            <ScrollView nestedScrollEnabled>
+              {sugerencias.map((sug) => (
+                <TouchableOpacity
+                  key={sug.id}
+                  onPress={() => {
+                    // 1. Rellenar nombre exacto
+                    setNombre(sug.nombre);
+                    
+                    // 2. 🔑 HEREDAR DATOS DE LA DESPENSA (Dosis, Stock, Unidad)
+                    if (sug.dosis) setDosis(sug.dosis);
+                    if (sug.cantidad != null) setCantidadInicial(String(sug.cantidad));
+                    if (sug.unidad) setUnidadMedida(sug.unidad);
+                    
+                    // 3. Vincular ID del lote específico de la despensa
+                    setInventarioId(sug.id);
+
+                    // 4. Limpiar lista flotante de sugerencias
+                    setSugerencias([]);
+                  }}
+                  style={{ padding: 10, borderBottomWidth: 1, borderBottomColor: COLORS.cream }}
+                >
+                  <Text style={{ fontSize: 13, color: COLORS.textDark, fontWeight: '700' }}>
+                    📦 {sug.nombre} {sug.dosis ? `• ${sug.dosis}` : ''}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 2 }}>
+                    Stock: {sug.cantidad} {sug.unidad || 'piezas'}
+                    {sug.fecha_caducidad ? ` | Caduca: ${sug.fecha_caducidad}` : ''}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        <Text style={styles.label}>Dosis *</Text>
+        <TextInput 
+          style={styles.input} 
+          placeholder="Ej: 500mg" 
+          placeholderTextColor={COLORS.textLight} 
+          value={dosis} 
+          onChangeText={setDosis} 
+        />
+
+        {/* 📦 Stock Inicial Opcional para Inventario (Se oculta si ya se heredó de un producto existente) */}
+        {!medicamentoEditando && !inventarioId && (
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Stock en casa (Opcional)</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Ej: Metformina, Omega 3..."
+                placeholder="Ej. 30"
                 placeholderTextColor={COLORS.textLight}
-                value={nombre}
-                onChangeText={(texto) => {
-                  setNombre(texto);
-                  // 💡 Autocompletado desde Inventario
-                  if (texto.trim().length > 1) {
-                    const coincides = inventario.filter(i =>
-                      i.nombre.toLowerCase().includes(texto.toLowerCase().trim())
-                    );
-                    setSugerencias(coincides);
-                  } else {
-                    setSugerencias([]);
-                  }
-                }}
-                autoFocus
+                keyboardType="numeric"
+                value={cantidadInicial}
+                onChangeText={setCantidadInicial}
               />
-
-              {/* 💡 Sugerencias de Autocompletado (HERENCIA COMPLETA) */}
-              {sugerencias.length > 0 && (
-                <View style={{ backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.gold, borderRadius: 8, marginTop: 4, maxHeight: 110 }}>
-                  <ScrollView nestedScrollEnabled>
-                    {sugerencias.map((sug) => (
-                      <TouchableOpacity
-                        key={sug.id}
-                        onPress={() => {
-                          // 1. Rellenar nombre exacto
-                          setNombre(sug.nombre);
-                          
-                          // 2. 🔑 HEREDAR DATOS DE LA DESPENSA
-                          if (sug.dosis) setDosis(sug.dosis);
-                          if (sug.cantidad != null) setCantidadInicial(String(sug.cantidad));
-                          if (sug.unidad) setUnidadMedida(sug.unidad);
-                          
-                          // 3. Vincular ID de inventario
-                          setInventarioId(sug.id);
-
-                          // 4. Limpiar lista flotante
-                          setSugerencias([]);
-                        }}
-                        style={{ padding: 10, borderBottomWidth: 1, borderBottomColor: COLORS.cream }}
-                      >
-                        <Text style={{ fontSize: 13, color: COLORS.textDark, fontWeight: '700' }}>
-                          📦 {sug.nombre} {sug.dosis ? `• ${sug.dosis}` : ''} <Text style={{ fontSize: 11, color: COLORS.textLight }}>(En stock: {sug.cantidad} {sug.unidad || 'piezas'})</Text>
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-
-              <Text style={styles.label}>Dosis *</Text>
-              <TextInput style={styles.input} placeholder="Ej: 500mg" placeholderTextColor={COLORS.textLight} value={dosis} onChangeText={setDosis} />
-
-              {/* 📦 Stock Inicial Opcional para Inventario (Se oculta si ya se heredó de un producto existente) */}
-              {!medicamentoEditando && !inventarioId && (
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.label}>Stock en casa (Opcional)</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Ej. 30"
-                      placeholderTextColor={COLORS.textLight}
-                      keyboardType="numeric"
-                      value={cantidadInicial}
-                      onChangeText={setCantidadInicial}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.label}>Unidad</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="tabletas, frascos"
-                      placeholderTextColor={COLORS.textLight}
-                      value={unidadMedida}
-                      onChangeText={setUnidadMedida}
-                    />
-                  </View>
-                </View>
-              )}
-
-              <Text style={styles.label}>Frecuencia</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-                <View style={{ flexDirection: 'row', gap: 6 }}>
-                  {FRECUENCIAS.map(f => (
-                    <TouchableOpacity key={f} style={[styles.chipBtn, frecuencia === f && styles.chipBtnActive]} onPress={() => setFrecuencia(f)}>
-                      <Text style={[styles.chipBtnText, frecuencia === f && styles.chipBtnTextActive]}>{f}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
-
-              <Text style={styles.label}>Horarios de administración</Text>
-              {horariosArray.map((h, idx) => (
-                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 }}>
-                  <TouchableOpacity
-                    style={{ flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, padding: 12, backgroundColor: COLORS.white, alignItems: 'center' }}
-                    onPress={() => { setHorarioIndex(idx); setShowTimePicker(true); }}
-                  >
-                    <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.cacao }}>{`🕐 ${h}`}</Text>
-                  </TouchableOpacity>
-                  {horariosArray.length > 1 && (
-                    <TouchableOpacity onPress={() => setHorariosArray(prev => prev.filter((_, i) => i !== idx))} style={{ padding: 8 }}>
-                      <Text style={{ color: COLORS.red, fontSize: 18 }}>✕</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ))}
-              <TouchableOpacity
-                onPress={() => setHorariosArray(prev => [...prev, '12:00'])}
-                style={{ borderWidth: 1, borderColor: COLORS.gold, borderRadius: 8, padding: 10, alignItems: 'center', backgroundColor: COLORS.goldPale, marginBottom: 12 }}
-              >
-                <Text style={{ color: COLORS.gold, fontWeight: '700' }}>+ Agregar horario</Text>
-              </TouchableOpacity>
-
-              {showTimePicker && (
-                <DateTimePicker
-                  value={(() => {
-                    const partes = (horariosArray[horarioIndex] || '08:00').split(':').map(Number);
-                    const d = new Date();
-                    d.setHours(partes[0] || 8, partes[1] || 0, 0, 0);
-                    return d;
-                  })()}
-                  mode="time"
-                  is24Hour={true}
-                  display="spinner"
-                  onChange={onMedicamentoTimeChange}
-                />
-              )}
-
-              <Text style={styles.label}>Vía de administración</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-                {VIAS.map(v => (
-                  <TouchableOpacity key={v} style={[styles.chipBtn, via === v && styles.chipBtnActive]} onPress={() => setVia(v)}>
-                    <Text style={[styles.chipBtnText, via === v && styles.chipBtnTextActive]}>{v}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <Text style={styles.label}>Indicaciones (opcional)</Text>
-              <TextInput style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]} placeholder="Tomar con alimentos..." placeholderTextColor={COLORS.textLight} multiline value={indicaciones} onChangeText={setIndicaciones} />
-
-              <View style={{ marginVertical: 12, padding: 12, backgroundColor: '#F9F9F9', borderRadius: 8, borderWidth: 1, borderColor: '#EAEAEA' }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao, marginBottom: 8 }}>🗓️ Duración del Plan</Text>
-
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-                  <TouchableOpacity
-                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, esPermanente && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
-                    onPress={() => { setEsPermanente(true); setFechaFin(''); }}
-                  >
-                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, esPermanente && { color: '#FFF' }]}>♾️ Permanente</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, (!esPermanente && fechaFin && fechaInicio !== fechaFin) && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
-                    onPress={() => {
-                      setEsPermanente(false);
-                      if (fechaFin === fechaInicio) setFechaFin('');
-                    }}
-                  >
-                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, (!esPermanente && fechaFin && fechaInicio !== fechaFin) && { color: '#FFF' }]}>📅 Por Periodo</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, (!esPermanente && fechaInicio === fechaFin && fechaFin !== '') && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
-                    onPress={() => {
-                      setEsPermanente(false);
-                      setFechaFin(fechaInicio);
-                    }}
-                  >
-                    <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, (!esPermanente && fechaInicio === fechaFin && fechaFin !== '') && { color: '#FFF' }]}>📍 Fecha Específica</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 11, color: '#777', marginBottom: 4 }}>Fecha Inicio</Text>
-                    <TouchableOpacity
-                      style={{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }}
-                      onPress={() => setShowInicioPicker(true)}
-                    >
-                      <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>{fechaInicio}</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {!esPermanente && (
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 11, color: '#777', marginBottom: 4 }}>Fecha Término</Text>
-                      <TouchableOpacity
-                        style={[{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }, (fechaInicio === fechaFin && fechaFin !== '') && { backgroundColor: '#EAEAEA' }]}
-                        onPress={() => setShowFinPicker(true)}
-                      >
-                        <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>
-                          {fechaFin || 'Seleccionar término'}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-
-                {showInicioPicker && (
-                  <DateTimePicker
-                    value={new Date(fechaInicio + 'T12:00:00')}
-                    mode="date"
-                    display="default"
-                    onChange={(event, date) => {
-                      setShowInicioPicker(false);
-                      if (date) {
-                        const yyyy = date.getFullYear();
-                        const mm = String(date.getMonth() + 1).padStart(2, '0');
-                        const dd = String(date.getDate()).padStart(2, '0');
-                        const nuevaFecha = `${yyyy}-${mm}-${dd}`;
-                        setFechaInicio(nuevaFecha);
-                        if (!esPermanente && fechaFin !== '' && fechaFin === fechaInicio) {
-                          setFechaFin(nuevaFecha);
-                        }
-                      }
-                    }}
-                  />
-                )}
-                {showFinPicker && (
-                  <DateTimePicker
-                    value={fechaFin ? new Date(fechaFin + 'T12:00:00') : new Date()}
-                    mode="date"
-                    display="default"
-                    onChange={(event, date) => {
-                      setShowFinPicker(false);
-                      if (date) {
-                        const yyyy = date.getFullYear();
-                        const mm = String(date.getMonth() + 1).padStart(2, '0');
-                        const dd = String(date.getDate()).padStart(2, '0');
-                        setFechaFin(`${yyyy}-${mm}-${dd}`);
-                      }
-                    }}
-                  />
-                )}
-
-                <Text style={{ fontSize: 11, color: '#777', marginBottom: 6 }}>Días de ejecución (Vacío aplica diario)</Text>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 2 }}>
-                  {[
-                    { id: 0, label: 'D' }, { id: 1, label: 'L' }, { id: 2, label: 'M' },
-                    { id: 3, label: 'M' }, { id: 4, label: 'J' }, { id: 5, label: 'V' }, { id: 6, label: 'S' },
-                  ].map(d => {
-                    const seleccionado = diasSemana.includes(d.id);
-                    return (
-                      <TouchableOpacity
-                        key={d.id}
-                        style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 16,
-                          borderWidth: 1,
-                          borderColor: seleccionado ? COLORS.cacao : COLORS.border,
-                          backgroundColor: seleccionado ? COLORS.cacao : '#FFF',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                        onPress={() => toggleDiaSemana(d.id)}
-                      >
-                        <Text style={{ fontSize: 12, fontWeight: '700', color: seleccionado ? '#FFF' : '#555' }}>
-                          {d.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                <TouchableOpacity 
-                  style={[styles.modalBtn, { backgroundColor: COLORS.cream }]} 
-                  onPress={() => { 
-                    setModalOpen(false); 
-                    setMedicamentoEditando(null); 
-                    setInventarioId(null); // 👈 Limpiar vinculación al cancelar
-                    resetControlesTiempo(); 
-                  }}
-                >
-                  <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]} onPress={guardarMedicamento} disabled={guardando}>
-                  <Text style={styles.modalBtnText}>{guardando ? 'Guardando...' : 'Guardar'}</Text>
-                </TouchableOpacity>
-              </View>
             </View>
-          </ScrollView>
-        </View>
-      )}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Unidad</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="tabletas, frascos"
+                placeholderTextColor={COLORS.textLight}
+                value={unidadMedida}
+                onChangeText={setUnidadMedida}
+              />
+            </View>
+          </View>
+        )}
 
+        <Text style={styles.label}>Frecuencia</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            {FRECUENCIAS.map(f => (
+              <TouchableOpacity 
+                key={f} 
+                style={[styles.chipBtn, frecuencia === f && styles.chipBtnActive]} 
+                onPress={() => setFrecuencia(f)}
+              >
+                <Text style={[styles.chipBtnText, frecuencia === f && styles.chipBtnTextActive]}>{f}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+
+        <Text style={styles.label}>Horarios de administración</Text>
+        {horariosArray.map((h, idx) => (
+          <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 }}>
+            <TouchableOpacity
+              style={{ flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, padding: 12, backgroundColor: COLORS.white, alignItems: 'center' }}
+              onPress={() => { setHorarioIndex(idx); setShowTimePicker(true); }}
+            >
+              <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.cacao }}>{`🕐 ${h}`}</Text>
+            </TouchableOpacity>
+            {horariosArray.length > 1 && (
+              <TouchableOpacity onPress={() => setHorariosArray(prev => prev.filter((_, i) => i !== idx))} style={{ padding: 8 }}>
+                <Text style={{ color: COLORS.red, fontSize: 18 }}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ))}
+        <TouchableOpacity
+          onPress={() => setHorariosArray(prev => [...prev, '12:00'])}
+          style={{ borderWidth: 1, borderColor: COLORS.gold, borderRadius: 8, padding: 10, alignItems: 'center', backgroundColor: COLORS.goldPale, marginBottom: 12 }}
+        >
+          <Text style={{ color: COLORS.gold, fontWeight: '700' }}>+ Agregar horario</Text>
+        </TouchableOpacity>
+
+        {showTimePicker && (
+          <DateTimePicker
+            value={(() => {
+              const partes = (horariosArray[horarioIndex] || '08:00').split(':').map(Number);
+              const d = new Date();
+              d.setHours(partes[0] || 8, partes[1] || 0, 0, 0);
+              return d;
+            })()}
+            mode="time"
+            is24Hour={true}
+            display="spinner"
+            onChange={onMedicamentoTimeChange}
+          />
+        )}
+
+        <Text style={styles.label}>Vía de administración</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+          {VIAS.map(v => (
+            <TouchableOpacity key={v} style={[styles.chipBtn, via === v && styles.chipBtnActive]} onPress={() => setVia(v)}>
+              <Text style={[styles.chipBtnText, via === v && styles.chipBtnTextActive]}>{v}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Text style={styles.label}>Indicaciones (opcional)</Text>
+        <TextInput 
+          style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]} 
+          placeholder="Tomar con alimentos..." 
+          placeholderTextColor={COLORS.textLight} 
+          multiline 
+          value={indicaciones} 
+          onChangeText={setIndicaciones} 
+        />
+
+        <View style={{ marginVertical: 12, padding: 12, backgroundColor: '#F9F9F9', borderRadius: 8, borderWidth: 1, borderColor: '#EAEAEA' }}>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao, marginBottom: 8 }}>🗓️ Duración del Plan</Text>
+
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+            <TouchableOpacity
+              style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, esPermanente && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
+              onPress={() => { setEsPermanente(true); setFechaFin(''); }}
+            >
+              <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, esPermanente && { color: '#FFF' }]}>♾️ Permanente</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, (!esPermanente && fechaFin && fechaInicio !== fechaFin) && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
+              onPress={() => {
+                setEsPermanente(false);
+                if (fechaFin === fechaInicio) setFechaFin('');
+              }}
+            >
+              <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, (!esPermanente && fechaFin && fechaInicio !== fechaFin) && { color: '#FFF' }]}>📅 Por Periodo</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' }, (!esPermanente && fechaInicio === fechaFin && fechaFin !== '') && { backgroundColor: COLORS.gold, borderColor: COLORS.gold }]}
+              onPress={() => {
+                setEsPermanente(false);
+                setFechaFin(fechaInicio);
+              }}
+            >
+              <Text style={[{ fontSize: 12, color: '#666', fontWeight: '600' }, (!esPermanente && fechaInicio === fechaFin && fechaFin !== '') && { color: '#FFF' }]}>📍 Fecha Específica</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, color: '#777', marginBottom: 4 }}>Fecha Inicio</Text>
+              <TouchableOpacity
+                style={{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }}
+                onPress={() => setShowInicioPicker(true)}
+              >
+                <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>{fechaInicio}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {!esPermanente && (
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, color: '#777', marginBottom: 4 }}>Fecha Término</Text>
+                <TouchableOpacity
+                  style={[{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }, (fechaInicio === fechaFin && fechaFin !== '') && { backgroundColor: '#EAEAEA' }]}
+                  onPress={() => setShowFinPicker(true)}
+                >
+                  <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>
+                    {fechaFin || 'Seleccionar término'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          {showInicioPicker && (
+            <DateTimePicker
+              value={new Date(fechaInicio + 'T12:00:00')}
+              mode="date"
+              display="default"
+              onChange={(event, date) => {
+                setShowInicioPicker(false);
+                if (date) {
+                  const yyyy = date.getFullYear();
+                  const mm = String(date.getMonth() + 1).padStart(2, '0');
+                  const dd = String(date.getDate()).padStart(2, '0');
+                  const nuevaFecha = `${yyyy}-${mm}-${dd}`;
+                  setFechaInicio(nuevaFecha);
+                  if (!esPermanente && fechaFin !== '' && fechaFin === fechaInicio) {
+                    setFechaFin(nuevaFecha);
+                  }
+                }
+              }}
+            />
+          )}
+          {showFinPicker && (
+            <DateTimePicker
+              value={fechaFin ? new Date(fechaFin + 'T12:00:00') : new Date()}
+              mode="date"
+              display="default"
+              onChange={(event, date) => {
+                setShowFinPicker(false);
+                if (date) {
+                  const yyyy = date.getFullYear();
+                  const mm = String(date.getMonth() + 1).padStart(2, '0');
+                  const dd = String(date.getDate()).padStart(2, '0');
+                  setFechaFin(`${yyyy}-${mm}-${dd}`);
+                }
+              }}
+            />
+          )}
+
+          <Text style={{ fontSize: 11, color: '#777', marginBottom: 6 }}>Días de ejecución (Vacío aplica diario)</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 2 }}>
+            {[
+              { id: 0, label: 'D' }, { id: 1, label: 'L' }, { id: 2, label: 'M' },
+              { id: 3, label: 'M' }, { id: 4, label: 'J' }, { id: 5, label: 'V' }, { id: 6, label: 'S' },
+            ].map(d => {
+              const seleccionado = diasSemana.includes(d.id);
+              return (
+                <TouchableOpacity
+                  key={d.id}
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: seleccionado ? COLORS.cacao : COLORS.border,
+                    backgroundColor: seleccionado ? COLORS.cacao : '#FFF',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onPress={() => toggleDiaSemana(d.id)}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: seleccionado ? '#FFF' : '#555' }}>
+                    {d.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+          <TouchableOpacity 
+            style={[styles.modalBtn, { backgroundColor: COLORS.cream }]} 
+            onPress={() => { 
+              setModalOpen(false); 
+              setMedicamentoEditando(null); 
+              setInventarioId(null); // 👈 Limpiar vinculación al cancelar
+              resetControlesTiempo(); 
+            }}
+          >
+            <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]} onPress={guardarMedicamento} disabled={guardando}>
+            <Text style={styles.modalBtnText}>{guardando ? 'Guardando...' : 'Guardar'}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScrollView>
+  </View>
+)}
       {/* MODAL RUTINA */}
       {modalRutinaOpen && (
         <View style={styles.modalOverlay}>
