@@ -1,7 +1,7 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -230,6 +230,20 @@ export default function MedicamentosScreen() {
     setProcesandoVinculo(false);
   }
  };
+ // 🗂️ Organiza el inventario en 3 grupos principales
+const inventarioAgrupado = useMemo(() => {
+  const medicamentos = inventario.filter(
+    (i: any) => !i.tipo || i.tipo.toLowerCase() === 'medicamento'
+  );
+  const insumos = inventario.filter(
+    (i: any) => i.tipo && i.tipo.toLowerCase() === 'insumo'
+  );
+  const otros = inventario.filter(
+    (i: any) => i.tipo && i.tipo.toLowerCase() === 'otro'
+  );
+
+  return { medicamentos, insumos, otros };
+}, [inventario]);
  const handlePressAgregar = () => {
   if (tab === 'medicamentos') {
     resetFormularioMedicamento(); // 👈 Llama la limpieza primero
@@ -457,7 +471,121 @@ const resetFormularioMedicamento = () => {
     setGuardandoInv(false);
   }
   };
-  
+
+  const handleConsumirRapido = async (itemId: string, cantidad: number = 1) => {
+  try {
+    await consumirItemInventario(itemId, cantidad);
+    
+    // Actualizamos el estado local para reflejar el cambio en pantalla inmediatamente
+    setInventario(prev =>
+      prev.map(item =>
+        item.id === itemId
+          ? { ...item, cantidad: Math.max(0, item.cantidad - cantidad) }
+          : item
+      )
+    );
+  } catch (error) {
+    console.error('Error al consumir del inventario:', error);
+  }
+ };
+  const renderCardInventario = (item: any) => (
+  <View key={item.id} style={styles.card}>
+    {/* 📄 Datos del Ítem */}
+    <View style={{ flex: 1, marginRight: 8 }}>
+      
+      {/* Nombre + Dosis/Presentación */}
+      <Text style={{ fontWeight: '800', color: COLORS.textDark, fontSize: 15 }} numberOfLines={1}>
+        {item.nombre} {item.dosis ? `• ${item.dosis}` : ''}
+      </Text>
+
+      {/* Stock y Días de Cobertura */}
+      <Text style={{ color: COLORS.textLight, fontSize: 12, marginTop: 2 }}>
+        Stock: <Text style={{ fontWeight: '800', color: COLORS.cacao }}>{item.cantidad} {item.unidad}</Text>
+        {item.dias_cobertura != null ? ` · ~${item.dias_cobertura}d` : ''}
+      </Text>
+
+      {/* 📅 Caducidad */}
+      {item.fecha_caducidad && (
+        <Text style={{ color: COLORS.textLight, fontSize: 11, marginTop: 2 }}>
+          🗓️ Caduca: <Text style={{ fontWeight: '600', color: COLORS.textDark }}>{item.fecha_caducidad}</Text>
+        </Text>
+      )}
+
+      {/* ⚠️ Badges de Alerta */}
+      {item.bajo_stock && (
+        <Text style={{ color: COLORS.red, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
+          ⚠️ Stock bajo
+        </Text>
+      )}
+      {item.estado_caducidad === 'vencido' && (
+        <Text style={{ color: COLORS.red, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
+          ⛔ Producto vencido
+        </Text>
+      )}
+      {item.estado_caducidad === 'por_vencer' && (
+        <Text style={{ color: '#E65100', fontSize: 11, fontWeight: '700', marginTop: 2 }}>
+          ⏳ Por vencer pronto
+        </Text>
+      )}
+
+      {/* 🏠 Indicador de Insumo Compartido */}
+      {item.es_compartido && (
+        <Text style={{ color: COLORS.gold, fontSize: 10, fontWeight: '700', marginTop: 2 }}>
+          🏠 Compartido en casa
+        </Text>
+      )}
+    </View>
+       
+    {/* 🛠️ Acciones de Control (Solo Familiar / Admin) */}
+    {!esCuidador && (
+      <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+        <TouchableOpacity
+          onPress={async () => {
+            await consumirItemInventario(item.id, 1);
+            const inv = await getInventario(paciente.id);
+            if (inv.items) setInventario(inv.items);
+          }}
+          style={{
+            paddingHorizontal: 10,
+            paddingVertical: 6,
+            backgroundColor: COLORS.cream,
+            borderRadius: 6,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+          }}
+        >
+          <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>−1</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={async () => {
+            await actualizarItemInventario(item.id, { cantidad: Number(item.cantidad) + 1 });
+            const inv = await getInventario(paciente.id);
+            if (inv.items) setInventario(inv.items);
+          }}
+          style={{
+            paddingHorizontal: 10,
+            paddingVertical: 6,
+            backgroundColor: COLORS.cream,
+            borderRadius: 6,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+          }}
+        >
+          <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>+1</Text>
+        </TouchableOpacity>
+
+        {/* ✏️ Botón Editar Ítem */}
+        <TouchableOpacity
+          onPress={() => abrirEdicionInventario(item)}
+          style={{ padding: 6, marginLeft: 2 }}
+        >
+          <Text style={{ color: COLORS.gold, fontSize: 16 }}>✏️</Text>
+        </TouchableOpacity>
+      </View>
+    )}
+  </View>
+);
   const importarDesdeExcel = async () => {
     if (!paciente?.id) return;
 
@@ -696,7 +824,7 @@ const resetFormularioMedicamento = () => {
       setRutinaHora(`${hh}:${mm}`);
     }
   };
-
+  
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
@@ -876,119 +1004,160 @@ const resetFormularioMedicamento = () => {
           )
         )}
 
+      {/* ================= TAB: INVENTARIO (AGRUPADO) ================= */}
       {tab === 'inventario' && (
-  inventario.length === 0 ? (
-    <View style={{ alignItems: 'center', marginTop: 40 }}>
-      <Text style={{ fontSize: 40 }}>📦</Text>
-      <Text style={{ color: COLORS.textLight, marginTop: 8 }}>
-        {esCuidador ? 'Sin medicamentos activos registrados' : 'Sin ítems en despensa'}
-      </Text>
-    </View>
-  ) : (
-    inventario.map((item) => (
-      <View key={item.id} style={styles.card}>
-        
-        {/* 📄 Datos del Ítem */}
-        <View style={{ flex: 1, marginRight: 8 }}>
-          
-          {/* Nombre + Dosis/Presentación */}
-          <Text style={{ fontWeight: '800', color: COLORS.textDark, fontSize: 15 }} numberOfLines={1}>
-            {item.nombre} {item.dosis ? `• ${item.dosis}` : ''}
-          </Text>
-
-          {/* Stock y Días de Cobertura */}
-          <Text style={{ color: COLORS.textLight, fontSize: 12, marginTop: 2 }}>
-            Stock: <Text style={{ fontWeight: '800', color: COLORS.cacao }}>{item.cantidad} {item.unidad}</Text>
-            {item.dias_cobertura != null ? ` · ~${item.dias_cobertura}d` : ''}
-          </Text>
-
-          {/* 📅 Caducidad */}
-          {item.fecha_caducidad && (
-            <Text style={{ color: COLORS.textLight, fontSize: 11, marginTop: 2 }}>
-              🗓️ Caduca: <Text style={{ fontWeight: '600', color: COLORS.textDark }}>{item.fecha_caducidad}</Text>
+        inventario.length === 0 ? (
+          <View style={{ alignItems: 'center', marginTop: 40 }}>
+            <Text style={{ fontSize: 40 }}>📦</Text>
+            <Text style={{ color: COLORS.textLight, marginTop: 8 }}>
+              {esCuidador ? 'Sin medicamentos activos registrados' : 'Sin ítems en despensa'}
             </Text>
-          )}
-
-          {/* ⚠️ Badges de Alerta */}
-          {item.bajo_stock && (
-            <Text style={{ color: COLORS.red, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
-              ⚠️ Stock bajo
-            </Text>
-          )}
-          {item.estado_caducidad === 'vencido' && (
-            <Text style={{ color: COLORS.red, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
-              ⛔ Producto vencido
-            </Text>
-          )}
-          {item.estado_caducidad === 'por_vencer' && (
-            <Text style={{ color: '#E65100', fontSize: 11, fontWeight: '700', marginTop: 2 }}>
-              ⏳ Por vencer pronto
-            </Text>
-          )}
-
-          {/* 🏠 Indicador de Insumo Compartido */}
-          {item.es_compartido && (
-            <Text style={{ color: COLORS.gold, fontSize: 10, fontWeight: '700', marginTop: 2 }}>
-              🏠 Compartido en casa
-            </Text>
-          )}
-        </View>
-           
-        {/* 🛠️ Acciones de Control (Solo Familiar / Admin) */}
-        {!esCuidador && (
-          <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-            <TouchableOpacity
-              onPress={async () => {
-                await consumirItemInventario(item.id, 1);
-                const inv = await getInventario(paciente.id);
-                if (inv.items) setInventario(inv.items);
-              }}
-              style={{
-                paddingHorizontal: 10,
-                paddingVertical: 6,
-                backgroundColor: COLORS.cream,
-                borderRadius: 6,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-              }}
-            >
-              <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>−1</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={async () => {
-                await actualizarItemInventario(item.id, { cantidad: Number(item.cantidad) + 1 });
-                const inv = await getInventario(paciente.id);
-                if (inv.items) setInventario(inv.items);
-              }}
-              style={{
-                paddingHorizontal: 10,
-                paddingVertical: 6,
-                backgroundColor: COLORS.cream,
-                borderRadius: 6,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-              }}
-            >
-              <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>+1</Text>
-            </TouchableOpacity>
-
-            {/* ✏️ Botón Editar Ítem */}
-            <TouchableOpacity
-              onPress={() => abrirEdicionInventario(item)}
-              style={{ padding: 6, marginLeft: 2 }}
-            >
-              <Text style={{ color: COLORS.gold, fontSize: 16 }}>✏️</Text>
-            </TouchableOpacity>
           </View>
-        )}
+        ) : (
+          (() => {
+            // Helper para renderizar cada tarjeta reutilizando tu mismo diseño
+            const renderCard = (item: any) => (
+              <View key={item.id} style={styles.card}>
+                {/* 📄 Datos del Ítem */}
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  {/* Nombre + Dosis/Presentación */}
+                  <Text style={{ fontWeight: '800', color: COLORS.textDark, fontSize: 15 }} numberOfLines={1}>
+                    {item.nombre} {item.dosis ? `• ${item.dosis}` : ''}
+                  </Text>
 
-      </View>
-    ))
-  )
-)}
-        <View style={{ height: 40 }} />
-      </ScrollView>
+                  {/* Stock y Días de Cobertura */}
+                  <Text style={{ color: COLORS.textLight, fontSize: 12, marginTop: 2 }}>
+                    Stock: <Text style={{ fontWeight: '800', color: COLORS.cacao }}>{item.cantidad} {item.unidad}</Text>
+                    {item.dias_cobertura != null ? ` · ~${item.dias_cobertura}d` : ''}
+                  </Text>
+
+                  {/* 📅 Caducidad */}
+                  {item.fecha_caducidad && (
+                    <Text style={{ color: COLORS.textLight, fontSize: 11, marginTop: 2 }}>
+                      🗓️ Caduca: <Text style={{ fontWeight: '600', color: COLORS.textDark }}>{item.fecha_caducidad}</Text>
+                    </Text>
+                  )}
+
+                  {/* ⚠️ Badges de Alerta */}
+                  {item.bajo_stock && (
+                    <Text style={{ color: COLORS.red, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
+                      ⚠️ Stock bajo
+                    </Text>
+                  )}
+                  {item.estado_caducidad === 'vencido' && (
+                    <Text style={{ color: COLORS.red, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
+                      ⛔ Producto vencido
+                    </Text>
+                  )}
+                  {item.estado_caducidad === 'por_vencer' && (
+                    <Text style={{ color: '#E65100', fontSize: 11, fontWeight: '700', marginTop: 2 }}>
+                      ⏳ Por vencer pronto
+                    </Text>
+                  )}
+
+                  {/* 🏠 Indicador de Insumo Compartido */}
+                  {item.es_compartido && (
+                    <Text style={{ color: COLORS.gold, fontSize: 10, fontWeight: '700', marginTop: 2 }}>
+                      🏠 Compartido en casa
+                    </Text>
+                  )}
+                </View>
+
+                {/* 🛠️ Acciones de Control (Solo Familiar / Admin) */}
+                {!esCuidador && (
+                  <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                    <TouchableOpacity
+                      onPress={async () => {
+                        await consumirItemInventario(item.id, 1);
+                        const inv = await getInventario(paciente.id);
+                        if (inv.items) setInventario(inv.items);
+                      }}
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        backgroundColor: COLORS.cream,
+                        borderRadius: 6,
+                        borderWidth: 1,
+                        borderColor: COLORS.border,
+                      }}
+                    >
+                      <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>−1</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={async () => {
+                        await actualizarItemInventario(item.id, { cantidad: Number(item.cantidad) + 1 });
+                        const inv = await getInventario(paciente.id);
+                        if (inv.items) setInventario(inv.items);
+                      }}
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        backgroundColor: COLORS.cream,
+                        borderRadius: 6,
+                        borderWidth: 1,
+                        borderColor: COLORS.border,
+                      }}
+                    >
+                      <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>+1</Text>
+                    </TouchableOpacity>
+
+                    {/* ✏️ Botón Editar Ítem */}
+                    <TouchableOpacity
+                      onPress={() => abrirEdicionInventario(item)}
+                      style={{ padding: 6, marginLeft: 2 }}
+                    >
+                      <Text style={{ color: COLORS.gold, fontSize: 16 }}>✏️</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            );
+
+            // Filtrado por categoría
+            const medicamentos = inventario.filter((i) => !i.tipo || i.tipo.toLowerCase() === 'medicamento');
+            const insumos = inventario.filter((i) => i.tipo && i.tipo.toLowerCase() === 'insumo');
+            const otros = inventario.filter((i) => i.tipo && i.tipo.toLowerCase() === 'otro');
+
+            return (
+              <>
+                {/* 💊 SECCIÓN MEDICAMENTOS */}
+                {medicamentos.length > 0 && (
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 14, marginBottom: 8, paddingLeft: 4 }}>
+                      💊 Medicamentos en Despensa
+                    </Text>
+                    {medicamentos.map(renderCard)}
+                  </View>
+                )}
+
+                {/* 🩹 SECCIÓN INSUMOS Y MATERIALES */}
+                {insumos.length > 0 && (
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 14, marginBottom: 8, paddingLeft: 4 }}>
+                      🩹 Insumos y Materiales
+                    </Text>
+                    {insumos.map(renderCard)}
+                  </View>
+                )}
+
+                {/* 📦 SECCIÓN OTROS ARTÍCULOS */}
+                {otros.length > 0 && (
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 14, marginBottom: 8, paddingLeft: 4 }}>
+                      📦 Otros Artículos
+                    </Text>
+                    {otros.map(renderCard)}
+                  </View>
+                )}
+              </>
+            );
+          })()
+        )
+      )}
+
+      <View style={{ height: 40 }} />
+    </ScrollView>
        
       {/* MODAL MEDICAMENTO */}
       {modalOpen && (
@@ -1576,7 +1745,7 @@ const resetFormularioMedicamento = () => {
         </View>
 
         {/* 6. Casilla de Insumo Compartido (NUEVO) */}
-        {invTipo !== 'medicamento' && (
+       
           <TouchableOpacity
             style={{ 
               flexDirection: 'row', 
@@ -1597,7 +1766,7 @@ const resetFormularioMedicamento = () => {
               Insumo compartido del hogar 🏠
             </Text>
           </TouchableOpacity>
-        )}
+ 
 
         {/* 7. Notas adicionales */}
         <Text style={styles.label}>Notas adicionales</Text>
@@ -1939,5 +2108,75 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: COLORS.white,
+  },
+  seccionContenedor: {
+    marginBottom: 20,
+  },
+  tituloSeccion: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#4A3B32',
+    marginBottom: 8,
+  },
+  cardInventario: {
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+  },
+  itemNombre: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#222',
+  },
+  itemDosis: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  itemStock: {
+    fontSize: 12,
+    color: '#555',
+    marginTop: 4,
+  },
+  itemStockBajo: {
+    color: '#D32F2F',
+    fontWeight: 'bold',
+  },
+  itemCaducidad: {
+    fontSize: 11,
+    color: '#888',
+    marginTop: 2,
+  },
+  /* 🏠 Badge de Compartido */
+  badgeCompartido: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#C8E6C9',
+  },
+  badgeCompartidoText: {
+    fontSize: 10,
+    color: '#2E7D32',
+    fontWeight: 'bold',
+  },
+  btnStock: {
+    backgroundColor: '#F0F0F0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  btnStockText: {
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  btnEditar: {
+    padding: 6,
   },
 });
