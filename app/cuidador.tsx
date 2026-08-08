@@ -642,26 +642,22 @@ useFocusEffect(
 
     Alert.alert(
       'Sin Dispositivo Vinculado',
-      `${p.nombre_completo} no tiene un reloj inteligente configurado. ¿Deseas iniciar el turno con captura manual?`,
+      `${p.nombre_completo} no tiene un reloj inteligente configurado. ¿Deseas iniciar el turno con captura manual de signos?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         { 
-          text: 'Iniciar Turno', 
+          text: 'Capturar Signos e Iniciar', 
           onPress: async () => {
             try {
-              // 🔑 ESTA ES LA LÍNEA QUE FALTABA
+              // 1. Iniciamos el turno en backend
               await iniciarTurno(p.id);
-
               console.log("✅ Turno iniciado manualmente para:", p.nombre_completo);
+              
               await refrescarPacientes();
-              setPacienteActivo({
-                ...p,
-                rol_en_equipo: esSwitchFamiliar ? 'familiar_principal' : (p.rol_en_equipo || 'cuidador_contratado'),
-                usuarioRol: esSwitchFamiliar ? 'familiar_principal' : 'cuidador_contratado'
-              });
 
-              await cargarTurno(p.id);
-              setVista('turno');
+              // 2. 🎯 Redirigimos a Registro de Salud Manual (igual que Blanca)
+              irARegistroSalud(p);
+
             } catch (err) {
               console.error("❌ Error al iniciar turno manual:", err);
               Alert.alert("Error", "No se pudo iniciar el turno. Intenta de nuevo.");

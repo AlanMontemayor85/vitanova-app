@@ -489,82 +489,7 @@ const resetFormularioMedicamento = () => {
     console.error('Error al consumir del inventario:', error);
   }
  };
-  const renderCardInventario = (item: any) => (
-  <View key={item.id} style={styles.card}>
-    {/* 📄 Datos del Ítem */}
-    <View style={{ flex: 1, marginRight: 8 }}>
-      
-      {/* Nombre + Dosis/Presentación */}
-      <Text style={{ fontWeight: '800', color: COLORS.textDark, fontSize: 15 }} numberOfLines={1}>
-        {item.nombre} {item.dosis ? `• ${item.dosis}` : ''}
-      </Text>
-
-      {/* Stock y Días de Cobertura */}
-      <Text style={{ color: COLORS.textLight, fontSize: 12, marginTop: 2 }}>
-        Stock: <Text style={{ fontWeight: '800', color: COLORS.cacao }}>{item.cantidad} {item.unidad}</Text>
-        {item.dias_cobertura != null ? ` · ~${item.dias_cobertura}d` : ''}
-      </Text>
-
-      {/* 📅 Caducidad */}
-      {item.fecha_caducidad && (
-        <Text style={{ color: COLORS.textLight, fontSize: 11, marginTop: 2 }}>
-          🗓️ Caduca: <Text style={{ fontWeight: '600', color: COLORS.textDark }}>{item.fecha_caducidad}</Text>
-        </Text>
-      )}
-
-      {/* ⚠️ Badges de Alerta */}
-      {item.bajo_stock && (
-        <Text style={{ color: COLORS.red, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
-          ⚠️ Stock bajo
-        </Text>
-      )}
-      {item.estado_caducidad === 'vencido' && (
-        <Text style={{ color: COLORS.red, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
-          ⛔ Producto vencido
-        </Text>
-      )}
-      {item.estado_caducidad === 'por_vencer' && (
-        <Text style={{ color: '#E65100', fontSize: 11, fontWeight: '700', marginTop: 2 }}>
-          ⏳ Por vencer pronto
-        </Text>
-      )}
-
-      {/* 🏠 Indicador de Insumo Compartido */}
-      {item.es_compartido && (
-        <Text style={{ color: COLORS.gold, fontSize: 10, fontWeight: '700', marginTop: 2 }}>
-          🏠 Compartido en casa
-        </Text>
-      )}
-    </View>
-       
-    {/* 🛠️ Acciones de Control (Solo Familiar / Admin) */}
-    {!esCuidador && (
-      <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-        <TouchableOpacity
-          onPress={() => abrirEdicionInventario(item)}
-          style={{ padding: 6, marginRight: 4 }}
-        >
-          <Text style={{ color: COLORS.gold, fontSize: 16 }}>✏️</Text>
-        </TouchableOpacity>
-
-        {/* ✕ Botón Eliminar Ítem */}
-        <TouchableOpacity
-          onPress={() => setConfirmDelete({ tipo: 'inventario', id: item.id, nombre: item.nombre })}
-          style={{
-            paddingHorizontal: 10,
-            paddingVertical: 6,
-            backgroundColor: '#FFEBEE',
-            borderRadius: 6,
-            borderWidth: 1,
-            borderColor: '#FFCDD2',
-          }}
-        >
-          <Text style={{ color: COLORS.red, fontWeight: '800', fontSize: 13 }}>✕</Text>
-        </TouchableOpacity>
-      </View>
-    )}
-  </View>
-);
+  
 const ejecutarEliminacion = async () => {
   if (!confirmDelete || confirmDelete.tipo !== 'inventario') return;
 
@@ -1058,55 +983,27 @@ const ejecutarEliminacion = async () => {
                 </View>
 
                 {/* 🛠️ Acciones de Control (Solo Familiar / Admin) */}
-                {!esCuidador && (
-                  <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                    <TouchableOpacity
-                      onPress={async () => {
-                        await consumirItemInventario(item.id, 1);
-                        const inv = await getInventario(paciente.id);
-                        if (inv.items) setInventario(inv.items);
-                      }}
-                      style={{
-                        paddingHorizontal: 10,
-                        paddingVertical: 6,
-                        backgroundColor: COLORS.cream,
-                        borderRadius: 6,
-                        borderWidth: 1,
-                        borderColor: COLORS.border,
-                      }}
-                    >
-                      <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>−1</Text>
-                    </TouchableOpacity>
+                  {!esCuidador && (
+                          <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
+                            <TouchableOpacity
+                              onPress={() => abrirEdicionInventario(item)}
+                              style={{ padding: 8 }}
+                            >
+                              <Text style={{ color: COLORS.gold, fontSize: 16 }}>✏️</Text>
+                            </TouchableOpacity>
 
-                    <TouchableOpacity
-                      onPress={async () => {
-                        await actualizarItemInventario(item.id, { cantidad: Number(item.cantidad) + 1 });
-                        const inv = await getInventario(paciente.id);
-                        if (inv.items) setInventario(inv.items);
-                      }}
-                      style={{
-                        paddingHorizontal: 10,
-                        paddingVertical: 6,
-                        backgroundColor: COLORS.cream,
-                        borderRadius: 6,
-                        borderWidth: 1,
-                        borderColor: COLORS.border,
-                      }}
-                    >
-                      <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>+1</Text>
-                    </TouchableOpacity>
-
-                    {/* ✏️ Botón Editar Ítem */}
-                    <TouchableOpacity
-                      onPress={() => abrirEdicionInventario(item)}
-                      style={{ padding: 6, marginLeft: 2 }}
-                    >
-                      <Text style={{ color: COLORS.gold, fontSize: 16 }}>✏️</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-            );
+                            <TouchableOpacity
+                              onPress={() =>
+                                setConfirmDelete({ tipo: 'inventario', id: item.id, nombre: item.nombre })
+                              }
+                              style={{ padding: 8 }}
+                            >
+                              <Text style={styles.deleteBtnText}>✕</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                        </View>
+                      );
 
             // Filtrado por categoría
             const medicamentos = inventario.filter((i) => !i.tipo || i.tipo.toLowerCase() === 'medicamento');
