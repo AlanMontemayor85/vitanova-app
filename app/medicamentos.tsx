@@ -96,7 +96,7 @@ export default function MedicamentosScreen() {
 
   // Autocompletado desde Inventario
   const [sugerencias, setSugerencias] = useState<any[]>([]);
-
+  const [inventarioId, setInventarioId] = useState<string | null>(null);
   // --- Temporalidad y Recurrencia ---
   const getHoyISO = () => {
     const d = new Date();
@@ -294,6 +294,7 @@ const resetFormularioMedicamento = () => {
       dias_semana: diasSemana.length === 0 ? null : diasSemana,
       cantidad_inicial: Number(cantidadInicial) || 0,
       unidad_medida: unidadMedida || 'piezas',
+      inventario_id: inventarioId, // 🔑 Vínculo directo con el producto en la despensa
     };
 
     try {
@@ -314,8 +315,10 @@ const resetFormularioMedicamento = () => {
 
       DeviceEventEmitter.emit('RECARGAR_TAREAS');
 
+      // Limpieza y cierre de modal
       setModalOpen(false);
       setMedicamentoEditando(null);
+      setInventarioId(null); // 👈 Limpiamos la vinculación al guardar
       setNombre('');
       setDosis('');
       setFrecuencia('cada 12 horas');
@@ -323,6 +326,7 @@ const resetFormularioMedicamento = () => {
       setIndicaciones('');
       setHorariosArray(['08:00']);
       setCantidadInicial('0');
+      setUnidadMedida('piezas');
       setSugerencias([]);
       resetControlesTiempo();
     } catch (e) {
@@ -1080,7 +1084,7 @@ const ejecutarEliminacion = async () => {
                 autoFocus
               />
 
-              {/* 💡 Sugerencias de Autocompletado */}
+              {/* 💡 Sugerencias de Autocompletado (HERENCIA COMPLETA) */}
               {sugerencias.length > 0 && (
                 <View style={{ backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.gold, borderRadius: 8, marginTop: 4, maxHeight: 110 }}>
                   <ScrollView nestedScrollEnabled>
@@ -1088,13 +1092,24 @@ const ejecutarEliminacion = async () => {
                       <TouchableOpacity
                         key={sug.id}
                         onPress={() => {
+                          // 1. Rellenar nombre exacto
                           setNombre(sug.nombre);
+                          
+                          // 2. 🔑 HEREDAR DATOS DE LA DESPENSA
+                          if (sug.dosis) setDosis(sug.dosis);
+                          if (sug.cantidad != null) setCantidadInicial(String(sug.cantidad));
+                          if (sug.unidad) setUnidadMedida(sug.unidad);
+                          
+                          // 3. Vincular ID de inventario
+                          setInventarioId(sug.id);
+
+                          // 4. Limpiar lista flotante
                           setSugerencias([]);
                         }}
                         style={{ padding: 10, borderBottomWidth: 1, borderBottomColor: COLORS.cream }}
                       >
                         <Text style={{ fontSize: 13, color: COLORS.textDark, fontWeight: '700' }}>
-                          📦 {sug.nombre} <Text style={{ fontSize: 11, color: COLORS.textLight }}>(En stock: {sug.cantidad} {sug.unidad})</Text>
+                          📦 {sug.nombre} {sug.dosis ? `• ${sug.dosis}` : ''} <Text style={{ fontSize: 11, color: COLORS.textLight }}>(En stock: {sug.cantidad} {sug.unidad || 'piezas'})</Text>
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -1105,8 +1120,8 @@ const ejecutarEliminacion = async () => {
               <Text style={styles.label}>Dosis *</Text>
               <TextInput style={styles.input} placeholder="Ej: 500mg" placeholderTextColor={COLORS.textLight} value={dosis} onChangeText={setDosis} />
 
-              {/* 📦 Stock Inicial Opcional para Inventario */}
-              {!medicamentoEditando && (
+              {/* 📦 Stock Inicial Opcional para Inventario (Se oculta si ya se heredó de un producto existente) */}
+              {!medicamentoEditando && !inventarioId && (
                 <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.label}>Stock en casa (Opcional)</Text>
@@ -1320,7 +1335,15 @@ const ejecutarEliminacion = async () => {
               </View>
 
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.cream }]} onPress={() => { setModalOpen(false); setMedicamentoEditando(null); resetControlesTiempo(); }}>
+                <TouchableOpacity 
+                  style={[styles.modalBtn, { backgroundColor: COLORS.cream }]} 
+                  onPress={() => { 
+                    setModalOpen(false); 
+                    setMedicamentoEditando(null); 
+                    setInventarioId(null); // 👈 Limpiar vinculación al cancelar
+                    resetControlesTiempo(); 
+                  }}
+                >
                   <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.gold, flex: 1 }]} onPress={guardarMedicamento} disabled={guardando}>
