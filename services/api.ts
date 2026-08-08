@@ -205,19 +205,23 @@ export const crearMedicamento = async (pacienteId: string, data: any) => {
   return JSON.parse(textResponse);
 };
 
-export const desactivarMedicamento = async (medicamentoId: string) => {
-  const response = await fetchWithAuth(`${BASE_URL}/medicamentos/${medicamentoId}/desactivar`, { 
-    method: 'PATCH' 
+export const desactivarMedicamento = async (medId: string) => {
+  console.log(`📡 [API FETCH] Desactivando medicamento: ${BASE_URL}/medicamentos/${medId}`);
+  
+  const res = await fetchWithAuth(`${BASE_URL}/medicamentos/${medId}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+    },
   });
 
-  const textResponse = await response.text();
-
-  if (!response.ok) {
-    console.error(`❌ [ERROR ${response.status} DESACTIVAR MEDICAMENTO]:`, textResponse);
-    throw new Error(`Error ${response.status}: ${textResponse}`);
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error(`❌ [ERROR ${res.status} DESACTIVAR MEDICAMENTO]:`, errText);
+    throw new Error(`Error ${res.status}: ${errText}`);
   }
 
-  return JSON.parse(textResponse);
+  return await res.json();
 };
 // 🔗 Vincular paciente a un grupo familiar / hogar
 export const vincularPacientesHogar = async (pacientePrincipalId: string, pacienteAVincularId: string) => {
@@ -401,10 +405,18 @@ export const consumirItemInventario = async (
   return res.json();
 };
 export const eliminarItemInventario = async (itemId: string) => {
-  const res = await fetchWithAuth(`${BASE_URL}/inventario/${itemId}`, {
-    method: 'DELETE',
-  });
-  return res.json();
+  console.log(`🚨 [API FETCH] Intentando DELETE -> ${BASE_URL}/inventario/${itemId}`);
+  try {
+    const res = await fetchWithAuth(`${BASE_URL}/inventario/${itemId}`, {
+      method: 'DELETE',
+    });
+    const json = await res.json();
+    console.log(`✅ [API FETCH] Respuesta (${res.status}):`, json);
+    return json;
+  } catch (err) {
+    console.error("❌ [API FETCH] Error de red o ejecución:", err);
+    throw err;
+  }
 };
 export const getEvaluaciones = async (pacienteId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/evaluaciones/hogar/${pacienteId}`);

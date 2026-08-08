@@ -293,7 +293,9 @@ const resetFormularioMedicamento = () => {
       fecha_inicio: fechaInicio,
       fecha_fin: esPermanente ? null : (fechaFin || null),
       dias_semana: diasSemana.length === 0 ? null : diasSemana,
-      cantidad_inicial: Number(cantidadInicial) || 0,
+      // 🔑 CRÍTICO ANTI-DUPLICADOS: Si viene de una sugerencia (inventarioId existe), 
+      // enviamos 0 para que el backend REUTILICE el lote existente y NO cree un duplicado en despensa.
+      cantidad_inicial: inventarioId ? 0 : (Number(cantidadInicial) || 0),
       unidad_medida: unidadMedida || 'piezas',
       inventario_id: inventarioId, // 🔑 Vínculo directo con el producto en la despensa
     };
@@ -690,54 +692,81 @@ const resetFormularioMedicamento = () => {
     setModalInvOpen(true);
   };
   const eliminarMedicamento = async (id: string) => {
-    if (!paciente?.id) return;
+    if (!paciente?.id || !id) return;
     try {
+      console.log("🚀 [BORRAR MED] Desactivando ID:", id);
       await desactivarMedicamento(id);
+
+      // Refrescamos la lista de medicamentos
       const meds = await getMedicamentos(paciente.id);
       if (meds.medicamentos) setMedicamentos(meds.medicamentos);
+
       DeviceEventEmitter.emit('RECARGAR_TAREAS');
     } catch (e) {
-      console.error(e);
+      console.error("❌ [BORRAR MED] Error atrapado:", e);
     }
   };
-  
-  const eliminarRutina = async (id: string) => {
-    if (!paciente?.id) return;
-    try {
-      await desactivarTareaRecurrente(id);
-      const rutinas = await getTareasRecurrentes(paciente.id);
-      if (rutinas.tareas) setTareasRec(rutinas.tareas);
-      DeviceEventEmitter.emit('RECARGAR_TAREAS');
-    } catch (e) {
-      console.error(e);
-    }
-  };
- const eliminarInventario = async (id: string) => {
-    if (!paciente?.id) return;
-    try {
-      await eliminarItemInventario(id); // 👈 Petición a api.ts (DELETE /inventario/{id})
-      const inv = await getInventario(paciente.id);
-      if (inv.items) setInventario(inv.items);
-      DeviceEventEmitter.emit('RECARGAR_TAREAS');
-    } catch (e) {
-      console.error("Error al eliminar item de inventario:", e);
-    }
-  }; 
+
+const eliminarRutina = async (id: string) => {
+  if (!paciente?.id) {
+    console.log("❌ [BORRAR RUTINA] Error: No hay paciente.id");
+    return;
+  }
+  try {
+    console.log("🚀 [BORRAR RUTINA] Desactivando ID:", id);
+    const res = await desactivarTareaRecurrente(id);
+    console.log("📡 [BORRAR RUTINA] Respuesta API:", res);
+
+    const rutinas = await getTareasRecurrentes(paciente.id);
+    if (rutinas.tareas) setTareasRec(rutinas.tareas);
+    DeviceEventEmitter.emit('RECARGAR_TAREAS');
+  } catch (e) {
+    console.error("❌ [BORRAR RUTINA] Error:", e);
+  }
+};
+
+const eliminarInventario = async (id: string) => {
+  if (!paciente?.id) {
+    console.log("❌ [BORRAR INV] Error: No hay paciente.id");
+    return;
+  }
+  try {
+    console.log("🚀 [BORRAR INV] Eliminando ID:", id);
+    const res = await eliminarItemInventario(id);
+    console.log("📡 [BORRAR INV] Respuesta API:", res);
+
+    const inv = await getInventario(paciente.id);
+    if (inv.items) setInventario(inv.items);
+    DeviceEventEmitter.emit('RECARGAR_TAREAS');
+  } catch (e) {
+    console.error("❌ [BORRAR INV] Error:", e);
+  }
+}; 
+
 const ejecutarEliminacion = async () => {
-  if (!confirmDelete) return;
+  console.log("🟡 [EJECUTAR ELIMINACION] Objeto confirmDelete:", confirmDelete);
+  if (!confirmDelete) {
+    console.log("⚠️ [EJECUTAR ELIMINACION] confirmDelete es null o undefined");
+    return;
+  }
 
   try {
     if (confirmDelete.tipo === 'inventario') {
+      console.log("🎯 [EJECUTAR ELIMINACION] Entró a INVENTARIO");
       await eliminarInventario(confirmDelete.id);
 
     } else if (confirmDelete.tipo === 'med') {
+      console.log("🎯 [EJECUTAR ELIMINACION] Entró a MEDICAMENTO");
       await eliminarMedicamento(confirmDelete.id);
 
     } else if (confirmDelete.tipo === 'rutina') {
+      console.log("🎯 [EJECUTAR ELIMINACION] Entró a RUTINA");
       await eliminarRutina(confirmDelete.id); 
+    } else {
+      console.warn("⚠️ [EJECUTAR ELIMINACION] Tipo no reconocido:", confirmDelete.tipo);
     }
   } catch (error) {
-    console.error(`Error al eliminar ${confirmDelete.tipo}:`, error);
+    console.error(`❌ [EJECUTAR ELIMINACION] Error general:`, error);
   } finally {
     setConfirmDelete(null);
   }
@@ -1804,36 +1833,35 @@ const ejecutarEliminacion = async () => {
     </View>
   </View>
 </Modal>
-      {/* MODAL CONFIRMACIÓN ELIMINAR */}
+      {/* MODAL CONFIRMAR ELIMINACIÓN */}
       {confirmDelete && (
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { gap: 16 }]}>
-            <Text style={{ fontSize: 32, textAlign: 'center' }}>🗑️</Text>
-            <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.textDark, textAlign: 'center' }}>
-              ¿Eliminar registro?
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Confirmar eliminación</Text>
+            <Text style={{ color: COLORS.textDark, marginVertical: 12 }}>
+              ¿Estás seguro de que deseas eliminar "{confirmDelete.nombre}"?
             </Text>
-            <Text style={{ fontSize: 13, color: COLORS.textLight, textAlign: 'center' }}>
-              {`"${confirmDelete.nombre}" será desactivado y no aparecerá en la lista.`}
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
               <TouchableOpacity
                 style={[styles.modalBtn, { backgroundColor: COLORS.cream, flex: 1 }]}
                 onPress={() => setConfirmDelete(null)}
               >
-                <Text style={[styles.modalBtnText, { color: COLORS.textLight }]}>Cancelar</Text>
+                <Text style={{ color: COLORS.textLight, textAlign: 'center', fontWeight: '700' }}>
+                  Cancelar
+                </Text>
               </TouchableOpacity>
+
               <TouchableOpacity
                 style={[styles.modalBtn, { backgroundColor: COLORS.red, flex: 1 }]}
-                onPress={async () => {
-                  if (confirmDelete.tipo === 'med') {
-                    await eliminarMedicamento(confirmDelete.id);
-                  } else {
-                    await eliminarRutina(confirmDelete.id);
-                  }
-                  setConfirmDelete(null);
+                onPress={() => {
+                  console.log("👆 Botón Confirmar Borrado Presionado para:", confirmDelete);
+                  ejecutarEliminacion();
                 }}
               >
-                <Text style={styles.modalBtnText}>Eliminar</Text>
+                <Text style={{ color: '#FFF', textAlign: 'center', fontWeight: '700' }}>
+                  Eliminar
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
