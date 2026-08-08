@@ -184,9 +184,12 @@ export const getMedicamentos = async (pacienteId: string) => {
 };
 
 export const crearMedicamento = async (pacienteId: string, data: any) => {
-  // 🎯 FIX: Se propaga el objeto completo (data) para incluir paciente_id y campos de tiempo
+  // 🎯 FIX: Se propaga el objeto completo (data) e incluimos el Content-Type para FastAPI
   const response = await fetchWithAuth(`${BASE_URL}/medicamentos`, {
     method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify({
       paciente_id: pacienteId,
       ...data,
