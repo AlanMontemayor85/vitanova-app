@@ -28,6 +28,7 @@ import {
   crearTareaRecurrente,
   desactivarMedicamento,
   desactivarTareaRecurrente,
+  eliminarItemInventario,
   getInventario,
   getMedicamentos,
   getPacientes,
@@ -141,14 +142,14 @@ export default function MedicamentosScreen() {
   const [esCuidador, setEsCuidador] = useState<boolean>(false);
   const [invDosis, setInvDosis] = useState<string>('');
   const [showDatePickerInv, setShowDatePickerInv] = useState<boolean>(false);
-  // --- Control de Eliminación e Importación ---
-  const [confirmDelete, setConfirmDelete] = useState<{ tipo: 'med' | 'rutina'; id: string; nombre: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ tipo: 'med' | 'rutina' | 'inventario'; id: string; nombre: string } | null>(null);   
   const [importando, setImportando] = useState(false);
   const [invEsCompartido, setInvEsCompartido] = useState<boolean>(false);
   const [dosisSugeridas, setDosisSugeridas] = useState<string[]>([]);
   const [modalVincularOpen, setModalVincularOpen] = useState(false);
   const [procesandoVinculo, setProcesandoVinculo] = useState(false);
   const [listaPacientes, setListaPacientes] = useState<any[]>([]);
+  
   
   useEffect(() => {
     const cargar = async () => {
@@ -586,6 +587,21 @@ const resetFormularioMedicamento = () => {
     )}
   </View>
 );
+const ejecutarEliminacion = async () => {
+  if (!confirmDelete || confirmDelete.tipo !== 'inventario') return;
+
+  try {
+    // 1. Borrado en backend
+    await eliminarItemInventario(confirmDelete.id);
+
+    // 2. Limpieza inmediata en la pantalla
+    setInventario((prev) => prev.filter((item) => item.id !== confirmDelete.id));
+  } catch (error) {
+    console.error('Error al eliminar ítem del inventario:', error);
+  } finally {
+    setConfirmDelete(null);
+  }
+};
   const importarDesdeExcel = async () => {
     if (!paciente?.id) return;
 
