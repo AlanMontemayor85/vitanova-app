@@ -206,8 +206,6 @@ export const crearMedicamento = async (pacienteId: string, data: any) => {
 };
 
 export const desactivarMedicamento = async (medId: string) => {
-  console.log(`📡 [API FETCH] Desactivando medicamento: ${BASE_URL}/medicamentos/${medId}`);
-  
   const res = await fetchWithAuth(`${BASE_URL}/medicamentos/${medId}`, {
     method: 'DELETE',
     headers: {
