@@ -23,22 +23,33 @@ const COLORS = {
 };
 
 const TIPO_CONFIG: Record<string, { icon: string; color: string; bg: string }> = {
+  // 🚨 EMERGENCIAS Y SEGURIDAD FÍSICA
   SOS: { icon: '🚨', color: '#D94F4F', bg: '#FDEAEA' },
   sos: { icon: '🚨', color: '#D94F4F', bg: '#FDEAEA' },
   CAIDA: { icon: '⚠️', color: '#D4860A', bg: '#FFF4E0' },
   caida: { icon: '⚠️', color: '#D4860A', bg: '#FFF4E0' },
   geocerca: { icon: '📍', color: '#D4860A', bg: '#FFF4E0' },
-  medicamento: { icon: '💊', color: '#BF9A40', bg: '#F5EDD8' },
-  dispositivo: { icon: '📱', color: '#8A8078', bg: '#F1EFE8' },
-  
-  // 🩸 ALERTAS CLÍNICAS Y DE SIGNOS VITALES
+
+  // 🩸 ALERTAS CLÍNICAS Y SIGNOS VITALES (RELOJ Y MANUAL)
   signo_vital: { icon: '🩺', color: '#D94F4F', bg: '#FDEAEA' },
   vitales: { icon: '🩺', color: '#D94F4F', bg: '#FDEAEA' },
+  vitales_criticos: { icon: '🚨', color: '#D94F4F', bg: '#FDEAEA' },
   spo2: { icon: '🫁', color: '#2B70C9', bg: '#EBF3FC' },
   presion: { icon: '🩸', color: '#D94F4F', bg: '#FDEAEA' },
   temperatura: { icon: '🌡️', color: '#D4860A', bg: '#FFF4E0' },
+  glucosa: { icon: '🍬', color: '#D94F4F', bg: '#FDEAEA' },
+  frecuencia_cardiaca: { icon: '❤️', color: '#D94F4F', bg: '#FDEAEA' },
+  fc: { icon: '❤️', color: '#D94F4F', bg: '#FDEAEA' },
   salud: { icon: '🏥', color: '#D94F4F', bg: '#FDEAEA' },
-  
+
+  // 📝 MEDICAMENTOS Y OPERACIÓN DE TURNO
+  medicamento: { icon: '💊', color: '#BF9A40', bg: '#F5EDD8' },
+  dispositivo: { icon: '📱', color: '#8A8078', bg: '#F1EFE8' },
+  inicio_turno: { icon: '⏳', color: '#BF9A40', bg: '#F5EDD8' },
+  cierre_turno: { icon: '🏁', color: '#2E7D32', bg: '#E8F5E9' },
+  auditoria: { icon: '🔐', color: '#4A4540', bg: '#F2F1ED' },
+
+  // 🔔 DEFAULT / OTROS
   otro: { icon: '🔔', color: '#8A8078', bg: '#F1EFE8' },
 };
 
@@ -97,7 +108,7 @@ export default function AlertasScreen() {
 
   // 🎯 FILTRADO POR ROL
   const alertasVisibles = (userRol?.toLowerCase() === 'cuidador')
-    ? alertas.filter(a => !a.descripcion?.includes('🔐'))
+    ? alertas.filter(a => !(a.descripcion || a.mensaje || '')?.includes('🔐'))
     : alertas;
 
   return (
@@ -122,50 +133,76 @@ export default function AlertasScreen() {
           </View>
         ) : (
           alertasVisibles.map((a) => {
-            const tipoNormalizado = a.tipo?.toLowerCase();
+            const tipoNormalizado = a.tipo?.toLowerCase() || 'otro';
             let config = TIPO_CONFIG[tipoNormalizado] ?? TIPO_CONFIG.otro;
-            const desc = a.descripcion || '';
+
+            // 🎯 CONSOLIDACIÓN DE TEXTO: Lee tanto 'descripcion' como 'mensaje' o 'texto'
+            const desc = a.descripcion || a.mensaje || a.texto || '';
             const descUpper = desc.toUpperCase();
 
-            /* 🎯 INTERCEPTORES MEJORADOS POR TEXTO O EMOJIS */
-            
+            /* 🎯 INTERCEPTORES MEJORADOS POR TEXTO O EMOJIS (ESTANDARIZADOS) */
+
             // 1. Auditoría
             if (desc.includes('🔐')) {
               config = { icon: '🔐', color: '#4A4540', bg: '#F2F1ED' };
             }
-            // 2. Cierre de turno (Reconoce emojis 🏁/🔒 O palabras clave CIERRE/CONCLUIDO/FIN DE TURNO)
+            // 2. Cierre de turno
             else if (desc.includes('🏁') || desc.includes('🔒') || descUpper.includes('CIERRE TURNO') || descUpper.includes('CONCLUIDO') || descUpper.includes('FIN TURNO')) {
               config = { icon: '🏁', color: COLORS.green, bg: COLORS.greenPale };
             }
-            // 3. Inicio de turno (Reconoce ⏳ O palabras clave INICIO TURNO)
+            // 3. Inicio de turno
             else if (desc.includes('⏳') || descUpper.includes('INICIO TURNO')) {
               config = { icon: '⏳', color: COLORS.gold, bg: COLORS.goldPale };
             }
-            // 🫁 4. Oxígeno / SpO2 Bajo
+            // 4. Caída
+            else if (tipoNormalizado === 'caida' || descUpper.includes('CAÍDA') || descUpper.includes('CAIDA')) {
+              config = TIPO_CONFIG.caida;
+            }
+            // 5. SOS / Pánico
+            else if (tipoNormalizado === 'sos' || descUpper.includes('SOS') || descUpper.includes('PÁNICO')) {
+              config = TIPO_CONFIG.SOS;
+            }
+            // 🫁 6. Oxígeno / SpO2
             else if (descUpper.includes('SPO2') || descUpper.includes('SATURACI') || desc.includes('🫁')) {
-              config = { icon: '🫁', color: COLORS.blue, bg: COLORS.bluePale };
+              config = TIPO_CONFIG.spo2;
             }
-            // 🩸 5. Presión Arterial
-            else if (descUpper.includes('PRESI') || descUpper.includes('SISTOLICA') || desc.includes('🩸')) {
-              config = { icon: '🩸', color: COLORS.red, bg: COLORS.redPale };
+            // 🩸 7. Presión Arterial
+            else if (descUpper.includes('PRESI') || descUpper.includes('SISTOLICA') || descUpper.includes('DIASTOLICA') || desc.includes('🩸')) {
+              config = TIPO_CONFIG.presion;
             }
-            // 🌡️ 6. Temperatura
+            // 🌡️ 8. Temperatura / Fiebre
             else if (descUpper.includes('TEMPERATURA') || descUpper.includes('FIEBRE') || descUpper.includes('FEBRÍCULA') || desc.includes('🌡️') || desc.includes('🥶')) {
-              config = { icon: '🌡️', color: COLORS.amber, bg: COLORS.amberPale };
+              config = TIPO_CONFIG.temperatura;
+            }
+            // 🍬 9. Glucosa / Diabetes
+            else if (descUpper.includes('GLUCOSA') || descUpper.includes('HIPOGLUCEMIA') || descUpper.includes('HIPERGLUCEMIA') || desc.includes('🍬')) {
+              config = TIPO_CONFIG.glucosa;
+            }
+            // ❤️ 10. Frecuencia Cardíaca / Pulso
+            else if (descUpper.includes('TAQUICARDIA') || descUpper.includes('BRADICARDIA') || descUpper.includes('PULSO') || descUpper.includes('FRECUENCIA CARD') || desc.includes('❤️')) {
+              config = TIPO_CONFIG.frecuencia_cardiaca;
+            }
+            // 🩺 11. Toma Manual Genérica
+            else if (descUpper.includes('TOMA MANUAL') || desc.includes('🩺')) {
+              config = TIPO_CONFIG.signo_vital;
             }
 
-            // Etiqueta dinámica de cabecera (Flexible a texto plano)
+            // 🏷️ Etiqueta dinámica de cabecera (Limpia y Estandarizada)
             const tituloTipo = desc.includes('🔐') ? 'AUDITORÍA' :
               (desc.includes('🏁') || desc.includes('🔒') || descUpper.includes('CIERRE TURNO') || descUpper.includes('CONCLUIDO') || descUpper.includes('FIN TURNO')) ? 'TURNO CONCLUIDO' :
               (desc.includes('⏳') || descUpper.includes('INICIO TURNO')) ? 'INICIO TURNO' :
+              (tipoNormalizado === 'caida' || descUpper.includes('CAÍDA') || descUpper.includes('CAIDA')) ? 'CAÍDA DETECTADA' :
+              (tipoNormalizado === 'sos' || descUpper.includes('SOS')) ? 'EMERGENCIA SOS' :
               (descUpper.includes('SPO2') || descUpper.includes('SATURACI')) ? 'SATURACIÓN SPO2' :
-              descUpper.includes('PRESI') ? 'PRESIÓN ARTERIAL' :
+              (descUpper.includes('PRESI') || descUpper.includes('SISTOLICA')) ? 'PRESIÓN ARTERIAL' :
               (descUpper.includes('TEMPERATURA') || descUpper.includes('FIEBRE') || descUpper.includes('FEBRÍCULA')) ? 'TEMPERATURA' :
-              (a.tipo ? a.tipo.toUpperCase() : 'ALERTA');
+              (descUpper.includes('GLUCOSA') || descUpper.includes('HIPOGLUCEMIA') || descUpper.includes('HIPERGLUCEMIA')) ? 'GLUCOSA' :
+              (descUpper.includes('TAQUICARDIA') || descUpper.includes('BRADICARDIA') || descUpper.includes('PULSO') || descUpper.includes('FRECUENCIA CARD')) ? 'FRECUENCIA CARDÍACA' :
+              (a.tipo ? a.tipo.toUpperCase().replace('_', ' ') : 'ALERTA MÉDICA');
 
             return (
-              <View key={a.id || Math.random().toString()} style={[styles.alertaCard, { backgroundColor: config.bg, borderColor: config.color + '40' }]}>
-                <View style={[styles.alertaIconWrap, { backgroundColor: config.color + '20' }]}>
+              <View key={a.id || Math.random().toString()} style={[styles.alertaCard, { backgroundColor: config.bg, borderColor: config.color }]}>
+                <View style={[styles.alertaIconWrap, { backgroundColor: config.bg }]}>
                   <Text style={styles.alertaIcon}>{config.icon}</Text>
                 </View>
                 <View style={styles.alertaContent}>
@@ -184,9 +221,9 @@ export default function AlertasScreen() {
                     </View>
                   </View>
                   
-                  {a.descripcion && (
-                    <Text style={styles.alertaDesc}>{a.descripcion}</Text>
-                  )}
+                  {desc ? (
+                    <Text style={styles.alertaDesc}>{desc}</Text>
+                  ) : null}
                   
                   <Text style={styles.alertaFecha}>
                     {a.created_at ? new Date(a.created_at).toLocaleString('es-MX', {
@@ -206,7 +243,10 @@ export default function AlertasScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.cream },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.cream,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -215,11 +255,29 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     paddingHorizontal: 20,
   },
-  backBtn: { marginRight: 15, padding: 5 },
-  backIcon: { color: COLORS.white, fontSize: 24, fontWeight: 'bold' },
-  greeting: { color: COLORS.gold, fontSize: 14, fontWeight: '600' },
-  userName: { color: COLORS.white, fontSize: 20, fontWeight: 'bold' },
-  body: { flex: 1, padding: 20 },
+  backBtn: {
+    marginRight: 15,
+    padding: 5,
+  },
+  backIcon: {
+    color: COLORS.white,
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  greeting: {
+    color: COLORS.gold,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  userName: {
+    color: COLORS.white,
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  body: {
+    flex: 1,
+    padding: 20,
+  },
   emptyCard: {
     backgroundColor: COLORS.white,
     padding: 30,
@@ -229,9 +287,20 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     borderWidth: 1,
   },
-  emptyIcon: { fontSize: 40, marginBottom: 10 },
-  emptyTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.textDark },
-  emptyText: { fontSize: 14, color: COLORS.textLight, marginTop: 4 },
+  emptyIcon: {
+    fontSize: 40,
+    marginBottom: 10,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.textDark,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: COLORS.textLight,
+    marginTop: 4,
+  },
   alertaCard: {
     flexDirection: 'row',
     padding: 16,
@@ -247,17 +316,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  alertaIcon: { fontSize: 20 },
-  alertaContent: { flex: 1 },
+  alertaIcon: {
+    fontSize: 20,
+  },
+  alertaContent: {
+    flex: 1,
+  },
   alertaHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 6,
   },
-  alertaTipo: { fontSize: 12, fontWeight: 'bold', letterSpacing: 0.5 },
-  severidadPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
-  severidadText: { fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' },
-  alertaDesc: { fontSize: 14, color: COLORS.textDark, marginBottom: 6, lineHeight: 20 },
-  alertaFecha: { fontSize: 11, color: COLORS.textLight },
+  alertaTipo: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  severidadPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  severidadText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    textTransform: 'uppercase' as const,
+  },
+  alertaDesc: {
+    fontSize: 14,
+    color: COLORS.textDark,
+    marginBottom: 6,
+    lineHeight: 20,
+  },
+  alertaFecha: {
+    fontSize: 11,
+    color: COLORS.textLight,
+  },
 });

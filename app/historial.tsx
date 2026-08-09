@@ -29,6 +29,7 @@ const COLORS = {
   bluePale: '#EEF3FC',
 };
 
+// ── HELPERS Y MOLDES DE FORMATO ──
 const formatFecha = (iso: string) => {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('es-MX', {
@@ -44,6 +45,7 @@ const formatHora = (iso: string) => {
     minute: '2-digit' 
   });
 };
+
 // 🛡️ Helper para evaluar si el signo vital es heredado (>30 min) o reciente
 const evaluarSignoVital = (
   valor: any, 
@@ -82,6 +84,7 @@ const evaluarSignoVital = (
 
   return { display: String(valor), etiqueta: null, esHeredado: false };
 };
+
 export default function HistorialScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -98,35 +101,22 @@ export default function HistorialScreen() {
   const [filtroFecha, setFiltroFecha] = useState(''); // Formato YYYY-MM-DD
   const [filtroCuidador, setFiltroCuidador] = useState('todos');
 
- 
-  // ── 🎯 CONTROL DE FILTRADO SEGURO DE EMERGENCIA ──
-  
-  // Extraemos los nombres reales. Si todos vienen vacíos, dejamos la lista vacía para no generar burbujas falsas
   const cuidadoresDisponibles = Array.from(
     new Set(cierres.map(c => c.nombre_cuidador || c.cuidador_nombre || '').filter(nombre => nombre !== ''))
   );
 
   // ── 🎯 FILTRADO MAESTRO CON CONVERSIÓN DE FECHA LOCAL ──
   const cierresFiltrados = cierres.filter(c => {
-    
-    // 1. Validar la fecha de forma segura
     let coincideFecha = true;
     if (filtroFecha !== '') {
-      // Tomamos la marca de tiempo disponible
       const rawDateStr = c.fecha || c.created_at;
-      
       if (rawDateStr) {
         try {
-          // Creamos un objeto de fecha real y extraemos sus componentes locales (año-mes-día)
           const d = new Date(rawDateStr);
           const anio = d.getFullYear();
-          // Agregamos un cero a la izquierda si el mes o día son menores a 10
           const mes = String(d.getMonth() + 1).padStart(2, '0');
           const dia = String(d.getDate()).padStart(2, '0');
-          
           const fechaLocalFormateada = `${anio}-${mes}-${dia}`;
-          
-          // Ahora comparamos "YYYY-MM-DD" local contra el "YYYY-MM-DD" del calendario
           coincideFecha = (fechaLocalFormateada === filtroFecha);
         } catch (err) {
           coincideFecha = false;
@@ -136,7 +126,6 @@ export default function HistorialScreen() {
       }
     }
     
-    // 2. Validar el cuidador de forma segura
     let coincideCuidador = true;
     if (filtroCuidador !== 'todos') {
       const nombreC = c.nombre_cuidador || c.cuidador_nombre || '';
@@ -146,13 +135,10 @@ export default function HistorialScreen() {
     return coincideFecha && coincideCuidador;
   });
 
-  
-
   const [showCalendar, setShowCalendar] = useState(false);
   const [fechaObjeto, setFechaObjeto] = useState(new Date());
   const cierreSeleccionado = cierresFiltrados[indice];
 
-  // Mapeo estático de íconos para evitar colisiones de contexto
   const ICONOS_TIPO: Record<string, string> = {
     medicamento: '💊',
     rutina: '🚶',
@@ -160,158 +146,151 @@ export default function HistorialScreen() {
   };
 
   // ── 4. EFFECT DE CARGA (DEDUPLICADO Y PROTEGIDO) ──
-useEffect(() => {
-  const cargar = async () => {
-    try {
-      const token = await loadStoredToken();
-      if (!token) { router.replace('/login'); return; }
-      const res = await fetch(
-        `${BASE_URL}/pacientes/${pacienteId}/historial-cierres?limit=20`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const data = await res.json();
-      
-      if (data.cierres && Array.isArray(data.cierres)) {
-        // 🎯 DEDUPLICACIÓN QUIRÚRGICA:
-        // Si el cuidador cerró múltiples veces el mismo turno/día,
-        // agrupamos y nos quedamos ÚNICAMENTE con el cierre más reciente.
-        const cierresUnicos = data.cierres.reduce((acc: any[], actual: any) => {
-          // Identificador clave del turno (turno_id, o combinación de fecha + cuidador)
-          const claveTurno = actual.turno_id 
-            || `${actual.fecha || actual.created_at?.split('T')[0]}_${actual.nombre_cuidador || actual.cuidador_id}`;
+  useEffect(() => {
+    const cargar = async () => {
+      try {
+        const token = await loadStoredToken();
+        if (!token) { router.replace('/login'); return; }
+        const res = await fetch(
+          `${BASE_URL}/pacientes/${pacienteId}/historial-cierres?limit=20`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const data = await res.json();
+        
+        if (data.cierres && Array.isArray(data.cierres)) {
+          const cierresUnicos = data.cierres.reduce((acc: any[], actual: any) => {
+            const claveTurno = actual.turno_id 
+              || `${actual.fecha || actual.created_at?.split('T')[0]}_${actual.nombre_cuidador || actual.cuidador_id}`;
 
-          const indiceExistente = acc.findIndex((item) => {
-            const claveItem = item.turno_id 
-              || `${item.fecha || item.created_at?.split('T')[0]}_${item.nombre_cuidador || item.cuidador_id}`;
-            return claveItem === claveTurno;
-          });
+            const indiceExistente = acc.findIndex((item) => {
+              const claveItem = item.turno_id 
+                || `${item.fecha || item.created_at?.split('T')[0]}_${item.nombre_cuidador || item.cuidador_id}`;
+              return claveItem === claveTurno;
+            });
 
-          if (indiceExistente === -1) {
-            // No existe en nuestro acumulador, lo agregamos
-            acc.push(actual);
-          } else {
-            // Ya existe un intento previo de este turno. 
-            // Comparamos timestamps para conservar el reporte corregido (más reciente)
-            const fechaActual = new Date(actual.created_at || actual.fecha).getTime();
-            const fechaPrev = new Date(acc[indiceExistente].created_at || acc[indiceExistente].fecha).getTime();
+            if (indiceExistente === -1) {
+              acc.push(actual);
+            } else {
+              const fechaActual = new Date(actual.created_at || actual.fecha).getTime();
+              const fechaPrev = new Date(acc[indiceExistente].created_at || acc[indiceExistente].fecha).getTime();
 
-            if (fechaActual > fechaPrev) {
-              acc[indiceExistente] = actual; // Reemplazamos por la versión más nueva
+              if (fechaActual > fechaPrev) {
+                acc[indiceExistente] = actual;
+              }
             }
-          }
-          return acc;
-        }, []);
+            return acc;
+          }, []);
 
-        console.log(`✅ Cierres cargados: ${data.cierres.length} totales | ${cierresUnicos.length} únicos proyectados`);
-        setCierres(cierresUnicos);
+          console.log(`✅ Cierres cargados: ${data.cierres.length} totales | ${cierresUnicos.length} únicos proyectados`);
+          setCierres(cierresUnicos);
+        }
+      } catch (e) {
+        console.error("❌ Error recuperando historial:", e);
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      console.error("❌ Error recuperando historial:", e);
-    } finally {
-      setLoading(false);
-    }
-  };
-  cargar();
-}, [pacienteId]);
-  
+    };
+    cargar();
+  }, [pacienteId]);
+
+  // 📄 EXPORTACIÓN COMPLETA A PDF CON ALERTAS CLÍNICAS
   const generarPDF = async (c: any) => {
-    // 🎯 1. LEER EL LOGO NATIVO AUTOMÁTICAMENTE Y PASARLO A BASE64
     let logoBase64 = "";
     try {
-      // Cargamos el módulo de la imagen desde tus carpetas de assets
       const asset = Asset.fromModule(require('../assets/images/logo.png'));
-      await asset.downloadAsync(); // Aseguramos disponibilidad en el caché local
-      
+      await asset.downloadAsync();
       if (asset.localUri) {
-        // Leemos el binario y lo transformamos en texto codificado Base64 en tiempo real
         const base64Raw = await readAsStringAsync(asset.localUri, { encoding: 'base64' });
         logoBase64 = `data:image/png;base64,${base64Raw}`;
       }
     } catch (err) {
-      console.error("⚠️ No se pudo procesar el logo para el PDF, se generará sin él:", err);
+      console.error("⚠️ No se pudo procesar el logo para el PDF:", err);
     }
 
-    // 🎯 2. CLASIFICACIÓN DE TAREAS Y NOTAS (Mantiene tu validación existente)
-    const tareasTrabajo = ((c?.tareas || []) as any[]).filter((t: any) => !(t.descripcion || '').startsWith('📝'));
-    const notasTurno = ((c?.tareas || []) as any[]).filter((t: any) => (t.descripcion || '').startsWith('📝'));
+    const desglosePersonas = c?.desglose_por_persona || [];
+    const inventarioUsado = c?.inventario_usado || [];
+    const notasTurno = c?.notas_turno || [];
+    const alertasClinicas = c?.alertas_clinicas || []; // 👈 🎯 NUEVA VARIABLE DE ALERTAS
 
-    // Generamos las filas de la tabla de actividades planificadas de forma dinámica
-    const filasActividades = tareasTrabajo.map((t: any) => `
-      <tr style="border-bottom: 1px solid #E0D8CC;">
-        <td style="padding: 10px; font-size: 13px; font-weight: 600; color: #2C2820;">
-          ${t.tipo === 'medicamento' ? '💊' : t.tipo === 'rutina' ? '🚶' : '📋'} ${t.descripcion}
-        </td>
-        <td style="padding: 10px; font-size: 13px; text-align: center;">
-          ${t.completada ? '<span style="color: #3DAA6A; font-weight: 800;">✓ Completada</span>' : '<span style="color: #8A8078;">⏳ Pendiente</span>'}
-        </td>
-        <td style="padding: 10px; font-size: 13px; color: #8A8078; text-align: center;">
-          ${t.hora_completada ? formatHora(t.hora_completada) : '—'}
-        </td>
-      </tr>
+    const htmlDesglose = desglosePersonas.map((g: any) => `
+      <div style="margin-bottom: 14px; background-color: #FFFFFF; border: 1px solid #E0D8CC; border-radius: 8px; padding: 12px;" class="no-split">
+        <div style="font-size: 13px; font-weight: 800; color: #BF9A40; margin-bottom: 8px;">
+          👤 ${g.persona} (${g.tareas.length} actividades)
+        </div>
+        <table style="width: 100%; border-collapse: collapse;">
+          ${g.tareas.map((t: any) => `
+            <tr style="border-top: 1px solid #F0EAE1;">
+              <td style="padding: 6px; font-size: 12px; color: #2C2820;">
+                ${ICONOS_TIPO[t.tipo] || '📋'} ${t.descripcion}
+              </td>
+              <td style="padding: 6px; font-size: 11px; color: #8A8078; text-align: right;">
+                ${t.hora_completada ? formatHora(t.hora_completada) : '—'}
+              </td>
+            </tr>
+          `).join('')}
+        </table>
+      </div>
     `).join('');
 
-    // 🎯 3. ARQUITECTURA DEL HTML COMPLETO CON DISEÑO SIMÉTRICO Y CONDICIONALES
+    const htmlInventario = inventarioUsado.length > 0 ? `
+      <table class="data-table no-split">
+        <thead>
+          <tr>
+            <th style="width: 50%;">Insumo / Medicamento</th>
+            <th style="width: 25%; text-align: center;">Usado Hoy</th>
+            <th style="width: 25%; text-align: center;">Stock Restante</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${inventarioUsado.map((inv: any) => `
+            <tr style="border-bottom: 1px solid #E0D8CC;">
+              <td style="padding: 8px 10px; font-size: 12px; font-weight: 600;">${inv.nombre}</td>
+              <td style="padding: 8px 10px; font-size: 12px; text-align: center; color: #D4860A; font-weight: 700;">-${inv.usado_hoy} ${inv.unidad}</td>
+              <td style="padding: 8px 10px; font-size: 12px; text-align: center; color: #3DAA6A; font-weight: 800;">${inv.stock_restante} ${inv.unidad}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    ` : '<p style="font-size: 12px; color: #8A8078;">No se registraron consumos de inventario en este día.</p>';
+
+    // 🎯 HTML PARA SECCIÓN DE ALERTAS CLÍNICAS
+    const htmlAlertas = alertasClinicas.length > 0 ? `
+      <div class="alert-box" style="background-color: #FDEAEA; border-left: 5px solid #D94F4F; margin-bottom: 20px;">
+        <div class="alert-title" style="color: #D94F4F;">🚨 Alertas Clínicas e Incidentes del Día (${alertasClinicas.length})</div>
+        <ul style="margin: 6px 0 0 0; padding-left: 20px; font-size: 13px; line-height: 1.6; color: #2C2820;">
+          ${alertasClinicas.map((alt: any) => `
+            <li>
+              <strong style="color: ${alt.severidad === 'alta' ? '#D94F4F' : '#D4860A'};">[${(alt.severidad || 'baja').toUpperCase()}]</strong> 
+              ${alt.descripcion || alt.mensaje}
+            </li>
+          `).join('')}
+        </ul>
+      </div>
+    ` : '<p style="font-size: 12px; color: #3DAA6A; font-weight: 600;">✅ Sin alertas ni eventos críticos registrados durante el turno.</p>';
+
     const html = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="UTF-8">
         <style>
-          /* 🚀 Configuramos los márgenes físicos de las páginas del PDF */
-          @page {
-            size: letter;
-            margin: 15mm 15mm 15mm 15mm;
-          }
-
+          @page { size: letter; margin: 15mm; }
           body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 10px; color: #2C2820; background-color: #FAFAF7; }
-          
-          /* 🚀 Evita de forma absoluta que las tarjetas o contenedores se fracturen entre hojas */
-          .no-split {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
-
-          /* Asegura que las filas individuales de la tabla de cronogramas no se decapiten */
-          tr {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
-
-          /* Contenedor Flexbox para alinear texto a la izquierda y el logotipo a la derecha */
-          .header-container { 
-            background-color: #4A4540; 
-            padding: 24px; 
-            border-radius: 14px; 
-            color: #FFFFFF; 
-            margin-bottom: 25px; 
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-          }
+          .no-split { page-break-inside: avoid !important; break-inside: avoid !important; }
+          tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+          .header-container { background-color: #4A4540; padding: 24px; border-radius: 14px; color: #FFFFFF; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
           .header-text { flex: 1; }
-          /* 🎯 Incrementamos el tamaño del logo y ajustamos su centrado */
-          .header-logo { 
-            width: 140px;          /* Subimos de 95px a 140px para que destaque */
-            height: auto; 
-            margin-left: 20px; 
-            object-fit: contain; 
-            max-height: 120px;     /* Ponemos un tope para que no sature el contenedor */
-          }
-
+          .header-logo { width: 140px; height: auto; margin-left: 20px; object-fit: contain; max-height: 120px; }
           .brand-title { font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: #BF9A40; margin-bottom: 4px; }
           .main-title { font-size: 24px; font-weight: 800; margin: 0; padding-bottom: 4px; }
           .meta-info { font-size: 13px; color: #E0D8CC; margin-top: 8px; line-height: 1.6; }
-          
-          .section-title { font-size: 14px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #8A8078; margin-top: 30px; margin-bottom: 12px; border-bottom: 2px solid #E0D8CC; padding-bottom: 6px; }
-          
+          .section-title { font-size: 14px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #8A8078; margin-top: 25px; margin-bottom: 12px; border-bottom: 2px solid #E0D8CC; padding-bottom: 6px; }
           .grid-container { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
-          .metric-card { flex: 1; min-width: 130px; background-color: #FFFFFF; border: 1px solid #E0D8CC; border-radius: 10px; padding: 12px; text-align: center; }
+          .metric-card { flex: 1; min-width: 120px; background-color: #FFFFFF; border: 1px solid #E0D8CC; border-radius: 10px; padding: 12px; text-align: center; }
           .metric-val { font-size: 16px; font-weight: 800; color: #BF9A40; margin-bottom: 2px; }
           .metric-label { font-size: 10px; font-weight: 700; color: #8A8078; text-transform: uppercase; }
-          
           .data-table { width: 100%; border-collapse: collapse; background-color: #FFFFFF; border: 1px solid #E0D8CC; border-radius: 12px; overflow: hidden; margin-bottom: 25px; }
           .data-table th { background-color: #F5EDD8; color: #4A4540; padding: 12px; font-size: 11px; font-weight: 800; text-transform: uppercase; text-align: left; letter-spacing: 1px; }
-          
           .alert-box { background-color: #FFF4E0; border-left: 5px solid #D4860A; border-radius: 8px; padding: 16px; margin-top: 15px; }
           .alert-title { font-size: 12px; font-weight: 800; color: #D4860A; text-transform: uppercase; margin-bottom: 6px; }
           .alert-desc { font-size: 13px; color: #2C2820; margin: 0; line-height: 1.5; }
@@ -325,12 +304,11 @@ useEffect(() => {
             <h1 class="main-title">Reporte Clínico de Turno</h1>
             <div class="meta-info">
               <strong>Paciente:</strong> ${pacienteNombre}<br/>
-              <strong>Especialista/Cuidador:</strong> ${c.usuarios?.nombre_completo ?? 'Personal Vitanova'}<br/>
+              <strong>Especialista/Cuidador:</strong> ${c.nombre_cuidador ?? 'Personal Vitanova'}<br/>
               <strong>Fecha de Consolidación:</strong> ${formatFecha(c.created_at)}<br/>
               <strong>Estado General Dictado:</strong> <span style="font-weight: 800; color: ${c.estado_paciente === 'bien' ? '#3DAA6A' : '#D94F4F'};">${c.estado_paciente?.toUpperCase()}</span>
             </div>
           </div>
-          
           ${logoBase64 ? `<img class="header-logo" src="${logoBase64}" alt="Logo Vitanova" />` : ''}
         </div>
 
@@ -345,6 +323,12 @@ useEffect(() => {
           </div>
         </div>
 
+        {/* 🚨 🎯 SECCIÓN INCLUIDA: ALERTAS CLÍNICAS */}
+        <div class="no-split">
+          <div class="section-title">🚨 Alertas Clínicas del Día</div>
+          ${htmlAlertas}
+        </div>
+
         ${c.dolor_eva !== null && c.dolor_eva !== undefined ? `
           <div class="no-split">
             <div class="section-title">Evaluación de Confort Diario</div>
@@ -357,35 +341,25 @@ useEffect(() => {
           </div>
         ` : ''}
 
-        ${tareasTrabajo.length > 0 ? `
-          <div class="no-split">
-            <div class="section-title">Cronograma de Actividades and Controles</div>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th style="width: 55%;">Descripción de la Tarea</th>
-                  <th style="width: 25%; text-align: center;">Estatus</th>
-                  <th style="width: 20%; text-align: center;">Hora Ejecución</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${filasActividades}
-              </tbody>
-            </table>
-          </div>
-        ` : ''}
+        <div class="no-split">
+          <div class="section-title">✅ Actividades Realizadas por Responsable</div>
+          ${htmlDesglose || '<p style="font-size: 12px; color: #8A8078;">Sin actividades registradas.</p>'}
+        </div>
 
-        ${c.observaciones || notasTurno.length > 0 || c.notes_consolidated ? `
+        <div class="no-split">
+          <div class="section-title">📦 Concentrado de Insumos Usados e Inventario Restante</div>
+          ${htmlInventario}
+        </div>
+
+        ${c.observaciones || notasTurno.length > 0 ? `
           <div class="no-split">
-            <div class="section-title">Observaciones Especiales y Alertas</div>
-            
+            <div class="section-title">Observaciones Especiales</div>
             ${c.observaciones ? `
               <div class="alert-box">
                 <div class="alert-title">🚨 Reporte de Anomalía o Alerta de Confort</div>
                 <p class="alert-desc">${c.observaciones}</p>
               </div>
             ` : ''}
-
             ${notasTurno.length > 0 ? `
               <div class="alert-box" style="background-color: #EEF3FC; border-left-color: #2D6BE4;">
                 <div class="alert-title" style="color: #2D6BE4;">📝 Notas de Evolución Clínicas</div>
@@ -401,53 +375,86 @@ useEffect(() => {
       </html>
     `;
 
-    // 🎯 4. PROCESO DE RENDERIZADO, RENOMBRADO FORMAL Y COMPARTIR
     try {
-      // Impresión a archivo temporal
       const { uri } = await Print.printToFileAsync({ html });
-      
-      // Sanitizamos el nombre real de la paciente de forma estricta
       const nombreSanitizado = (pacienteNombre || 'paciente')
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "") // Limpia acentos de español
-        .replace(/[^a-zA-Z0-9_]/g, '') // Elimina caracteres especiales
-        .replace(/\s+/g, '_'); // Reemplaza espacios por guiones bajos
-
-      // Creamos la ruta de destino nítida
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_]/g, '').replace(/\s+/g, '_');
       const targetPath = `${documentDirectory}reporte_clinico_${nombreSanitizado}.pdf`;
 
-      // Mudamos el archivo al búnker final con su nombre correcto
-      await moveAsync({ 
-        from: uri, 
-        to: targetPath 
-      });
-
-      console.log("📥 PDF Clínico renombrado con éxito en:", targetPath);
-
-      // Lanzamos la ventana nativa de compartir
-      await Sharing.shareAsync(targetPath, { 
-        mimeType: 'application/pdf',
-        dialogTitle: `Reporte Clínico de Turno — ${pacienteNombre}`
-      });
-
+      await moveAsync({ from: uri, to: targetPath });
+      await Sharing.shareAsync(targetPath, { mimeType: 'application/pdf', dialogTitle: `Reporte Clínico — ${pacienteNombre}` });
     } catch (e) {
-      console.error("❌ Error imprimiendo o renombrando el archivo PDF:", e);
+      console.error("❌ Error imprimiendo PDF:", e);
       Alert.alert("Error de Impresión", "Hubo un fallo al compilar el reporte clínico.");
     }
   };
 
+  // 📲 MENSAJE ESTRUCTURADO PARA WHATSAPP
   const compartirPorWhatsApp = (c: any) => {
-    const texto = `📋 *Reporte de Turno — ${pacienteNombre}*\n\n` +
-      `👤 Cuidador: ${c.usuarios?.nombre_completo ?? 'Personal Vitanova'}\n` +
+    const desglosePersonas = c?.desglose_por_persona || [];
+    const inventarioUsado = c?.inventario_usado || [];
+    const alertasClinicas = c?.alertas_clinicas || [];
+
+    // 🎯 1. Detección dinámica de Emoji y Nombre de Estado
+    const emojiEstado = c?.estado_paciente === 'bien' ? '😊' : c?.estado_paciente === 'preocupante' ? '😟' : '😐';
+    const labelEstado = c?.estado_paciente === 'bien' ? 'ESTABLE' : c?.estado_paciente === 'preocupante' ? 'CRÍTICO' : 'REGULAR';
+
+    // 🎯 2. Nombre del cuidador asignado al cierre
+    const nombreCuidador = c?.nombre_cuidador || c?.usuarios?.nombre_completo || 'Personal Vitanova';
+
+    let textoAlertas = "";
+    if (alertasClinicas.length > 0) {
+      textoAlertas = `🚨 *ALERTAS CLÍNICAS DEL DÍA (${alertasClinicas.length}):*\n`;
+      alertasClinicas.forEach((alt: any) => {
+        textoAlertas += `  • ${alt.descripcion || alt.mensaje}\n`;
+      });
+      textoAlertas += "\n";
+    }
+
+    let textoPersonas = "";
+    if (desglosePersonas.length === 0) {
+      textoPersonas = "Sin actividades registradas hoy.\n";
+    } else {
+      desglosePersonas.forEach((g: any) => {
+        textoPersonas += `👤 *${g.persona}* (${g.tareas.length} tareas):\n`;
+        g.tareas.forEach((t: any) => {
+          const hora = t.hora_completada ? formatHora(t.hora_completada) : '';
+          textoPersonas += `   • [${hora}] ${t.descripcion}\n`;
+        });
+        textoPersonas += "\n";
+      });
+    }
+
+    let textoInventario = "";
+    if (inventarioUsado.length === 0) {
+      textoInventario = "No se consumieron insumos de la despensa hoy.\n";
+    } else {
+      inventarioUsado.forEach((inv: any) => {
+        textoInventario += `   • *${inv.nombre}*: Usado hoy: -${inv.usado_hoy} ${inv.unidad} | *Stock restante: ${inv.stock_restante} ${inv.unidad}*\n`;
+      });
+    }
+
+    // 🎯 3. Mensaje dinámico completo y ordenado
+    const mensaje = 
+      `📋 *REPORTE DIARIO DE CUIDADOS*\n` +
+      `👤 Paciente: *${pacienteNombre}*\n` +
+      `🧑‍⚕️ Cuidador: *${nombreCuidador}*\n` +
       `📅 Fecha: ${formatFecha(c.created_at)}\n` +
-      `😊 Estado: ${c.estado_paciente}\n\n` +
+      `${emojiEstado} Estado: *${labelEstado}*\n\n` +
       `*Signos Vitales:*\n` +
       `SpO₂: ${c.spo2 ?? '—'}% | PA: ${c.presion_sistolica ?? '—'}/${c.presion_diastolica ?? '—'} | FC: ${c.frecuencia_cardiaca ?? '—'} bpm\n` +
       `Temp: ${c.temperatura ?? '—'}°C | Peso: ${c.peso_kg ?? '—'} kg\n\n` +
-      (c.dolor_eva !== null && c.dolor_eva !== undefined ? `*Confort:*\nDolor: ${c.dolor_eva}/10 | Ánimo: ${c.estado_animo ?? '—'} | Hidratación: ${c.hidratacion_vasos ?? '—'} vasos\n\n` : '') +
-      (c.observaciones ? `*Observaciones:* ${c.observaciones}\n` : '') +
-      (c.notas ? `*Notes:* ${c.notas}\n` : '');
-    Linking.openURL(`whatsapp://send?text=${encodeURIComponent(texto)}`);
+      `${textoAlertas}` +
+      (c.dolor_eva !== null && c.dolor_eva !== undefined ? `*Confort:*\nDolor: ${c.dolor_eva}/10 | Ánimo: ${c.estado_animo ?? '—'} | Hidratación: ${c.hidratacion_vasos ?? '0'} vasos\n\n` : '') +
+      `─────────────────────────────\n` +
+      `✅ *ACTIVIDADES POR RESPONSABLE*\n\n` +
+      `${textoPersonas}` +
+      `─────────────────────────────\n` +
+      `📦 *CONCENTRADO DE INSUMOS Y STOCK RESTANTE*\n\n` +
+      `${textoInventario}` +
+      (c.observaciones ? `\n🚨 *Observaciones:* ${c.observaciones}\n` : '');
+
+    Linking.openURL(`whatsapp://send?text=${encodeURIComponent(mensaje)}`);
   };
 
   if (loading) {
@@ -464,24 +471,10 @@ useEffect(() => {
   const displayEstado = cierreSeleccionado?.estado_paciente === 'bien' ? 'ESTABLE' : 
                         cierreSeleccionado?.estado_paciente === 'preocupante' ? 'CRÍTICO' : 'REGULAR';
 
-  // Separación segura de tareas (protegida contra nulos si el turno viene vacío)
-  // ── 🎯 CORRECCIÓN DE FILTRADO CLÍNICO DE VITALES ──
-  
-  // 1. Actividades Planificadas: Rutinas e incidentales operativas reales (NO notas)
-  const tareasTrabajo = cierreSeleccionado?.tareas 
-    ? cierreSeleccionado.tareas.filter((t: any) => {
-        const desc = String(t.descripcion || '');
-        return !desc.startsWith('📝'); // Filtra todo lo operativo, sin importar si es rutina o incidental
-      }) 
-    : [];
+  const desglosePersonas = cierreSeleccionado?.desglose_por_persona || [];
+  const inventarioUsado = cierreSeleccionado?.inventario_usado || [];
+  const notasTurno = cierreSeleccionado?.notas_turno || [];
 
-  // 2. Notas del Turno: Bitácoras de evolución que empiezan estrictamente con el emoji descriptivo
-  const notasTurno = cierreSeleccionado?.tareas 
-    ? cierreSeleccionado.tareas.filter((t: any) => {
-        const desc = String(t.descripcion || '');
-        return desc.startsWith('📝'); // Captura únicamente las anotaciones clínicas del personal
-      }) 
-    : [];
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
@@ -491,14 +484,13 @@ useEffect(() => {
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.greeting}>HISTORIAL DE TURNOS</Text>
+          <Text style={styles.greeting}>HISTORIAL DE TURNOS Y REPORTES</Text>
           <Text style={styles.userName}>{pacienteNombre}</Text>
         </View>
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
         {!tieneRegistrosBase ? (
-          /* CASO 1: Sin historial clínico registrado en la BD de Vitanova */
           <View style={styles.emptyCard}>
             <Text style={{ fontSize: 40, marginBottom: 12 }}>📋</Text>
             <Text style={{ fontSize: 14, color: COLORS.textLight, textAlign: 'center' }}>
@@ -506,7 +498,6 @@ useEffect(() => {
             </Text>
           </View>
         ) : !tieneRegistrosFiltrados ? (
-          /* CASO 2: Sí hay cierres, pero ninguno coincide con la fecha/cuidador seleccionados */
           <View style={styles.emptyCard}>
             <Text style={{ fontSize: 40, marginBottom: 12 }}>🔍</Text>
             <Text style={{ fontSize: 14, color: COLORS.textLight, textAlign: 'center' }}>
@@ -524,9 +515,8 @@ useEffect(() => {
             </TouchableOpacity>
           </View>
         ) : (
-          /* CASO 3: Todo perfecto, pintamos la tarjeta del reporte vital */
           <View>
-            {/* 🎯 NAVEGADOR MULTI-TURNO INTERACTIVO */}
+            {/* NAVEGADOR MULTI-TURNO INTERACTIVO */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <TouchableOpacity
                 onPress={() => setIndice(Math.min(indice + 1, cierresFiltrados.length - 1))}
@@ -537,39 +527,28 @@ useEffect(() => {
               </TouchableOpacity>
               
               <TouchableOpacity 
-              style={{ 
-                alignItems: 'center', 
-                marginVertical: 4,
-                paddingVertical: 4
-              }} 
-              onPress={() => setModalVisible(true)}
-            >
-              {/* Contador de turnos */}
-              <Text style={{ fontSize: 13, fontWeight: '700', color: COLORS.textDark, marginBottom: 2 }}>
-                {`Turno ${indice + 1} de ${cierresFiltrados.length}`}
-              </Text>
-              
-              {/* Badge táctil para la fecha */}
-              <View style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: filtroFecha ? COLORS.goldPale : COLORS.cream,
-                paddingHorizontal: 12,
-                paddingVertical: 4,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: filtroFecha ? COLORS.gold : COLORS.border,
-                gap: 4,
-                marginTop: 2
-              }}>
-                <Text style={{ fontSize: 11, color: COLORS.gold, fontWeight: '700' }}>
-                  {cierreSeleccionado?.fecha 
-                    ? new Date(cierreSeleccionado.fecha + 'T00:00:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' }) 
-                    : 'Filtrar Fecha'}
+                style={{ alignItems: 'center', marginVertical: 4, paddingVertical: 4 }} 
+                onPress={() => setModalVisible(true)}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '700', color: COLORS.textDark, marginBottom: 2 }}>
+                  {`Turno ${indice + 1} de ${cierresFiltrados.length}`}
                 </Text>
-                <Text style={{ fontSize: 10 }}>📅</Text>
-              </View>
-            </TouchableOpacity>
+                
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center',
+                  backgroundColor: filtroFecha ? COLORS.goldPale : COLORS.cream,
+                  paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12,
+                  borderWidth: 1, borderColor: filtroFecha ? COLORS.gold : COLORS.border,
+                  gap: 4, marginTop: 2
+                }}>
+                  <Text style={{ fontSize: 11, color: COLORS.gold, fontWeight: '700' }}>
+                    {cierreSeleccionado?.fecha 
+                      ? new Date(cierreSeleccionado.fecha + 'T00:00:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' }) 
+                      : 'Filtrar Fecha'}
+                  </Text>
+                  <Text style={{ fontSize: 10 }}>📅</Text>
+                </View>
+              </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={() => setIndice(Math.max(indice - 1, 0))}
@@ -580,7 +559,7 @@ useEffect(() => {
               </TouchableOpacity>
             </View>
 
-            {/* ACCIONES COMPARTIR */}
+            {/* BOTONES DE EXPORTACIÓN */}
             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
               <TouchableOpacity
                 style={{ flex: 1, backgroundColor: COLORS.greenPale, borderRadius: 8, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.green }}
@@ -596,16 +575,33 @@ useEffect(() => {
               </TouchableOpacity>
             </View>
 
-            {/* TARJETA DE REPORTE VITAL VITANOVA */}
+            {/* TARJETA DE REPORTE DIARIO CONSOLIDADO */}
             <View style={styles.cierreCard}>
               <View style={styles.cierreHeader}>
+                {/* 1. Emoji dinámico según el estado real del paciente */}
                 <Text style={{ fontSize: 28 }}>
-                  {cierreSeleccionado?.estado_paciente === 'bien' ? '😊' : cierreSeleccionado?.estado_paciente === 'preocupante' ? '😟' : '😐'}
+                  {cierreSeleccionado?.estado_paciente === 'bien' ? '😊' : 
+                  cierreSeleccionado?.estado_paciente === 'preocupante' ? '😟' : '😐'}
                 </Text>
+                
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.cierreNombreCuidador}>{cierreSeleccionado?.nombre_cuidador ?? 'Personal Vitanova'}</Text>
-                  <Text style={styles.cierreFecha}>{formatFecha(cierreSeleccionado?.created_at)}</Text>
+                  {/* 2. Título de Reporte Diario en lugar de centrarse en un solo nombre */}
+                  <Text style={[styles.cierreNombreCuidador, { fontSize: 15, fontWeight: '800' }]}>
+                    Reporte Diario de Operación
+                  </Text>
+                  
+                  {/* Fecha de la operación */}
+                  <Text style={styles.cierreFecha}>
+                    {formatFecha(cierreSeleccionado?.created_at)}
+                  </Text>
+
+                  {/* 3. Etiqueta transparente de quién realizó el cierre final */}
+                  <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2, fontWeight: '600' }}>
+                    {`📋 Cierre consolidado por: ${cierreSeleccionado?.nombre_cuidador ?? 'Personal Vitanova'}`}
+                  </Text>
                 </View>
+
+                {/* Badge de Estatus Clinico (ESTABLE, REGULAR, CRÍTICO) */}
                 <View style={[styles.estadoPill, {
                   backgroundColor: cierreSeleccionado?.estado_paciente === 'bien' ? COLORS.greenPale :
                     cierreSeleccionado?.estado_paciente === 'preocupante' ? COLORS.redPale : COLORS.amberPale
@@ -613,11 +609,11 @@ useEffect(() => {
                   <Text style={[styles.estadoPillText, {
                     color: cierreSeleccionado?.estado_paciente === 'bien' ? COLORS.green :
                       cierreSeleccionado?.estado_paciente === 'preocupante' ? COLORS.red : COLORS.amber
-                }]}>{displayEstado}</Text>
+                  }]}>{displayEstado}</Text>
                 </View>
               </View>
 
-              {/* MATRIZ DE SIGNOS VITALES CON TRAZABILIDAD TEMPORAL */}
+              {/* 1. MATRIZ DE SIGNOS VITALES CON TRAZABILIDAD TEMPORAL */}
               {(() => {
                 const tCierre = cierreSeleccionado?.created_at;
 
@@ -692,10 +688,10 @@ useEffect(() => {
                 );
               })()}
 
-              {/* PARÁMETROS DE CONFORT LOGÍSTICO */}
+              {/* 2. PARÁMETROS DE CONFORT LOGÍSTICO */}
               {(cierreSeleccionado?.dolor_eva !== null && cierreSeleccionado?.dolor_eva !== undefined || cierreSeleccionado?.estado_animo || cierreSeleccionado?.hidratacion_vasos || cierreSeleccionado?.alimentacion || cierreSeleccionado?.observaciones) ? (
                 <View style={styles.tareasSection}>
-                  <Text style={styles.tareasSectionTitle}>{'REGISTRO DE CONFORT'}</Text>
+                  <Text style={styles.tareasSectionTitle}>REGISTRO DE CONFORT</Text>
                   <View style={styles.signosRow}>
                     {cierreSeleccionado?.dolor_eva !== null && cierreSeleccionado?.dolor_eva !== undefined ? (
                       <View style={styles.signoItem}>
@@ -729,49 +725,104 @@ useEffect(() => {
                   ) : null}
                 </View>
               ) : null}
-
-              {/* BLOQUE DE TAREAS PLANIFICADAS */}
-              {tareasTrabajo.length > 0 ? (
-                <View style={styles.tareasSection}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <Text style={styles.tareasSectionTitle}>ACTIVIDADES PLANIFICADAS</Text>
-                    <Text style={[styles.tareasSectionTitle, { color: COLORS.green }]}>
-                      {`${tareasTrabajo.filter((t: any) => t.completada).length}/${tareasTrabajo.length} completadas`}
+               {/* 🚨 SECCIÓN DE ALERTAS CLÍNICAS DEL TURNO/DÍA */}
+                {(cierreSeleccionado?.alertas_clinicas?.length ?? 0) > 0 && (
+                  <View style={{ marginTop: 12, backgroundColor: COLORS.redPale || '#FDEAEA', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#F5C6C6' }}>
+                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: COLORS.red || '#D94F4F', marginBottom: 6 }}>
+                      🚨 Alertas y Picos Clínicos Registrados ({cierreSeleccionado?.alertas_clinicas?.length})
                     </Text>
-                  </View>
-                  {tareasTrabajo.map((t: any, ti: number) => (
-                    <View key={`trabajo-${ti}`} style={styles.tareaItem}>
-                      <Text style={styles.tareaItemIcon}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
-                      <Text style={[styles.tareaItemText, t.completada && { textDecorationLine: 'line-through', color: COLORS.textLight }]}>
-                        {t.descripcion}
+                    {cierreSeleccionado?.alertas_clinicas?.map((alt: any, idx: number) => (
+                      <Text key={alt.id || idx} style={{ fontSize: 12, color: COLORS.cacao || '#4A4540', marginBottom: 4 }}>
+                        • {alt.descripcion || alt.mensaje}
                       </Text>
-                      {t.hora_completada ? <Text style={styles.tareaItemHora}>{formatHora(t.hora_completada)}</Text> : null}
-                      {t.completada ? <Text style={{ color: COLORS.green, fontSize: 16 }}>{'✅'}</Text> : null}
-                    </View>
-                  ))}
-                </View>
-              ) : null}
+                    ))}
+                  </View>
+                )}
+              {/* 3. ACTIVIDADES REALIZADAS POR RESPONSABLE */}
+              <View style={styles.tareasSection}>
+                <Text style={[styles.tareasSectionTitle, { color: COLORS.cacao, marginBottom: 10 }]}>
+                  ✅ ACTIVIDADES REALIZADAS POR RESPONSABLE
+                </Text>
 
-              {/* SECCIÓN NOTAS EVOLUTIVAS */}
+                {desglosePersonas.length === 0 ? (
+                  <Text style={{ fontSize: 12, color: COLORS.textLight }}>Sin actividades completadas hoy.</Text>
+                ) : (
+                  desglosePersonas.map((grupo: any, gi: number) => (
+                    <View key={`persona-${gi}`} style={{ marginBottom: 12, backgroundColor: COLORS.cream, padding: 10, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border }}>
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: COLORS.gold, marginBottom: 6 }}>
+                        👤 {grupo.persona} ({grupo.tareas.length} actividades)
+                      </Text>
+                      {grupo.tareas.map((t: any, ti: number) => (
+                        <View key={`tarea-p-${ti}`} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4, borderBottomWidth: 0.5, borderBottomColor: COLORS.border }}>
+                          <Text style={{ fontSize: 11, color: COLORS.textDark, flex: 1 }}>
+                            {ICONOS_TIPO[t.tipo] ?? '📋'} {t.descripcion}
+                          </Text>
+                          <Text style={{ fontSize: 10, color: COLORS.textLight }}>
+                            {t.hora_completada ? formatHora(t.hora_completada) : '—'}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  ))
+                )}
+              </View>
+             
+              {/* 4. CONCENTRADO DE INSUMOS USADOS Y STOCK RESTANTE */}
+              <View style={[styles.tareasSection, { marginTop: 12 }]}>
+                <Text style={[styles.tareasSectionTitle, { color: COLORS.amber, marginBottom: 8 }]}>
+                  📦 CONCENTRADO DE INSUMOS USADOS HOY
+                </Text>
+
+                {inventarioUsado.length === 0 ? (
+                  <Text style={{ fontSize: 12, color: COLORS.textLight }}>No se consumieron insumos de la despensa en este día.</Text>
+                ) : (
+                  <View style={{ gap: 6 }}>
+                    {inventarioUsado.map((inv: any, ii: number) => (
+                      <View key={`inv-usado-${ii}`} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: COLORS.white, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textDark }}>{inv.nombre}</Text>
+                          <Text style={{ fontSize: 10, color: COLORS.amber, fontWeight: '700', marginTop: 2 }}>
+                            Usado hoy: -{inv.usado_hoy} {inv.unidad}
+                          </Text>
+                        </View>
+                        <View style={{ alignItems: 'flex-end', backgroundColor: COLORS.greenPale, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: COLORS.green }}>
+                          <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.green }}>
+                            Stock: {inv.stock_restante} {inv.unidad}
+                          </Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+             {/* 5. SECCIÓN NOTAS EVOLUTIVAS DEL TURNO */}
               {notasTurno.length > 0 ? (
                 <View style={styles.notasSection}>
                   <Text style={[styles.tareasSectionTitle, { color: COLORS.amber }]}>NOTAS DEL TURNO</Text>
-                  {notasTurno.map((n: any, ni: number) => (
-                    <View key={`nota-${ni}`} style={styles.notaItem}>
-                      <Text style={{ fontSize: 11, color: COLORS.textDark }}>
-                        {String(n.descripcion || '').replace('📝 ', '')}
-                      </Text>
-                      {n.hora_completada ? (
-                        <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 4 }}>
-                          {formatHora(n.hora_completada)}
+                  {notasTurno.map((n: any, ni: number) => {
+                    // 🎯 Extracción segura del nombre del autor de la nota
+                    const autorNota = 
+                      (typeof n.usuarios === 'object' && n.usuarios?.nombre_completo) 
+                      || (Array.isArray(n.usuarios) && n.usuarios[0]?.nombre_completo)
+                      || cierreSeleccionado?.nombre_cuidador 
+                      || 'Personal Vitanova';
+
+                    return (
+                      <View key={`nota-${ni}`} style={styles.notaItem}>
+                        <Text style={{ fontSize: 11, color: COLORS.textDark, fontWeight: '600' }}>
+                          {String(n.descripcion || '').replace('📝 ', '')}
                         </Text>
-                      ) : null}
-                    </View>
-                  ))}
+                        <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 4 }}>
+                          {`👤 ${autorNota}${n.hora_completada ? ` · 🕒 ${formatHora(n.hora_completada)}` : ''}`}
+                        </Text>
+                      </View>
+                    );
+                  })}
                 </View>
               ) : null}
 
-              {/* EVALUACIONES DE ESCALAS MÉDICAS */}
+              {/* 6. EVALUACIONES DE ESCALAS MÉDICAS */}
               {(cierreSeleccionado?.barthel_total !== null || cierreSeleccionado?.morse_total !== null) ? (
                 <View style={[styles.tareasSection, { marginTop: 8 }]}>
                   <Text style={styles.tareasSectionTitle}>ESCALAS CLÍNICAS</Text>
@@ -789,13 +840,14 @@ useEffect(() => {
                   ) : null}
                 </View>
               ) : null}
+
             </View>
           </View>
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* ── 🎯 MODAL DE FILTRADO SÚPER AVANZADO ── */}
+      {/* ── MODAL DE FILTRADO SÚPER AVANZADO ── */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -837,7 +889,6 @@ useEffect(() => {
             <View style={{ marginBottom: 24 }}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={{ flexDirection: 'row', gap: 8, paddingBottom: 4 }}>
-                  
                   <TouchableOpacity 
                     style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: filtroCuidador === 'todos' ? COLORS.gold : COLORS.border, backgroundColor: filtroCuidador === 'todos' ? COLORS.goldPale : COLORS.white }}
                     onPress={() => setFiltroCuidador('todos')}
@@ -858,7 +909,6 @@ useEffect(() => {
                       </Text>
                     </TouchableOpacity>
                   ))}
-
                 </View>
               </ScrollView>
             </View>
@@ -892,7 +942,7 @@ useEffect(() => {
         </View>
       </Modal>
 
-      {/* 🚀 SELECTOR DE CALENDARIO NATIVO */}
+      {/* SELECTOR DE CALENDARIO NATIVO */}
       {showCalendar ? (
         <DateTimePicker
           value={fechaObjeto}
@@ -912,7 +962,6 @@ useEffect(() => {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.cream },
   header: { backgroundColor: COLORS.cacao, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16, flexDirection: 'row', alignItems: 'center' },

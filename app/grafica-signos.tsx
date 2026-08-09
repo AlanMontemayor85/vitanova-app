@@ -471,66 +471,76 @@ export default function GraficaSignosScreen() {
 
               {/* Cuerpo de la Tabla Dinámica */}
               <View style={{ marginTop: 4 }}>
-                {registrosBitacoraFiltrados.length === 0 ? (
-                  <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 12, color: COLORS.textLight, fontStyle: 'italic' }}>
-                      No hay registros en el periodo seleccionado.
-                    </Text>
-                  </View>
-                ) : (
-                  registrosBitacoraFiltrados.map((r, i) => {
-                    const temp = r.temperatura !== null && r.temperatura !== undefined ? r.temperatura : null;
-                    
-                    // Flags de honestidad clínica del backend
-                    const esReloj = r.fuente === 'reloj';
-                    const spo2Heredado = esReloj && r.spo2_heredado;
-                    const presionHeredada = esReloj && r.presion_heredado;
-                    const fcHeredado = esReloj && r.fc_heredado;
-                    const tempHeredada = esReloj && r.temp_heredado;
+              {registrosBitacoraFiltrados.length === 0 ? (
+                <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 12, color: COLORS.textLight, fontStyle: 'italic' }}>
+                    No hay registros en el periodo seleccionado.
+                  </Text>
+                </View>
+              ) : (
+                registrosBitacoraFiltrados.map((r, i) => {
+                  const temp = r.temperatura !== null && r.temperatura !== undefined ? r.temperatura : null;
+                  
+                  const esReloj = r.fuente === 'reloj';
+                  const esManual = r.fuente === 'manual';
+                  const esCuidador = r.fuente === 'cuidador';
 
-                    return (
-                      <View key={i} style={styles.historialRow}>
-                        {/* Fecha y Operador */}
-                        <View style={{ flex: 1.5 }}>
-                          <Text style={styles.historialFecha}>
-                            {new Date(r.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                          </Text>
-                          <Text style={[styles.historialCuidador, !esReloj && { color: COLORS.green, fontWeight: '700' }]}>
-                            {r.fuente === 'cuidador' 
-                              ? `👤 ${r.usuarios?.nombre_completo?.split(' ')[0] ?? 'Personal'}`
-                              : '⌚ Reloj'}
-                          </Text>
-                        </View> 
+                  // Flags de trazabilidad clínica
+                  const spo2Heredado = esReloj && r.spo2_heredado;
+                  const presionHeredada = esReloj && r.presion_heredado;
+                  const fcHeredado = esReloj && r.fc_heredado;
+                  const tempHeredada = esReloj && r.temp_heredado;
 
-                        {/* SpO2 - Mismo estilo, solo añade el asterisco si es heredado */}
-                        <Text style={styles.historialVal}>
-                          {r.spo2 ? `${r.spo2}%${spo2Heredado ? '*' : ''}` : '—'}
+                  // 🎯 Extracción limpia del nombre del cuidador/familiar
+                  const nombreOperador = (r.nombre_cuidador || r.usuarios?.nombre_completo || 'Personal').split(' ')[0];
+
+                  return (
+                    <View key={i} style={styles.historialRow}>
+                      {/* Fecha y Operador */}
+                      <View style={{ flex: 1.5 }}>
+                        <Text style={styles.historialFecha}>
+                          {new Date(r.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         </Text>
 
-                        {/* Presión Arterial */}
-                        <Text style={styles.historialVal}>
-                          {r.presion_sistolica && r.presion_diastolica 
-                            ? `${Math.round(r.presion_sistolica)}/${Math.round(r.presion_diastolica)}${presionHeredada ? '*' : ''}` 
-                            : '—'}
-                        </Text>
+                        {/* 🎯 ETIQUETA DINÁMICA DE FUENTE (Reloj / Cierre / Toma Manual) */}
+                        <Text style={[styles.historialCuidador, !esReloj && { color: esManual ? COLORS.amber : COLORS.green, fontWeight: '700' }]}>
+                        {esCuidador 
+                          ? `👤 ${nombreOperador}`
+                          : esManual
+                            ? `🩺 Manual (${nombreOperador})`
+                            : '⌚ Reloj'}
+                      </Text>
+                      </View> 
 
-                        {/* Frecuencia Cardíaca */}
-                        <Text style={styles.historialVal}>
-                          {r.frecuencia_cardiaca ? `${r.frecuencia_cardiaca}${fcHeredado ? '*' : ''}` : '—'}
-                        </Text>
+                      {/* SpO2 */}
+                      <Text style={styles.historialVal}>
+                        {r.spo2 ? `${r.spo2}%${spo2Heredado ? '*' : ''}` : '—'}
+                      </Text>
 
-                        {/* Temperatura */}
-                        <Text style={styles.historialVal}>
-                          {temp !== null ? `${temp.toFixed(1)}°${tempHeredada ? '*' : ''}` : '—'}
-                        </Text>
+                      {/* Presión Arterial */}
+                      <Text style={styles.historialVal}>
+                        {r.presion_sistolica && r.presion_diastolica 
+                          ? `${Math.round(r.presion_sistolica)}/${Math.round(r.presion_diastolica)}${presionHeredada ? '*' : ''}` 
+                          : '—'}
+                      </Text>
 
-                        {/* Peso */}
-                        <Text style={styles.historialVal}>{r.peso_kg ? `${r.peso_kg}k` : '—'}</Text>
-                      </View>
-                    );
-                  })
-                )}
-              </View>
+                      {/* Frecuencia Cardíaca */}
+                      <Text style={styles.historialVal}>
+                        {r.frecuencia_cardiaca ? `${r.frecuencia_cardiaca}${fcHeredado ? '*' : ''}` : '—'}
+                      </Text>
+
+                      {/* Temperatura */}
+                      <Text style={styles.historialVal}>
+                        {temp !== null ? `${temp.toFixed(1)}°${tempHeredada ? '*' : ''}` : '—'}
+                      </Text>
+
+                      {/* Peso */}
+                      <Text style={styles.historialVal}>{r.peso_kg ? `${r.peso_kg}k` : '—'}</Text>
+                    </View>
+                  );
+                })
+              )}
+            </View>
 
               {/* Nota de Deslinde Regulativo y Metodología */}
               <Text style={{ fontSize: 9, color: COLORS.textLight, fontStyle: 'italic', marginTop: 12, paddingHorizontal: 4, lineHeight: 12 }}>

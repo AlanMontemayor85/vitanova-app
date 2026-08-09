@@ -699,37 +699,16 @@ const irARegistroSalud = (p: any) => {
     },
   });
 };
-
-// ── Abrir directo en Consola cuando venimos del switch + registro-salud ──
-// (yaEntroConsolaRef debe existir arriba con los otros refs:
-//  const yaEntroConsolaRef = useRef(false); )
-
-useEffect(() => {
-  if (!esSwitchFamiliar) return;
-  if (initialVista !== 'turno' || !initialPacienteId) return;
-  if (yaEntroConsolaRef.current) return; // evita el bucle al cambiar `pacientes`
-
-  const p =
-    pacientes.find((x: any) => x.id === initialPacienteId) || pacienteProp;
-
-  if (p) {
-    yaEntroConsolaRef.current = true;
-    console.log('🎯 Entrando directo a Consola:', p.nombre_completo);
-    setPacienteActivo({
-      ...p,
-      rol_en_equipo: 'familiar_principal',
-      usuarioRol: 'familiar_principal',
-    });
-    cargarTurno(p.id);
-    setVista('turno');
-  }
-}, [esSwitchFamiliar, initialPacienteId, initialVista, pacientes]);
-
 const guardarRegistroEspontaneo = async () => {
   setGuardandoEspontaneo(true);
   try {
-    const token = getToken();
-    await fetch(`${BASE_URL}/registros/salud`, {
+    const token = await loadStoredToken();
+    if (!token) return;
+
+    // 🎯 Parseo del peso
+    const pesoFinal = peso && Number(peso) > 0 ? Number(peso) : null;
+
+    const res = await fetch(`${BASE_URL}/registros/salud`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -742,34 +721,49 @@ const guardarRegistroEspontaneo = async () => {
         hidratacion_vasos: hidratacion,
         estado_animo: estadoAnimo,
         alimentacion: alimentacion,
-        spo2: spo2Manual
-          ? Number(spo2Manual)
-          : signosDispositivo?.spo2 !== '—'
-            ? Number(signosDispositivo?.spo2)
-            : null,
-        frecuencia_cardiaca: frecCard
-          ? Number(frecCard)
-          : signosDispositivo?.fc !== '—'
-            ? Number(signosDispositivo?.fc)
-            : null,
+        spo2: spo2Manual ? Number(spo2Manual) : (signosDispositivo?.spo2 !== '—' ? Number(signosDispositivo?.spo2) : null),
+        frecuencia_cardiaca: frecCard ? Number(frecCard) : (signosDispositivo?.fc !== '—' ? Number(signosDispositivo?.fc) : null),
         presion_sistolica: presionSist ? Number(presionSist) : null,
         presion_diastolica: presionDiast ? Number(presionDiast) : null,
         temperatura: tempManual ? Number(tempManual) : null,
         glucosa: glucosa ? Number(glucosa) : null,
+        peso_kg: pesoFinal,
         observaciones: observaciones.trim() || null,
       }),
     });
-    setPresionSist('');
-    setPresionDiast('');
-    setFrecCard('');
-    setSpo2Manual('');
-    setTempManual('');
-    setGlucosa('');
-    setObservaciones('');
-    setVista('turno');
-    Alert.alert('✅ Registro guardado', 'Los datos de confort fueron actualizados.');
+
+    const data = await res.json();
+
+    if (res.ok) {
+      // 🧼 Limpiamos los inputs
+      setPresionSist('');
+      setPresionDiast('');
+      setFrecCard('');
+      setSpo2Manual('');
+      setTempManual('');
+      setGlucosa('');
+      setObservaciones('');
+      
+      // 🔄 REFRESCADO INTELIGENTE: Recargamos las notas desde el servidor
+      // Así la nueva toma manual aparecerá en la sección de "Notas del Cuidador" inmediatamente
+      try {
+        const notasData = await getNotasTurno(pacienteActivo.id);
+        if (notasData && Array.isArray(notasData.notas)) {
+          setNotas(notasData.notas.slice(0, 5)); // Mantenemos el límite de 5 para la UI
+        }
+      } catch (err) {
+        console.error("Error al refrescar las notas tras registro espontáneo:", err);
+      }
+      
+      setVista('turno');
+      Alert.alert('✅ Registro Guardado', 'La toma manual se registró correctamente en la bitácora.');
+    } else {
+      Alert.alert('⚠️ Error', data.mensaje || 'No se pudo guardar el registro.');
+    }
+
   } catch (e) {
-    console.error(e);
+    console.error('❌ Error guardando registro espontáneo:', e);
+    Alert.alert('Error de Conexión', 'Ocurrió un problema al enviar la información.');
   } finally {
     setGuardandoEspontaneo(false);
   }
@@ -924,11 +918,10 @@ const guardarRegistroEspontaneo = async () => {
 
   const ejecutarCierre = async () => {
   try {
-    // 📦 1. PROCESAR CONSUMOS DE INVENTARIO DEL TURNO (Descontar en BD)
+    // 📦 1. PROCESAR CONSUMOS DE INVENTARIO DEL TURNO
     for (const [itemId, cantidadUsada] of Object.entries(consumosTurno)) {
       if (cantidadUsada > 0) {
         try {
-          // Usa el helper que llama a POST /inventario/{item_id}/consumir
           await consumirItemInventario(itemId, cantidadUsada);
         } catch (invErr) {
           console.error(`❌ Error al consumir item ${itemId} en cierre:`, invErr);
@@ -936,19 +929,16 @@ const guardarRegistroEspontaneo = async () => {
       }
     }
 
-    // 2. CONSOLIDACIÓN DE NOTAS (Código existente)
+    // 2. CONSOLIDACIÓN DE NOTAS
     const notasRes = await fetch(`${BASE_URL}/notas?paciente_id=${pacienteActivo.id}`, {
       headers: { Authorization: `Bearer ${getToken()}` }
     });
     const datasetNotas = await notasRes.json();
-    const notasActualizadas = datasetNotas?.notas || datasetNotas?.registros || [];
-    setNotas(Array.isArray(notasActualizadas) ? notasActualizadas.slice(0, 3) : []);
-    
-    let notasConsolidadas = "Sin notas incidentales en el turno.";
     const arrayParaFiltrar = Array.isArray(datasetNotas?.notas) 
       ? datasetNotas.notas 
       : (Array.isArray(datasetNotas?.registros) ? datasetNotas.registros : null);
 
+    let notasConsolidadas = "Sin notas incidentales en el turno.";
     if (arrayParaFiltrar) {
       const idTurnoActual = turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId;
       const notasDelTurno = arrayParaFiltrar.filter((n: any) => n.turno_id === idTurnoActual || n.turno_id === null);
@@ -965,15 +955,39 @@ const guardarRegistroEspontaneo = async () => {
       }
     }
 
-    let _sistolica = null;
-    let _diastolica = null;
-    if (signosDispositivo?.presion && String(signosDispositivo.presion).includes('/')) {
+    // 🎯 3. RESOLUCIÓN DE JERARQUÍA: MANUAL PREVALECE SOBRE RELOJ
+    // Presión Arterial
+    let finalSistolica = presionSist ? parseInt(presionSist, 10) : null;
+    let finalDiastolica = presionDiast ? parseInt(presionDiast, 10) : null;
+    
+    // Fallback al reloj solo si no se escribió nada manual
+    if (!finalSistolica && signosDispositivo?.presion && String(signosDispositivo.presion).includes('/')) {
       const partes = String(signosDispositivo.presion).split('/');
-      _sistolica = parseInt(partes[0], 10) || null;
-      _diastolica = parseInt(partes[1], 10) || null;
+      finalSistolica = parseInt(partes[0], 10) || null;
+      finalDiastolica = parseInt(partes[1], 10) || null;
     }
 
-    // 3. REGISTRO FINAL DE CIERRE EN BACKEND
+    // SpO2 (Oxígeno)
+    const finalSpo2 = spo2Manual 
+      ? parseInt(spo2Manual, 10) 
+      : (signosDispositivo?.spo2 ? parseInt(String(signosDispositivo.spo2), 10) : null);
+
+    // Pulso (Frecuencia Cardíaca)
+    const finalFc = frecCard 
+      ? parseInt(frecCard, 10) 
+      : (signosDispositivo?.fc ? parseInt(String(signosDispositivo.fc), 10) : null);
+
+    // Temperatura
+    const finalTemp = tempManual 
+      ? parseFloat(tempManual) 
+      : (signosDispositivo?.temperatura ? parseFloat(String(signosDispositivo.temperatura)) : null);
+
+    // Peso
+    const finalPeso = peso && String(peso).trim() !== '' && Number(peso) > 0 
+      ? parseFloat(String(peso)) 
+      : null;
+
+    // 4. REGISTRO FINAL DE CIERRE EN BACKEND
     const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
@@ -981,13 +995,16 @@ const guardarRegistroEspontaneo = async () => {
         turno_id: turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId, 
         paciente_id: pacienteActivo.id, 
         estado_paciente: estadoPaciente, 
-        peso_kg: peso,
+        
+        // 🛡️ Signos con jerarquía clínica (Manual primero, Reloj segundo)
+        peso_kg: finalPeso,
+        spo2: finalSpo2,
+        frecuencia_cardiaca: finalFc,
+        presion_sistolica: finalSistolica,
+        presion_diastolica: finalDiastolica,
+        temperatura: finalTemp,
+        
         notes: notasConsolidadas, 
-        spo2: signosDispositivo?.spo2 ? parseInt(signosDispositivo.spo2, 10) : null,
-        frecuencia_cardiaca: signosDispositivo?.fc ? parseInt(signosDispositivo.fc, 10) : null,
-        presion_sistolica: _sistolica,
-        presion_diastolica: _diastolica,
-        temperatura: signosDispositivo?.temperatura ? parseFloat(String(signosDispositivo.temperatura)) : null,
         barthel_scores: barthelTocado ? barthelScores : null, 
         barthel_total: barthelTocado ? barthelTotal : null, 
         barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
@@ -1004,17 +1021,24 @@ const guardarRegistroEspontaneo = async () => {
       const pData = await getPacientes('cierre');
       if (pData.patients) setPacientes(pData.patients);
       
-      // Reset de campos de confort e inventario
+      // Reset de campos
+      setPresionSist('');
+      setPresionDiast('');
+      setFrecCard('');
+      setSpo2Manual('');
+      setTempManual('');
+      setGlucosa('');
+      setObservaciones('');
       setDolorEva(0);
       setEstadoAnimo('');
       setHidratacion(0);
       setAlimentacion('');
-      setObservaciones('');
-      setConsumosTurno({}); // 👈 Reseteamos el contador local de consumos
+      setConsumosTurno({});
+      
       resetEstados(); 
       setVista('lista');
       
-      Alert.alert('✅ Turno Cerrado', 'La bitácora del día se ha consolidado y el inventario fue actualizado con éxito.');
+      Alert.alert('✅ Turno Cerrado', 'La bitácora del día se ha consolidado y los signos clínicos fueron registrados.');
       router.replace({
         pathname: '/' as any,
         params: { 
@@ -1029,7 +1053,6 @@ const guardarRegistroEspontaneo = async () => {
     Alert.alert('⚠️ Error', 'Ocurrió un problema al procesar el cierre del turno.');
   }
 };
-
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
@@ -1544,6 +1567,16 @@ const guardarRegistroEspontaneo = async () => {
                   <>
                     {notasAMostrar.map((n, i) => {
                       const contenidoNota = n?.descripcion || n?.texto || "Nota de relevo registrada";
+
+                      // 🎯 Lógica robusta para extraer el nombre del operador sin fallar
+                      const autorNombre = 
+                        n?.usuarios?.nombre_completo || 
+                        (Array.isArray(n?.usuarios) && n?.usuarios[0]?.nombre_completo) ||
+                        n?.nombre_cuidador || 
+                        'Personal Vitanova';
+
+                      const fechaRaw = n?.created_at || n?.hora_completada;
+
                       return (
                         <View 
                           key={n?.id || i} 
@@ -1557,11 +1590,11 @@ const guardarRegistroEspontaneo = async () => {
                           <Text style={styles.alertIcon}>📝</Text>
                           <View style={styles.alertContent}>
                             <Text style={styles.alertTitle}>{String(contenidoNota).replace('📝 ', '')}</Text>
-                            <Text style={styles.alertSub}>{`${n?.usuarios?.nombre_completo ?? 'Personal Vitanova'} · ${
-                              n?.created_at 
-                                ? new Date(n.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                            <Text style={styles.alertSub}>{`${autorNombre} · ${
+                              fechaRaw 
+                                ? new Date(fechaRaw).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
                                 : ''
-                            }`} </Text>
+                            }`}</Text>
                           </View>
                         </View>
                       );
@@ -1850,265 +1883,172 @@ const guardarRegistroEspontaneo = async () => {
 }
 
   // ── 3. VISTA MONITOREO ESPONTÁNEO (DISEÑO PREMIUM) ──
-if (vista === 'espontaneo' && pacienteActivo) {
-  // Aseguramos colores locales consistentes para hidratación
-  const COMPONENT_COLORS = Object.assign({}, COLORS, {
-    blue: '#2B73B4',
-    bluePale: '#E6F0FA'
-  });
-
+if (vista === 'espontaneo') {
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COMPONENT_COLORS.cacao} />
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
       
-      {/* HEADER ULTRA-CLEAN */}
+      {/* ENCABEZADO */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => setVista('turno')} style={styles.backBtn}>
+        <TouchableOpacity 
+          onPress={() => setVista('turno')} 
+          style={styles.backBtn}
+        >
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.greeting}>Evaluación de Bienestar</Text>
-          <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
+          <Text style={styles.greeting}>REGISTRO ESPONTÁNEO</Text>
+          <Text style={styles.userName}>Toma Manual de Signos Vitales</Text>
         </View>
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+        <View style={{ backgroundColor: COLORS.white, borderRadius: 16, padding: 18, borderWidth: 1, borderColor: COLORS.border, marginTop: 12 }}>
+          
+          <Text style={{ fontSize: 13, fontWeight: '800', color: COLORS.cacao, marginBottom: 16, textTransform: 'uppercase' }}>
+            🩺 Captura de Parámetros Clínicos
+          </Text>
 
-        {/* ESCALA DE DOLOR EVA (SELECTOR HORIZONTAL FLUIDO) */}
-        <View style={styles.moduloCard}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <Text style={styles.signoLabel}>Intensidad del Dolor (EVA)</Text>
-            <View style={{ backgroundColor: dolorEva > 6 ? COMPONENT_COLORS.redPale : dolorEva > 3 ? COMPONENT_COLORS.goldPale : COMPONENT_COLORS.greenPale, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
-              <Text style={{ fontSize: 13, fontWeight: '800', color: dolorEva > 6 ? COMPONENT_COLORS.red : dolorEva > 3 ? COMPONENT_COLORS.gold : COMPONENT_COLORS.green }}>
-                {dolorEva}/10
-              </Text>
-            </View>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 4 }}>
-            <View style={{ flexDirection: 'row', gap: 6 }}>
-              {[0,1,2,3,4,5,6,7,8,9,10].map(n => (
-                <TouchableOpacity 
-                  key={n} 
-                  style={[
-                    styles.evaBtn, 
-                    { width: 38, height: 38, borderRadius: 10, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
-                    dolorEva === n ? { backgroundColor: COMPONENT_COLORS.gold, borderColor: COMPONENT_COLORS.gold } : { backgroundColor: COMPONENT_COLORS.cream, borderColor: COMPONENT_COLORS.border }
-                  ]} 
-                  onPress={() => setDolorEva(n)}
-                >
-                  <Text style={[styles.evaBtnText, dolorEva === n && { color: COMPONENT_COLORS.white, fontWeight: '800' }]}>{n}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-        </View>
-
-        {/* ESTADO DE ÁNIMO (CHIPS COGNITIVOS) */}
-        <View style={styles.moduloCard}>
-          <Text style={[styles.signoLabel, { marginBottom: 10 }]}>Estado de ánimo</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {[
-              { val: 'tranquilo', icon: '😌', label: 'Tranquilo' },
-              { val: 'ansioso', icon: '😰', label: 'Ansioso' },
-              { val: 'triste', icon: '😢', label: 'Triste' },
-              { val: 'agitado', icon: '😤', label: 'Agitado' },
-              { val: 'confundido', icon: '😵', label: 'Confundido' },
-              { val: 'alegre', icon: '😊', label: 'Alegre' },
-            ].map(e => {
-              const activo = estadoAnimo === e.val;
-              return (
-                <TouchableOpacity
-                  key={e.val}
-                  style={{
-                    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: activo ? COMPONENT_COLORS.gold : COMPONENT_COLORS.border,
-                    backgroundColor: activo ? COMPONENT_COLORS.goldPale : COMPONENT_COLORS.white,
-                    flexDirection: 'row', alignItems: 'center', gap: 6
-                  }}
-                  onPress={() => setEstadoAnimo(e.val)}
-                >
-                  <Text style={{ fontSize: 15 }}>{e.icon}</Text>
-                  <Text style={{ fontSize: 13, fontWeight: activo ? '700' : '500', color: activo ? COMPONENT_COLORS.gold : COMPONENT_COLORS.textDark, textTransform: 'capitalize' }}>
-                    {e.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* HIDRATACIÓN (CONTADOR DE VASOS ESTILIZADO) */}
-        <View style={styles.moduloCard}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <Text style={styles.signoLabel}>Hidratación</Text>
-            <Text style={{ fontSize: 12, fontWeight: '700', color: COMPONENT_COLORS.textLight }}>{hidratacion} de 8 vasos</Text>
-          </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
-            {[1,2,3,4,5,6,7,8].map(n => {
-              const tomado = hidratacion >= n;
-              return (
-                <TouchableOpacity
-                  key={n}
-                  style={{
-                    width: 36, height: 36, borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: tomado ? COMPONENT_COLORS.blue : COMPONENT_COLORS.border,
-                    backgroundColor: tomado ? COMPONENT_COLORS.bluePale : COMPONENT_COLORS.white,
-                    justifyContent: 'center', alignItems: 'center'
-                  }}
-                  onPress={() => setHidratacion(n)}
-                >
-                  <Text style={{ fontSize: 16, color: tomado ? COMPONENT_COLORS.blue : COMPONENT_COLORS.textLight }}>💧</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* ALIMENTACIÓN (SEGMENTED BUTTONS) */}
-        <View style={styles.moduloCard}>
-          <Text style={[styles.signoLabel, { marginBottom: 10 }]}>Alimentación</Text>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {[
-              { val: 'completa', label: '🍽️ Completa' },
-              { val: 'parcial', label: '🥣 Parcial' },
-              { val: 'ninguna', label: '❌ Ninguna' },
-            ].map(a => {
-              const activo = alimentacion === a.val;
-              return (
-                <TouchableOpacity
-                  key={a.val}
-                  style={{
-                    flex: 1, paddingVertical: 12, borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: activo ? COMPONENT_COLORS.green : COMPONENT_COLORS.border,
-                    backgroundColor: activo ? COMPONENT_COLORS.greenPale : COMPONENT_COLORS.white,
-                    alignItems: 'center'
-                  }}
-                  onPress={() => setAlimentacion(a.val)}
-                >
-                  <Text style={{ fontSize: 13, color: activo ? COMPONENT_COLORS.green : COMPONENT_COLORS.textDark, fontWeight: '700' }}>
-                    {a.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* SIGNOS VITALES MANUALES (TABLA EN GRID SIMÉTRICA) */}
-        <View style={styles.moduloCard}>
-          <Text style={[styles.signoLabel, { marginBottom: 14 }]}>Signos Vitales Manuales (Opcional)</Text>
-
-          {/* Fila 1: Presión Arterial */}
-          <Text style={{ fontSize: 11, fontWeight: '700', color: COMPONENT_COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>Presión Arterial (mmHg)</Text>
-          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 14 }}>
+          {/* 1. PRESIÓN ARTERIAL */}
+          <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>
+            Presión Arterial (mmHg)
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 16 }}>
             <TextInput
-              style={[styles.input, { flex: 1, textAlign: 'center', marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COMPONENT_COLORS.border, backgroundColor: COMPONENT_COLORS.white }]}
-              placeholder="Sistólica (Ej. 120)"
-              placeholderTextColor={COMPONENT_COLORS.textLight}
+              style={[styles.input, { flex: 1, textAlign: 'center', marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border }]}
+              placeholder="Sistólica (120)"
+              placeholderTextColor={COLORS.textLight}
               keyboardType="numeric"
               value={presionSist}
               onChangeText={setPresionSist}
             />
-            <Text style={{ fontSize: 20, color: COMPONENT_COLORS.border, fontWeight: '300' }}>/</Text>
+            <Text style={{ fontSize: 20, color: COLORS.textLight, fontWeight: '700' }}>/</Text>
             <TextInput
-              style={[styles.input, { flex: 1, textAlign: 'center', marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COMPONENT_COLORS.border, backgroundColor: COMPONENT_COLORS.white }]}
-              placeholder="Diastólica (Ej. 80)"
-              placeholderTextColor={COMPONENT_COLORS.textLight}
+              style={[styles.input, { flex: 1, textAlign: 'center', marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border }]}
+              placeholder="Diastólica (80)"
+              placeholderTextColor={COLORS.textLight}
               keyboardType="numeric"
               value={presionDiast}
               onChangeText={setPresionDiast}
             />
           </View>
 
-          {/* Fila 2: Frecuencia Cardíaca y SpO2 en Paralelo */}
-          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 14 }}>
+          {/* 2. SPO2 Y PULSO */}
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: COMPONENT_COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>Pulso (bpm)</Text>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>
+                SpO₂ Oxígeno (%)
+              </Text>
               <TextInput
-                style={[styles.input, { marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COMPONENT_COLORS.border, backgroundColor: COMPONENT_COLORS.white, textAlign: 'center' }]}
-                placeholder="Ej. 72"
-                placeholderTextColor={COMPONENT_COLORS.textLight}
-                keyboardType="numeric"
-                value={frecCard}
-                onChangeText={setFrecCard}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: COMPONENT_COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>Saturación (%)</Text>
-              <TextInput
-                style={[styles.input, { marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COMPONENT_COLORS.border, backgroundColor: COMPONENT_COLORS.white, textAlign: 'center' }]}
-                placeholder="Ej. 97"
-                placeholderTextColor={COMPONENT_COLORS.textLight}
+                style={[styles.input, { marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, textAlign: 'center' }]}
+                placeholder="Ej. 98"
+                placeholderTextColor={COLORS.textLight}
                 keyboardType="numeric"
                 value={spo2Manual}
                 onChangeText={setSpo2Manual}
               />
             </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>
+                Pulso (bpm)
+              </Text>
+              <TextInput
+                style={[styles.input, { marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, textAlign: 'center' }]}
+                placeholder="Ej. 72"
+                placeholderTextColor={COLORS.textLight}
+                keyboardType="numeric"
+                value={frecCard}
+                onChangeText={setFrecCard}
+              />
+            </View>
           </View>
 
-          {/* Fila 3: Temperatura y Glucosa en Paralelo */}
-          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 4 }}>
+          {/* 3. TEMPERATURA Y GLUCOSA */}
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: COMPONENT_COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>Temperatura (°C)</Text>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>
+                Temperatura (°C)
+              </Text>
               <TextInput
-                style={[styles.input, { marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COMPONENT_COLORS.border, backgroundColor: COMPONENT_COLORS.white, textAlign: 'center' }]}
+                style={[styles.input, { marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, textAlign: 'center' }]}
                 placeholder="Ej. 36.5"
-                placeholderTextColor={COMPONENT_COLORS.textLight}
+                placeholderTextColor={COLORS.textLight}
                 keyboardType="numeric"
                 value={tempManual}
                 onChangeText={setTempManual}
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: COMPONENT_COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>Glucosa (mg/dL)</Text>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>
+                Glucosa (mg/dL)
+              </Text>
               <TextInput
-                style={[styles.input, { marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COMPONENT_COLORS.border, backgroundColor: COMPONENT_COLORS.white, textAlign: 'center' }]}
+                style={[styles.input, { marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, textAlign: 'center' }]}
                 placeholder="Ej. 95"
-                placeholderTextColor={COMPONENT_COLORS.textLight}
+                placeholderTextColor={COLORS.textLight}
                 keyboardType="numeric"
                 value={glucosa}
                 onChangeText={setGlucosa}
               />
             </View>
           </View>
-        </View>
 
-        {/* OBSERVACIONES CLÍNICAS */}
-        <View style={styles.moduloCard}>
-          <Text style={[styles.signoLabel, { marginBottom: 8 }]}>Observaciones Clínicas</Text>
+          {/* PESO */}
+            <Text style={styles.sectionTitle}>Peso del paciente (kg)</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 16, marginBottom: 16 }}>
+              <Text style={{ fontSize: 20, marginRight: 8 }}>⚖️</Text>
+              <TextInput
+                style={{ flex: 1, fontSize: 16, color: COLORS.textDark, paddingVertical: 14 }}
+                placeholder="Ej. 70.5"
+                placeholderTextColor={COLORS.textLight}
+                keyboardType="numeric"
+                value={peso === 0 ? '' : peso.toString()}
+                onChangeText={(val) => {
+                  const textoLimpio = val.replace(',', '.');
+                  if (textoLimpio === '') { setPeso(0); return; }
+                  if (textoLimpio.endsWith('.')) { const num = parseFloat(textoLimpio); if (!isNaN(num)) setPeso(num); return; }
+                  const num = parseFloat(textoLimpio);
+                  if (!isNaN(num)) setPeso(num);
+                }}
+              />
+              <Text style={{ fontSize: 13, color: COLORS.textLight }}>{'kg'}</Text>
+            </View>
+
+          {/* 5. OBSERVACIONES ADICIONALES */}
+          <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>
+            Notas / Observaciones
+          </Text>
           <TextInput
-            style={{ 
-              minHeight: 90, 
-              textAlignVertical: 'top',
-              borderWidth: 1,
-              borderColor: COMPONENT_COLORS.border,
-              borderRadius: 12,
-              padding: 12,
-              fontSize: 14,
-              color: COMPONENT_COLORS.textDark,
-              backgroundColor: COMPONENT_COLORS.white
-            }}
-            placeholder="Describe brevemente el comportamiento, estado cognitivo, quejas o anomalías detectadas en el paciente..."
-            placeholderTextColor={COMPONENT_COLORS.textLight}
+            style={[styles.input, { height: 75, textAlignVertical: 'top', borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, padding: 10 }]}
+            placeholder="Escribe algún detalle relevante de la toma..."
+            placeholderTextColor={COLORS.textLight}
             multiline
             value={observaciones}
             onChangeText={setObservaciones}
           />
-        </View>
 
-        {/* BOTÓN CONFIRMAR EN ACCIÓN PRINCIPAL */}
-        <TouchableOpacity
-          style={[styles.confirmarBtn, { borderRadius: 14, paddingVertical: 16, marginTop: 8 }]}
-          onPress={guardarRegistroEspontaneo}
-          disabled={guardandoEspontaneo}
-        >
-          <Text style={styles.confirmarBtnText}>
-            {guardandoEspontaneo ? 'Consolidando Reporte...' : 'Guardar Parámetros →'}
-          </Text>
-        </TouchableOpacity>
+          {/* BOTÓN DE GUARDADO */}
+          <TouchableOpacity
+            style={[styles.cerrarBtn, { marginTop: 10, paddingVertical: 14 }]}
+            onPress={guardarRegistroEspontaneo}
+            disabled={guardandoEspontaneo}
+          >
+            {guardandoEspontaneo ? (
+              <ActivityIndicator color={COLORS.white} />
+            ) : (
+              <Text style={styles.cerrarBtnText}>💾 Guardar Toma Manual</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* BOTÓN DE CANCELAR */}
+          <TouchableOpacity
+            style={{ marginTop: 12, paddingVertical: 10, alignItems: 'center' }}
+            onPress={() => setVista('turno')}
+          >
+            <Text style={{ color: COLORS.textLight, fontSize: 13, fontWeight: '600' }}>Cancelar y Volver</Text>
+          </TouchableOpacity>
+
+        </View>
         <View style={{ height: 40 }} />
       </ScrollView>
     </View>
@@ -2148,7 +2088,111 @@ if (vista === 'espontaneo' && pacienteActivo) {
                 </TouchableOpacity>
               ))}
             </View>
+             {/* 🩺 SECCIÓN DE SIGNOS VITALES EN CIERRE */}
+            <View style={{ backgroundColor: COLORS.white, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: COLORS.border, marginBottom: 16 }}>
+              
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: COLORS.cacao }}>
+                  🩺 Signos Vitales de Cierre
+                </Text>
+                <View style={{ backgroundColor: signosDispositivo ? COLORS.greenPale : COLORS.amberPale, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: signosDispositivo ? COLORS.green : COLORS.amber }}>
+                    {signosDispositivo ? '⌚ Reloj detectado' : '📝 Captura manual'}
+                  </Text>
+                </View>
+              </View>
 
+              <Text style={{ fontSize: 10, color: COLORS.textLight, marginBottom: 12 }}>
+                {signosDispositivo 
+                  ? 'Puedes ingresar valores manuales si se tomaron con equipo médico (baumanómetro, glucómetro). Si se dejan vacíos, se usarán los del reloj.'
+                  : 'Ingresa los signos tomados durante el turno:'}
+              </Text>
+
+              {/* Presión Arterial */}
+              <Text style={{ fontSize: 10, fontWeight: '700', color: COLORS.textLight, marginBottom: 4 }}>
+                PRESIÓN ARTERIAL (mmHg)
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+                <TextInput
+                  style={{ flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, paddingVertical: 8, textAlign: 'center', fontSize: 13 }}
+                  placeholder={
+                    signosDispositivo?.presion && String(signosDispositivo.presion).includes('/')
+                      ? `Reloj: ${String(signosDispositivo.presion).split('/')[0]}`
+                      : "Sistólica"
+                  }
+                  placeholderTextColor={COLORS.textLight}
+                  keyboardType="numeric"
+                  value={presionSist}
+                  onChangeText={setPresionSist}
+                />
+                <Text style={{ fontWeight: '700', color: COLORS.textLight }}>/</Text>
+                <TextInput
+                  style={{ flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, paddingVertical: 8, textAlign: 'center', fontSize: 13 }}
+                  placeholder={
+                    signosDispositivo?.presion && String(signosDispositivo.presion).includes('/')
+                      ? `Reloj: ${String(signosDispositivo.presion).split('/')[1] || ''}`
+                      : "Diastólica"
+                  }
+                  placeholderTextColor={COLORS.textLight}
+                  keyboardType="numeric"
+                  value={presionDiast}
+                  onChangeText={setPresionDiast}
+                />
+              </View>
+
+              {/* SpO2 y Pulso */}
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: COLORS.textLight, marginBottom: 4 }}>SpO₂ (%)</Text>
+                  <TextInput
+                    style={{ borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, paddingVertical: 8, textAlign: 'center', fontSize: 13 }}
+                    placeholder={signosDispositivo?.spo2 ? `Reloj: ${signosDispositivo.spo2}%` : "Ej. 98"}
+                    placeholderTextColor={COLORS.textLight}
+                    keyboardType="numeric"
+                    value={spo2Manual}
+                    onChangeText={setSpo2Manual}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: COLORS.textLight, marginBottom: 4 }}>PULSO (bpm)</Text>
+                  <TextInput
+                    style={{ borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, paddingVertical: 8, textAlign: 'center', fontSize: 13 }}
+                    placeholder={signosDispositivo?.fc ? `Reloj: ${signosDispositivo.fc}` : "Ej. 72"}
+                    placeholderTextColor={COLORS.textLight}
+                    keyboardType="numeric"
+                    value={frecCard}
+                    onChangeText={setFrecCard}
+                  />
+                </View>
+              </View>
+
+              {/* Temperatura y Glucosa */}
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: COLORS.textLight, marginBottom: 4 }}>TEMP (°C)</Text>
+                  <TextInput
+                    style={{ borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, paddingVertical: 8, textAlign: 'center', fontSize: 13 }}
+                    placeholder={signosDispositivo?.temperatura ? `Reloj: ${signosDispositivo.temperatura}°` : "Ej. 36.5"}
+                    placeholderTextColor={COLORS.textLight}
+                    keyboardType="numeric"
+                    value={tempManual}
+                    onChangeText={setTempManual}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: COLORS.textLight, marginBottom: 4 }}>GLUCOSA (mg/dL)</Text>
+                  <TextInput
+                    style={{ borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, paddingVertical: 8, textAlign: 'center', fontSize: 13 }}
+                    placeholder="Ej. 95"
+                    placeholderTextColor={COLORS.textLight}
+                    keyboardType="numeric"
+                    value={glucosa}
+                    onChangeText={setGlucosa}
+                  />
+                </View>
+              </View>
+
+            </View>
             {/* PESO */}
             <Text style={styles.sectionTitle}>Peso del paciente (kg)</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 16, marginBottom: 16 }}>
@@ -2307,8 +2351,10 @@ if (vista === 'espontaneo' && pacienteActivo) {
 
                   {/* Botones de consumo (-1 / +1) */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    {/* Botón Decrementar (Flecha Abajo) */}
                     <TouchableOpacity
                       onPress={() => cambiarConsumoItem(item.id, -1)}
+                      disabled={usandose <= 0}
                       style={{
                         paddingHorizontal: 12,
                         paddingVertical: 6,
@@ -2316,21 +2362,25 @@ if (vista === 'espontaneo' && pacienteActivo) {
                         borderRadius: 8,
                         borderWidth: 1,
                         borderColor: COLORS.border,
+                        opacity: usandose <= 0 ? 0.3 : 1, // Se atenúa si ya está en 0
                       }}
                     >
-                      <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 14 }}>−1</Text>
+                      <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>▼</Text>
                     </TouchableOpacity>
 
+                    {/* Valor Usándose */}
                     <Text style={{ fontWeight: '800', fontSize: 14, minWidth: 20, textAlign: 'center', color: COLORS.cacao }}>
                       {usandose}
                     </Text>
 
+                    {/* Botón Incrementar (Flecha Arriba) */}
                     <TouchableOpacity
                       onPress={() => {
                         if (usandose < item.cantidad) {
                           cambiarConsumoItem(item.id, 1);
                         }
                       }}
+                      disabled={usandose >= item.cantidad}
                       style={{
                         paddingHorizontal: 12,
                         paddingVertical: 6,
@@ -2338,9 +2388,10 @@ if (vista === 'espontaneo' && pacienteActivo) {
                         borderRadius: 8,
                         borderWidth: 1,
                         borderColor: COLORS.border,
+                        opacity: usandose >= item.cantidad ? 0.3 : 1, // Se atenúa si llega al stock máximo
                       }}
                     >
-                      <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 14 }}>+1</Text>
+                      <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>▲</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
