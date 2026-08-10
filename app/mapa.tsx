@@ -16,8 +16,11 @@ const COLORS = {
   red: '#D94F4F',
 };
 
+// 📍 Coordenadas de Respaldo Seguro (Monterrey / Default)
+const DEFAULT_LAT = 25.6866;
+const DEFAULT_LNG = -100.3161;
+
 export default function MapaScreen() {
-  
   const params = useLocalSearchParams();
   const pacienteIdParam = params.pacienteId as string;
   const router = useRouter();
@@ -27,33 +30,62 @@ export default function MapaScreen() {
   const [loading, setLoading] = useState(true);
   const [geocercas, setGeocercas] = useState<any[]>([]);
 
-  // 1. EFECTO INICIAL: Carga los datos base del paciente al montar la pantalla
-  useEffect(() => {
-  const cargarDatosIniciales = async () => {
-    try { // 💡 Cambiado 'try:' por 'try {'
-      await loadStoredToken();
-      const data = await getPacientes('mapa-ubicacion');
-      if (data.patients && data.patients.length > 0) {
-        const p = pacienteIdParam
-          ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
-          : data.patients[0];
-        setPaciente(p);
-        
-        const ubData = await getUbicacion(p.id);
-        if (ubData.ubicacion) setUbicacion(ubData.ubicacion);
-        
-        const geocercaData = await getGeocercas(p.id);
-        if (geocercaData.geocercas) setGeocercas(geocercaData.geocercas);
-      }
-    } catch (e) {
-      console.error("❌ Error en la carga inicial del mapa:", e);
-    } finally {
-      setLoading(false);
-    }
+  // 🛡️ HELPER DE SANITIZACIÓN ROBUSTO
+  const parsearCoord = (val: any): number | null => {
+    if (val === null || val === undefined || val === '') return null;
+    const num = typeof val === 'number' ? val : parseFloat(String(val));
+    return isNaN(num) ? null : num;
   };
 
-  cargarDatosIniciales();
-}, [pacienteIdParam]);
+  const esValida = (latVal: any, lngVal: any): boolean => {
+    const lat = parsearCoord(latVal);
+    const lng = parsearCoord(lngVal);
+    return (
+      lat !== null &&
+      lng !== null &&
+      lat >= -90 &&
+      lat <= 90 &&
+      lng >= -180 &&
+      lng <= 180 &&
+      !(lat === 0 && lng === 0)
+    );
+  };
+
+  // Extraemos las coordenadas dinámicas soportando cualquier nomenclatura de tu API
+  const rawLat = ubicacion?.lat ?? ubicacion?.latitud;
+  const rawLng = ubicacion?.lng ?? ubicacion?.longitud;
+
+  const tieneCoordenadasValidas = esValida(rawLat, rawLng);
+  const currentLat = tieneCoordenadasValidas ? parsearCoord(rawLat)! : DEFAULT_LAT;
+  const currentLng = tieneCoordenadasValidas ? parsearCoord(rawLng)! : DEFAULT_LNG;
+
+  // 1. EFECTO INICIAL: Carga los datos base del paciente al montar la pantalla
+  useEffect(() => {
+    const cargarDatosIniciales = async () => {
+      try {
+        await loadStoredToken();
+        const data = await getPacientes('mapa-ubicacion');
+        if (data.patients && data.patients.length > 0) {
+          const p = pacienteIdParam
+            ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
+            : data.patients[0];
+          setPaciente(p);
+          
+          const ubData = await getUbicacion(p.id);
+          if (ubData.ubicacion) setUbicacion(ubData.ubicacion);
+          
+          const geocercaData = await getGeocercas(p.id);
+          if (geocercaData.geocercas) setGeocercas(geocercaData.geocercas);
+        }
+      } catch (e) {
+        console.error("❌ Error en la carga inicial del mapa:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    cargarDatosIniciales();
+  }, [pacienteIdParam]);
 
   // 2. EFECTO SECUNDARIO: Monitorea y actualiza la ubicación en tiempo real cada 30 segundos
   useEffect(() => {
@@ -68,29 +100,20 @@ export default function MapaScreen() {
       } catch (e) {
         console.error("❌ Error al actualizar ubicación en segundo plano:", e);
       }
-    }, 30000); // 30 segundos
+    }, 30000);
 
     return () => clearInterval(interval);
   }, [paciente?.id]);
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
-        <ActivityIndicator size="large" color={COLORS.gold} />
-      </View>
-    );
-  }
-
   const crearYCargar = async (radio: number) => {
-    if (!ubicacion?.lat || !ubicacion?.lng) return;
+    if (!tieneCoordenadasValidas) return;
     
     try {
       await crearGeocerca({
         paciente_id: paciente.id,
         nombre: 'Casa',
-        // Aseguramos parseo limpio antes de enviar al servicio de la API
-        lat: Math.abs(parseFloat(ubicacion.lat)),
-        lng: -Math.abs(parseFloat(ubicacion.lng)), 
+        lat: currentLat,
+        lng: currentLng, 
         radio_metros: radio,
       });
       const data = await getGeocercas(paciente.id);
@@ -100,8 +123,13 @@ export default function MapaScreen() {
     }
   };
 
-  // Validación de seguridad de coordenadas para renderizado de la UI
-  const tieneCoordenadasValidas = ubicacion && ubicacion.lat !== undefined && ubicacion.lng !== undefined;
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
+        <ActivityIndicator size="large" color={COLORS.gold} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -124,7 +152,7 @@ export default function MapaScreen() {
         )}
       </View>
 
-      {/* CUADRANTE DEL MAPA CON PARSEO ULTRA SEGURO */}
+      {/* CUADRANTE DEL MAPA SANITIZADO */}
       {tieneCoordenadasValidas ? (
         <View style={styles.mapContainer}>
           <MapView
@@ -132,12 +160,8 @@ export default function MapaScreen() {
             style={styles.mapa}
             provider={PROVIDER_GOOGLE}
             region={{
-              // Forzamos el parseo a flotante puro
-              latitude: Math.abs(parseFloat(ubicacion.lat)), 
-              
-              // 🚨 EL BLINDAJE: Forzamos el signo negativo directamente en el teléfono
-              longitude: -Math.abs(parseFloat(ubicacion.lng)), 
-              
+              latitude: currentLat,
+              longitude: currentLng,
               latitudeDelta: 0.0122,
               longitudeDelta: 0.0121,
             }}
@@ -145,22 +169,28 @@ export default function MapaScreen() {
             {/* Marcador del Paciente */}
             <Marker
               coordinate={{ 
-                latitude: Math.abs(parseFloat(ubicacion.lat)), 
-                longitude: -Math.abs(parseFloat(ubicacion.lng)) // 🚨 Forzado aquí también
+                latitude: currentLat, 
+                longitude: currentLng 
               }}
               title={paciente?.nombre_completo ?? "Paciente"}
-              description={`Batería: ${ubicacion.bateria_pct ?? 0}%`}
+              description={`Batería: ${ubicacion?.bateria_pct ?? 0}%`}
             />
 
-            {/* Mapeo de Geocercas */}
-            {Array.isArray(geocercas) && geocercas.map((g) => {
-              if (!g || g.lat === undefined || g.lng === undefined || !g.activa) return null;
+            {/* Mapeo de Geocercas Sanitizado */}
+            {Array.isArray(geocercas) && geocercas.map((g, idx) => {
+              if (!g || !g.activa) return null;
+              
+              const gLat = parsearCoord(g.lat ?? g.latitud);
+              const gLng = parsearCoord(g.lng ?? g.longitud);
+
+              if (gLat === null || gLng === null || !esValida(gLat, gLng)) return null;
+
               return (
                 <Circle
-                  key={g.id ? String(g.id) : Math.random().toString()}
+                  key={g.id ? String(g.id) : `geo-${idx}`}
                   center={{ 
-                    latitude: Math.abs(parseFloat(g.lat)), 
-                    longitude: -Math.abs(parseFloat(g.lng)) // 🚨 Forzado en la geocerca
+                    latitude: gLat, 
+                    longitude: gLng 
                   }}
                   radius={Number(g.radio_metros) || 30}
                   strokeColor="rgba(191,154,64,0.8)"
@@ -175,7 +205,7 @@ export default function MapaScreen() {
         <View style={styles.sinUbicacion}>
           <Text style={styles.sinUbicacionIcon}>📍</Text>
           <Text style={styles.sinUbicacionTitle}>Sin ubicación disponible</Text>
-          <Text style={styles.sinUbicacionText}>El dispositivo GPS no está enviando señal válida en este momento o las coordenadas son nulas.</Text>
+          <Text style={styles.sinUbicacionText}>El dispositivo GPS de {paciente?.nombre_completo || 'este paciente'} no está enviando señal válida en este momento.</Text>
         </View>
       )}
 
@@ -184,12 +214,12 @@ export default function MapaScreen() {
         <ScrollView style={styles.infoCard} showsVerticalScrollIndicator={false}>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Dispositivo</Text>
-            <Text style={styles.infoVal}>{ubicacion.modelo ?? ubicacion.device_id ?? 'ReachFar GPS'}</Text>
+            <Text style={styles.infoVal}>{ubicacion?.modelo ?? ubicacion?.device_id ?? 'ReachFar GPS'}</Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Última actualización</Text>
             <Text style={styles.infoVal}>
-              {ubicacion.ultima_conexion
+              {ubicacion?.ultima_conexion
                 ? new Date(ubicacion.ultima_conexion).toLocaleString('es-MX', {
                     day: 'numeric', month: 'short',
                     hour: '2-digit', minute: '2-digit'
@@ -197,7 +227,7 @@ export default function MapaScreen() {
                 : '—'}
             </Text>
           </View>
-          {ubicacion.bateria_pct !== undefined && (
+          {ubicacion?.bateria_pct !== undefined && (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Batería</Text>
               <Text style={[styles.infoVal, { color: ubicacion.bateria_pct < 20 ? COLORS.red : COLORS.green }]}>
@@ -209,12 +239,8 @@ export default function MapaScreen() {
           <TouchableOpacity
             style={styles.centrarBtn}
             onPress={() => mapRef.current?.animateToRegion({
-              // Aseguramos Latitud Positiva
-              latitude: Math.abs(parseFloat(ubicacion.lat)),
-              
-              // 🚨 EL ESCUDO: Forzamos la Longitud Negativa aquí también
-              longitude: -Math.abs(parseFloat(ubicacion.lng)),
-              
+              latitude: currentLat,
+              longitude: currentLng,
               latitudeDelta: 0.0122,
               longitudeDelta: 0.0121,
             })}
@@ -291,7 +317,6 @@ const styles = StyleSheet.create({
   activoDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.green },
   activoText: { fontSize: 9, fontWeight: '700', color: COLORS.green },
   
-  // SECCIÓN CRÍTICA CORREGIDA PARA FLEXBOX NATIVO
   mapContainer: {
     flex: 1,
     width: '100%',
@@ -308,7 +333,7 @@ const styles = StyleSheet.create({
   infoCard: {
     backgroundColor: COLORS.white, 
     padding: 16,
-    maxHeight: 280, // Limita el tamaño de la tarjeta para dejarle suficiente espacio al mapa
+    maxHeight: 280,
     borderTopWidth: 1, 
     borderTopColor: COLORS.border,
   },

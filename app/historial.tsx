@@ -725,19 +725,7 @@ export default function HistorialScreen() {
                   ) : null}
                 </View>
               ) : null}
-               {/* 🚨 SECCIÓN DE ALERTAS CLÍNICAS DEL TURNO/DÍA */}
-                {(cierreSeleccionado?.alertas_clinicas?.length ?? 0) > 0 && (
-                  <View style={{ marginTop: 12, backgroundColor: COLORS.redPale || '#FDEAEA', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#F5C6C6' }}>
-                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: COLORS.red || '#D94F4F', marginBottom: 6 }}>
-                      🚨 Alertas y Picos Clínicos Registrados ({cierreSeleccionado?.alertas_clinicas?.length})
-                    </Text>
-                    {cierreSeleccionado?.alertas_clinicas?.map((alt: any, idx: number) => (
-                      <Text key={alt.id || idx} style={{ fontSize: 12, color: COLORS.cacao || '#4A4540', marginBottom: 4 }}>
-                        • {alt.descripcion || alt.mensaje}
-                      </Text>
-                    ))}
-                  </View>
-                )}
+               
               {/* 3. ACTIVIDADES REALIZADAS POR RESPONSABLE */}
               <View style={styles.tareasSection}>
                 <Text style={[styles.tareasSectionTitle, { color: COLORS.cacao, marginBottom: 10 }]}>
@@ -821,7 +809,19 @@ export default function HistorialScreen() {
                   })}
                 </View>
               ) : null}
-
+              {/* 🚨 SECCIÓN DE ALERTAS CLÍNICAS DEL TURNO/DÍA */}
+                {(cierreSeleccionado?.alertas_clinicas?.length ?? 0) > 0 && (
+                  <View style={{ marginTop: 12, backgroundColor: COLORS.redPale || '#FDEAEA', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#F5C6C6' }}>
+                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: COLORS.red || '#D94F4F', marginBottom: 6 }}>
+                      🚨 Alertas y Picos Clínicos Registrados ({cierreSeleccionado?.alertas_clinicas?.length})
+                    </Text>
+                    {cierreSeleccionado?.alertas_clinicas?.map((alt: any, idx: number) => (
+                      <Text key={alt.id || idx} style={{ fontSize: 12, color: COLORS.cacao || '#4A4540', marginBottom: 4 }}>
+                        • {alt.descripcion || alt.mensaje}
+                      </Text>
+                    ))}
+                  </View>
+                )}
               {/* 6. EVALUACIONES DE ESCALAS MÉDICAS */}
               {(cierreSeleccionado?.barthel_total !== null || cierreSeleccionado?.morse_total !== null) ? (
                 <View style={[styles.tareasSection, { marginTop: 8 }]}>
