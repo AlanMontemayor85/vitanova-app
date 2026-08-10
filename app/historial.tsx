@@ -931,60 +931,90 @@ useFocusEffect(
                   })}
                 </View>
               ) : null}
-              {/* 🚨 SECCIÓN DE ALERTAS CLÍNICAS Y EVENTOS OPERATIVOS */}
-{(() => {
-  const todasAlertas = cierreSeleccionado?.alertas_clinicas || [];
+             {/* 🚨 SECCIÓN DE ALERTAS CLÍNICAS Y EVENTOS OPERATIVOS CON HORARIO */}
+              {(() => {
+                const todasAlertas = cierreSeleccionado?.alertas_clinicas || [];
 
-  // 🎯 1. Filtro: Eventos Operativos (Entradas, Salidas, Cierres de Turno)
-  const eventosTurno = todasAlertas.filter((a: any) => {
-    const desc = (a.descripcion || a.mensaje || '').toLowerCase();
-    const tipo = (a.tipo || '').toLowerCase();
-    return (
-      tipo.includes('turno') ||
-      tipo.includes('cuidador') ||
-      desc.includes('cierre turno') ||
-      desc.includes('inicio turno') ||
-      desc.includes('entrada') ||
-      desc.includes('salida') ||
-      desc.includes('cuidador')
-    );
-  });
+                // Helper para formatear la hora (ej: 09:30 a.m.)
+                const obtenerHoraTexto = (item: any) => {
+                  const rawFecha = item.created_at || item.timestamp || item.hora;
+                  if (!rawFecha) return '';
+                  
+                  try {
+                    // Si ya viene formateado solo como texto de hora
+                    if (typeof rawFecha === 'string' && rawFecha.length <= 8 && rawFecha.includes(':')) {
+                      return `[${rawFecha}] `;
+                    }
+                    const fechaObj = new Date(rawFecha);
+                    if (isNaN(fechaObj.getTime())) return '';
 
-        // 🎯 2. Filtro: Alertas Clínicas Reales (Picos de SpO2, Presión, Temperatura, Caídas)
-        const alertasClinicas = todasAlertas.filter((a: any) => !eventosTurno.includes(a));
+                    const horaFormateada = fechaObj.toLocaleTimeString('es-MX', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    });
+                    return `[${horaFormateada}] `;
+                  } catch {
+                    return '';
+                  }
+                };
 
-        return (
-          <View style={{ marginTop: 12, gap: 10 }}>
-            {/* 🚨 1. SECCIÓN ROJA: ALERTAS Y PICOS CLÍNICOS */}
-            {alertasClinicas.length > 0 && (
-              <View style={{ backgroundColor: COLORS.redPale || '#FDEAEA', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#F5C6C6' }}>
-                <Text style={{ fontSize: 12, fontWeight: 'bold', color: COLORS.red || '#D94F4F', marginBottom: 6 }}>
-                  🚨 Alertas y Picos Clínicos Registrados ({alertasClinicas.length})
-                </Text>
-                {alertasClinicas.map((alt: any, idx: number) => (
-                  <Text key={`clinica-${alt.id || idx}`} style={{ fontSize: 12, color: COLORS.cacao || '#4A4540', marginBottom: 4 }}>
-                    • {alt.descripcion || alt.mensaje}
-                  </Text>
-                ))}
-              </View>
-            )}
+                // 🎯 1. Filtro: Eventos Operativos (Entradas, Salidas, Cierres de Turno)
+                const eventosTurno = todasAlertas.filter((a: any) => {
+                  const desc = (a.descripcion || a.mensaje || '').toLowerCase();
+                  const tipo = (a.tipo || '').toLowerCase();
+                  return (
+                    tipo.includes('turno') ||
+                    tipo.includes('cuidador') ||
+                    desc.includes('cierre turno') ||
+                    desc.includes('inicio turno') ||
+                    desc.includes('entrada') ||
+                    desc.includes('salida') ||
+                    desc.includes('cuidador')
+                  );
+                });
 
-            {/* 🚪 2. SECCIÓN AZUL: REGISTROS DE ENTRADA, SALIDA Y TURNOS */}
-            {eventosTurno.length > 0 && (
-              <View style={{ backgroundColor: '#E3F2FD', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#BBDEFB' }}>
-                <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#1565C0', marginBottom: 6 }}>
-                  🚪 Registros de Entrada, Salida y Turnos ({eventosTurno.length})
-                </Text>
-                {eventosTurno.map((evt: any, idx: number) => (
-                  <Text key={`turno-${evt.id || idx}`} style={{ fontSize: 12, color: '#0D47A1', marginBottom: 4 }}>
-                    • {evt.descripcion || evt.mensaje}
-                  </Text>
-                ))}
-              </View>
-            )}
-          </View>
-        );
-      })()}
+                // 🎯 2. Filtro: Alertas Clínicas Reales (Picos de SpO2, Presión, Temperatura, Caídas)
+                const alertasClinicas = todasAlertas.filter((a: any) => !eventosTurno.includes(a));
+
+                return (
+                  <View style={{ marginTop: 12, gap: 10 }}>
+                    {/* 🚨 1. SECCIÓN ROJA: ALERTAS Y PICOS CLÍNICOS */}
+                    {alertasClinicas.length > 0 && (
+                      <View style={{ backgroundColor: COLORS.redPale || '#FDEAEA', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#F5C6C6' }}>
+                        <Text style={{ fontSize: 12, fontWeight: 'bold', color: COLORS.red || '#D94F4F', marginBottom: 6 }}>
+                          🚨 Alertas y Picos Clínicos Registrados ({alertasClinicas.length})
+                        </Text>
+                        {alertasClinicas.map((alt: any, idx: number) => {
+                          const horaStr = obtenerHoraTexto(alt);
+                          return (
+                            <Text key={`clinica-${alt.id || idx}`} style={{ fontSize: 12, color: COLORS.cacao || '#4A4540', marginBottom: 4 }}>
+                              • <Text style={{ fontWeight: '700' }}>{horaStr}</Text>{alt.descripcion || alt.mensaje}
+                            </Text>
+                          );
+                        })}
+                      </View>
+                    )}
+
+                    {/* 🚪 2. SECCIÓN AZUL: REGISTROS DE ENTRADA, SALIDA Y TURNOS CON HORARIO */}
+                    {eventosTurno.length > 0 && (
+                      <View style={{ backgroundColor: '#E3F2FD', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#BBDEFB' }}>
+                        <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#1565C0', marginBottom: 6 }}>
+                          🚪 Registros de Entrada, Salida y Turnos ({eventosTurno.length})
+                        </Text>
+                        {eventosTurno.map((evt: any, idx: number) => {
+                          const horaStr = obtenerHoraTexto(evt);
+                          return (
+                            <Text key={`turno-${evt.id || idx}`} style={{ fontSize: 12, color: '#0D47A1', marginBottom: 4 }}>
+                              • <Text style={{ fontWeight: '700' }}>{horaStr}</Text>{evt.descripcion || evt.mensaje}
+                            </Text>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+                );
+              })()}
               {/* 6. EVALUACIONES DE ESCALAS MÉDICAS */}
               {(cierreSeleccionado?.barthel_total !== null || cierreSeleccionado?.morse_total !== null) ? (
                 <View style={[styles.tareasSection, { marginTop: 8 }]}>
