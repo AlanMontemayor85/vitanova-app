@@ -349,8 +349,7 @@ useEffect(() => {
     }
   }, [vista, pacienteActivo?.id]);
   // 📦 CARGA DE INVENTARIO DEL HOGAR AL ABRIR EL CIERRE DE TURNO
-  // 📦 CARGA DE INVENTARIO DEL HOGAR AL ABRIR EL CIERRE DE TURNO
-  // 📦 CARGA DE INVENTARIO DEL HOGAR AL ABRIR EL CIERRE DE TURNO
+ 
   useEffect(() => {
     const cargarInventarioHogar = async () => {
       if (vista === 'cierre' && pacienteActivo?.id) {
@@ -986,7 +985,20 @@ const guardarRegistroEspontaneo = async () => {
     const finalPeso = peso && String(peso).trim() !== '' && Number(peso) > 0 
       ? parseFloat(String(peso)) 
       : null;
-
+    // 📦 Transformar consumosTurno a arreglo para persistirlo en el Cierre de Turno
+    const insumosConsumidosArray = Object.entries(consumosTurno)
+      .filter(([_, cant]) => (cant as number) > 0)
+      .map(([itemId, cant]) => {
+        const itemInfo = (inventarioHogar || []).find((inv: any) => inv.id === itemId);
+        return {
+          id: itemId,
+          inventario_id: itemId,
+          nombre: itemInfo?.nombre || 'Insumo',
+          usado_hoy: cant,
+          cantidad: cant,
+          unidad: itemInfo?.unidad || 'piezas'
+        };
+      });
     // 4. REGISTRO FINAL DE CIERRE EN BACKEND
     const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
       method: 'POST',
@@ -1013,6 +1025,9 @@ const guardarRegistroEspontaneo = async () => {
         hidratacion_vasos: hidratacion || null,
         alimentacion: alimentacion || null,
         observaciones: observaciones.trim() || null,
+        inventario_usado: insumosConsumidosArray,
+        insumos: insumosConsumidosArray,
+        
       }),
     });
 

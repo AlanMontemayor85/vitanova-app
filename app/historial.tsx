@@ -772,59 +772,123 @@ useFocusEffect(
                 )}
               </View>
              
-              {/* 4. CONCENTRADO DE INSUMOS USADOS Y STOCK RESTANTE */}
-              <View style={[styles.tareasSection, { marginTop: 12 }]}>
-                <Text style={[styles.tareasSectionTitle, { color: COLORS.amber, marginBottom: 8 }]}>
-                  📦 CONCENTRADO DE INSUMOS USADOS HOY
-                </Text>
+              {/* 4. CONCENTRADO DE INSUMOS USADOS Y STOCK RESTANTE (DIVIDIDO POR CATEGORÍA) */}
+              {(() => {
+                const listaUsados = inventarioUsado || [];
 
-                {(!inventarioUsado || inventarioUsado.length === 0) ? (
-                  <Text style={{ fontSize: 12, color: COLORS.textLight, fontStyle: 'italic' }}>
-                    No se consumieron insumos de la despensa en este día.
-                  </Text>
-                ) : (
-                  <View style={{ gap: 6 }}>
-                    {inventarioUsado.map((inv: any, ii: number) => {
-                      // Fallback seguro de valores
-                      const nombreInsumo = inv.nombre || inv.descripcion || 'Insumo sin nombre';
-                      const cantidadUsada = inv.usado_hoy ?? inv.cantidad ?? 1;
-                      const stockRestante = inv.stock_restante ?? inv.stock ?? 'N/A';
-                      const unidadMedida = inv.unidad || 'piezas';
+                // 🎯 Clasificación Inteligente
+                const medicamentos = listaUsados.filter((inv: any) => {
+                  const tipo = (inv.tipo || '').toLowerCase();
+                  const nombre = (inv.nombre || inv.descripcion || '').toLowerCase();
+                  return tipo === 'medicamento' || (inv.tipo_tarea === 'medicamento' && !nombre.includes('pañal') && !nombre.includes('panal'));
+                });
 
-                      return (
-                        <View 
-                          key={`inv-usado-${inv.id || ii}`} 
-                          style={{ 
-                            flexDirection: 'row', 
-                            justifyContent: 'space-between', 
-                            alignItems: 'center', 
-                            backgroundColor: COLORS.white, 
-                            padding: 10, 
-                            borderRadius: 8, 
-                            borderWidth: 1, 
-                            borderColor: COLORS.border 
-                          }}
-                        >
-                          <View style={{ flex: 1, paddingRight: 8 }}>
-                            <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textDark }}>
-                              {nombreInsumo}
+                const insumos = listaUsados.filter((inv: any) => {
+                  const tipo = (inv.tipo || '').toLowerCase();
+                  const nombre = (inv.nombre || inv.descripcion || '').toLowerCase();
+                  return tipo === 'insumo' || tipo === 'material' || tipo === 'higiene' || tipo === 'despensa' || nombre.includes('pañal') || nombre.includes('panal') || nombre.includes('toallita') || nombre.includes('gasa');
+                });
+
+                const otros = listaUsados.filter((inv: any) => !medicamentos.includes(inv) && !insumos.includes(inv));
+
+                const renderFilaInsumo = (inv: any, ii: number, prefix: string) => {
+                  const nombreInsumo = inv.nombre || inv.descripcion || 'Insumo sin nombre';
+                  const cantidadUsada = inv.usado_hoy ?? inv.cantidad ?? 1;
+                  const stockRestante = inv.stock_restante ?? inv.stock ?? 'N/A';
+                  const unidadMedida = inv.unidad || 'piezas';
+                  const registradoPor = inv.registrado_por;
+
+                  return (
+                    <View 
+                      key={`${prefix}-${inv.id || ii}`} 
+                      style={{ 
+                        flexDirection: 'row', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        backgroundColor: COLORS.white, 
+                        padding: 10, 
+                        borderRadius: 8, 
+                        borderWidth: 1, 
+                        borderColor: COLORS.border 
+                      }}
+                    >
+                      <View style={{ flex: 1, paddingRight: 8 }}>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textDark }}>
+                          {nombreInsumo}
+                        </Text>
+                        
+                        {registradoPor && (
+                          <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 1 }}>
+                            👤 {registradoPor}
+                          </Text>
+                        )}
+
+                        <Text style={{ fontSize: 10, color: COLORS.amber, fontWeight: '700', marginTop: 2 }}>
+                          Usado hoy: -{cantidadUsada} {unidadMedida}
+                        </Text>
+                      </View>
+
+                      <View style={{ alignItems: 'flex-end', backgroundColor: COLORS.greenPale, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: COLORS.green }}>
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.green }}>
+                          Stock: {stockRestante} {unidadMedida}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                };
+
+                return (
+                  <View style={[styles.tareasSection, { marginTop: 12 }]}>
+                    <Text style={[styles.tareasSectionTitle, { color: COLORS.amber, marginBottom: 8 }]}>
+                      📦 CONCENTRADO DE INSUMOS Y MEDICAMENTOS HOY
+                    </Text>
+
+                    {listaUsados.length === 0 ? (
+                      <Text style={{ fontSize: 12, color: COLORS.textLight, fontStyle: 'italic' }}>
+                        No se consumieron insumos de la despensa en este día.
+                      </Text>
+                    ) : (
+                      <View style={{ gap: 12 }}>
+                        {/* 💊 MEDICAMENTOS */}
+                        {medicamentos.length > 0 && (
+                          <View>
+                            <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>
+                              💊 Medicamentos Administrados ({medicamentos.length})
                             </Text>
-                            <Text style={{ fontSize: 10, color: COLORS.amber, fontWeight: '700', marginTop: 2 }}>
-                              Usado hoy: -{cantidadUsada} {unidadMedida}
-                            </Text>
+                            <View style={{ gap: 6 }}>
+                              {medicamentos.map((inv: any, ii: number) => renderFilaInsumo(inv, ii, 'med'))}
+                            </View>
                           </View>
+                        )}
 
-                          <View style={{ alignItems: 'flex-end', backgroundColor: COLORS.greenPale, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: COLORS.green }}>
-                            <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.green }}>
-                              Stock: {stockRestante} {unidadMedida}
+                        {/* 📦 INSUMOS Y PAÑALES */}
+                        {insumos.length > 0 && (
+                          <View>
+                            <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>
+                              📦 Insumos, Pañales y Materiales ({insumos.length})
                             </Text>
+                            <View style={{ gap: 6 }}>
+                              {insumos.map((inv: any, ii: number) => renderFilaInsumo(inv, ii, 'ins'))}
+                            </View>
                           </View>
-                        </View>
-                      );
-                    })}
+                        )}
+
+                        {/* 📋 OTROS */}
+                        {otros.length > 0 && (
+                          <View>
+                            <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>
+                              📋 Otros Consumos ({otros.length})
+                            </Text>
+                            <View style={{ gap: 6 }}>
+                              {otros.map((inv: any, ii: number) => renderFilaInsumo(inv, ii, 'otr'))}
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                    )}
                   </View>
-                )}
-              </View>
+                );
+              })()}
 
              {/* 5. SECCIÓN NOTAS EVOLUTIVAS DEL TURNO */}
               {notasTurno.length > 0 ? (
