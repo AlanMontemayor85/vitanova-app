@@ -796,15 +796,16 @@ useFocusEffect(
                   const cantidadUsada = inv.usado_hoy ?? inv.cantidad ?? 1;
                   const stockRestante = inv.stock_restante ?? inv.stock ?? 'N/A';
                   const unidadMedida = inv.unidad || 'piezas';
-                  const registradoPor = inv.registrado_por;
+                  
+                  // 🎯 Extraer el desglose por persona o fallback si viene en string
+                  const desgloseObj: Record<string, number> = inv.desglose_por_persona || {};
+                  const listaDesglose = Object.entries(desgloseObj);
+                  const registradoPorFallback = inv.registrado_por;
 
                   return (
                     <View 
-                      key={`${prefix}-${inv.id || ii}`} 
+                      key={`${prefix}-${inv.id || 'item'}-${ii}`} 
                       style={{ 
-                        flexDirection: 'row', 
-                        justifyContent: 'space-between', 
-                        alignItems: 'center', 
                         backgroundColor: COLORS.white, 
                         padding: 10, 
                         borderRadius: 8, 
@@ -812,27 +813,42 @@ useFocusEffect(
                         borderColor: COLORS.border 
                       }}
                     >
-                      <View style={{ flex: 1, paddingRight: 8 }}>
-                        <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textDark }}>
-                          {nombreInsumo}
-                        </Text>
-                        
-                        {registradoPor && (
-                          <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 1 }}>
-                            👤 {registradoPor}
+                      {/* FILA SUPERIOR: Nombre, Cantidad Total y Stock Restante */}
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textDark }}>
+                            {nombreInsumo}
                           </Text>
-                        )}
+                          
+                          <Text style={{ fontSize: 10, color: COLORS.amber, fontWeight: '700', marginTop: 2 }}>
+                            Usado hoy: -{cantidadUsada} {unidadMedida}
+                          </Text>
+                        </View>
 
-                        <Text style={{ fontSize: 10, color: COLORS.amber, fontWeight: '700', marginTop: 2 }}>
-                          Usado hoy: -{cantidadUsada} {unidadMedida}
-                        </Text>
+                        <View style={{ alignItems: 'flex-end', backgroundColor: COLORS.greenPale, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: COLORS.green }}>
+                          <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.green }}>
+                            Stock: {stockRestante} {unidadMedida}
+                          </Text>
+                        </View>
                       </View>
 
-                      <View style={{ alignItems: 'flex-end', backgroundColor: COLORS.greenPale, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: COLORS.green }}>
-                        <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.green }}>
-                          Stock: {stockRestante} {unidadMedida}
-                        </Text>
-                      </View>
+                      {/* 🎯 SECCIÓN INFERIOR: DESGLOSE EXACTO POR PERSONA */}
+                      {listaDesglose.length > 0 ? (
+                        <View style={{ marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#F0F0F0', flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                          {listaDesglose.map(([persona, cant], idx) => (
+                            <Text key={`desglose-${idx}`} style={{ fontSize: 10, color: COLORS.textLight, fontWeight: '600' }}>
+                              👤 {persona}: <Text style={{ fontWeight: '700', color: COLORS.textDark }}>{cant} {unidadMedida}</Text>
+                            </Text>
+                          ))}
+                        </View>
+                      ) : registradoPorFallback ? (
+                        /* Fallback simple por si un registro antiguo no traía diccionario */
+                        <View style={{ marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#F0F0F0' }}>
+                          <Text style={{ fontSize: 10, color: COLORS.textLight, fontWeight: '600' }}>
+                            👤 {registradoPorFallback}
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
                   );
                 };
