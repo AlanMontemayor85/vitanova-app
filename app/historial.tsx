@@ -1,10 +1,10 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Asset } from 'expo-asset';
 import * as Print from 'expo-print';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Modal, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Alert, Linking, Modal, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, } from 'react-native';
 import { loadStoredToken } from '../services/api';
 const { documentDirectory, moveAsync, readAsStringAsync } = require('expo-file-system/legacy');
 
@@ -145,53 +145,52 @@ export default function HistorialScreen() {
     control: '📋'
   };
 
-  // ── 4. EFFECT DE CARGA (DEDUPLICADO Y PROTEGIDO) ──
-  useEffect(() => {
+  // ── 4. EFFECT DE CARGA RECARGABLE (AL ENTRAR O VOLVER A LA PANTALLA) ──
+useFocusEffect(
+  useCallback(() => {
+    let isMounted = true;
+
     const cargar = async () => {
       try {
+        setLoading(true);
         const token = await loadStoredToken();
-        if (!token) { router.replace('/login'); return; }
+        if (!token) { 
+          router.replace('/login'); 
+          return; 
+        }
+
         const res = await fetch(
           `${BASE_URL}/pacientes/${pacienteId}/historial-cierres?limit=20`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
+
         const data = await res.json();
-        
-        if (data.cierres && Array.isArray(data.cierres)) {
-          const cierresUnicos = data.cierres.reduce((acc: any[], actual: any) => {
-            const claveTurno = actual.turno_id 
-              || `${actual.fecha || actual.created_at?.split('T')[0]}_${actual.nombre_cuidador || actual.cuidador_id}`;
 
-            const indiceExistente = acc.findIndex((item) => {
-              const claveItem = item.turno_id 
-                || `${item.fecha || item.created_at?.split('T')[0]}_${item.nombre_cuidador || item.cuidador_id}`;
-              return claveItem === claveTurno;
-            });
+        // 🩺 DEBUG EN CONSOLA: Verificamos qué inventario devuelve la API
+        if (data.cierres && data.cierres.length > 0) {
+          console.log("🔍 [FRONTEND DEBUG] Inventario usado del último cierre:", 
+            JSON.stringify(data.cierres[0]?.inventario_usado, null, 2)
+          );
+        }
 
-            if (indiceExistente === -1) {
-              acc.push(actual);
-            } else {
-              const fechaActual = new Date(actual.created_at || actual.fecha).getTime();
-              const fechaPrev = new Date(acc[indiceExistente].created_at || acc[indiceExistente].fecha).getTime();
-
-              if (fechaActual > fechaPrev) {
-                acc[indiceExistente] = actual;
-              }
-            }
-            return acc;
-          }, []);
-
-          console.log(`✅ Cierres cargados: ${data.cierres.length} totales | ${cierresUnicos.length} únicos proyectados`);
-          setCierres(cierresUnicos);
+        if (isMounted && data.cierres && Array.isArray(data.cierres)) {
+          // Si el backend ya trae el historial desduplicado, asignamos directamente
+          setCierres(data.cierres);
         }
       } catch (e) {
         console.error("❌ Error recuperando historial:", e);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
+
     cargar();
-  }, [pacienteId]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [pacienteId])
+);
 
   // 📄 EXPORTACIÓN COMPLETA A PDF CON ALERTAS CLÍNICAS
   const generarPDF = async (c: any) => {
@@ -206,7 +205,7 @@ export default function HistorialScreen() {
     } catch (err) {
       console.error("⚠️ No se pudo procesar el logo para el PDF:", err);
     }
-
+    
     const desglosePersonas = c?.desglose_por_persona || [];
     const inventarioUsado = c?.inventario_usado || [];
     const notasTurno = c?.notas_turno || [];
@@ -516,49 +515,67 @@ export default function HistorialScreen() {
           </View>
         ) : (
           <View>
-            {/* NAVEGADOR MULTI-TURNO INTERACTIVO */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <TouchableOpacity
-                onPress={() => setIndice(Math.min(indice + 1, cierresFiltrados.length - 1))}
-                disabled={indice >= cierresFiltrados.length - 1}
-                style={{ padding: 8 }}
-              >
-                <Text style={{ fontSize: 28, color: indice >= cierresFiltrados.length - 1 ? COLORS.border : COLORS.gold }}>{'‹'}</Text>
-              </TouchableOpacity>
+           {/* NAVEGADOR MULTI-TURNO INTERACTIVO */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            {/* Botón Turno Anterior (Siguiente en el tiempo / más antiguo) */}
+            <TouchableOpacity
+              onPress={() => setIndice(Math.min(indice + 1, cierresFiltrados.length - 1))}
+              disabled={indice >= cierresFiltrados.length - 1}
+              style={{ padding: 8 }}
+            >
+              <Text style={{ fontSize: 28, color: indice >= cierresFiltrados.length - 1 ? COLORS.border : COLORS.gold }}>{'‹'}</Text>
+            </TouchableOpacity>
+            
+            {/* Selector de Fecha / Turno Actual */}
+            <TouchableOpacity 
+              style={{ alignItems: 'center', marginVertical: 4, paddingVertical: 4 }} 
+              onPress={() => setModalVisible(true)}
+            >
+              {/* Encabezado: Turno X de Y + Nombre del Cuidador */}
+              <Text style={{ fontSize: 13, fontWeight: '700', color: COLORS.textDark, marginBottom: 2 }}>
+                {`Turno ${indice + 1} de ${cierresFiltrados.length}`}
+                {cierreSeleccionado?.nombre_cuidador ? ` · ${cierreSeleccionado.nombre_cuidador.split(' ')[0]}` : ''}
+              </Text>
               
-              <TouchableOpacity 
-                style={{ alignItems: 'center', marginVertical: 4, paddingVertical: 4 }} 
-                onPress={() => setModalVisible(true)}
-              >
-                <Text style={{ fontSize: 13, fontWeight: '700', color: COLORS.textDark, marginBottom: 2 }}>
-                  {`Turno ${indice + 1} de ${cierresFiltrados.length}`}
-                </Text>
-                
-                <View style={{
-                  flexDirection: 'row', alignItems: 'center',
-                  backgroundColor: filtroFecha ? COLORS.goldPale : COLORS.cream,
-                  paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12,
-                  borderWidth: 1, borderColor: filtroFecha ? COLORS.gold : COLORS.border,
-                  gap: 4, marginTop: 2
-                }}>
-                  <Text style={{ fontSize: 11, color: COLORS.gold, fontWeight: '700' }}>
-                    {cierreSeleccionado?.fecha 
-                      ? new Date(cierreSeleccionado.fecha + 'T00:00:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' }) 
+              {/* Píldora de Fecha + Hora de Cierre */}
+              <View style={{
+                flexDirection: 'row', 
+                alignItems: 'center',
+                backgroundColor: filtroFecha ? COLORS.goldPale : COLORS.cream,
+                paddingHorizontal: 12, 
+                paddingVertical: 5, 
+                borderRadius: 12,
+                borderWidth: 1, 
+                borderColor: filtroFecha ? COLORS.gold : COLORS.border,
+                gap: 6, 
+                marginTop: 2
+              }}>
+                <Text style={{ fontSize: 11, color: COLORS.gold, fontWeight: '700' }}>
+                  {cierreSeleccionado?.created_at 
+                    ? new Date(cierreSeleccionado.created_at).toLocaleString('es-MX', { 
+                        weekday: 'short', 
+                        day: 'numeric', 
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      }) 
+                    : cierreSeleccionado?.fecha 
+                      ? new Date(cierreSeleccionado.fecha + 'T00:00:00').toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' })
                       : 'Filtrar Fecha'}
-                  </Text>
-                  <Text style={{ fontSize: 10 }}>📅</Text>
-                </View>
-              </TouchableOpacity>
+                </Text>
+                <Text style={{ fontSize: 10 }}>📅</Text>
+              </View>
+            </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={() => setIndice(Math.max(indice - 1, 0))}
-                disabled={indice <= 0}
-                style={{ padding: 8 }}
-              >
-                <Text style={{ fontSize: 28, color: indice <= 0 ? COLORS.border : COLORS.gold }}>{'›'}</Text>
-              </TouchableOpacity>
-            </View>
-
+            {/* Botón Turno Siguiente (Más reciente) */}
+            <TouchableOpacity
+              onPress={() => setIndice(Math.max(indice - 1, 0))}
+              disabled={indice <= 0}
+              style={{ padding: 8 }}
+            >
+              <Text style={{ fontSize: 28, color: indice <= 0 ? COLORS.border : COLORS.gold }}>{'›'}</Text>
+            </TouchableOpacity>
+          </View>
             {/* BOTONES DE EXPORTACIÓN */}
             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
               <TouchableOpacity
@@ -761,25 +778,50 @@ export default function HistorialScreen() {
                   📦 CONCENTRADO DE INSUMOS USADOS HOY
                 </Text>
 
-                {inventarioUsado.length === 0 ? (
-                  <Text style={{ fontSize: 12, color: COLORS.textLight }}>No se consumieron insumos de la despensa en este día.</Text>
+                {(!inventarioUsado || inventarioUsado.length === 0) ? (
+                  <Text style={{ fontSize: 12, color: COLORS.textLight, fontStyle: 'italic' }}>
+                    No se consumieron insumos de la despensa en este día.
+                  </Text>
                 ) : (
                   <View style={{ gap: 6 }}>
-                    {inventarioUsado.map((inv: any, ii: number) => (
-                      <View key={`inv-usado-${ii}`} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: COLORS.white, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border }}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textDark }}>{inv.nombre}</Text>
-                          <Text style={{ fontSize: 10, color: COLORS.amber, fontWeight: '700', marginTop: 2 }}>
-                            Usado hoy: -{inv.usado_hoy} {inv.unidad}
-                          </Text>
+                    {inventarioUsado.map((inv: any, ii: number) => {
+                      // Fallback seguro de valores
+                      const nombreInsumo = inv.nombre || inv.descripcion || 'Insumo sin nombre';
+                      const cantidadUsada = inv.usado_hoy ?? inv.cantidad ?? 1;
+                      const stockRestante = inv.stock_restante ?? inv.stock ?? 'N/A';
+                      const unidadMedida = inv.unidad || 'piezas';
+
+                      return (
+                        <View 
+                          key={`inv-usado-${inv.id || ii}`} 
+                          style={{ 
+                            flexDirection: 'row', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center', 
+                            backgroundColor: COLORS.white, 
+                            padding: 10, 
+                            borderRadius: 8, 
+                            borderWidth: 1, 
+                            borderColor: COLORS.border 
+                          }}
+                        >
+                          <View style={{ flex: 1, paddingRight: 8 }}>
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textDark }}>
+                              {nombreInsumo}
+                            </Text>
+                            <Text style={{ fontSize: 10, color: COLORS.amber, fontWeight: '700', marginTop: 2 }}>
+                              Usado hoy: -{cantidadUsada} {unidadMedida}
+                            </Text>
+                          </View>
+
+                          <View style={{ alignItems: 'flex-end', backgroundColor: COLORS.greenPale, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: COLORS.green }}>
+                            <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.green }}>
+                              Stock: {stockRestante} {unidadMedida}
+                            </Text>
+                          </View>
                         </View>
-                        <View style={{ alignItems: 'flex-end', backgroundColor: COLORS.greenPale, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: COLORS.green }}>
-                          <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.green }}>
-                            Stock: {inv.stock_restante} {inv.unidad}
-                          </Text>
-                        </View>
-                      </View>
-                    ))}
+                      );
+                    })}
                   </View>
                 )}
               </View>
