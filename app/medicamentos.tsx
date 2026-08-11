@@ -920,10 +920,16 @@ const ejecutarEliminacion = async () => {
                 if (!med.fecha_fin) {
                   return <Text style={{ fontSize: 11, color: COLORS.gold, fontWeight: '600' }}>♾️ Permanente</Text>;
                 }
+
+                // 🎯 CONVERTIR A FORMATO LATINO (DD/MM/YYYY)
+                const inicioClean = ISOaLatino(med.fecha_inicio);
+                const finClean = ISOaLatino(med.fecha_fin);
+
                 if (med.fecha_inicio === med.fecha_fin) {
-                  return <Text style={{ fontSize: 11, color: '#777', fontWeight: '600' }}>📍 Programado: {med.fecha_inicio}</Text>;
+                  return <Text style={{ fontSize: 11, color: '#777', fontWeight: '600' }}>📍 Programado: {inicioClean}</Text>;
                 }
-                return <Text style={{ fontSize: 11, color: '#555', fontWeight: '600' }}>📅 {med.fecha_inicio} al {med.fecha_fin}</Text>;
+
+                return <Text style={{ fontSize: 11, color: '#555', fontWeight: '600' }}>📅 {inicioClean} al {finClean}</Text>;
               };
 
               return (
@@ -939,7 +945,8 @@ const ejecutarEliminacion = async () => {
                       {med.horarios && med.horarios.length > 0 && (
                         med.horarios.map((h: string, hi: number) => (
                           <View key={hi} style={styles.horarioBadge}>
-                            <Text style={styles.horarioBadgeText}>{'⏰ ' + h}</Text>
+                            {/* 🎯 HORA ESTANDARIZADA (Muestra 8:00 a.m. en lugar de 08:00:00) */}
+                            <Text style={styles.horarioBadgeText}>{'⏰ ' + formatearHoraBonita(h)}</Text>
                           </View>
                         ))
                       )}
@@ -968,15 +975,21 @@ const ejecutarEliminacion = async () => {
             </View>
           ) : (
             tareasRec.map((t, i) => {
-              const renderTemporalidadRutina = () => {
-                if (!t.fecha_fin) {
-                  return <Text style={{ fontSize: 11, color: COLORS.gold, fontWeight: '600' }}>♾️ Permanente</Text>;
-                }
-                if (t.fecha_inicio === t.fecha_fin) {
-                  return <Text style={{ fontSize: 11, color: '#777', fontWeight: '600' }}>📍 Programado: {t.fecha_inicio}</Text>;
-                }
-                return <Text style={{ fontSize: 11, color: '#555', fontWeight: '600' }}>📅 {t.fecha_inicio} al {t.fecha_fin}</Text>;
-              };
+            const renderTemporalidadRutina = () => {
+              if (!t.fecha_fin) {
+                return <Text style={{ fontSize: 11, color: COLORS.gold, fontWeight: '600' }}>♾️ Permanente</Text>;
+              }
+
+              // 🎯 CONVERTIR A FORMATO LATINO (DD/MM/YYYY)
+              const inicioClean = ISOaLatino(t.fecha_inicio);
+              const finClean = ISOaLatino(t.fecha_fin);
+
+              if (t.fecha_inicio === t.fecha_fin) {
+                return <Text style={{ fontSize: 11, color: '#777', fontWeight: '600' }}>📍 Programado: {inicioClean}</Text>;
+              }
+
+              return <Text style={{ fontSize: 11, color: '#555', fontWeight: '600' }}>📅 {inicioClean} al {finClean}</Text>;
+            };
 
               return (
                 <View key={t.id || i} style={styles.card}>
@@ -989,7 +1002,7 @@ const ejecutarEliminacion = async () => {
 
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 6 }}>
                       <View style={styles.horarioBadge}>
-                        <Text style={styles.rutinaHora}>{`🕐 ${formatearHoraBonita(t.hora)}`}</Text>
+                        <Text style={styles.horarioBadgeText}>{'⏰ ' + formatearHoraBonita(t.hora)}</Text>
                       </View>
                       <View style={{ backgroundColor: '#F0F0F0', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: '#EAEAEA' }}>
                         {renderTemporalidadRutina()}
@@ -1038,7 +1051,8 @@ const ejecutarEliminacion = async () => {
                   {/* 📅 Caducidad */}
                   {item.fecha_caducidad && (
                     <Text style={{ color: COLORS.textLight, fontSize: 11, marginTop: 2 }}>
-                      🗓️ Caduca: <Text style={{ fontWeight: '600', color: COLORS.textDark }}>{item.fecha_caducidad}</Text>
+                      {/* 🎯 MUESTRA FECHA EN FORMATO LATINO (DD/MM/YYYY) */}
+                      🗓️ Caduca: <Text style={{ fontWeight: '600', color: COLORS.textDark }}>{ISOaLatino(item.fecha_caducidad)}</Text>
                     </Text>
                   )}
 
@@ -1253,14 +1267,17 @@ const ejecutarEliminacion = async () => {
           </View>
         </ScrollView>
 
-        <Text style={styles.label}>Horarios de administración</Text>
+       <Text style={styles.label}>Horarios de administración</Text>
         {horariosArray.map((h, idx) => (
           <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 }}>
             <TouchableOpacity
               style={{ flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, padding: 12, backgroundColor: COLORS.white, alignItems: 'center' }}
               onPress={() => { setHorarioIndex(idx); setShowTimePicker(true); }}
             >
-              <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.cacao }}>{`🕐 ${h}`}</Text>
+              {/* 🎯 HORA ESTANDARIZADA (Muestra 8:00 a.m. en lugar de 08:00:00) */}
+              <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.cacao }}>
+                {`🕐 ${formatearHoraBonita(h)}`}
+              </Text>
             </TouchableOpacity>
             {horariosArray.length > 1 && (
               <TouchableOpacity onPress={() => setHorariosArray(prev => prev.filter((_, i) => i !== idx))} style={{ padding: 8 }}>
@@ -1349,7 +1366,10 @@ const ejecutarEliminacion = async () => {
                 style={{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }}
                 onPress={() => setShowInicioPicker(true)}
               >
-                <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>{fechaInicio}</Text>
+                {/* 🎯 FECHA EN FORMATO DÍA/MES/AÑO */}
+                <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>
+                  {ISOaLatino(fechaInicio)}
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -1360,8 +1380,9 @@ const ejecutarEliminacion = async () => {
                   style={[{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }, (fechaInicio === fechaFin && fechaFin !== '') && { backgroundColor: '#EAEAEA' }]}
                   onPress={() => setShowFinPicker(true)}
                 >
+                  {/* 🎯 FECHA EN FORMATO DÍA/MES/AÑO */}
                   <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>
-                    {fechaFin || 'Seleccionar término'}
+                    {fechaFin ? ISOaLatino(fechaFin) : 'Seleccionar término'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -1477,12 +1498,15 @@ const ejecutarEliminacion = async () => {
                 ))}
               </View>
 
-              <Text style={styles.label}>Horario</Text>
+            <Text style={styles.label}>Horario</Text>
               <TouchableOpacity
                 style={{ borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, padding: 12, backgroundColor: COLORS.white, alignItems: 'center', marginBottom: 12 }}
                 onPress={() => setShowRutinaTimePicker(true)}
               >
-                <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.cacao }}>{`🕐 ${rutinaHora}`}</Text>
+                {/* 🎯 HORA ESTANDARIZADA (Muestra 7:00 p.m. en lugar de 19:00:00) */}
+                <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.cacao }}>
+                  {`🕐 ${formatearHoraBonita(rutinaHora)}`}
+                </Text>
               </TouchableOpacity>
                {/* 📝 Campo de Indicaciones Especiales / Notas */}
                 <View style={{ marginTop: 12 }}>
@@ -1562,7 +1586,8 @@ const ejecutarEliminacion = async () => {
                       style={{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }}
                       onPress={() => setShowInicioPicker(true)}
                     >
-                      <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>{fechaInicio}</Text>
+                      {/* 🎯 MUESTRA FECHA EN DD/MM/YYYY */}
+                      <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>{ISOaLatino(fechaInicio)}</Text>
                     </TouchableOpacity>
                   </View>
 
@@ -1573,8 +1598,9 @@ const ejecutarEliminacion = async () => {
                         style={[{ borderWidth: 1, borderColor: COLORS.border, padding: 10, borderRadius: 6, backgroundColor: '#FFF', alignItems: 'center' }, (fechaInicio === fechaFin && fechaFin !== '') && { backgroundColor: '#EAEAEA' }]}
                         onPress={() => setShowFinPicker(true)}
                       >
+                        {/* 🎯 MUESTRA FECHA EN DD/MM/YYYY */}
                         <Text style={{ fontSize: 13, color: COLORS.cacao, fontWeight: '600' }}>
-                          {fechaFin || 'Seleccionar término'}
+                          {fechaFin ? ISOaLatino(fechaFin) : 'Seleccionar término'}
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -1759,22 +1785,25 @@ const ejecutarEliminacion = async () => {
     style={[styles.input, { justifyContent: 'center' }]}
     onPress={() => setShowDatePickerInv(true)}
   >
+    {/* 🎯 MUESTRA FECHA EN DD/MM/YYYY USANDO ISOaLatino */}
     <Text style={{ color: invCaducidad ? COLORS.textDark : COLORS.textLight }}>
-      {invCaducidad ? `🗓️ ${invCaducidad}` : 'Seleccionar fecha...'}
+      {invCaducidad ? `🗓️ ${ISOaLatino(invCaducidad)}` : 'Seleccionar fecha...'}
     </Text>
   </TouchableOpacity>
 
-  {/* Componente DatePicker (Si usas @react-native-community/datetimepicker) */}
+  {/* Componente DatePicker */}
   {showDatePickerInv && (
     <DateTimePicker
-      value={invCaducidad ? new Date(invCaducidad) : new Date()}
+      value={invCaducidad ? new Date(invCaducidad + 'T12:00:00') : new Date()}
       mode="date"
       display={Platform.OS === 'ios' ? 'spinner' : 'default'}
       onChange={(event, selectedDate) => {
         setShowDatePickerInv(false);
         if (selectedDate) {
-          const formattedDate = selectedDate.toISOString().split('T')[0];
-          setInvCaducidad(formattedDate);
+          const yyyy = selectedDate.getFullYear();
+          const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+          const dd = String(selectedDate.getDate()).padStart(2, '0');
+          setInvCaducidad(`${yyyy}-${mm}-${dd}`);
         }
       }}
     />
