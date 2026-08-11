@@ -173,6 +173,7 @@ export default function CuidadorScreen({
   const yaTransicionadoRef = useRef(false);
   const [nuevaTareaDesc, setNuevaTareaDesc] = useState('');
   const [nuevaTareaTipo, setNuevaTareaTipo] = useState('otro');
+  
   const [nuevaTareaHora, setNuevaTareaHora] = useState(''); // Ej. "11:30" o "" para incidental pura
   const vistaRef = useRef(vista);
   const yaEntroConsolaRef = useRef(false);
@@ -1509,63 +1510,62 @@ const guardarRegistroEspontaneo = async () => {
               : (t.fecha_inicio ? ISOaLatino(String(t.fecha_inicio)) : 'Sin hora');
 
             return (
-              <View key={t.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                {/* 🎯 TARJETA PRINCIPAL: Al tocar, abre la confirmación de EJECUTADO */}
-                <TouchableOpacity 
-                  style={[styles.tareaCard, { flex: 1, marginBottom: 0 }]} 
-                  onPress={() => {
-                    Alert.alert('Confirmar actividad', `¿Confirmas la ejecución de: ${t.descripcion}?`, [
-                      { text: 'Cancelar', style: 'cancel' },
-                      { text: '✓ Ejecutada', onPress: async () => {
-                        if (t.med_id) await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora);
-                        else if (t.actividad_id) await completarActividad(t.actividad_id, pacienteActivo.id);
-                        else if (t.es_incidental && t.id) {
-                          await fetch(`${BASE_URL}/tareas/${t.id}/completar`, {
-                            method: 'PATCH',
-                            headers: { Authorization: `Bearer ${getToken()}` }
-                          });
-                        }
-                        setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: true } : item));
-                      }}
-                    ]);
-                  }}
-                >
-                  <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
+              <TouchableOpacity 
+                key={t.id} 
+                style={styles.tareaCard} 
+                onPress={() => {
+                  Alert.alert('Confirmar actividad', `¿Confirmas la ejecución de: ${t.descripcion}?`, [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { text: '✓ Ejecutada', onPress: async () => {
+                      if (t.med_id) await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora);
+                      else if (t.actividad_id) await completarActividad(t.actividad_id, pacienteActivo.id);
+                      else if (t.es_incidental && t.id) {
+                        await fetch(`${BASE_URL}/tareas/${t.id}/completar`, {
+                          method: 'PATCH',
+                          headers: { Authorization: `Bearer ${getToken()}` }
+                        });
+                      }
+                      setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: true } : item));
+                    }}
+                  ]);
+                }}
+              >
+                <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
 
-                  <View style={styles.tareaInfo}>
-                    <Text style={styles.tareaTexto}>{t.descripcion}</Text>
+                <View style={styles.tareaInfo}>
+                  <Text style={styles.tareaTexto}>{t.descripcion}</Text>
 
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                      <Text style={styles.tareaHora}>{horaTexto}</Text>
-                      <Text style={{ fontSize: 10, color: '#CCC' }}>·</Text>
-                      <View style={{ backgroundColor: '#F0F0F0', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, borderWidth: 1, borderColor: '#EAEAEA' }}>
-                        {renderTemporalidadTarea()}
-                      </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                    <Text style={styles.tareaHora}>{horaTexto}</Text>
+                    <Text style={{ fontSize: 10, color: '#CCC' }}>·</Text>
+                    <View style={{ backgroundColor: '#F0F0F0', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, borderWidth: 1, borderColor: '#EAEAEA' }}>
+                      {renderTemporalidadTarea()}
                     </View>
                   </View>
+                </View>
 
-                  <View style={styles.tareaCheck} />
-                </TouchableOpacity>
-
-                {/* ℹ️ BOTÓN INFORMATIVO DISCRETO: Abre el modal de notas/ubicación/modo de uso */}
+                {/* ℹ️ BOTÓN INFORMATIVO INTELIGENTE (Dentro de la tarjeta) */}
                 <TouchableOpacity 
-                  onPress={() => setItemSeleccionadoDetalle(t)}
-                  style={{
-                    padding: 10,
-                    backgroundColor: '#F1F5F9',
-                    borderRadius: 10,
-                    marginLeft: 6,
-                    borderWidth: 1,
-                    borderColor: '#E2E8F0',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    height: '100%'
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setItemSeleccionadoDetalle(t);
                   }}
-                  hitSlop={{ top: 10, bottom: 10, left: 5, right: 10 }}
+                  style={{
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    backgroundColor: '#F1F5F9',
+                    borderRadius: 6,
+                    borderWidth: 1,
+                    borderColor: '#CBD5E1',
+                    marginRight: 8
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Text style={{ fontSize: 14 }}>ℹ️</Text>
+                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#475569' }}>ℹ️</Text>
                 </TouchableOpacity>
-              </View>
+
+                <View style={styles.tareaCheck} />
+              </TouchableOpacity>
             );
           })}
           {/* MODAL INFORMATIVO */}

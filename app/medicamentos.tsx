@@ -97,7 +97,7 @@ export default function MedicamentosScreen() {
   // Autocompletado desde Inventario
   const [sugerencias, setSugerencias] = useState<any[]>([]);
   const [inventarioId, setInventarioId] = useState<string | null>(null);
-  // --- Temporalidad y Recurrencia ---
+// --- Temporalidad y Recurrencia ---
   const getHoyISO = () => {
     const d = new Date();
     const yyyy = d.getFullYear();
@@ -105,6 +105,36 @@ export default function MedicamentosScreen() {
     const dd = String(d.getDate()).padStart(2, '0');
     return `${yyyy}-${mm}-${dd}`;
   };
+  // 🎯 1. Convierte horas feos de la base de datos (20:00:00.000) a 12 hrs (8:00 p.m.)
+  const formatearHoraBonita = (horaRaw: string | null | undefined): string => {
+    if (!horaRaw || horaRaw === 'Incidental') return 'Sin hora';
+    let soloHora = horaRaw.includes('T') ? horaRaw.split('T')[1] : horaRaw;
+    soloHora = soloHora.split('.')[0].split('-')[0].split('+')[0].trim();
+
+    const partes = soloHora.split(':');
+    if (partes.length < 2) return horaRaw;
+
+    let horas = parseInt(partes[0], 10);
+    const minutos = partes[1].padStart(2, '0');
+    if (isNaN(horas)) return horaRaw;
+
+    const ampm = horas >= 12 ? 'p.m.' : 'a.m.';
+    horas = horas % 12;
+    horas = horas ? horas : 12;
+
+    return `${horas}:${minutos} ${ampm}`;
+  };
+
+  // 🎯 2. Convierte fechas YYYY-MM-DD a DD/MM/YYYY (Día/Mes/Año)
+  const ISOaLatino = (fechaISO: string | null | undefined): string => {
+    if (!fechaISO || fechaISO === 'null' || fechaISO === '') return '';
+    const soloFecha = fechaISO.split('T')[0].trim();
+    const partes = soloFecha.split('-');
+    if (partes.length !== 3) return fechaISO;
+    const [yyyy, mm, dd] = partes;
+    return `${dd}/${mm}/${yyyy}`;
+  };
+
 
   const [esPermanente, setEsPermanente] = useState<boolean>(true);
   const [fechaInicio, setFechaInicio] = useState<string>(getHoyISO());
@@ -149,8 +179,8 @@ export default function MedicamentosScreen() {
   const [modalVincularOpen, setModalVincularOpen] = useState(false);
   const [procesandoVinculo, setProcesandoVinculo] = useState(false);
   const [listaPacientes, setListaPacientes] = useState<any[]>([]);
-  
-  
+
+  const [rutinaNotas, setRutinaNotas] = useState('');
   useEffect(() => {
     const cargar = async () => {
       try {
@@ -350,6 +380,8 @@ const resetFormularioMedicamento = () => {
       fecha_inicio: fechaInicio,
       fecha_fin: esPermanente ? null : (fechaFin || null),
       dias_semana: diasSemana.length === 0 ? null : diasSemana,
+      instrucciones: rutinaNotas.trim() || null,
+      notas: rutinaNotas.trim() || null,
     };
 
     try {
@@ -367,6 +399,7 @@ const resetFormularioMedicamento = () => {
       setRutinaDesc('');
       setRutinaTipo('higiene');
       setRutinaHora('09:00');
+      setRutinaNotas('');
       resetControlesTiempo();
     } catch (e) {
       console.error('Error al guardar rutina:', e);
@@ -669,6 +702,9 @@ const resetFormularioMedicamento = () => {
     setRutinaTipo(t.tipo);
     setRutinaHora(t.hora || '09:00');
 
+    // 🎯 LÍNEA CLAVE: Cargar las indicaciones o notas guardadas en la BD
+    setRutinaNotas(t.instrucciones || t.notas || '');
+
     const tieneFechaFin = t.fecha_fin && t.fecha_fin !== '' && t.fecha_fin !== null;
     setFechaInicio(t.fecha_inicio || getHoyISO());
     setFechaFin(tieneFechaFin ? t.fecha_fin : '');
@@ -953,7 +989,7 @@ const ejecutarEliminacion = async () => {
 
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 6 }}>
                       <View style={styles.horarioBadge}>
-                        <Text style={styles.horarioBadgeText}>{'⏰ ' + t.hora}</Text>
+                        <Text style={styles.rutinaHora}>{`🕐 ${formatearHoraBonita(t.hora)}`}</Text>
                       </View>
                       <View style={{ backgroundColor: '#F0F0F0', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: '#EAEAEA' }}>
                         {renderTemporalidadRutina()}
@@ -1448,7 +1484,30 @@ const ejecutarEliminacion = async () => {
               >
                 <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.cacao }}>{`🕐 ${rutinaHora}`}</Text>
               </TouchableOpacity>
-
+               {/* 📝 Campo de Indicaciones Especiales / Notas */}
+                <View style={{ marginTop: 12 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#475569', marginBottom: 4 }}>
+                    💡 Indicaciones especiales / Notas:
+                  </Text>
+                  <TextInput
+                    style={{
+                      backgroundColor: '#F8FAFC',
+                      borderWidth: 1,
+                      borderColor: '#CBD5E1',
+                      borderRadius: 8,
+                      padding: 10,
+                      fontSize: 13,
+                      color: '#1E293B',
+                      minHeight: 60,
+                      textAlignVertical: 'top'
+                    }}
+                    placeholder="Ej: Evitar lácteos en la cena / Solo caminata ligera"
+                    placeholderTextColor="#94A3B8"
+                    multiline
+                    value={rutinaNotas}
+                    onChangeText={setRutinaNotas}
+                  />
+                </View>
               {showRutinaTimePicker && (
                 <DateTimePicker
                   value={(() => {
