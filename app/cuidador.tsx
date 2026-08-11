@@ -179,7 +179,7 @@ export default function CuidadorScreen({
   // 📦 2. Estados para el inventario en el cierre de turno
   const [inventarioHogar, setInventarioHogar] = useState<any[]>([]);
   const [consumosTurno, setConsumosTurno] = useState<Record<string, number>>({});
-
+  const [itemSeleccionadoDetalle, setItemSeleccionadoDetalle] = useState<any>(null);
   // 🎯 3. AQUÍ VA ESTA FUNCIÓN HELPER:
   const cambiarConsumoItem = (itemId: string, delta: number) => {
     setConsumosTurno((prev: Record<string, number>) => {
@@ -986,6 +986,7 @@ const guardarRegistroEspontaneo = async () => {
       ? parseFloat(String(peso)) 
       : null;
     // 📦 Transformar consumosTurno a arreglo para persistirlo en el Cierre de Turno
+   
     const insumosConsumidosArray = Object.entries(consumosTurno)
       .filter(([_, cant]) => (cant as number) > 0)
       .map(([itemId, cant]) => {
@@ -996,7 +997,9 @@ const guardarRegistroEspontaneo = async () => {
           nombre: itemInfo?.nombre || 'Insumo',
           usado_hoy: cant,
           cantidad: cant,
-          unidad: itemInfo?.unidad || 'piezas'
+          unidad: itemInfo?.unidad || 'piezas',
+          // 🎯 NUEVO: Identifica quién ejecutó el consumo
+          registrado_por: typeof nombreUsuario !== 'undefined' ? nombreUsuario : 'Personal Vitanova'
         };
       });
     // 4. REGISTRO FINAL DE CIERRE EN BACKEND
@@ -1450,7 +1453,7 @@ const guardarRegistroEspontaneo = async () => {
           </View>
         )}
 
-          {/* ========================================================== */}
+         {/* ========================================================== */}
           {/* 1. 📋 PLAN DE CUIDADOS DEL DÍA                             */}
           {/* ========================================================== */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, marginTop: 4 }}>
@@ -1506,41 +1509,129 @@ const guardarRegistroEspontaneo = async () => {
               : (t.fecha_inicio ? ISOaLatino(String(t.fecha_inicio)) : 'Sin hora');
 
             return (
-              <TouchableOpacity key={t.id} style={styles.tareaCard} onPress={() => {
-                Alert.alert('Confirmar actividad', `¿Confirmas la ejecución de: ${t.descripcion}?`, [
-                  { text: 'Cancelar', style: 'cancel' },
-                  { text: '✓ Ejecutada', onPress: async () => {
-                    if (t.med_id) await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora);
-                    else if (t.actividad_id) await completarActividad(t.actividad_id, pacienteActivo.id);
-                    else if (t.es_incidental && t.id) {
-                      await fetch(`${BASE_URL}/tareas/${t.id}/completar`, {
-                        method: 'PATCH',
-                        headers: { Authorization: `Bearer ${getToken()}` }
-                      });
-                    }
-                    setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: true } : item));
+              <View key={t.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                {/* 🎯 TARJETA PRINCIPAL: Al tocar, abre la confirmación de EJECUTADO */}
+                <TouchableOpacity 
+                  style={[styles.tareaCard, { flex: 1, marginBottom: 0 }]} 
+                  onPress={() => {
+                    Alert.alert('Confirmar actividad', `¿Confirmas la ejecución de: ${t.descripcion}?`, [
+                      { text: 'Cancelar', style: 'cancel' },
+                      { text: '✓ Ejecutada', onPress: async () => {
+                        if (t.med_id) await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora);
+                        else if (t.actividad_id) await completarActividad(t.actividad_id, pacienteActivo.id);
+                        else if (t.es_incidental && t.id) {
+                          await fetch(`${BASE_URL}/tareas/${t.id}/completar`, {
+                            method: 'PATCH',
+                            headers: { Authorization: `Bearer ${getToken()}` }
+                          });
+                        }
+                        setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: true } : item));
+                      }}
+                    ]);
                   }}
-                ]);
-              }}>
-                <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
+                >
+                  <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
 
-                <View style={styles.tareaInfo}>
-                  <Text style={styles.tareaTexto}>{t.descripcion}</Text>
+                  <View style={styles.tareaInfo}>
+                    <Text style={styles.tareaTexto}>{t.descripcion}</Text>
 
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                    <Text style={styles.tareaHora}>{horaTexto}</Text>
-                    <Text style={{ fontSize: 10, color: '#CCC' }}>·</Text>
-                    <View style={{ backgroundColor: '#F0F0F0', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, borderWidth: 1, borderColor: '#EAEAEA' }}>
-                      {renderTemporalidadTarea()}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                      <Text style={styles.tareaHora}>{horaTexto}</Text>
+                      <Text style={{ fontSize: 10, color: '#CCC' }}>·</Text>
+                      <View style={{ backgroundColor: '#F0F0F0', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, borderWidth: 1, borderColor: '#EAEAEA' }}>
+                        {renderTemporalidadTarea()}
+                      </View>
                     </View>
                   </View>
-                </View>
 
-                <View style={styles.tareaCheck} />
-              </TouchableOpacity>
+                  <View style={styles.tareaCheck} />
+                </TouchableOpacity>
+
+                {/* ℹ️ BOTÓN INFORMATIVO DISCRETO: Abre el modal de notas/ubicación/modo de uso */}
+                <TouchableOpacity 
+                  onPress={() => setItemSeleccionadoDetalle(t)}
+                  style={{
+                    padding: 10,
+                    backgroundColor: '#F1F5F9',
+                    borderRadius: 10,
+                    marginLeft: 6,
+                    borderWidth: 1,
+                    borderColor: '#E2E8F0',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    height: '100%'
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 5, right: 10 }}
+                >
+                  <Text style={{ fontSize: 14 }}>ℹ️</Text>
+                </TouchableOpacity>
+              </View>
             );
           })}
+          {/* MODAL INFORMATIVO */}
+          <Modal 
+            visible={!!itemSeleccionadoDetalle} 
+            transparent 
+            animationType="fade" 
+            onRequestClose={() => setItemSeleccionadoDetalle(null)}
+          >
+            <TouchableOpacity 
+              style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}
+              activeOpacity={1}
+              onPress={() => setItemSeleccionadoDetalle(null)}
+            >
+              <View style={{ backgroundColor: '#FFF', borderRadius: 14, padding: 20, width: '100%', maxWidth: 340, elevation: 5 }}>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: '#1E293B', marginBottom: 4 }}>
+                  {itemSeleccionadoDetalle?.descripcion || 'Detalle de la tarea'}
+                </Text>
 
+                {itemSeleccionadoDetalle?.hora && (
+                  <Text style={{ fontSize: 12, color: '#0EA5E9', fontWeight: '700', marginBottom: 14 }}>
+                    ⏰ Horario: {itemSeleccionadoDetalle.hora}
+                  </Text>
+                )}
+
+                {/* 📍 Ubicación en Casa */}
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: 3 }}>
+                    📍 Ubicación en Casa:
+                  </Text>
+                  <Text style={{ fontSize: 13, color: '#334155' }}>
+                    {itemSeleccionadoDetalle?.ubicacion || 'Botiquín principal / Almacén general.'}
+                  </Text>
+                </View>
+
+                {/* 💡 Indicaciones / Modo de Uso */}
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: 3 }}>
+                    💡 Indicaciones / Modo de Uso:
+                  </Text>
+                  <Text style={{ fontSize: 13, color: '#334155' }}>
+                    {itemSeleccionadoDetalle?.indicaciones || 'Sin indicaciones especiales.'}
+                  </Text>
+                </View>
+
+                {/* 📌 Notas adicionales */}
+                {itemSeleccionadoDetalle?.notas && (
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: 3 }}>
+                      📌 Notas Adicionales:
+                    </Text>
+                    <Text style={{ fontSize: 13, color: '#334155' }}>
+                      {itemSeleccionadoDetalle.notas}
+                    </Text>
+                  </View>
+                )}
+
+                <TouchableOpacity 
+                  style={{ marginTop: 10, backgroundColor: '#0EA5E9', paddingVertical: 10, borderRadius: 8, alignItems: 'center' }}
+                  onPress={() => setItemSeleccionadoDetalle(null)}
+                >
+                  <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 13 }}>Entendido</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </Modal>
           {/* ========================================================== */}
           {/* 2. 📝 NOTAS DEL CUIDADOR (ABAJO Y CON ACORDEÓN DESPLEGABLE) */}
           {/* ========================================================== */}
