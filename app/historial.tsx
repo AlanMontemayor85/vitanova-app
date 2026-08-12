@@ -941,7 +941,6 @@ useFocusEffect(
                   if (!rawFecha) return '';
                   
                   try {
-                    // Si ya viene formateado solo como texto de hora
                     if (typeof rawFecha === 'string' && rawFecha.length <= 8 && rawFecha.includes(':')) {
                       return `[${rawFecha}] `;
                     }
@@ -959,22 +958,31 @@ useFocusEffect(
                   }
                 };
 
-                // 🎯 1. Filtro: Eventos Operativos (Entradas, Salidas, Cierres de Turno)
+                // 🎯 1. Filtro Blindado: Eventos Operativos (Turnos, Inicios, Cierres, Relevos, Cuidador)
                 const eventosTurno = todasAlertas.filter((a: any) => {
-                  const desc = (a.descripcion || a.mensaje || '').toLowerCase();
-                  const tipo = (a.tipo || '').toLowerCase();
+                  // Unimos todos los campos posibles y quitamos acentos
+                  const textoCompleto = `
+                    ${a.tipo || ''} 
+                    ${a.categoria || ''} 
+                    ${a.descripcion || ''} 
+                    ${a.mensaje || ''} 
+                    ${a.titulo || ''}
+                  `.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
                   return (
-                    tipo.includes('turno') ||
-                    tipo.includes('cuidador') ||
-                    desc.includes('cierre turno') ||
-                    desc.includes('inicio turno') ||
-                    desc.includes('entrada') ||
-                    desc.includes('salida') ||
-                    desc.includes('cuidador')
+                    textoCompleto.includes('turno') ||
+                    textoCompleto.includes('cuidador') ||
+                    textoCompleto.includes('entrada') ||
+                    textoCompleto.includes('salida') ||
+                    textoCompleto.includes('inicio') ||
+                    textoCompleto.includes('cierre') ||
+                    textoCompleto.includes('relevo') ||
+                    textoCompleto.includes('check-in') ||
+                    textoCompleto.includes('checkin')
                   );
                 });
 
-                // 🎯 2. Filtro: Alertas Clínicas Reales (Picos de SpO2, Presión, Temperatura, Caídas)
+                // 🎯 2. Filtro: Alertas Clínicas Reales (Cualquiera que NO sea evento operativo)
                 const alertasClinicas = todasAlertas.filter((a: any) => !eventosTurno.includes(a));
 
                 return (
@@ -989,7 +997,7 @@ useFocusEffect(
                           const horaStr = obtenerHoraTexto(alt);
                           return (
                             <Text key={`clinica-${alt.id || idx}`} style={{ fontSize: 12, color: COLORS.cacao || '#4A4540', marginBottom: 4 }}>
-                              • <Text style={{ fontWeight: '700' }}>{horaStr}</Text>{alt.descripcion || alt.mensaje}
+                              • <Text style={{ fontWeight: '700' }}>{horaStr}</Text>{alt.descripcion || alt.mensaje || alt.titulo}
                             </Text>
                           );
                         })}
@@ -1006,7 +1014,7 @@ useFocusEffect(
                           const horaStr = obtenerHoraTexto(evt);
                           return (
                             <Text key={`turno-${evt.id || idx}`} style={{ fontSize: 12, color: '#0D47A1', marginBottom: 4 }}>
-                              • <Text style={{ fontWeight: '700' }}>{horaStr}</Text>{evt.descripcion || evt.mensaje}
+                              • <Text style={{ fontWeight: '700' }}>{horaStr}</Text>{evt.descripcion || evt.mensaje || evt.titulo}
                             </Text>
                           );
                         })}
