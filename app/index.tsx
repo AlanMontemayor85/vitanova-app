@@ -738,12 +738,18 @@ useEffect(() => {
               <>
                 {/* VITALS CON TELEMETRÍA EN VIVO */}
                 <View style={styles.vitalsContainer}>
+                  {/* CABECERA DEL MÓDULO */}
                   <View style={styles.vitalsHeaderRow}>
-                    <Text style={styles.sectionTitle}>Estatus y Parámetros</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={styles.liveDot} />
+                      <Text style={styles.vitalsHeaderTitle}>Telemetría en Vivo</Text>
+                    </View>
+
                     <TouchableOpacity 
                       style={[styles.btnMedir, midiendo && styles.btnMedirDesactivado]} 
                       onPress={ejecutarMedicionRemota}
                       disabled={midiendo}
+                      activeOpacity={0.7}
                     >
                       <Text style={styles.btnMedirText}>
                         {midiendo ? "Leyendo... ⏳" : "🔄 Sensa Reloj"}
@@ -751,71 +757,97 @@ useEffect(() => {
                     </TouchableOpacity>
                   </View>
 
-                  {/* FILA 1: ESTADO GENERAL DE BIENESTAR, TEMPERATURA Y PESO */}
-                  <View style={[styles.vitalsRow, { marginBottom: 8 }]}>
+                  {/* FILA 1: ESTADO DE BIENESTAR, TEMPERATURA Y PESO */}
+                  <View style={styles.vitalsGridRow}>
+                    {/* CONDICIÓN GENERAL */}
                     <View style={styles.vitalCard}>
-                      <Text style={[styles.vitalVal, { fontSize: 22, lineHeight: 26,
+                      <Text style={[styles.vitalEmoji, {
                         color: signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'critica' ? COLORS.red 
                           : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'regular' ? COLORS.amber 
                           : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'buena' ? COLORS.green
-                          : '#8E8E93'
+                          : COLORS.textLight
                       }]}>
                         {signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'critica' ? '😟' 
                           : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'regular' ? '😐' 
                           : signosDispositivo?.frescura?.bphrt && signosDispositivo?.condicion_carita === 'buena' ? '😊' 
-                          : '—'} 
+                          : '—'}
                       </Text>
                       <Text style={styles.vitalLabel}>Condición</Text>
                     </View>
 
+                    {/* TEMPERATURA CORPORAL */}
                     <View style={styles.vitalCard}>
-                      <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.bphrt ? COLORS.green : COLORS.textLight }]}>
-                        {signosDispositivo?.frescura?.bphrt && signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
-                          ? `${signosDispositivo.temperatura}°` : '—'}
-                      </Text>
+                      <View style={styles.valueWithUnitRow}>
+                        <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.bphrt ? COLORS.green : COLORS.textDark }]}>
+                          {signosDispositivo?.frescura?.bphrt && signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
+                            ? signosDispositivo.temperatura 
+                            : '—'}
+                        </Text>
+                        {signosDispositivo?.frescura?.bphrt && signosDispositivo?.temperatura !== "—" && (
+                          <Text style={styles.vitalUnit}>°C</Text>
+                        )}
+                      </View>
                       <Text style={styles.vitalLabel}>Temp. Corp.</Text>
                     </View>
 
+                    {/* PESO */}
                     <View style={styles.vitalCard}>
-                      <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
-                        {signosDispositivo?.peso && signosDispositivo?.peso !== "—"
-                          ? signosDispositivo.peso.replace(" kg", "") 
-                          : (ultimoCierre?.peso_kg ? `${ultimoCierre.peso_kg}` : '—')}
-                      </Text>
+                      <View style={styles.valueWithUnitRow}>
+                        <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
+                          {signosDispositivo?.peso && signosDispositivo?.peso !== "—"
+                            ? signosDispositivo.peso.replace(" kg", "") 
+                            : (ultimoCierre?.peso_kg ? `${ultimoCierre.peso_kg}` : '—')}
+                        </Text>
+                        <Text style={styles.vitalUnit}>kg</Text>
+                      </View>
                       <Text style={styles.vitalLabel}>Peso</Text>
                     </View>
                   </View>
 
-                  {/* FILA 2: TELEMETRÍA PURA DEL HARDWARE */}
-                  <View style={styles.vitalsRow}>
+                  {/* FILA 2: OXIMETRÍA, PRESIÓN ARTERIAL Y FRECUENCIA CARDÍACA */}
+                  <View style={styles.vitalsGridRow}>
+                    {/* SPO2 */}
                     <View style={styles.vitalCard}>
-                      <Text style={styles.vitalVal}>
-                        {signosDispositivo?.frescura?.spo2 && signosDispositivo?.spo2 !== "—" 
-                          ? signosDispositivo?.spo2 : '—'}
-                      </Text>
-                      <Text style={styles.vitalUnit}>%</Text>
+                      <View style={styles.valueWithUnitRow}>
+                        <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
+                          {signosDispositivo?.frescura?.spo2 && signosDispositivo?.spo2 !== "—" 
+                            ? signosDispositivo?.spo2 
+                            : '—'}
+                        </Text>
+                        <Text style={styles.vitalUnit}>%</Text>
+                      </View>
                       <Text style={styles.vitalLabel}>SpO₂</Text>
                     </View>
 
+                    {/* PRESIÓN ARTERIAL */}
                     <View style={styles.vitalCard}>
-                      <Text style={styles.vitalVal}>
-                        {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
-                          ? signosDispositivo?.presion.split('/')[0] : '—'}
-                        <Text style={styles.vitalValSmall}>
+                      <View style={styles.valueWithUnitRow}>
+                        <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
                           {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
-                            ? `/${signosDispositivo?.presion.split('/')[1]}` : ''}
+                            ? signosDispositivo?.presion.split('/')[0] 
+                            : '—'}
+                          <Text style={styles.vitalValSmall}>
+                            {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
+                              ? `/${signosDispositivo?.presion.split('/')[1]}` 
+                              : ''}
+                          </Text>
                         </Text>
-                      </Text>
+                        <Text style={styles.vitalUnit}>mmHg</Text>
+                      </View>
                       <Text style={styles.vitalLabel}>Presión</Text>
                     </View>
 
+                    {/* FRECUENCIA CARDÍACA */}
                     <View style={styles.vitalCard}>
-                      <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.bphrt ? COLORS.red : COLORS.textLight }]}>
-                        {signosDispositivo?.frescura?.bphrt && signosDispositivo?.fc !== "—" 
-                          ? signosDispositivo?.fc : '—'}
-                      </Text>
-                      <Text style={styles.vitalUnit}>bpm</Text>
-                      <Text style={styles.vitalLabel}>F. Card.</Text>
+                      <View style={styles.valueWithUnitRow}>
+                        <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.bphrt ? COLORS.red : COLORS.textDark }]}>
+                          {signosDispositivo?.frescura?.bphrt && signosDispositivo?.fc !== "—" 
+                            ? signosDispositivo?.fc 
+                            : '—'}
+                        </Text>
+                        <Text style={styles.vitalUnit}>bpm</Text>
+                      </View>
+                      <Text style={styles.vitalLabel}>F. Cardíaca</Text>
                     </View>
                   </View>
                 </View>
@@ -1450,7 +1482,8 @@ const styles = StyleSheet.create({
   patientCard: {
     backgroundColor: COLORS.cacao,
     marginHorizontal: 16,
-    marginVertical: 12,
+    marginTop: 12,      
+    marginBottom: 20,   
     borderRadius: 14,
     padding: 14,
     flexDirection: 'row',
@@ -1518,13 +1551,55 @@ const styles = StyleSheet.create({
 
   // ── 5. SECCIÓN DE SIGNOS VITALES Y SENSADO ──
   vitalsContainer: {
-    marginHorizontal: 16,
-    marginVertical: 12,
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 20,  
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   vitalsHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 14,
+  },
+ vitalsHeaderTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.cacao,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.green,
+  },
+  btnMedir: {
+    backgroundColor: COLORS.cacao,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  btnMedirDesactivado: {
+    opacity: 0.5,
+  },
+  btnMedirText: {
+    color: COLORS.white,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  vitalsGridRow: {
+    flexDirection: 'row',
+    gap: 8,
     marginBottom: 8,
   },
   vitalsRow: {
@@ -1534,10 +1609,12 @@ const styles = StyleSheet.create({
   },
   vitalCard: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.cream,
     borderRadius: 12,
-    padding: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 6,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -1550,33 +1627,34 @@ const styles = StyleSheet.create({
   vitalValSmall: {
     fontSize: 10,
   },
+  valueWithUnitRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 2,
+  },
+  vitalEmoji: {
+    fontSize: 22,
+    lineHeight: 26,
+    marginBottom: 2,
+  },
+
+ 
   vitalUnit: {
-    fontSize: 8, 
-    color: COLORS.textLight, 
-    marginTop: 1,
+    fontSize: 10,
     fontWeight: '700',
+    color: COLORS.textLight,
   },
   vitalLabel: {
-    fontSize: 9, 
-    fontWeight: '700', 
-    color: COLORS.textMid, 
-    marginTop: 4,
-    textTransform: 'uppercase',
-  },
-  btnMedir: {
-    backgroundColor: COLORS.gold,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-  },
-  btnMedirDesactivado: {
-    backgroundColor: COLORS.border,
-  },
-  btnMedirText: {
-    color: COLORS.white,
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: '800',
+    color: COLORS.textLight,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 2,
+    textAlign: 'center',
   },
+ 
+ 
 
   // ── 6. SECCIONES, CABECERAS Y ENLACES ──
   sectionHeader: {
@@ -1785,4 +1863,5 @@ const styles = StyleSheet.create({
     fontWeight: '700', 
     color: COLORS.textLight,
   },
+  
 });

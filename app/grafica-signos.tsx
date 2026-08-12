@@ -507,7 +507,7 @@ export default function GraficaSignosScreen() {
                         {esCuidador 
                           ? `👤 ${nombreOperador}`
                           : esManual
-                            ? `🩺 Manual (${nombreOperador})`
+                            ? `🩺 ${nombreOperador} (Toma manual) `
                             : '⌚ Reloj'}
                       </Text>
                       </View> 

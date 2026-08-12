@@ -345,11 +345,13 @@ if (ultimaEvaluacion && paso === 'perfil' && !resultado) {
         )}
 
         <TouchableOpacity
-          style={[styles.cerrarBtn, { backgroundColor: COLORS.cacao, marginTop: 8 }]}
-          onPress={() => setUltimaEvaluacion(null)}
-        >
-          <Text style={styles.cerrarBtnText}>🔄 Hacer nueva evaluación</Text>
-        </TouchableOpacity>
+        style={[styles.cerrarBtn, { backgroundColor: COLORS.cacao, marginTop: 8 }]}
+        onPress={() => setUltimaEvaluacion(null)}
+      >
+        <Text style={[styles.cerrarBtnText, { color: COLORS.white }]}>
+          🔄 Hacer nueva evaluación
+        </Text>
+      </TouchableOpacity>
 
         <View style={{ height: 60 }} />
       </ScrollView>
@@ -821,17 +823,17 @@ const styles = StyleSheet.create({
     fontWeight: '700' 
   },
   cerrarBtn: { 
-    backgroundColor: COLORS.gold, 
-    borderRadius: 12, 
-    paddingVertical: 14, 
-    alignItems: 'center', 
-    marginBottom: 8 
-  },
-  cerrarBtnText: { 
-    fontSize: 14, 
-    fontWeight: '800', 
-    color: COLORS.cacao 
-  },
+  backgroundColor: COLORS.cacao, // 👈 Cambiado a Cacao
+  borderRadius: 12, 
+  paddingVertical: 14, 
+  alignItems: 'center', 
+  marginBottom: 8 
+},
+cerrarBtnText: { 
+  fontSize: 14, 
+  fontWeight: '800', 
+  color: COLORS.white // 👈 Cambiado a Blanco
+},
 
   // ── 8. MODALES Y FORMULARIOS ──
   modalOverlay: { 

@@ -1608,7 +1608,7 @@ const guardarRegistroEspontaneo = async () => {
               </TouchableOpacity>
             );
           })}
-          {/* MODAL INFORMATIVO */}
+          {/* MODAL INFORMATIVO COMPLETO */}
           <Modal 
             visible={!!itemSeleccionadoDetalle} 
             transparent 
@@ -1620,62 +1620,76 @@ const guardarRegistroEspontaneo = async () => {
               activeOpacity={1}
               onPress={() => setItemSeleccionadoDetalle(null)}
             >
-              <View style={{ backgroundColor: '#FFF', borderRadius: 14, padding: 20, width: '100%', maxWidth: 340, elevation: 5 }}>
-                <Text style={{ fontSize: 16, fontWeight: '800', color: '#1E293B', marginBottom: 4 }}>
+              <View style={{ backgroundColor: COLORS.white, borderRadius: 16, padding: 20, width: '100%', maxWidth: 340, borderWidth: 1, borderColor: COLORS.border, elevation: 5 }}>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.cacao, marginBottom: 4, textTransform: 'uppercase' }}>
                   {itemSeleccionadoDetalle?.descripcion || itemSeleccionadoDetalle?.nombre || 'Detalle de la tarea'}
                 </Text>
 
-                {/* 🎯 1. HORA FORMATO 12 HRS (Convierte 19:00 a 7:00 p.m.) */}
+                {/* ⏰ HORA FORMATO 12 HRS */}
                 {(itemSeleccionadoDetalle?.hora || itemSeleccionadoDetalle?.hora_programada) && (
-                  <Text style={{ fontSize: 12, color: '#0EA5E9', fontWeight: '700', marginBottom: 14 }}>
+                  <Text style={{ fontSize: 12, color: COLORS.gold, fontWeight: '800', marginBottom: 14 }}>
                     ⏰ Horario: {formatearHoraBonita(itemSeleccionadoDetalle.hora_programada || itemSeleccionadoDetalle.hora)}
                   </Text>
                 )}
 
-                {/* 📍 Ubicación en Casa */}
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: 3 }}>
-                    📍 Ubicación en Casa:
-                  </Text>
-                  <Text style={{ fontSize: 13, color: '#334155' }}>
-                    {itemSeleccionadoDetalle?.ubicacion || 'Botiquín principal / Almacén general.'}
-                  </Text>
-                </View>
+                {/* 📍 Ubicación en Casa (Solo se muestra si es tipo medicamento) */}
+                {(() => {
+                  const t = itemSeleccionadoDetalle;
+                  if (!t) return null;
 
-                {/* 💡 Indicaciones / Modo de Uso */}
+                  const esMedicamento = t.tipo?.toLowerCase() === 'medicamento';
+
+                  if (!esMedicamento) {
+                    return null;
+                  }
+
+                  return (
+                    <View style={{ marginBottom: 12 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '800', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 3 }}>
+                        📍 Ubicación en Casa:
+                      </Text>
+                      <Text style={{ fontSize: 13, color: COLORS.textDark, fontWeight: '600' }}>
+                        {t.ubicacion || t.lugar_almacenaje || 'Botiquín principal / Almacén general.'}
+                      </Text>
+                    </View>
+                  );
+                })()}
+
+                {/* 💡 Indicaciones / Modo de Uso (Restauradas) */}
                 <View style={{ marginBottom: 12 }}>
-                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: 3 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 3 }}>
                     💡 Indicaciones / Modo de Uso:
                   </Text>
-                  <Text style={{ fontSize: 13, color: '#334155' }}>
+                  <Text style={{ fontSize: 13, color: COLORS.textDark, fontWeight: '600', lineHeight: 18 }}>
                     {itemSeleccionadoDetalle?.indicaciones || itemSeleccionadoDetalle?.instrucciones || 'Sin indicaciones especiales.'}
                   </Text>
                 </View>
 
-                {/* 📌 Notas adicionales (🎯 2. Solo se muestra si es DIFERENTE a Indicaciones) */}
+                {/* 📌 Notas adicionales (Solo si son diferentes a las indicaciones) */}
                 {(() => {
                   const ind = itemSeleccionadoDetalle?.indicaciones || itemSeleccionadoDetalle?.instrucciones || '';
-                  const notas = itemSeleccionadoDetalle?.notas || '';
+                  const notas = itemSeleccionadoDetalle?.notas || itemSeleccionadoDetalle?.observaciones || '';
                   
                   if (!notas || notas.trim() === ind.trim()) return null;
 
                   return (
                     <View style={{ marginBottom: 12 }}>
-                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: 3 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '800', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 3 }}>
                         📌 Notas Adicionales:
                       </Text>
-                      <Text style={{ fontSize: 13, color: '#334155' }}>
+                      <Text style={{ fontSize: 13, color: COLORS.textDark, fontWeight: '600', lineHeight: 18 }}>
                         {notas}
                       </Text>
                     </View>
                   );
                 })()}
 
+                {/* BOTÓN DE CIERRE */}
                 <TouchableOpacity 
-                  style={{ marginTop: 10, backgroundColor: '#0EA5E9', paddingVertical: 10, borderRadius: 8, alignItems: 'center' }}
+                  style={{ marginTop: 10, backgroundColor: COLORS.cacao, paddingVertical: 12, borderRadius: 10, alignItems: 'center' }}
                   onPress={() => setItemSeleccionadoDetalle(null)}
                 >
-                  <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 13 }}>Entendido</Text>
+                  <Text style={{ color: COLORS.white, fontWeight: '800', fontSize: 13 }}>Entendido</Text>
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>
