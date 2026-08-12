@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { getUltimoCierre } from '../../services/api';
 
@@ -10,6 +11,7 @@ const COLORS = {
 };
 
 const EMOJIS_ANIMO: Record<string, string> = {
+  bien: '😊 Bien / Estable',
   tranquilo: '😌 Tranquilo',
   alegre: '😊 Alegre',
   ansioso: '😰 Ansioso',
@@ -17,6 +19,8 @@ const EMOJIS_ANIMO: Record<string, string> = {
   agitado: '😤 Agitado',
   confundido: '😵 Confundido',
   somnoliento: '😴 Somnoliento',
+  regular: '😐 Regular',
+  malo: '😟 Con Malestar'
 };
 
 interface Props {
@@ -27,18 +31,24 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
   const [cierre, setCierre] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  useEffect(() => {
-    if (pacienteId) {
-      cargarCierre();
-    }
-  }, [pacienteId]);
+  useFocusEffect(
+    useCallback(() => {
+      if (pacienteId) {
+        cargarCierre();
+      }
+    }, [pacienteId])
+  );
 
   const cargarCierre = async () => {
     try {
       setLoading(true);
       const data = await getUltimoCierre(pacienteId);
-      if (data && !data.error) {
-        setCierre(data);
+      
+      // Si la API devuelve una lista o un objeto envuelto
+      const registro = Array.isArray(data) ? data[0] : (data?.cierre || data);
+      
+      if (registro && !registro.error) {
+        setCierre(registro);
       }
     } catch (e) {
       console.error('Error cargando el último cierre:', e);
@@ -64,8 +74,30 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
     );
   }
 
-  // Color de semáforo para la intensidad del dolor (Escala EVA)
-  const dolorVal = cierre.dolor_eva ?? 0;
+  // 🎯 PARSEO TOLERANTE DE CAMPOS REALES DE SUPABASE
+  const dolorVal = cierre.dolor_eva ?? cierre.dolorEva ?? 0;
+  
+  // Ánimo
+  const animoRaw = (cierre.estado_animo || cierre.estadoAnimo || cierre.estado_paciente || '').toString().toLowerCase().trim();
+  const animoTexto = EMOJIS_ANIMO[animoRaw] || (animoRaw ? `😊 ${animoRaw.charAt(0).toUpperCase() + animoRaw.slice(1)}` : 'No especificado');
+
+  // Hidratación
+  const hidratacionVal = cierre.hidratacion_vasos ?? cierre.hidratacionVasos ?? cierre.hidratacion ?? 0;
+
+  // Alimentación
+  const alimentacionRaw = (cierre.alimentacion || '').toString().toLowerCase().trim();
+  let alimentacionTexto = 'No especificada';
+  if (alimentacionRaw === 'completa' || alimentacionRaw === 'bien' || alimentacionRaw === 'buena') {
+    alimentacionTexto = '🍽️ Completa / Buena';
+  } else if (alimentacionRaw === 'parcial' || alimentacionRaw === 'regular') {
+    alimentacionTexto = '🥣 Parcial (25-75%)';
+  } else if (alimentacionRaw === 'ninguna' || alimentacionRaw === 'mala' || alimentacionRaw === 'nula') {
+    alimentacionTexto = '❌ Nula (<25%)';
+  } else if (alimentacionRaw) {
+    alimentacionTexto = `🥣 ${alimentacionRaw}`;
+  }
+
+  // Semáforo de Dolor EVA
   let dolorBg = COLORS.greenPale;
   let dolorColor = COLORS.green;
   let dolorLabel = 'Leve/Sin dolor';
@@ -84,14 +116,13 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
     <View style={styles.card}>
       <View style={styles.headerRow}>
         <Text style={styles.cardTitle}>📊 Estado del Último Relevo</Text>
-        {cierre.created_at && (
+        {(cierre.created_at || cierre.fecha) && (
           <Text style={styles.fechaBadge}>
-            {new Date(cierre.created_at).toLocaleDateString('es-MX')}
+            {new Date(cierre.created_at || cierre.fecha).toLocaleDateString('es-MX')}
           </Text>
         )}
       </View>
 
-      {/* GRID DE PARÁMETROS PREVENTIVOS */}
       <View style={styles.grid}>
         {/* 🔴 DOLOR EVA */}
         <View style={[styles.pill, { backgroundColor: dolorBg, borderColor: dolorColor }]}>
@@ -101,38 +132,32 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
           </Text>
         </View>
 
-        {/* 🧠 ESTADO DE ÁNIMO / CONDUCTA */}
+        {/* 🧠 ESTADO DE ÁNIMO */}
         <View style={styles.pill}>
           <Text style={styles.pillLabel}>Ánimo / Conducta</Text>
-          <Text style={styles.pillValue}>
-            {EMOJIS_ANIMO[cierre.estado_animo?.toLowerCase()] || cierre.estado_animo || 'No especificado'}
-          </Text>
+          <Text style={styles.pillValue}>{animoTexto}</Text>
         </View>
 
         {/* 💧 HIDRATACIÓN */}
         <View style={styles.pill}>
           <Text style={styles.pillLabel}>Hidratación</Text>
           <Text style={styles.pillValue}>
-            {`💧 ${cierre.hidratacion_vasos ?? 0} de 8 vasos (${(cierre.hidratacion_vasos ?? 0) * 250} ml)`}
+            {`💧 ${hidratacionVal} de 8 vasos (${hidratacionVal * 250} ml)`}
           </Text>
         </View>
 
         {/* 🥗 ALIMENTACIÓN */}
         <View style={styles.pill}>
           <Text style={styles.pillLabel}>Ingesta Nutricional</Text>
-          <Text style={styles.pillValue}>
-            {cierre.alimentacion === 'completa' ? '🍽️ Completa (>75%)' :
-             cierre.alimentacion === 'parcial' ? '🥣 Parcial (25-75%)' :
-             cierre.alimentacion === 'ninguna' ? '❌ Nula (<25%)' : 'No especificada'}
-          </Text>
+          <Text style={styles.pillValue}>{alimentacionTexto}</Text>
         </View>
       </View>
 
       {/* 📝 NOTAS DE OBSERVACIÓN */}
-      {cierre.notas && (
+      {(cierre.notas || cierre.observaciones) && (
         <View style={styles.notasBox}>
           <Text style={styles.notasTitle}>📝 Observaciones del Cuidador:</Text>
-          <Text style={styles.notasText}>{cierre.notas}</Text>
+          <Text style={styles.notasText}>{cierre.notas || cierre.observaciones}</Text>
         </View>
       )}
     </View>
@@ -140,77 +165,16 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
 };
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: COLORS.white,
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginVertical: 8,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: COLORS.cacao,
-  },
-  fechaBadge: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.gold,
-    backgroundColor: COLORS.goldPale,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  grid: {
-    gap: 8,
-  },
-  pill: {
-    backgroundColor: COLORS.cream,
-    borderRadius: 10,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  pillLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: COLORS.textLight,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  pillValue: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: COLORS.textDark,
-    marginTop: 2,
-  },
-  notasBox: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  notasTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: COLORS.textLight,
-    marginBottom: 2,
-  },
-  notasText: {
-    fontSize: 12,
-    color: COLORS.textDark,
-    lineHeight: 16,
-  },
-  emptyText: {
-    fontSize: 12,
-    color: COLORS.textLight,
-    marginTop: 6,
-  },
+  card: { backgroundColor: COLORS.white, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: COLORS.border, marginVertical: 8 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  cardTitle: { fontSize: 14, fontWeight: '800', color: COLORS.cacao },
+  fechaBadge: { fontSize: 11, fontWeight: '700', color: COLORS.gold, backgroundColor: COLORS.goldPale, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  grid: { gap: 8 },
+  pill: { backgroundColor: COLORS.cream, borderRadius: 10, padding: 10, borderWidth: 1, borderColor: COLORS.border },
+  pillLabel: { fontSize: 10, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase', letterSpacing: 0.5 },
+  pillValue: { fontSize: 13, fontWeight: '800', color: COLORS.textDark, marginTop: 2 },
+  notasBox: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.border },
+  notasTitle: { fontSize: 11, fontWeight: '800', color: COLORS.textLight, marginBottom: 2 },
+  notasText: { fontSize: 12, color: COLORS.textDark, lineHeight: 16 },
+  emptyText: { fontSize: 12, color: COLORS.textLight, marginTop: 6 },
 });

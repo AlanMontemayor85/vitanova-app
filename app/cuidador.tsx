@@ -1004,37 +1004,45 @@ const guardarRegistroEspontaneo = async () => {
         };
       });
     // 4. REGISTRO FINAL DE CIERRE EN BACKEND
+    const bodyPayload = {
+      turno_id: turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId, 
+      paciente_id: pacienteActivo.id, 
+      estado_paciente: estadoPaciente, 
+      
+      // 🛡️ Signos con jerarquía clínica (Manual primero, Reloj segundo)
+      peso_kg: finalPeso,
+      spo2: finalSpo2,
+      frecuencia_cardiaca: finalFc,
+      presion_sistolica: finalSistolica,
+      presion_diastolica: finalDiastolica,
+      temperatura: finalTemp,
+      
+      notas: notasConsolidadas, 
+      barthel_scores: barthelTocado ? barthelScores : null, 
+      barthel_total: barthelTocado ? barthelTotal : null, 
+      barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
+      dolor_eva: typeof dolorEva === 'number' ? dolorEva : 0,
+      estado_animo: estadoAnimo || 'tranquilo',
+      hidratacion_vasos: typeof hidratacion === 'number' ? hidratacion : 0,
+      alimentacion: alimentacion || 'completa',
+      observaciones: (observaciones && typeof observaciones === 'string') ? observaciones.trim() : null,
+      inventario_usado: insumosConsumidosArray,
+      insumos: insumosConsumidosArray,
+    };
+
+    // 🔍 LOG 1: Muestra exactamente los datos que van a salir hacia FastAPI/Supabase
+    console.log('🚀 [CIERRE] Payload enviado a /turnos/cerrar:', JSON.stringify(bodyPayload, null, 2));
+
     const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-      body: JSON.stringify({
-        turno_id: turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId, 
-        paciente_id: pacienteActivo.id, 
-        estado_paciente: estadoPaciente, 
-        
-        // 🛡️ Signos con jerarquía clínica (Manual primero, Reloj segundo)
-        peso_kg: finalPeso,
-        spo2: finalSpo2,
-        frecuencia_cardiaca: finalFc,
-        presion_sistolica: finalSistolica,
-        presion_diastolica: finalDiastolica,
-        temperatura: finalTemp,
-        
-        notes: notasConsolidadas, 
-        barthel_scores: barthelTocado ? barthelScores : null, 
-        barthel_total: barthelTocado ? barthelTotal : null, 
-        barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
-        dolor_eva: dolorEva,
-        estado_animo: estadoAnimo || null,
-        hidratacion_vasos: hidratacion || null,
-        alimentacion: alimentacion || null,
-        observaciones: observaciones.trim() || null,
-        inventario_usado: insumosConsumidosArray,
-        insumos: insumosConsumidosArray,
-        
-      }),
+      body: JSON.stringify(bodyPayload),
     });
 
+    // 🔍 LOG 2: Muestra el status HTTP de la respuesta del servidor (ej. 200 OK)
+    console.log('📡 [CIERRE] Status HTTP recibido:', res.status);
+
+    
     const data = await res.json();
     if (data.status === 'ok') {
       const pData = await getPacientes('cierre');
