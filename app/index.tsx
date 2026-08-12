@@ -1361,285 +1361,57 @@ useEffect(() => {
 }
 
 const styles = StyleSheet.create({
+  // ── 1. ESTRUCTURA Y CONTENEDORES PRINCIPALES ──
   container: {
     flex: 1,
     backgroundColor: COLORS.cream,
-  },
-  header: {
-    backgroundColor: COLORS.cacao,
-    paddingTop: 56,
-    paddingHorizontal: 20,
-    paddingBottom: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  greeting: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.4)',
-    marginBottom: 2,
-  },
-  userName: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: COLORS.white,
-  },
-  notifBtn: {
-    width: 40, height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  notifIcon: { fontSize: 18 },
-  patientCard: {
-    backgroundColor: COLORS.cacao,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 14,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  patientAvatar: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: COLORS.goldPale,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: COLORS.gold,
-  },
-  patientAvatarText: {
-    fontSize: 14, fontWeight: '800', color: COLORS.gold,
-  },
-  patientInfo: { flex: 1 },
-  patientName: {
-    fontSize: 13, fontWeight: '700', color: COLORS.white,
-  },
-  patientAge: {
-    fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2,
-  },
-  statusPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(61,170,106,0.2)',
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
-    borderWidth: 1, borderColor: 'rgba(61,170,106,0.3)',
-  },
-  statusDot: {
-    width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.green,
-  },
-  statusText: {
-    fontSize: 9, fontWeight: '700', color: COLORS.green, letterSpacing: 1,
   },
   body: {
     flex: 1,
     paddingHorizontal: 16,
   },
-  vitalsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 20,
-  },
-  vitalCard: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  vitalVal: {
-    fontSize: 16, fontWeight: '800', color: COLORS.gold, lineHeight: 20,
-  },
-  vitalValSmall: {
-    fontSize: 10,
-  },
-  vitalUnit: {
-    fontSize: 8, color: COLORS.textLight, marginTop: 1,
-  },
-  vitalLabel: {
-    fontSize: 9, fontWeight: '600', color: COLORS.textMid, marginTop: 4,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    fontSize: 10, fontWeight: '700', letterSpacing: 2,
-    textTransform: 'uppercase', color: COLORS.textLight,
-  },
-  sectionLink: {
-    fontSize: 10, fontWeight: '700', color: COLORS.gold,
-  },
-  alertCard: {
-    borderRadius: 12, padding: 12,
-    marginBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    borderWidth: 1,
-  },
-  alertIcon: { fontSize: 20 },
-  alertContent: { flex: 1 },
-  alertTitle: {
-    fontSize: 12, fontWeight: '700', color: COLORS.textDark,
-  },
-  alertSub: {
-    fontSize: 10, color: COLORS.textLight, marginTop: 2, lineHeight: 14,
-  },
-  alertTime: {
-    fontSize: 9, color: COLORS.textLight,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 20,
-  },
-  qaBtn: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  qaIcon: { fontSize: 20, marginBottom: 4 },
-  qaLabel: {
-    fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center',
-  },
-  turnoCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 14, padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1, borderColor: COLORS.border,
-    marginBottom: 8,
-  },
-  turnoLeft: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-  },
-  turnoAvatar: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: COLORS.goldPale,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  turnoAvatarText: {
-    fontSize: 12, fontWeight: '800', color: COLORS.gold,
-  },
-  turnoName: {
-    fontSize: 13, fontWeight: '700', color: COLORS.textDark,
-  },
-  turnoHora: {
-    fontSize: 10, color: COLORS.textLight, marginTop: 1,
-  },
-  turnoProgress: {
-    alignItems: 'center',
-    backgroundColor: COLORS.goldPale,
-    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6,
-  },
-  turnoProgressText: {
-    fontSize: 16, fontWeight: '800', color: COLORS.gold,
-  },
-  turnoProgressLabel: {
-    fontSize: 9, color: COLORS.gold, fontWeight: '600',
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.white,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    
-    // 🎯 Aplicamos la elevación aquí que es el estilo activo
-    paddingBottom: Platform.OS === 'android' ? 32 : 24, 
-    paddingTop: 10,
-    height: Platform.OS === 'android' ? 80 : 68,
-  },
-  navItem: {
-    flex: 1, alignItems: 'center', gap: 3,
-  },
-  navIcon: { fontSize: 20 },
-  navLabel: {
-    fontSize: 9, fontWeight: '600', color: COLORS.textLight,
-  },
-  vitalsContainer: {
-  marginHorizontal: 16,
-  marginVertical: 12,
-},
-vitalsHeaderRow: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginBottom: 8,
-},
-btnMedir: {
-  backgroundColor: '#BF9A40', // Oro Vitanova
-  paddingVertical: 6,
-  paddingHorizontal: 12,
-  borderRadius: 20,
-},
-btnMedirDesactivado: {
-  backgroundColor: '#A49E99',
-},
-btnMedirText: {
-  color: '#FFFFFF',
-  fontSize: 12,
-  fontWeight: '700',
-},
 
-  iniciarBtn: {
-    backgroundColor: '#1F2937',
+  // ── 2. ENCABEZADO PRINCIPAL (MODO FAMILIAR) ──
+  header: {
+    backgroundColor: COLORS.cacao,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#3A3530',
+  },
+  greeting: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: COLORS.gold, // 👈 Estandarizado a dorado institucional
+    marginBottom: 2,
+  },
+  userName: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: COLORS.white,
+  },
+  notifBtn: {
+    width: 36, 
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center', 
     justifyContent: 'center',
   },
-  iniciarBtnText: {
-    color: '#FFFFFF',
+  notifIcon: { 
+    fontSize: 16 
   },
-  tareaCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  tareaIcon: {
-    fontSize: 20,
-    marginRight: 12,
-  },
-  tareaInfo: {
-    flex: 1,
-  },
-  tareaTexto: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  tareaHora: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#6B7280',
-  },
-  tareaCheck: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-  },
-headerConsolaCompacto: {
-    backgroundColor: '#3A3530',
-    // 🎯 AJUSTE DE ALTURA PARA LIBERAR LA BARRA DE ESTADO EN ANDROID E IOS
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 8 : 38) : 50,
+
+  // ── 3. ENCABEZADO COMPACTO (MODO SWITCH / CONSOLA) ──
+  headerConsolaCompacto: {
+    backgroundColor: COLORS.cacao,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 8 : 38) : 48,
     paddingBottom: 10,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -1651,7 +1423,7 @@ headerConsolaCompacto: {
   userNameConsola: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: COLORS.white,
   },
   badgeConsola: {
     backgroundColor: COLORS.gold,
@@ -1662,7 +1434,8 @@ headerConsolaCompacto: {
   badgeConsolaText: {
     fontSize: 8,
     fontWeight: '900',
-    color: '#2C2820',
+    color: COLORS.cacao,
+    letterSpacing: 0.5,
   },
   notifBtnMin: {
     width: 28,
@@ -1671,5 +1444,345 @@ headerConsolaCompacto: {
     backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  // ── 4. TARJETA PRINCIPAL DEL PACIENTE ──
+  patientCard: {
+    backgroundColor: COLORS.cacao,
+    marginHorizontal: 16,
+    marginVertical: 12,
+    borderRadius: 14,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  patientAvatar: {
+    width: 44, 
+    height: 44, 
+    borderRadius: 22,
+    backgroundColor: COLORS.goldPale,
+    alignItems: 'center', 
+    justifyContent: 'center',
+    borderWidth: 2, 
+    borderColor: COLORS.gold,
+  },
+  patientAvatarText: {
+    fontSize: 14, 
+    fontWeight: '800', 
+    color: COLORS.gold,
+  },
+  patientInfo: { 
+    flex: 1 
+  },
+  patientName: {
+    fontSize: 14, 
+    fontWeight: '800', 
+    color: COLORS.white,
+  },
+  patientAge: {
+    fontSize: 11, 
+    color: 'rgba(255,255,255,0.6)', 
+    marginTop: 2,
+  },
+  statusPill: {
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 4,
+    backgroundColor: COLORS.greenPale,
+    borderRadius: 20, 
+    paddingHorizontal: 10, 
+    paddingVertical: 4,
+    borderWidth: 1, 
+    borderColor: COLORS.green + '40',
+  },
+  statusDot: {
+    width: 6, 
+    height: 6, 
+    borderRadius: 3, 
+    backgroundColor: COLORS.green,
+  },
+  statusText: {
+    fontSize: 9, 
+    fontWeight: '800', 
+    color: COLORS.green, 
+    letterSpacing: 0.5,
+  },
+
+  // ── 5. SECCIÓN DE SIGNOS VITALES Y SENSADO ──
+  vitalsContainer: {
+    marginHorizontal: 16,
+    marginVertical: 12,
+  },
+  vitalsHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  vitalsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  vitalCard: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  vitalVal: {
+    fontSize: 16, 
+    fontWeight: '800', 
+    color: COLORS.gold, 
+    lineHeight: 20,
+  },
+  vitalValSmall: {
+    fontSize: 10,
+  },
+  vitalUnit: {
+    fontSize: 8, 
+    color: COLORS.textLight, 
+    marginTop: 1,
+    fontWeight: '700',
+  },
+  vitalLabel: {
+    fontSize: 9, 
+    fontWeight: '700', 
+    color: COLORS.textMid, 
+    marginTop: 4,
+    textTransform: 'uppercase',
+  },
+  btnMedir: {
+    backgroundColor: COLORS.gold,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  btnMedirDesactivado: {
+    backgroundColor: COLORS.border,
+  },
+  btnMedirText: {
+    color: COLORS.white,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+
+  // ── 6. SECCIONES, CABECERAS Y ENLACES ──
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 11, 
+    fontWeight: '800', 
+    letterSpacing: 1,
+    textTransform: 'uppercase', 
+    color: COLORS.cacao,
+  },
+  sectionLink: {
+    fontSize: 11, 
+    fontWeight: '700', 
+    color: COLORS.gold,
+  },
+
+  // ── 7. BOTONES DE ACCIÓN RÁPIDA ──
+  quickActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  qaBtn: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  qaIcon: { 
+    fontSize: 20, 
+    marginBottom: 4 
+  },
+  qaLabel: {
+    fontSize: 9, 
+    fontWeight: '700', 
+    color: COLORS.textDark, 
+    textAlign: 'center',
+  },
+
+  // ── 8. LISTA DE TAREAS Y TARJETAS DE TURNO ──
+  tareaCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  tareaIcon: {
+    fontSize: 18,
+    marginRight: 10,
+  },
+  tareaInfo: {
+    flex: 1,
+  },
+  tareaTexto: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textDark,
+  },
+  tareaHora: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: COLORS.textLight,
+    marginTop: 2,
+  },
+  tareaCheck: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+  },
+  turnoCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 14, 
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1, 
+    borderColor: COLORS.border,
+    marginBottom: 8,
+  },
+  turnoLeft: {
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 10,
+  },
+  turnoAvatar: {
+    width: 38, 
+    height: 38, 
+    borderRadius: 19,
+    backgroundColor: COLORS.goldPale,
+    alignItems: 'center', 
+    justifyContent: 'center',
+  },
+  turnoAvatarText: {
+    fontSize: 12, 
+    fontWeight: '800', 
+    color: COLORS.gold,
+  },
+  turnoName: {
+    fontSize: 13, 
+    fontWeight: '700', 
+    color: COLORS.textDark,
+  },
+  turnoHora: {
+    fontSize: 10, 
+    color: COLORS.textLight, 
+    marginTop: 1,
+  },
+  turnoProgress: {
+    alignItems: 'center',
+    backgroundColor: COLORS.goldPale,
+    borderRadius: 10, 
+    paddingHorizontal: 12, 
+    paddingVertical: 6,
+  },
+  turnoProgressText: {
+    fontSize: 15, 
+    fontWeight: '800', 
+    color: COLORS.gold,
+  },
+  turnoProgressLabel: {
+    fontSize: 8, 
+    color: COLORS.gold, 
+    fontWeight: '700',
+  },
+
+  // ── 9. TARJETAS DE ALERTA Y AVISOS ──
+  alertCard: {
+    borderRadius: 12, 
+    padding: 12,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    borderWidth: 1,
+  },
+  alertIcon: { 
+    fontSize: 18 
+  },
+  alertContent: { 
+    flex: 1 
+  },
+  alertTitle: {
+    fontSize: 12, 
+    fontWeight: '700', 
+    color: COLORS.textDark,
+  },
+  alertSub: {
+    fontSize: 10, 
+    color: COLORS.textLight, 
+    marginTop: 2, 
+    lineHeight: 14,
+  },
+  alertTime: {
+    fontSize: 9, 
+    color: COLORS.textLight,
+  },
+
+  // ── 10. BOTONES GENERALES DE ACCIÓN ──
+  iniciarBtn: {
+    backgroundColor: COLORS.cacao,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    paddingVertical: 12,
+  },
+  iniciarBtnText: {
+    color: COLORS.white,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
+  // ── 11. BARRA DE NAVEGACIÓN INFERIOR (BOTTOM NAV) ──
+  bottomNav: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.white,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'android' ? 20 : 28, 
+  },
+  navItem: {
+    flex: 1, 
+    alignItems: 'center', 
+    gap: 3,
+  },
+  navIcon: { 
+    fontSize: 18 
+  },
+  navLabel: {
+    fontSize: 9, 
+    fontWeight: '700', 
+    color: COLORS.textLight,
   },
 });

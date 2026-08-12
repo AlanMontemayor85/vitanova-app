@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Dimensions, Image, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -109,22 +109,101 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', paddingTop: 60 },
-  skipBtn: { position: 'absolute', top: 56, right: 24 },
-  skipText: { color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '600' },
-  logoWrap: { marginBottom: 20 },
-  logo: { width: 180, height: 120 },
-  content: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
-  icon: { fontSize: 72, marginBottom: 24 },
-  titulo: { fontSize: 26, fontWeight: '900', color: COLORS.white, textAlign: 'center', marginBottom: 16, letterSpacing: 0.5 },
-  subtitulo: { fontSize: 16, color: 'rgba(255,255,255,0.7)', textAlign: 'center', lineHeight: 24 },
-  dots: { flexDirection: 'row', gap: 8, marginBottom: 32 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.3)' },
-  dotActive: { backgroundColor: COLORS.gold, width: 24 },
-  btn: {
-    backgroundColor: COLORS.gold, borderRadius: 14,
-    paddingVertical: 16, paddingHorizontal: 48,
-    marginHorizontal: 24, width: width - 48, alignItems: 'center',
+  // ── 1. CONTENEDOR PRINCIPAL Y PADDING SEGURO ──
+  container: { 
+    flex: 1, 
+    backgroundColor: COLORS.cacao, // 👈 Fondo oscuro institucional de bienvenida
+    alignItems: 'center', 
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 40) : 56 
   },
-  btnText: { color: COLORS.white, fontSize: 16, fontWeight: '800', letterSpacing: 1 },
+
+  // ── 2. BOTÓN OMITIR (SKIP) ──
+  skipBtn: { 
+    position: 'absolute', 
+    top: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52, 
+    right: 24,
+    zIndex: 10
+  },
+  skipText: { 
+    color: COLORS.gold, 
+    fontSize: 13, 
+    fontWeight: '800',
+    letterSpacing: 0.5 
+  },
+
+  // ── 3. LOGOTIPO Y CONTENIDO CENTRAL ──
+  logoWrap: { 
+    marginBottom: 16 
+  },
+  logo: { 
+    width: 180, 
+    height: 120,
+    resizeMode: 'contain'
+  },
+  content: { 
+    flex: 1, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    paddingHorizontal: 32 
+  },
+  icon: { 
+    fontSize: 72, 
+    marginBottom: 20 
+  },
+  titulo: { 
+    fontSize: 24, 
+    fontWeight: '900', 
+    color: COLORS.white, 
+    textAlign: 'center', 
+    marginBottom: 14, 
+    letterSpacing: 0.5 
+  },
+  subtitulo: { 
+    fontSize: 15, 
+    color: COLORS.cream, 
+    textAlign: 'center', 
+    lineHeight: 22,
+    opacity: 0.85
+  },
+
+  // ── 4. INDICADORES DE PAGINACIÓN (DOTS) ──
+  dots: { 
+    flexDirection: 'row', 
+    gap: 8, 
+    marginBottom: 32 
+  },
+  dot: { 
+    width: 8, 
+    height: 8, 
+    borderRadius: 4, 
+    backgroundColor: 'rgba(255,255,255,0.25)' 
+  },
+  dotActive: { 
+    backgroundColor: COLORS.gold, 
+    width: 24,
+    borderRadius: 4 
+  },
+
+  // ── 5. BOTÓN DE ACCIÓN PRINCIPAL ──
+  btn: {
+    backgroundColor: COLORS.gold, 
+    borderRadius: 14,
+    paddingVertical: 16, 
+    paddingHorizontal: 32,
+    marginHorizontal: 24, 
+    width: width - 48, 
+    alignItems: 'center',
+    marginBottom: Platform.OS === 'android' ? 28 : 36,
+    shadowColor: COLORS.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  btnText: { 
+    color: COLORS.cacao, 
+    fontSize: 15, 
+    fontWeight: '800', 
+    letterSpacing: 0.5 
+  },
 });

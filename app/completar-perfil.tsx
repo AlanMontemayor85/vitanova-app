@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getToken } from '../services/api';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
@@ -327,13 +327,49 @@ export default function CompletarPerfilScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.cream },
-  scroll: { padding: 20, paddingBottom: 40 },
-  headerBar: { marginTop: 20, marginBottom: 20 },
-  headerTitle: { fontSize: 28, fontWeight: 'bold', color: COLORS.textDark },
-  headerSub: { fontSize: 14, color: COLORS.textLight, marginTop: 4 },
-  form: { marginTop: 10 },
-  label: { fontSize: 14, fontWeight: '600', color: COLORS.textDark, marginTop: 16, marginBottom: 8 },
+  // ── 1. ESTRUCTURA Y CONTENEDOR PRINCIPAL ──
+  container: { 
+    flex: 1, 
+    backgroundColor: COLORS.cream 
+  },
+  scroll: { 
+    paddingHorizontal: 20, 
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52,
+    paddingBottom: 40 
+  },
+
+  // ── 2. ENCABEZADO Y TÍTULOS ──
+  headerBar: { 
+    marginTop: 8, 
+    marginBottom: 20 
+  },
+  headerTitle: { 
+    fontSize: 24, 
+    fontWeight: '800', 
+    color: COLORS.cacao,
+    letterSpacing: 0.3 
+  },
+  headerSub: { 
+    fontSize: 13, 
+    color: COLORS.textLight, 
+    marginTop: 4,
+    lineHeight: 18,
+    fontWeight: '500' 
+  },
+
+  // ── 3. FORMULARIOS E INPUTS ──
+  form: { 
+    marginTop: 4 
+  },
+  label: { 
+    fontSize: 11, 
+    fontWeight: '800', 
+    color: COLORS.cacao, 
+    letterSpacing: 0.5, 
+    textTransform: 'uppercase', 
+    marginTop: 14, 
+    marginBottom: 6 
+  },
   input: {
     backgroundColor: COLORS.white,
     borderWidth: 1,
@@ -341,15 +377,21 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    fontSize: 16,
+    fontSize: 14,
+    fontWeight: '600',
     color: COLORS.textDark,
   },
-  rolesContainer: { gap: 10, marginVertical: 8 },
+
+  // ── 4. TARJETAS DE SELECCIÓN DE ROL ──
+  rolesContainer: { 
+    gap: 10, 
+    marginVertical: 8 
+  },
   rolCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.white,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 14,
     padding: 14,
@@ -359,56 +401,131 @@ const styles = StyleSheet.create({
     borderColor: COLORS.gold,
     backgroundColor: COLORS.goldPale,
   },
-  rolIcon: { fontSize: 24 },
-  rolLabel: { fontSize: 15, fontWeight: '700', color: COLORS.textDark },
-  rolLabelActive: { color: COLORS.gold },
-  rolDesc: { fontSize: 12, color: COLORS.textLight, marginTop: 2 },
-  consentBox: { marginVertical: 16, paddingHorizontal: 4 },
-  consentText: { fontSize: 11, color: COLORS.textLight, lineHeight: 16 },
-  consentLink: { color: COLORS.gold, fontWeight: '600' },
-  error: { color: COLORS.red, fontSize: 14, marginVertical: 8, textAlign: 'center' },
+  rolIcon: { 
+    fontSize: 24 
+  },
+  rolLabel: { 
+    fontSize: 14, 
+    fontWeight: '800', 
+    color: COLORS.textDark 
+  },
+  rolLabelActive: { 
+    color: COLORS.gold 
+  },
+  rolDesc: { 
+    fontSize: 11, 
+    color: COLORS.textLight, 
+    marginTop: 2,
+    lineHeight: 15 
+  },
+
+  // ── 5. CONSENTIMIENTO, ALERTAS Y BOTÓN PRINCIPAL ──
+  consentBox: { 
+    marginVertical: 16, 
+    paddingHorizontal: 4 
+  },
+  consentText: { 
+    fontSize: 11, 
+    color: COLORS.textLight, 
+    lineHeight: 16,
+    fontWeight: '500' 
+  },
+  consentLink: { 
+    color: COLORS.gold, 
+    fontWeight: '800' 
+  },
+  error: { 
+    color: COLORS.red, 
+    fontSize: 12, 
+    marginVertical: 8, 
+    textAlign: 'center',
+    fontWeight: '700' 
+  },
   btn: {
-    backgroundColor: COLORS.gold,
+    backgroundColor: COLORS.cacao,
     borderRadius: 12,
-    paddingVertical: 16,
+    paddingVertical: 14,
     alignItems: 'center',
     marginTop: 12,
+    shadowColor: COLORS.cacao,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  btnText: { color: COLORS.white, fontSize: 16, fontWeight: 'bold' },
+  btnText: { 
+    color: COLORS.white, 
+    fontSize: 14, 
+    fontWeight: '800',
+    letterSpacing: 0.5 
+  },
+
+  // ── 6. MODAL DE CONFIRMACIÓN ──
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    zIndex: 1000,
   },
   modalContent: {
     backgroundColor: COLORS.white,
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: 16,
+    padding: 20,
     width: '100%',
     maxWidth: 340,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     elevation: 5,
   },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.textDark, marginBottom: 12 },
-  modalBody: { fontSize: 14, color: COLORS.textMid, lineHeight: 20 },
-  modalRolText: { fontSize: 16, fontWeight: 'bold', color: COLORS.gold },
-  modalActions: { flexDirection: 'row', gap: 12, marginTop: 20 },
+  modalTitle: { 
+    fontSize: 16, 
+    fontWeight: '800', 
+    color: COLORS.cacao, 
+    marginBottom: 10,
+    textTransform: 'uppercase' 
+  },
+  modalBody: { 
+    fontSize: 13, 
+    color: COLORS.textDark, 
+    lineHeight: 18,
+    fontWeight: '500' 
+  },
+  modalRolText: { 
+    fontSize: 14, 
+    fontWeight: '800', 
+    color: COLORS.gold 
+  },
+  modalActions: { 
+    flexDirection: 'row', 
+    gap: 10, 
+    marginTop: 20 
+  },
   modalBtnCancel: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
+    backgroundColor: COLORS.cream,
     alignItems: 'center',
   },
-  modalBtnCancelText: { color: COLORS.textMid, fontWeight: '600', fontSize: 13 },
+  modalBtnCancelText: { 
+    color: COLORS.textDark, 
+    fontWeight: '700', 
+    fontSize: 12 
+  },
   modalBtnConfirm: {
     flex: 1,
-    backgroundColor: COLORS.gold,
+    backgroundColor: COLORS.cacao,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
   },
-  modalBtnConfirmText: { color: COLORS.white, fontWeight: 'bold', fontSize: 13 },
+  modalBtnConfirmText: { 
+    color: COLORS.white, 
+    fontWeight: '800', 
+    fontSize: 12 
+  },
 });

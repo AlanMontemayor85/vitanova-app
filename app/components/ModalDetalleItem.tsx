@@ -1,6 +1,31 @@
 import React from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 
+
+
+export const COLORS = {
+  // 🎨 Núcleo e Identidad Institucional
+  cacao: '#2C2820',
+  gold: '#BF9A40',
+  goldPale: 'rgba(191, 154, 64, 0.15)',
+  cream: '#F5F4F0',
+  white: '#FFFFFF',
+  border: '#E2DFD7',
+
+  // 🩺 Semáforo y Notificaciones Tácticas
+  green: '#3DAA6A',
+  greenPale: 'rgba(61, 170, 106, 0.15)',
+  amber: '#E6A028',
+  amberPale: 'rgba(230, 160, 40, 0.15)',
+  red: '#D94F4F',
+  redPale: 'rgba(217, 79, 79, 0.15)',
+
+  // 📝 Tipografía y Neutrales
+  textDark: '#2C2820',
+  textMid: '#5C554E',
+  textLight: '#8A8078',
+};
+
 interface ModalDetalleProps {
   visible: boolean;
   item: any;
@@ -91,63 +116,82 @@ export const ModalDetalleItem: React.FC<ModalDetalleProps> = ({ visible, item, o
 };
 
 const styles = StyleSheet.create({
+  // ── 1. OVERLAY Y CONTENEDOR DEL MODAL ──
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    zIndex: 1000,
   },
   modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
     padding: 20,
     width: '100%',
     maxWidth: 340,
-    elevation: 5,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 5,
   },
+
+  // ── 2. CABECERA Y HORARIOS ──
   titulo: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#1E293B',
+    color: COLORS.cacao,
     marginBottom: 2,
+    textTransform: 'uppercase',
   },
   horaTxt: {
     fontSize: 12,
-    color: '#0EA5E9',
-    fontWeight: '700',
+    color: COLORS.gold,
+    fontWeight: '800',
     marginBottom: 14,
+    letterSpacing: 0.5,
   },
+
+  // ── 3. SECCIONES Y CONTENIDO ──
   seccion: {
     marginBottom: 12,
   },
   subtitulo: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
-    color: '#64748B',
+    color: COLORS.textLight,
     textTransform: 'uppercase',
     marginBottom: 3,
     letterSpacing: 0.5,
   },
   texto: {
     fontSize: 13,
-    color: '#334155',
+    color: COLORS.textDark,
     lineHeight: 18,
+    fontWeight: '600',
   },
+
+  // ── 4. BOTÓN DE CIERRE ──
   btnCerrar: {
     marginTop: 10,
-    backgroundColor: '#0EA5E9',
-    paddingVertical: 10,
-    borderRadius: 8,
+    backgroundColor: COLORS.cacao,
+    paddingVertical: 12,
+    borderRadius: 10,
     alignItems: 'center',
+    shadowColor: COLORS.cacao,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
   btnTexto: {
-    color: '#FFFFFF',
+    color: COLORS.white,
     fontWeight: '800',
     fontSize: 13,
+    letterSpacing: 0.5,
   },
 });

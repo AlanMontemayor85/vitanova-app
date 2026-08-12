@@ -246,12 +246,7 @@ export default function LoginScreen() {
           }
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.invitacionBtn}
-          onPress={() => router.push('/aceptar-invitacion' as any)}
-        >
-          <Text style={styles.invitacionBtnText}>¿Tienes un código de invitación?</Text>
-        </TouchableOpacity>
+        
       </ScrollView>
     </KeyboardAvoidingView>
   );

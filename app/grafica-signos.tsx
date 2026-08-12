@@ -2,7 +2,7 @@ const { documentDirectory, downloadAsync } = require('expo-file-system/legacy');
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getSignosVitalesHistorico, loadStoredToken } from '../services/api';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
@@ -559,30 +559,167 @@ export default function GraficaSignosScreen() {
 // ── EL MAPA DE ESTILOS (styles = StyleSheet.create) SIGUE ABAJO EXACTAMENTE IGUAL...
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.cream },
-  header: {
-    backgroundColor: COLORS.cacao, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
-    flexDirection: 'row', alignItems: 'center',
+  // ── 1. ESTRUCTURA Y CONTENEDORES BASE ──
+  container: { 
+    flex: 1, 
+    backgroundColor: COLORS.cream 
   },
-  greeting: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: 2 },
-  userName: { fontSize: 20, fontWeight: '800', color: COLORS.white },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  backIcon: { fontSize: 18, color: COLORS.white },
-  periodoPill: { backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
-  periodoText: { fontSize: 9, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
-  body: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
-  emptyCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  chartCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
-  chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  chartTitle: { fontSize: 12, fontWeight: '800', color: COLORS.textDark },
-  chartSubtitle: { fontSize: 10, fontWeight: '700', color: COLORS.textLight, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 },
-  chartBadge: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  chartBadgeText: { fontSize: 9, fontWeight: '700' },
-  alertaBanner: { borderRadius: 8, padding: 10, marginTop: 10 },
-  historialRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  historialFecha: { fontSize: 10, fontWeight: '600', color: COLORS.textDark },
-  historialCuidador: { fontSize: 9, color: COLORS.textLight, marginTop: 1 },
-  historialVal: { fontSize: 10, fontWeight: '700', color: COLORS.gold, width: 45, textAlign: 'right' },
-  historialHeaders: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: COLORS.border, paddingBottom: 6, marginTop: 4 },
-  historialHeaderText: { fontSize: 9, color: COLORS.textLight, width: 45, textAlign: 'right', fontWeight: '700', textTransform: 'uppercase' },
+  body: { 
+    flex: 1, 
+    paddingHorizontal: 16, 
+    paddingTop: 16 
+  },
+
+  // ── 2. ENCABEZADO ESTANDARIZADO (CACAO + DORADOS) ──
+  header: { 
+    backgroundColor: COLORS.cacao, 
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52, 
+    paddingHorizontal: 16, 
+    paddingBottom: 16, 
+    flexDirection: 'row', 
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#3A3530',
+  },
+  greeting: { 
+    fontSize: 10, 
+    fontWeight: '800', 
+    letterSpacing: 1, 
+    textTransform: 'uppercase', 
+    color: COLORS.gold, 
+    marginBottom: 2 
+  },
+  userName: { 
+    fontSize: 18, 
+    fontWeight: '800', 
+    color: COLORS.white 
+  },
+  backBtn: { 
+    width: 36, 
+    height: 36, 
+    borderRadius: 18, 
+    backgroundColor: 'rgba(255,255,255,0.1)', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    marginRight: 10 
+  },
+  backIcon: { 
+    fontSize: 18, 
+    color: COLORS.white,
+    fontWeight: 'bold' 
+  },
+  periodoPill: { 
+    backgroundColor: 'rgba(255,255,255,0.12)', 
+    borderRadius: 20, 
+    paddingHorizontal: 10, 
+    paddingVertical: 5 
+  },
+  periodoText: { 
+    fontSize: 9, 
+    color: COLORS.gold, 
+    fontWeight: '800',
+    letterSpacing: 0.5 
+  },
+
+  // ── 3. TARJETAS DE GRÁFICA Y CONTENEDORES ──
+  emptyCard: { 
+    backgroundColor: COLORS.white, 
+    borderRadius: 14, 
+    padding: 32, 
+    alignItems: 'center', 
+    borderWidth: 1, 
+    borderColor: COLORS.border 
+  },
+  chartCard: { 
+    backgroundColor: COLORS.white, 
+    borderRadius: 14, 
+    padding: 16, 
+    marginBottom: 12, 
+    borderWidth: 1, 
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  chartHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: 12 
+  },
+  chartTitle: { 
+    fontSize: 13, 
+    fontWeight: '800', 
+    color: COLORS.cacao,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5 
+  },
+  chartSubtitle: { 
+    fontSize: 10, 
+    fontWeight: '700', 
+    color: COLORS.textLight, 
+    marginBottom: 4, 
+    textTransform: 'uppercase', 
+    letterSpacing: 0.8 
+  },
+  chartBadge: { 
+    borderRadius: 20, 
+    paddingHorizontal: 10, 
+    paddingVertical: 4 
+  },
+  chartBadgeText: { 
+    fontSize: 9, 
+    fontWeight: '800' 
+  },
+  alertaBanner: { 
+    borderRadius: 8, 
+    padding: 10, 
+    marginTop: 10 
+  },
+
+  // ── 4. HISTORIAL TIPO TABLA CLÍNICA ──
+  historialHeaders: { 
+    flexDirection: 'row', 
+    borderBottomWidth: 1, 
+    borderBottomColor: COLORS.border, 
+    paddingBottom: 6, 
+    marginTop: 8 
+  },
+  historialHeaderText: { 
+    fontSize: 9, 
+    color: COLORS.textLight, 
+    width: 45, 
+    textAlign: 'right', 
+    fontWeight: '800', 
+    textTransform: 'uppercase',
+    letterSpacing: 0.5 
+  },
+  historialRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingVertical: 8, 
+    borderBottomWidth: 1, 
+    borderBottomColor: COLORS.border 
+  },
+  historialFecha: { 
+    fontSize: 11, 
+    fontWeight: '700', 
+    color: COLORS.textDark 
+  },
+  historialCuidador: { 
+    fontSize: 9, 
+    color: COLORS.textLight, 
+    marginTop: 1,
+    fontWeight: '600' 
+  },
+  historialVal: { 
+    fontSize: 11, 
+    fontWeight: '800', 
+    color: COLORS.gold, 
+    width: 45, 
+    textAlign: 'right' 
+  },
 });

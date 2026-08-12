@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getSignosRecientes, getToken, iniciarTurno } from '../services/api';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
@@ -352,46 +352,96 @@ const avanzarAlTurno = async () => {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.cream },
-  header: { backgroundColor: COLORS.cacao, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16, flexDirection: 'row', alignItems: 'center' },
-  greeting: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: 2 },
-  userName: { fontSize: 20, fontWeight: '800', color: COLORS.white },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  backIcon: { fontSize: 18, color: COLORS.white },
-  body: { flex: 1, paddingHorizontal: 16, paddingTop: 14 },
-  sectionTitle: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: COLORS.textLight, marginBottom: 10, marginTop: 8 },
-  
-  // 🏥 Diseño del Monitor Clínico Adaptativo
+  // ── 1. ESTRUCTURA Y CONTENEDORES BASE ──
+  container: { 
+    flex: 1, 
+    backgroundColor: COLORS.cream 
+  },
+  body: { 
+    flex: 1, 
+    paddingHorizontal: 16, 
+    paddingTop: 14 
+  },
+  sectionTitle: { 
+    fontSize: 11, 
+    fontWeight: '800', 
+    letterSpacing: 1, 
+    textTransform: 'uppercase', 
+    color: COLORS.cacao, 
+    marginBottom: 10, 
+    marginTop: 8 
+  },
+
+  // ── 2. ENCABEZADO ESTANDARIZADO (CACAO + DORADOS) ──
+  header: { 
+    backgroundColor: COLORS.cacao, 
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52, 
+    paddingHorizontal: 16, 
+    paddingBottom: 16, 
+    flexDirection: 'row', 
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#3A3530',
+  },
+  greeting: { 
+    fontSize: 10, 
+    fontWeight: '800', 
+    letterSpacing: 1, 
+    textTransform: 'uppercase', 
+    color: COLORS.gold, 
+    marginBottom: 2 
+  },
+  userName: { 
+    fontSize: 18, 
+    fontWeight: '800', 
+    color: COLORS.white 
+  },
+  backBtn: { 
+    width: 36, 
+    height: 36, 
+    borderRadius: 18, 
+    backgroundColor: 'rgba(255,255,255,0.1)', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    marginRight: 12 
+  },
+  backIcon: { 
+    fontSize: 18, 
+    color: COLORS.white,
+    fontWeight: 'bold' 
+  },
+
+  // ── 3. MONITOR CLÍNICO ADAPTATIVO ──
   monitorCard: { 
     backgroundColor: COLORS.cacao, 
-    borderRadius: 16, 
+    borderRadius: 14, 
     padding: 16, 
-    borderWidth: 2, 
-    borderColor: '#33302D', 
+    borderWidth: 1, 
+    borderColor: '#3A3530', 
     marginBottom: 12, 
     shadowColor: '#000', 
-    shadowOffset: { width: 0, height: 4 }, 
+    shadowOffset: { width: 0, height: 3 }, 
     shadowOpacity: 0.15, 
-    shadowRadius: 8 
+    shadowRadius: 6,
+    elevation: 3
   },
-  
-  // 📐 Cabecera del Monitor y Badges Alineados
   headerMonitorRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
     gap: 8,
   },
   monitorCardTitle: { 
     flex: 1,
-    fontSize: 9, 
-    fontWeight: '700', 
-    color: 'rgba(255,255,255,0.4)', 
-    letterSpacing: 1 
+    fontSize: 10, 
+    fontWeight: '800', 
+    color: COLORS.gold, 
+    letterSpacing: 0.8,
+    textTransform: 'uppercase'
   },
 
-  // 🏷️ Estilos para Banderas de Estado (Badges)
+  // ── 4. BANDERAS DE ESTADO (BADGES) ──
   badgeInactivo: {
     backgroundColor: 'rgba(255,255,255,0.1)',
     paddingHorizontal: 8,
@@ -419,28 +469,89 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   badgeActivo: {
-    backgroundColor: 'rgba(61, 170, 106, 0.2)',
+    backgroundColor: COLORS.greenPale,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.green + '40',
   },
   badgeActivoText: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#3DAA6A',
+    color: COLORS.green,
     letterSpacing: 0.5,
   },
 
-  // 📊 Rejilla de Métricas
-  monitorGrid: { flexDirection: 'row', gap: 12 },
-  monitorItem: { flex: 1, backgroundColor: 'rgba(0,0,0,0.25)', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', alignItems: 'center' },
-  monitorLabel: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.5)', marginBottom: 4, textAlign: 'center' },
-  monitorVal: { fontSize: 22, fontWeight: '800', color: '#3DAA6A', textAlign: 'center', marginVertical: 4 },
-  monitorSubText: { fontSize: 9, color: 'rgba(255,255,255,0.3)', fontWeight: '500', marginTop: 2 },
+  // ── 5. REJILLA DE MÉTRICAS ──
+  monitorGrid: { 
+    flexDirection: 'row', 
+    gap: 10 
+  },
+  monitorItem: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.25)', 
+    borderRadius: 12, 
+    padding: 12, 
+    borderWidth: 1, 
+    borderColor: 'rgba(255,255,255,0.08)', 
+    alignItems: 'center' 
+  },
+  monitorLabel: { 
+    fontSize: 10, 
+    fontWeight: '700', 
+    color: 'rgba(255,255,255,0.6)', 
+    marginBottom: 2, 
+    textAlign: 'center',
+    textTransform: 'uppercase'
+  },
+  monitorVal: { 
+    fontSize: 20, 
+    fontWeight: '800', 
+    color: COLORS.green, 
+    textAlign: 'center', 
+    marginVertical: 2 
+  },
+  monitorSubText: { 
+    fontSize: 9, 
+    color: 'rgba(255,255,255,0.4)', 
+    fontWeight: '600', 
+    marginTop: 2 
+  },
 
-  // 🚨 Tarjetas de Alerta y Botón de Acción
-  alertaCard: { backgroundColor: COLORS.redPale, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(217,79,79,0.3)', borderLeftWidth: 4, borderLeftColor: COLORS.red },
-  alertaText: { fontSize: 13, color: COLORS.red, fontWeight: '600', lineHeight: 18 },
-  confirmarBtn: { backgroundColor: COLORS.gold, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 24, shadowColor: COLORS.gold, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 6 },
-  confirmarBtnText: { fontSize: 14, fontWeight: '800', color: COLORS.white, letterSpacing: 1 },
+  // ── 6. ALERTAS Y ACCIONES FINALES ──
+  alertaCard: { 
+    backgroundColor: COLORS.redPale, 
+    borderRadius: 12, 
+    padding: 14, 
+    marginBottom: 12, 
+    borderWidth: 1, 
+    borderColor: COLORS.red + '30', 
+    borderLeftWidth: 4, 
+    borderLeftColor: COLORS.red 
+  },
+  alertaText: { 
+    fontSize: 12, 
+    color: COLORS.red, 
+    fontWeight: '700', 
+    lineHeight: 16 
+  },
+  confirmarBtn: { 
+    backgroundColor: COLORS.cacao, 
+    borderRadius: 12, 
+    paddingVertical: 14, 
+    alignItems: 'center', 
+    marginTop: 20, 
+    shadowColor: COLORS.cacao, 
+    shadowOffset: { width: 0, height: 3 }, 
+    shadowOpacity: 0.2, 
+    shadowRadius: 5,
+    elevation: 3 
+  },
+  confirmarBtnText: { 
+    fontSize: 14, 
+    fontWeight: '800', 
+    color: COLORS.white, 
+    letterSpacing: 0.5 
+  },
 });

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { crearPaciente } from '../services/api';
 
 const COLORS = {
@@ -204,29 +204,159 @@ export default function NuevoPacienteScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.cream },
-  header: {
-    backgroundColor: COLORS.cacao, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
+  // ── 1. ESTRUCTURA Y CONTENEDORES ──
+  container: { 
+    flex: 1, 
+    backgroundColor: COLORS.cream 
   },
-  greeting: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: 2 },
-  userName: { fontSize: 20, fontWeight: '800', color: COLORS.white },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontSize: 18, color: COLORS.white },
-  body: { flex: 1, paddingHorizontal: 16, paddingTop: 20 },
-  label: { fontSize: 11, fontWeight: '700', color: COLORS.textLight, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, marginTop: 4 },
-  input: { backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 16, paddingVertical: 14, fontSize: 14, color: COLORS.textDark, marginBottom: 12 },
-  sexoRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  sexoBtn: { flex: 1, backgroundColor: COLORS.white, borderRadius: 10, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  sexoBtnActive: { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold },
-  sexoBtnText: { fontSize: 11, color: COLORS.textLight, fontWeight: '600' },
-  sexoBtnTextActive: { color: COLORS.gold },
-  condicionesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  condicionBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.white },
-  condicionBtnActive: { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold },
-  condicionBtnText: { fontSize: 12, color: COLORS.textLight },
-  condicionBtnTextActive: { color: COLORS.gold, fontWeight: '700' },
-  error: { color: COLORS.red, fontSize: 12, marginBottom: 12, textAlign: 'center' },
-  btn: { backgroundColor: COLORS.gold, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
-  btnText: { color: COLORS.white, fontSize: 15, fontWeight: '800', letterSpacing: 1 },
+  body: { 
+    flex: 1, 
+    paddingHorizontal: 16, 
+    paddingTop: 16 
+  },
+
+  // ── 2. ENCABEZADO ESTANDARIZADO (CACAO + DORADOS) ──
+  header: {
+    backgroundColor: COLORS.cacao,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#3A3530',
+  },
+  greeting: { 
+    fontSize: 10, 
+    fontWeight: '800', 
+    letterSpacing: 1, 
+    textTransform: 'uppercase', 
+    color: COLORS.gold, 
+    marginBottom: 2 
+  },
+  userName: { 
+    fontSize: 18, 
+    fontWeight: '800', 
+    color: COLORS.white 
+  },
+  backBtn: { 
+    width: 36, 
+    height: 36, 
+    borderRadius: 18, 
+    backgroundColor: 'rgba(255,255,255,0.1)', 
+    alignItems: 'center', 
+    justifyContent: 'center' 
+  },
+  backIcon: { 
+    fontSize: 18, 
+    color: COLORS.white,
+    fontWeight: 'bold' 
+  },
+
+  // ── 3. CAMPOS DE ENTRADA Y ETIQUETAS ──
+  label: { 
+    fontSize: 11, 
+    fontWeight: '700', 
+    color: COLORS.textLight, 
+    letterSpacing: 0.5, 
+    textTransform: 'uppercase', 
+    marginBottom: 6, 
+    marginTop: 8 
+  },
+  input: { 
+    backgroundColor: COLORS.white, 
+    borderRadius: 12, 
+    borderWidth: 1, 
+    borderColor: COLORS.border, 
+    paddingHorizontal: 16, 
+    paddingVertical: 12, 
+    fontSize: 14, 
+    color: COLORS.textDark, 
+    marginBottom: 12 
+  },
+
+  // ── 4. BOTONES Y CHIPS DE SELECCIÓN (SEXO Y CONDICIONES) ──
+  sexoRow: { 
+    flexDirection: 'row', 
+    gap: 8, 
+    marginBottom: 12 
+  },
+  sexoBtn: { 
+    flex: 1, 
+    backgroundColor: COLORS.white, 
+    borderRadius: 10, 
+    padding: 12, 
+    alignItems: 'center', 
+    borderWidth: 1, 
+    borderColor: COLORS.border 
+  },
+  sexoBtnActive: { 
+    backgroundColor: COLORS.goldPale, 
+    borderColor: COLORS.gold 
+  },
+  sexoBtnText: { 
+    fontSize: 12, 
+    color: COLORS.textLight, 
+    fontWeight: '600' 
+  },
+  sexoBtnTextActive: { 
+    color: COLORS.gold,
+    fontWeight: '800' 
+  },
+
+  condicionesGrid: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    gap: 8, 
+    marginBottom: 16 
+  },
+  condicionBtn: { 
+    paddingHorizontal: 12, 
+    paddingVertical: 8, 
+    borderRadius: 8, 
+    borderWidth: 1, 
+    borderColor: COLORS.border, 
+    backgroundColor: COLORS.white 
+  },
+  condicionBtnActive: { 
+    backgroundColor: COLORS.goldPale, 
+    borderColor: COLORS.gold 
+  },
+  condicionBtnText: { 
+    fontSize: 12, 
+    color: COLORS.textLight,
+    fontWeight: '600' 
+  },
+  condicionBtnTextActive: { 
+    color: COLORS.gold, 
+    fontWeight: '800' 
+  },
+
+  // ── 5. ALERTAS Y ACCIONES FINALES ──
+  error: { 
+    color: COLORS.red, 
+    fontSize: 12, 
+    marginBottom: 12, 
+    textAlign: 'center',
+    fontWeight: '700' 
+  },
+  btn: { 
+    backgroundColor: COLORS.cacao, 
+    borderRadius: 12, 
+    paddingVertical: 14, 
+    alignItems: 'center', 
+    marginTop: 12,
+    shadowColor: COLORS.cacao,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  btnText: { 
+    color: COLORS.white, 
+    fontSize: 14, 
+    fontWeight: '800', 
+    letterSpacing: 0.5 
+  },
 });

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { aceptarInvitacion, buscarInvitacion } from '../services/api';
 
 const COLORS = {
@@ -144,31 +144,162 @@ export default function AceptarInvitacionScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.cream },
+  // ── 1. ESTRUCTURA Y CONTENEDOR PRINCIPAL ──
+  container: { 
+    flex: 1, 
+    backgroundColor: COLORS.cream 
+  },
+  body: { 
+    flex: 1, 
+    paddingHorizontal: 20, 
+    paddingTop: 24 
+  },
+
+  // ── 2. ENCABEZADO ESTANDARIZADO (CACAO + DORADOS) ──
   header: {
-    backgroundColor: COLORS.cacao, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
-    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: COLORS.cacao,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#3A3530',
   },
-  greeting: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: 2 },
-  userName: { fontSize: 20, fontWeight: '800', color: COLORS.white },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  backIcon: { fontSize: 18, color: COLORS.white },
-  body: { flex: 1, paddingHorizontal: 24, paddingTop: 32 },
-  label: { fontSize: 11, fontWeight: '700', color: COLORS.textLight, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 },
-  hint: { fontSize: 12, color: COLORS.textLight, marginBottom: 12 },
+  greeting: { 
+    fontSize: 10, 
+    fontWeight: '800', 
+    letterSpacing: 1, 
+    textTransform: 'uppercase', 
+    color: COLORS.gold, 
+    marginBottom: 2 
+  },
+  userName: { 
+    fontSize: 18, 
+    fontWeight: '800', 
+    color: COLORS.white 
+  },
+  backBtn: { 
+    width: 36, 
+    height: 36, 
+    borderRadius: 18, 
+    backgroundColor: 'rgba(255,255,255,0.1)', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    marginRight: 12 
+  },
+  backIcon: { 
+    fontSize: 18, 
+    color: COLORS.white,
+    fontWeight: 'bold' 
+  },
+
+  // ── 3. FORMULARIO E INPUT DE CÓDIGO TOKEN ──
+  label: { 
+    fontSize: 11, 
+    fontWeight: '800', 
+    color: COLORS.cacao, 
+    letterSpacing: 0.5, 
+    textTransform: 'uppercase', 
+    marginBottom: 6 
+  },
+  hint: { 
+    fontSize: 12, 
+    color: COLORS.textLight, 
+    marginBottom: 14,
+    lineHeight: 16,
+    fontWeight: '500' 
+  },
   input: {
-    backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border,
-    paddingHorizontal: 16, paddingVertical: 14, fontSize: 20, fontWeight: '800',
-    color: COLORS.textDark, letterSpacing: 4, marginBottom: 12, textAlign: 'center',
+    backgroundColor: COLORS.white, 
+    borderRadius: 12, 
+    borderWidth: 1, 
+    borderColor: COLORS.border,
+    paddingHorizontal: 16, 
+    paddingVertical: 14, 
+    fontSize: 22, 
+    fontWeight: '800',
+    color: COLORS.gold, 
+    letterSpacing: 4, 
+    marginBottom: 12, 
+    textAlign: 'center',
   },
-  error: { color: COLORS.red, fontSize: 12, marginBottom: 12, textAlign: 'center' },
-  btn: { backgroundColor: COLORS.gold, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
-  btnText: { color: COLORS.white, fontSize: 15, fontWeight: '800' },
-  btnCancel: { paddingVertical: 12, alignItems: 'center', marginTop: 8 },
-  btnCancelText: { color: COLORS.textLight, fontSize: 13 },
-  invCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: COLORS.border },
-  invTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textDark, marginBottom: 16 },
-  invRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  invLabel: { fontSize: 12, color: COLORS.textLight, fontWeight: '700' },
-  invVal: { fontSize: 12, color: COLORS.textDark, fontWeight: '600' },
+
+  // ── 4. TARJETA DE DETALLE DE LA INVITACIÓN ──
+  invCard: { 
+    backgroundColor: COLORS.white, 
+    borderRadius: 16, 
+    padding: 20, 
+    borderWidth: 1, 
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+    marginBottom: 16,
+  },
+  invTitle: { 
+    fontSize: 15, 
+    fontWeight: '800', 
+    color: COLORS.cacao, 
+    marginBottom: 12,
+    textTransform: 'uppercase' 
+  },
+  invRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    paddingVertical: 10, 
+    borderBottomWidth: 1, 
+    borderBottomColor: COLORS.border 
+  },
+  invLabel: { 
+    fontSize: 12, 
+    color: COLORS.textLight, 
+    fontWeight: '700',
+    textTransform: 'uppercase' 
+  },
+  invVal: { 
+    fontSize: 12, 
+    color: COLORS.textDark, 
+    fontWeight: '800' 
+  },
+
+  // ── 5. ALERTAS Y BOTONES DE ACCIÓN ──
+  error: { 
+    color: COLORS.red, 
+    fontSize: 12, 
+    marginBottom: 12, 
+    textAlign: 'center',
+    fontWeight: '700' 
+  },
+  btn: { 
+    backgroundColor: COLORS.cacao, 
+    borderRadius: 12, 
+    paddingVertical: 14, 
+    alignItems: 'center', 
+    marginTop: 8,
+    shadowColor: COLORS.cacao,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  btnText: { 
+    color: COLORS.white, 
+    fontSize: 14, 
+    fontWeight: '800',
+    letterSpacing: 0.5 
+  },
+  btnCancel: { 
+    paddingVertical: 12, 
+    alignItems: 'center', 
+    marginTop: 6 
+  },
+  btnCancelText: { 
+    color: COLORS.textLight, 
+    fontSize: 13,
+    fontWeight: '700' 
+  },
 });

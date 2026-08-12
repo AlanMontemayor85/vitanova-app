@@ -176,6 +176,7 @@ export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
 };
 
 const styles = StyleSheet.create({
+  // ── 1. CONTENEDOR PRINCIPAL Y ESTADOS DE CARGA ──
   container: {
     marginVertical: 10,
   },
@@ -189,12 +190,17 @@ const styles = StyleSheet.create({
   loaderText: {
     fontSize: 12,
     color: COLORS.textLight,
+    fontWeight: '600',
   },
+
+  // ── 2. TÍTULOS Y REJILLA DE ALERTAS ──
   sectionHeaderTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     color: COLORS.cacao,
     marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   alertasBox: {
     gap: 8,
@@ -204,17 +210,25 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
   alertaTitulo: {
     fontSize: 13,
     fontWeight: '800',
     marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   alertaMensaje: {
     fontSize: 12,
     color: COLORS.textDark,
     lineHeight: 16,
     marginBottom: 6,
+    fontWeight: '600',
   },
   alertaEscala: {
     fontSize: 10,
@@ -222,25 +236,37 @@ const styles = StyleSheet.create({
     color: COLORS.textLight,
     fontStyle: 'italic',
   },
+
+  // ── 3. TARJETA DE ESTADO NORMAL (VERDE INSTITUCIONAL) ──
   cardNormal: {
     backgroundColor: COLORS.greenPale,
-    borderColor: COLORS.green,
+    borderColor: COLORS.green + '40',
     borderWidth: 1,
     borderRadius: 12,
     padding: 12,
     marginBottom: 10,
+    shadowColor: COLORS.green,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
   },
   normalTitulo: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     color: COLORS.green,
     marginBottom: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   normalText: {
     fontSize: 11,
     color: COLORS.textDark,
     lineHeight: 15,
+    fontWeight: '600',
   },
+
+  // ── 4. NOTA Y DISCLAIMER CLÍNICO ──
   disclaimerBox: {
     backgroundColor: COLORS.cream,
     borderRadius: 10,
@@ -250,14 +276,17 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   disclaimerTitle: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
     color: COLORS.textLight,
     marginBottom: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   disclaimerText: {
     fontSize: 10,
     color: COLORS.textLight,
     lineHeight: 14,
+    fontWeight: '500',
   },
 });

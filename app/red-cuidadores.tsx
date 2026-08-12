@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   DeviceEventEmitter,
+  Platform,
   ScrollView, StatusBar, StyleSheet, Text,
   TextInput, TouchableOpacity, View
 } from 'react-native';
@@ -638,66 +639,349 @@ export default function RedCuidadoresScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.cream },
-  header: {
-    backgroundColor: COLORS.cacao, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
-    flexDirection: 'row', alignItems: 'center',
+  // ── 1. ESTRUCTURA Y CONTENEDORES BASE ──
+  container: { 
+    flex: 1, 
+    backgroundColor: COLORS.cream 
   },
-  greeting: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: 2 },
-  userName: { fontSize: 18, fontWeight: '800', color: COLORS.white },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  backIcon: { fontSize: 18, color: COLORS.white },
-  totalPill: { backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
-  totalText: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
-  invitarBtn: { backgroundColor: COLORS.gold, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, marginLeft: 8 },
-  invitarBtnText: { fontSize: 11, fontWeight: '800', color: COLORS.white },
-  body: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
-  sectionTitle: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: COLORS.textLight, marginBottom: 10, marginTop: 12 },
-  emptyCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, marginTop: 20 },
-  miembroCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: COLORS.border },
-  miembroTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 },
-  miembroLeft: { flexDirection: 'row', gap: 12, flex: 1 },
-  avatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
-  avatarText: { fontSize: 15, fontWeight: '800' },
-  miembroNombre: { fontSize: 14, fontWeight: '700', color: COLORS.textDark },
-  miembroEmail: { fontSize: 11, color: COLORS.textLight, marginTop: 2 },
-  horarioRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
-  horarioIcon: { fontSize: 11 },
-  horarioText: { fontSize: 11, color: COLORS.textLight, fontWeight: '600' },
-  diasRow: { flexDirection: 'row', gap: 4, marginTop: 6 },
-  diaChip: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.cream },
-  diaChipText: { fontSize: 9, color: COLORS.textLight },
-  rolPill: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, alignSelf: 'flex-start' },
-  rolPillText: { fontSize: 10, fontWeight: '700' },
-  editarBtn: { marginTop: 10, paddingVertical: 8, alignItems: 'center', borderRadius: 8, backgroundColor: COLORS.goldPale, borderWidth: 1, borderColor: COLORS.gold },
-  editarBtnText: { fontSize: 11, fontWeight: '700', color: COLORS.gold },
-  modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-  modalCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: COLORS.border },
-  modalTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textDark, marginBottom: 12 },
-  modalLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textLight, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, marginTop: 10 },
-  modalInput: { backgroundColor: COLORS.cream, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: COLORS.border, fontSize: 14, color: COLORS.textDark, marginBottom: 4 },
-  diasModalRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 6 },
-  diaModalChip: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.cream },
-  diaModalChipActive: { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold },
-  diaModalChipText: { fontSize: 12, color: COLORS.textLight, fontWeight: '600' },
-  diaModalChipTextActive: { color: COLORS.gold, fontWeight: '800' },
-  rolBtn: { flex: 1, minWidth: 85, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.cream, alignItems: 'center' },
-  rolBtnActive: { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold },
-  rolBtnText: { fontSize: 10, fontWeight: '600', color: COLORS.textLight },
-  rolBtnTextActive: { color: COLORS.gold, fontWeight: '800' },
-  removerBtn: { marginTop: 10, paddingVertical: 8, alignItems: 'center', borderRadius: 8, backgroundColor: COLORS.redPale, borderWidth: 1, borderColor: COLORS.red },
-  removerBtnText: { fontSize: 11, fontWeight: '700', color: COLORS.red },
-  modalBtn: { borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  modalBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.white },
-  
+  body: { 
+    flex: 1, 
+    paddingHorizontal: 16, 
+    paddingTop: 16 
+  },
+
+  // ── 2. ENCABEZADO ESTANDARIZADO (CACAO + DORADOS) ──
+  header: {
+    backgroundColor: COLORS.cacao,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#3A3530',
+  },
+  greeting: { 
+    fontSize: 10, 
+    fontWeight: '800', 
+    letterSpacing: 1, 
+    textTransform: 'uppercase', 
+    color: COLORS.gold, 
+    marginBottom: 2 
+  },
+  userName: { 
+    fontSize: 18, 
+    fontWeight: '800', 
+    color: COLORS.white 
+  },
+  backBtn: { 
+    width: 36, 
+    height: 36, 
+    borderRadius: 18, 
+    backgroundColor: 'rgba(255,255,255,0.1)', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    marginRight: 10 
+  },
+  backIcon: { 
+    fontSize: 18, 
+    color: COLORS.white,
+    fontWeight: 'bold' 
+  },
+  totalPill: { 
+    backgroundColor: 'rgba(255,255,255,0.12)', 
+    borderRadius: 20, 
+    paddingHorizontal: 12, 
+    paddingVertical: 6 
+  },
+  totalText: { 
+    fontSize: 11, 
+    fontWeight: '700', 
+    color: COLORS.gold 
+  },
+  invitarBtn: { 
+    backgroundColor: COLORS.gold, 
+    borderRadius: 20, 
+    paddingHorizontal: 14, 
+    paddingVertical: 7, 
+    marginLeft: 8 
+  },
+  invitarBtnText: { 
+    fontSize: 11, 
+    fontWeight: '800', 
+    color: COLORS.cacao 
+  },
+
+  // ── 3. SECCIONES Y TARJETAS DE MIEMBROS ──
+  sectionTitle: { 
+    fontSize: 11, 
+    fontWeight: '800', 
+    letterSpacing: 1, 
+    textTransform: 'uppercase', 
+    color: COLORS.cacao, 
+    marginBottom: 10, 
+    marginTop: 12 
+  },
+  emptyCard: { 
+    backgroundColor: COLORS.white, 
+    borderRadius: 14, 
+    padding: 32, 
+    alignItems: 'center', 
+    borderWidth: 1, 
+    borderColor: COLORS.border, 
+    marginTop: 20 
+  },
+  miembroCard: { 
+    backgroundColor: COLORS.white, 
+    borderRadius: 14, 
+    padding: 14, 
+    marginBottom: 10, 
+    borderWidth: 1, 
+    borderColor: COLORS.border 
+  },
+  miembroTop: { 
+    flexDirection: 'row', 
+    alignItems: 'flex-start', 
+    justifyContent: 'space-between', 
+    gap: 10 
+  },
+  miembroLeft: { 
+    flexDirection: 'row', 
+    gap: 12, 
+    flex: 1 
+  },
+  avatar: { 
+    width: 44, 
+    height: 44, 
+    borderRadius: 22, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    borderWidth: 2 
+  },
+  avatarText: { 
+    fontSize: 15, 
+    fontWeight: '800' 
+  },
+  miembroNombre: { 
+    fontSize: 14, 
+    fontWeight: '800', 
+    color: COLORS.textDark 
+  },
+  miembroEmail: { 
+    fontSize: 11, 
+    color: COLORS.textLight, 
+    marginTop: 2 
+  },
+
+  // ── 4. HORARIOS, DÍAS Y ROLES ──
+  horarioRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 4, 
+    marginTop: 6 
+  },
+  horarioIcon: { 
+    fontSize: 11 
+  },
+  horarioText: { 
+    fontSize: 11, 
+    color: COLORS.textLight, 
+    fontWeight: '600' 
+  },
   horarioBox: {
-    backgroundColor: COLORS.cream, borderRadius: 12, padding: 12,
-    borderWidth: 1, borderColor: COLORS.goldPale, marginTop: 10, marginBottom: 4
+    backgroundColor: COLORS.cream, 
+    borderRadius: 12, 
+    padding: 12,
+    borderWidth: 1, 
+    borderColor: COLORS.goldPale, 
+    marginTop: 10, 
+    marginBottom: 4
+  },
+  diasRow: { 
+    flexDirection: 'row', 
+    gap: 4, 
+    marginTop: 6 
+  },
+  diaChip: { 
+    width: 22, 
+    height: 22, 
+    borderRadius: 11, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    borderWidth: 1, 
+    borderColor: COLORS.border, 
+    backgroundColor: COLORS.cream 
+  },
+  diaChipText: { 
+    fontSize: 9, 
+    color: COLORS.textLight,
+    fontWeight: '600' 
+  },
+  rolPill: { 
+    borderRadius: 20, 
+    paddingHorizontal: 10, 
+    paddingVertical: 4, 
+    borderWidth: 1, 
+    alignSelf: 'flex-start' 
+  },
+  rolPillText: { 
+    fontSize: 10, 
+    fontWeight: '800' 
+  },
+  editarBtn: { 
+    marginTop: 10, 
+    paddingVertical: 8, 
+    alignItems: 'center', 
+    borderRadius: 8, 
+    backgroundColor: COLORS.goldPale, 
+    borderWidth: 1, 
+    borderColor: COLORS.gold 
+  },
+  editarBtnText: { 
+    fontSize: 11, 
+    fontWeight: '800', 
+    color: COLORS.gold 
+  },
+
+  // ── 5. MODALES, INVITACIONES Y TOKENS ──
+  modalOverlay: { 
+    position: 'absolute', 
+    top: 0, 
+    left: 0, 
+    right: 0, 
+    bottom: 0, 
+    backgroundColor: 'rgba(0,0,0,0.5)', 
+    justifyContent: 'center', 
+    padding: 20 
+  },
+  modalCard: { 
+    backgroundColor: COLORS.white, 
+    borderRadius: 16, 
+    padding: 20, 
+    borderWidth: 1, 
+    borderColor: COLORS.border 
+  },
+  modalTitle: { 
+    fontSize: 16, 
+    fontWeight: '800', 
+    color: COLORS.cacao, 
+    marginBottom: 12,
+    textTransform: 'uppercase'
+  },
+  modalLabel: { 
+    fontSize: 11, 
+    fontWeight: '700', 
+    color: COLORS.textLight, 
+    letterSpacing: 0.5, 
+    textTransform: 'uppercase', 
+    marginBottom: 6, 
+    marginTop: 10 
+  },
+  modalInput: { 
+    backgroundColor: COLORS.cream, 
+    borderRadius: 10, 
+    padding: 12, 
+    borderWidth: 1, 
+    borderColor: COLORS.border, 
+    fontSize: 14, 
+    color: COLORS.textDark, 
+    marginBottom: 4 
+  },
+  diasModalRow: { 
+    flexDirection: 'row', 
+    gap: 6, 
+    flexWrap: 'wrap', 
+    marginTop: 6 
+  },
+  diaModalChip: { 
+    width: 34, 
+    height: 34, 
+    borderRadius: 17, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    borderWidth: 1, 
+    borderColor: COLORS.border, 
+    backgroundColor: COLORS.cream 
+  },
+  diaModalChipActive: { 
+    backgroundColor: COLORS.goldPale, 
+    borderColor: COLORS.gold 
+  },
+  diaModalChipText: { 
+    fontSize: 12, 
+    color: COLORS.textLight, 
+    fontWeight: '600' 
+  },
+  diaModalChipTextActive: { 
+    color: COLORS.gold, 
+    fontWeight: '800' 
+  },
+  rolBtn: { 
+    flex: 1, 
+    minWidth: 85, 
+    paddingVertical: 8, 
+    borderRadius: 8, 
+    borderWidth: 1, 
+    borderColor: COLORS.border, 
+    backgroundColor: COLORS.cream, 
+    alignItems: 'center' 
+  },
+  rolBtnActive: { 
+    backgroundColor: COLORS.goldPale, 
+    borderColor: COLORS.gold 
+  },
+  rolBtnText: { 
+    fontSize: 10, 
+    fontWeight: '600', 
+    color: COLORS.textLight 
+  },
+  rolBtnTextActive: { 
+    color: COLORS.gold, 
+    fontWeight: '800' 
+  },
+  removerBtn: { 
+    marginTop: 10, 
+    paddingVertical: 8, 
+    alignItems: 'center', 
+    borderRadius: 8, 
+    backgroundColor: COLORS.redPale, 
+    borderWidth: 1, 
+    borderColor: COLORS.red 
+  },
+  removerBtnText: { 
+    fontSize: 11, 
+    fontWeight: '800', 
+    color: COLORS.red 
+  },
+  modalBtn: { 
+    borderRadius: 10, 
+    padding: 12, 
+    alignItems: 'center', 
+    borderWidth: 1, 
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.cacao 
+  },
+  modalBtnText: { 
+    fontSize: 13, 
+    fontWeight: '800', 
+    color: COLORS.white 
   },
   tokenContainer: {
-    backgroundColor: COLORS.goldPale, borderRadius: 12,
-    borderWidth: 2, borderStyle: 'dashed', borderColor: COLORS.gold,
-    paddingVertical: 14, paddingHorizontal: 28, marginTop: 8
+    backgroundColor: COLORS.goldPale, 
+    borderRadius: 12,
+    borderWidth: 2, 
+    borderStyle: 'dashed', 
+    borderColor: COLORS.gold,
+    paddingVertical: 14, 
+    paddingHorizontal: 28, 
+    marginTop: 8,
+    alignItems: 'center'
   },
-  tokenText: { fontSize: 22, fontWeight: '900', color: COLORS.gold, letterSpacing: 2 }
+  tokenText: { 
+    fontSize: 22, 
+    fontWeight: '900', 
+    color: COLORS.gold, 
+    letterSpacing: 2 
+  }
 });

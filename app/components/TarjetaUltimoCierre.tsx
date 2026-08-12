@@ -205,16 +205,95 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
 };
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: COLORS.white, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: COLORS.border, marginVertical: 8 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  cardTitle: { fontSize: 14, fontWeight: '800', color: COLORS.cacao },
-  fechaBadge: { fontSize: 11, fontWeight: '700', color: COLORS.gold, backgroundColor: COLORS.goldPale, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
-  grid: { gap: 8 },
-  pill: { backgroundColor: COLORS.cream, borderRadius: 10, padding: 10, borderWidth: 1, borderColor: COLORS.border },
-  pillLabel: { fontSize: 10, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase', letterSpacing: 0.5 },
-  pillValue: { fontSize: 13, fontWeight: '800', color: COLORS.textDark, marginTop: 2 },
-  notasBox: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.border },
-  notasTitle: { fontSize: 11, fontWeight: '800', color: COLORS.textLight, marginBottom: 2 },
-  notasText: { fontSize: 12, color: COLORS.textDark, lineHeight: 16 },
-  emptyText: { fontSize: 12, color: COLORS.textLight, marginTop: 6 },
+  // ── 1. TARJETA CONTENEDORA PRINCIPAL ──
+  card: { 
+    backgroundColor: COLORS.white, 
+    borderRadius: 14, 
+    padding: 16, 
+    borderWidth: 1, 
+    borderColor: COLORS.border, 
+    marginVertical: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+
+  // ── 2. CABECERA Y BADGE DE FECHA ──
+  headerRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: 12 
+  },
+  cardTitle: { 
+    fontSize: 14, 
+    fontWeight: '800', 
+    color: COLORS.cacao,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5 
+  },
+  fechaBadge: { 
+    fontSize: 11, 
+    fontWeight: '800', 
+    color: COLORS.gold, 
+    backgroundColor: COLORS.goldPale, 
+    paddingHorizontal: 8, 
+    paddingVertical: 3, 
+    borderRadius: 10 
+  },
+
+  // ── 3. REJILLA Y PILLS DE REGISTRO ──
+  grid: { 
+    gap: 8 
+  },
+  pill: { 
+    backgroundColor: COLORS.cream, 
+    borderRadius: 10, 
+    padding: 10, 
+    borderWidth: 1, 
+    borderColor: COLORS.border 
+  },
+  pillLabel: { 
+    fontSize: 10, 
+    fontWeight: '800', 
+    color: COLORS.textLight, 
+    textTransform: 'uppercase', 
+    letterSpacing: 0.5 
+  },
+  pillValue: { 
+    fontSize: 13, 
+    fontWeight: '800', 
+    color: COLORS.textDark, 
+    marginTop: 2 
+  },
+
+  // ── 4. NOTAS Y ESTADOS VACÍOS ──
+  notasBox: { 
+    marginTop: 10, 
+    paddingTop: 10, 
+    borderTopWidth: 1, 
+    borderTopColor: COLORS.border 
+  },
+  notasTitle: { 
+    fontSize: 10, 
+    fontWeight: '800', 
+    color: COLORS.textLight, 
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4 
+  },
+  notasText: { 
+    fontSize: 12, 
+    color: COLORS.textDark, 
+    lineHeight: 16,
+    fontWeight: '600' 
+  },
+  emptyText: { 
+    fontSize: 12, 
+    color: COLORS.textLight, 
+    marginTop: 6,
+    fontWeight: '600' 
+  },
 });

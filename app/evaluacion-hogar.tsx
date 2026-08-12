@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { crearEvaluacion, crearLead, getEvaluaciones, getPacientes, loadStoredToken } from '../services/api';
 
 
@@ -551,65 +551,335 @@ if (ultimaEvaluacion && paso === 'perfil' && !resultado) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.cream },
-  header: {
-    backgroundColor: COLORS.cacao, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
+  // ── 1. ESTRUCTURA Y CONTENEDORES BASE ──
+  container: { 
+    flex: 1, 
+    backgroundColor: COLORS.cream 
   },
-  greeting: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: 2 },
-  userName: { fontSize: 20, fontWeight: '800', color: COLORS.white },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontSize: 18, color: COLORS.white },
-  progressBar: { height: 4, backgroundColor: COLORS.border },
-  progressFill: { height: 4, backgroundColor: COLORS.gold },
-  body: { flex: 1, paddingHorizontal: 16, paddingTop: 20 },
-  pasoTitulo: { fontSize: 22, fontWeight: '800', color: COLORS.textDark, marginBottom: 6 },
-  pasoSubtitulo: { fontSize: 13, color: COLORS.textLight, marginBottom: 20, lineHeight: 18 },
-  sectionTitle: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: COLORS.textLight, marginBottom: 12, marginTop: 8 },
+  body: { 
+    flex: 1, 
+    paddingHorizontal: 16, 
+    paddingTop: 16 
+  },
+  progressBar: { 
+    height: 4, 
+    backgroundColor: COLORS.border 
+  },
+  progressFill: { 
+    height: 4, 
+    backgroundColor: COLORS.gold 
+  },
+
+  // ── 2. ENCABEZADO ESTANDARIZADO (CACAO + DORADOS) ──
+  header: { 
+    backgroundColor: COLORS.cacao, 
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52, 
+    paddingHorizontal: 16, 
+    paddingBottom: 16, 
+    flexDirection: 'row', 
+    alignItems: 'center',
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#3A3530',
+  },
+  greeting: { 
+    fontSize: 10, 
+    fontWeight: '800', 
+    letterSpacing: 1, 
+    textTransform: 'uppercase', 
+    color: COLORS.gold, 
+    marginBottom: 2 
+  },
+  userName: { 
+    fontSize: 18, 
+    fontWeight: '800', 
+    color: COLORS.white 
+  },
+  backBtn: { 
+    width: 36, 
+    height: 36, 
+    borderRadius: 18, 
+    backgroundColor: 'rgba(255,255,255,0.1)', 
+    alignItems: 'center', 
+    justifyContent: 'center' 
+  },
+  backIcon: { 
+    fontSize: 18, 
+    color: COLORS.white,
+    fontWeight: 'bold' 
+  },
+
+  // ── 3. TÍTULOS Y SECCIONES DE PASOS ──
+  pasoTitulo: { 
+    fontSize: 20, 
+    fontWeight: '800', 
+    color: COLORS.cacao, 
+    marginBottom: 6 
+  },
+  pasoSubtitulo: { 
+    fontSize: 13, 
+    color: COLORS.textLight, 
+    marginBottom: 16, 
+    lineHeight: 18,
+    fontWeight: '500'
+  },
+  sectionTitle: { 
+    fontSize: 10, 
+    fontWeight: '800', 
+    letterSpacing: 1, 
+    textTransform: 'uppercase', 
+    color: COLORS.cacao, 
+    marginBottom: 10, 
+    marginTop: 8 
+  },
+
+  // ── 4. PERFILES Y BOTONES DE SELECCIÓN DE EVALUACIÓN ──
   perfilBtn: {
-    backgroundColor: COLORS.white, borderRadius: 12, padding: 16, marginBottom: 8,
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: COLORS.white, 
+    borderRadius: 12, 
+    padding: 16, 
+    marginBottom: 8,
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    borderWidth: 1, 
+    borderColor: COLORS.border,
   },
-  modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', padding: 24, justifyContent: 'center' },
-    modalCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 20 },
-    modalTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textDark, marginBottom: 16 },
-    input: { backgroundColor: COLORS.cream, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: COLORS.border, fontSize: 14, color: COLORS.textDark, marginBottom: 10 },
-    modalBtn: { borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-    modalBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.white },
-  perfilBtnActive: { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold },
-  perfilBtnText: { fontSize: 14, color: COLORS.textDark, fontWeight: '600' },
-  perfilBtnTextActive: { color: COLORS.gold },
+  perfilBtnActive: { 
+    backgroundColor: COLORS.goldPale, 
+    borderColor: COLORS.gold 
+  },
+  perfilBtnText: { 
+    fontSize: 14, 
+    color: COLORS.textDark, 
+    fontWeight: '700' 
+  },
+  perfilBtnTextActive: { 
+    color: COLORS.gold,
+    fontWeight: '800' 
+  },
+
+  // ── 5. PREGUNTAS Y BOTONES SÍ / NO ──
   pregunta: {
-    backgroundColor: COLORS.white, borderRadius: 12, padding: 14, marginBottom: 10,
-    borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: COLORS.white, 
+    borderRadius: 12, 
+    padding: 14, 
+    marginBottom: 10,
+    borderWidth: 1, 
+    borderColor: COLORS.border,
   },
-  preguntaLabel: { fontSize: 13, fontWeight: '600', color: COLORS.textDark, marginBottom: 10 },
-  siNoRow: { flexDirection: 'row', gap: 8 },
+  preguntaLabel: { 
+    fontSize: 13, 
+    fontWeight: '700', 
+    color: COLORS.textDark, 
+    marginBottom: 10 
+  },
+  siNoRow: { 
+    flexDirection: 'row', 
+    gap: 8 
+  },
   siNoBtn: {
-    flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center',
-    borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.cream,
+    flex: 1, 
+    paddingVertical: 10, 
+    borderRadius: 8, 
+    alignItems: 'center',
+    borderWidth: 1, 
+    borderColor: COLORS.border, 
+    backgroundColor: COLORS.cream,
   },
-  siNoBtnSi: { backgroundColor: COLORS.greenPale, borderColor: COLORS.green },
-  siNoBtnNo: { backgroundColor: COLORS.redPale, borderColor: COLORS.red },
-  siNoBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.textLight },
-  footerBtn: { padding: 16, backgroundColor: COLORS.white, borderTopWidth: 1, borderTopColor: COLORS.border },
-  siguienteBtn: { backgroundColor: COLORS.gold, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
-  siguienteBtnText: { fontSize: 15, fontWeight: '800', color: COLORS.white, letterSpacing: 1 },
-  resultadoCard: { borderRadius: 16, padding: 24, alignItems: 'center', borderWidth: 1, marginBottom: 20 },
-  resultadoEmoji: { fontSize: 48, marginBottom: 8 },
-  resultadoNivel: { fontSize: 22, fontWeight: '900', marginBottom: 4 },
-  resultadoScore: { fontSize: 13, color: COLORS.textLight },
-  recCard: { backgroundColor: COLORS.white, borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: COLORS.border },
-  recHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  recPrioridadDot: { width: 8, height: 8, borderRadius: 4 },
-  recCategoria: { fontSize: 10, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase', letterSpacing: 1 },
-  recItem: { fontSize: 13, color: COLORS.textDark, fontWeight: '600' },
-  recProducto: { backgroundColor: COLORS.goldPale, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, marginTop: 6, alignSelf: 'flex-start' },
-  recProductoText: { fontSize: 11, color: COLORS.gold, fontWeight: '600' },
-  solicitarBtn: { backgroundColor: COLORS.cacao, borderRadius: 14, padding: 18, alignItems: 'center', marginBottom: 10, marginTop: 8 },
-  solicitarBtnText: { fontSize: 14, fontWeight: '800', color: COLORS.white },
-  solicitarBtnSub: { fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 4 },
-  cerrarBtn: { backgroundColor: COLORS.gold, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginBottom: 8 },
-  cerrarBtnText: { fontSize: 14, fontWeight: '800', color: COLORS.white },
+  siNoBtnSi: { 
+    backgroundColor: COLORS.greenPale, 
+    borderColor: COLORS.green 
+  },
+  siNoBtnNo: { 
+    backgroundColor: COLORS.redPale, 
+    borderColor: COLORS.red 
+  },
+  siNoBtnText: { 
+    fontSize: 13, 
+    fontWeight: '800', 
+    color: COLORS.textDark 
+  },
+
+  // ── 6. TARJETAS DE RESULTADO Y RECOMENDACIONES DE SEGURIDAD ──
+  resultadoCard: { 
+    borderRadius: 16, 
+    padding: 20, 
+    alignItems: 'center', 
+    borderWidth: 1, 
+    marginBottom: 16,
+    backgroundColor: COLORS.white
+  },
+  resultadoEmoji: { 
+    fontSize: 44, 
+    marginBottom: 8 
+  },
+  resultadoNivel: { 
+    fontSize: 20, 
+    fontWeight: '900', 
+    marginBottom: 4 
+  },
+  resultadoScore: { 
+    fontSize: 12, 
+    color: COLORS.textLight,
+    fontWeight: '600' 
+  },
+  recCard: { 
+    backgroundColor: COLORS.white, 
+    borderRadius: 12, 
+    padding: 14, 
+    marginBottom: 8, 
+    borderWidth: 1, 
+    borderColor: COLORS.border 
+  },
+  recHeader: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 8, 
+    marginBottom: 6 
+  },
+  recPrioridadDot: { 
+    width: 8, 
+    height: 8, 
+    borderRadius: 4 
+  },
+  recCategoria: { 
+    fontSize: 10, 
+    fontWeight: '800', 
+    color: COLORS.textLight, 
+    textTransform: 'uppercase', 
+    letterSpacing: 0.8 
+  },
+  recItem: { 
+    fontSize: 13, 
+    color: COLORS.textDark, 
+    fontWeight: '700' 
+  },
+  recProducto: { 
+    backgroundColor: COLORS.goldPale, 
+    borderRadius: 6, 
+    paddingHorizontal: 8, 
+    paddingVertical: 4, 
+    marginTop: 6, 
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: COLORS.gold + '40'
+  },
+  recProductoText: { 
+    fontSize: 11, 
+    color: COLORS.gold, 
+    fontWeight: '800' 
+  },
+
+  // ── 7. PIE DE PANTALLA Y BOTONES DE ACCIÓN ──
+  footerBtn: { 
+    padding: 16, 
+    backgroundColor: COLORS.white, 
+    borderTopWidth: 1, 
+    borderTopColor: COLORS.border,
+    paddingBottom: Platform.OS === 'android' ? 20 : 28,
+  },
+  siguienteBtn: { 
+    backgroundColor: COLORS.cacao, 
+    borderRadius: 12, 
+    paddingVertical: 14, 
+    alignItems: 'center',
+    shadowColor: COLORS.cacao,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  siguienteBtnText: { 
+    fontSize: 14, 
+    fontWeight: '800', 
+    color: COLORS.white, 
+    letterSpacing: 0.5 
+  },
+  solicitarBtn: { 
+    backgroundColor: COLORS.cacao, 
+    borderRadius: 12, 
+    padding: 16, 
+    alignItems: 'center', 
+    marginBottom: 8, 
+    marginTop: 8,
+    shadowColor: COLORS.cacao,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  solicitarBtnText: { 
+    fontSize: 14, 
+    fontWeight: '800', 
+    color: COLORS.white 
+  },
+  solicitarBtnSub: { 
+    fontSize: 11, 
+    color: COLORS.gold, 
+    marginTop: 2,
+    fontWeight: '700' 
+  },
+  cerrarBtn: { 
+    backgroundColor: COLORS.gold, 
+    borderRadius: 12, 
+    paddingVertical: 14, 
+    alignItems: 'center', 
+    marginBottom: 8 
+  },
+  cerrarBtnText: { 
+    fontSize: 14, 
+    fontWeight: '800', 
+    color: COLORS.cacao 
+  },
+
+  // ── 8. MODALES Y FORMULARIOS ──
+  modalOverlay: { 
+    position: 'absolute', 
+    top: 0, 
+    left: 0, 
+    right: 0, 
+    bottom: 0, 
+    backgroundColor: 'rgba(0,0,0,0.5)', 
+    padding: 20, 
+    justifyContent: 'center',
+    zIndex: 1000
+  },
+  modalCard: { 
+    backgroundColor: COLORS.white, 
+    borderRadius: 16, 
+    padding: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border
+  },
+  modalTitle: { 
+    fontSize: 16, 
+    fontWeight: '800', 
+    color: COLORS.cacao, 
+    marginBottom: 14,
+    textTransform: 'uppercase'
+  },
+  input: { 
+    backgroundColor: COLORS.cream, 
+    borderRadius: 10, 
+    padding: 12, 
+    borderWidth: 1, 
+    borderColor: COLORS.border, 
+    fontSize: 14, 
+    color: COLORS.textDark, 
+    marginBottom: 10 
+  },
+  modalBtn: { 
+    borderRadius: 10, 
+    padding: 12, 
+    alignItems: 'center', 
+    borderWidth: 1, 
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.cacao
+  },
+  modalBtnText: { 
+    fontSize: 13, 
+    fontWeight: '800', 
+    color: COLORS.white 
+  },
 });

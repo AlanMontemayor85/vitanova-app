@@ -47,6 +47,7 @@ const COLORS = {
   red: '#D94F4F',
   green: '#3DAA6A',
   greenPale: '#E8F5E9',
+  textMid: '#5C554E',
 };
 
 const FRECUENCIAS = [
@@ -1960,18 +1961,38 @@ const ejecutarEliminacion = async () => {
 }
 
 const styles = StyleSheet.create({
+  // ── 1. ESTRUCTURA Y CONTENEDORES BASE ──
   container: {
     flex: 1,
     backgroundColor: COLORS.cream,
   },
+  body: {
+    flex: 1,
+    padding: 16,
+  },
+  seccionContenedor: {
+    marginBottom: 20,
+  },
+  tituloSeccion: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.cacao,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  // ── 2. ENCABEZADO ESTANDARIZADO (CACAO + DORADOS) ──
   header: {
     backgroundColor: COLORS.cacao,
-    paddingTop: 48,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52,
     paddingBottom: 16,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#3A3530',
   },
   backBtn: {
     width: 36,
@@ -1983,18 +2004,18 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     color: COLORS.white,
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   headerSub: {
     fontSize: 10,
     color: COLORS.gold,
-    fontWeight: '700',
+    fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: COLORS.white,
   },
@@ -2009,6 +2030,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 12,
   },
+
+  // ── 3. PESTAÑAS Y NAVEGACIÓN TABS ──
   tabRow: {
     flexDirection: 'row',
     backgroundColor: COLORS.white,
@@ -2041,10 +2064,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 3,
     borderTopRightRadius: 3,
   },
-  body: {
-    flex: 1,
-    padding: 16,
-  },
+
+  // ── 4. ESTADOS VACÍOS (EMPTY STATES) ──
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -2055,9 +2076,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.textLight,
+    fontWeight: '600',
   },
+
+  // ── 5. TARJETAS DE MEDICAMENTOS E INVENTARIO ──
   card: {
     backgroundColor: COLORS.white,
     borderRadius: 12,
@@ -2078,25 +2102,91 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: COLORS.textDark,
   },
   cardSub: {
+    fontSize: 11,
+    color: COLORS.textLight,
+    marginTop: 2,
+  },
+  cardInventario: {
+    backgroundColor: COLORS.white,
+    padding: 12,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  itemNombre: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.textDark,
+  },
+  itemDosis: {
     fontSize: 12,
     color: COLORS.textLight,
     marginTop: 2,
   },
+  itemStock: {
+    fontSize: 11,
+    color: COLORS.textMid,
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  itemStockBajo: {
+    color: COLORS.red,
+    fontWeight: '800',
+  },
+  itemCaducidad: {
+    fontSize: 10,
+    color: COLORS.textLight,
+    marginTop: 2,
+  },
+
+  // ── 6. BADGES Y ACCIONES EN TARJETA ──
   horarioBadge: {
     backgroundColor: COLORS.goldPale,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   horarioBadgeText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     color: COLORS.gold,
+  },
+  badgeCompartido: {
+    backgroundColor: COLORS.greenPale,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.green + '40',
+  },
+  badgeCompartidoText: {
+    fontSize: 10,
+    color: COLORS.green,
+    fontWeight: '800',
+  },
+  btnStock: {
+    backgroundColor: COLORS.cream,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  btnStockText: {
+    fontWeight: '800',
+    color: COLORS.textDark,
+    fontSize: 12,
+  },
+  btnEditar: {
+    padding: 6,
   },
   deleteBtn: {
     padding: 6,
@@ -2106,6 +2196,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
+
+  // ── 7. MODALES Y FORMULARIOS DE REGISTRO ──
   modalOverlay: {
     position: 'absolute',
     top: 0,
@@ -2120,18 +2212,22 @@ const styles = StyleSheet.create({
   modalCard: {
     backgroundColor: COLORS.white,
     borderRadius: 16,
-    padding: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
-    color: COLORS.textDark,
+    color: COLORS.cacao,
     marginBottom: 16,
+    textTransform: 'uppercase',
   },
   label: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: COLORS.textDark,
+    color: COLORS.textLight,
+    textTransform: 'uppercase',
     marginBottom: 4,
     marginTop: 8,
   },
@@ -2162,87 +2258,18 @@ const styles = StyleSheet.create({
   },
   chipBtnTextActive: {
     color: COLORS.white,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   modalBtn: {
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
     alignItems: 'center',
+    backgroundColor: COLORS.cacao,
   },
   modalBtnText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
     color: COLORS.white,
-  },
-  seccionContenedor: {
-    marginBottom: 20,
-  },
-  tituloSeccion: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#4A3B32',
-    marginBottom: 8,
-  },
-  cardInventario: {
-    backgroundColor: '#FFFFFF',
-    padding: 12,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#EFEFEF',
-  },
-  itemNombre: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#222',
-  },
-  itemDosis: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  itemStock: {
-    fontSize: 12,
-    color: '#555',
-    marginTop: 4,
-  },
-  itemStockBajo: {
-    color: '#D32F2F',
-    fontWeight: 'bold',
-  },
-  itemCaducidad: {
-    fontSize: 11,
-    color: '#888',
-    marginTop: 2,
-  },
-  /* 🏠 Badge de Compartido */
-  badgeCompartido: {
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#C8E6C9',
-  },
-  badgeCompartidoText: {
-    fontSize: 10,
-    color: '#2E7D32',
-    fontWeight: 'bold',
-  },
-  btnStock: {
-    backgroundColor: '#F0F0F0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  btnStockText: {
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  btnEditar: {
-    padding: 6,
   },
 });

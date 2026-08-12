@@ -1,7 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import { Calendar as CalendarIcon, CheckCircle, Clock, Info } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Modal, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
@@ -24,6 +24,9 @@ const COLORS = {
   grayLight: '#F8F9FA',
   border: '#EAEAEA',
   white: '#FFFFFF',
+  cream: '#F5F4F0',
+  textLight: '#8A8078',
+  greenPale: 'rgba(61, 170, 106, 0.15)',
   textDark: '#2C2C2C'
 };
 
@@ -299,60 +302,74 @@ export default function CalendarioScreen() {
 }
 
 const styles = StyleSheet.create({
+  // ── 1. ESTRUCTURA Y CONTENEDOR PRINCIPAL ──
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
-  },
-  headerDia: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: COLORS.grayLight,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  tituloDia: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: COLORS.textDark,
-  },
-  listaContainer: {
-    padding: 16,
+    backgroundColor: COLORS.cream,
   },
   loader: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: COLORS.cream,
   },
+  listaContainer: {
+    padding: 16,
+  },
+
+  // ── 2. CABECERA Y DÍA SELECCIONADO ──
+  headerDia: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52,
+    paddingBottom: 14,
+    paddingHorizontal: 16,
+    backgroundColor: COLORS.cacao,
+    borderBottomWidth: 1,
+    borderBottomColor: '#3A3530',
+  },
+  tituloDia: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.white,
+    letterSpacing: 0.3,
+  },
+
+  // ── 3. TARJETAS DE TAREAS Y EVENTOS EN CALENDARIO ──
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.white,
     borderRadius: 12,
     padding: 14,
-    marginBottom: 12,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
   cardCompletada: {
-    backgroundColor: '#F4FAF4',
-    borderColor: '#D0EED0',
+    backgroundColor: COLORS.greenPale,
+    borderColor: COLORS.green + '40',
   },
   tareaIcon: {
-    fontSize: 24,
+    fontSize: 22,
     marginRight: 12,
   },
   infoContainer: {
     flex: 1,
   },
   cardTitulo: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     color: COLORS.cacao,
   },
   textoCompletado: {
     textDecorationLine: 'line-through',
-    color: '#777777',
+    color: COLORS.textLight,
   },
   rowHora: {
     flexDirection: 'row',
@@ -360,9 +377,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   cardDetalle: {
-    fontSize: 12,
-    color: '#777777',
+    fontSize: 11,
+    color: COLORS.textLight,
+    fontWeight: '600',
   },
+
+  // ── 4. BOTONES E ICONOS DE ACCIÓN ──
   checkIcon: {
     marginLeft: 8,
   },
@@ -370,10 +390,13 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     opacity: 0.8,
   },
+
+  // ── 5. ESTADO VACÍO (LISTA SIN TAREAS) ──
   listaVacia: {
     textAlign: 'center',
-    color: '#999999',
+    color: COLORS.textLight,
     marginTop: 40,
-    fontSize: 14,
-  }
+    fontSize: 13,
+    fontWeight: '600',
+  },
 });

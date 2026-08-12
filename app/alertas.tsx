@@ -1,6 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getAlertas, getPacientes, loadStoredToken } from '../services/api';
 
 const COLORS = {
@@ -243,47 +243,63 @@ export default function AlertasScreen() {
 }
 
 const styles = StyleSheet.create({
+  // ── 1. ESTRUCTURA Y CONTENEDOR PRINCIPAL ──
   container: {
     flex: 1,
     backgroundColor: COLORS.cream,
   },
+  body: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+
+  // ── 2. ENCABEZADO ESTANDARIZADO (CACAO + DORADOS) ──
   header: {
+    backgroundColor: COLORS.cacao,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.cacao,
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#3A3530',
   },
   backBtn: {
-    marginRight: 15,
-    padding: 5,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   backIcon: {
     color: COLORS.white,
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   greeting: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
     color: COLORS.gold,
-    fontSize: 14,
-    fontWeight: '600',
+    marginBottom: 2,
   },
   userName: {
+    fontSize: 18,
+    fontWeight: '800',
     color: COLORS.white,
-    fontSize: 20,
-    fontWeight: 'bold',
   },
-  body: {
-    flex: 1,
-    padding: 20,
-  },
+
+  // ── 3. ESTADO VACÍO (SIN ALERTAS) ──
   emptyCard: {
     backgroundColor: COLORS.white,
-    padding: 30,
-    borderRadius: 16,
+    padding: 32,
+    borderRadius: 14,
     alignItems: 'center',
-    marginTop: 40,
+    marginTop: 20,
     borderColor: COLORS.border,
     borderWidth: 1,
   },
@@ -292,32 +308,43 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.textDark,
+    fontSize: 16,
+    fontWeight: '800',
+    color: COLORS.cacao,
+    textTransform: 'uppercase',
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.textLight,
     marginTop: 4,
+    fontWeight: '600',
+    textAlign: 'center',
   },
+
+  // ── 4. TARJETAS DE ALERTA Y SEVERIDAD ──
   alertaCard: {
     flexDirection: 'row',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 12,
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 10,
     borderWidth: 1,
+    backgroundColor: COLORS.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
   alertaIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   alertaIcon: {
-    fontSize: 20,
+    fontSize: 18,
   },
   alertaContent: {
     flex: 1,
@@ -330,27 +357,31 @@ const styles = StyleSheet.create({
   },
   alertaTipo: {
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '800',
     letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   severidadPill: {
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
   },
   severidadText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    textTransform: 'uppercase' as const,
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   alertaDesc: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.textDark,
     marginBottom: 6,
-    lineHeight: 20,
+    lineHeight: 18,
+    fontWeight: '600',
   },
   alertaFecha: {
-    fontSize: 11,
+    fontSize: 10,
     color: COLORS.textLight,
+    fontWeight: '600',
   },
 });

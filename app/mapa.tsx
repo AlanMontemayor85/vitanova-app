@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { crearGeocerca, eliminarGeocerca, getGeocercas, getPacientes, getUbicacion, loadStoredToken } from '../services/api';
 
@@ -14,6 +14,7 @@ const COLORS = {
   border: '#E0D8CC',
   green: '#3DAA6A',
   red: '#D94F4F',
+  greenPale: 'rgba(61, 170, 106, 0.15)',
 };
 
 // 📍 Coordenadas de Respaldo Seguro (Monterrey / Default)
@@ -299,50 +300,160 @@ export default function MapaScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.cream },
-  header: {
-    backgroundColor: COLORS.cacao, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
+  // ── 1. ESTRUCTURA Y CONTENEDOR DEL MAPA ──
+  container: { 
+    flex: 1, 
+    backgroundColor: COLORS.cream 
   },
-  greeting: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: 2 },
-  userName: { fontSize: 20, fontWeight: '800', color: COLORS.white },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontSize: 18, color: COLORS.white },
-  activoPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: 'rgba(61,170,106,0.2)', borderRadius: 20,
-    paddingHorizontal: 10, paddingVertical: 5,
-    borderWidth: 1, borderColor: 'rgba(61,170,106,0.3)',
-  },
-  activoDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.green },
-  activoText: { fontSize: 9, fontWeight: '700', color: COLORS.green },
-  
   mapContainer: {
     flex: 1,
     width: '100%',
-    backgroundColor: '#E0D8CC', 
+    backgroundColor: COLORS.cream, 
   },
   mapa: { 
     ...StyleSheet.absoluteFillObject 
   },
-  
-  sinUbicacion: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-  sinUbicacionIcon: { fontSize: 48, marginBottom: 16 },
-  sinUbicacionTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textDark, marginBottom: 8 },
-  sinUbicacionText: { fontSize: 13, color: COLORS.textLight, textAlign: 'center' },
+
+  // ── 2. ENCABEZADO ESTANDARIZADO (CACAO + DORADOS) ──
+  header: {
+    backgroundColor: COLORS.cacao,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#3A3530',
+  },
+  greeting: { 
+    fontSize: 10, 
+    fontWeight: '800', 
+    letterSpacing: 1, 
+    textTransform: 'uppercase', 
+    color: COLORS.gold, 
+    marginBottom: 2 
+  },
+  userName: { 
+    fontSize: 18, 
+    fontWeight: '800', 
+    color: COLORS.white 
+  },
+  backBtn: { 
+    width: 36, 
+    height: 36, 
+    borderRadius: 18, 
+    backgroundColor: 'rgba(255,255,255,0.1)', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    marginRight: 10 
+  },
+  backIcon: { 
+    fontSize: 18, 
+    color: COLORS.white,
+    fontWeight: 'bold' 
+  },
+
+  // ── 3. PILL DE ESTADO GPS ACTIVO ──
+  activoPill: {
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 5,
+    backgroundColor: COLORS.greenPale, 
+    borderRadius: 20,
+    paddingHorizontal: 10, 
+    paddingVertical: 4,
+    borderWidth: 1, 
+    borderColor: COLORS.green + '40',
+  },
+  activoDot: { 
+    width: 6, 
+    height: 6, 
+    borderRadius: 3, 
+    backgroundColor: COLORS.green 
+  },
+  activoText: { 
+    fontSize: 9, 
+    fontWeight: '800', 
+    color: COLORS.green,
+    letterSpacing: 0.5 
+  },
+
+  // ── 4. ESTADO SIN UBICACIÓN / SIN SEÑAL ──
+  sinUbicacion: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    padding: 32 
+  },
+  sinUbicacionIcon: { 
+    fontSize: 48, 
+    marginBottom: 16 
+  },
+  sinUbicacionTitle: { 
+    fontSize: 15, 
+    fontWeight: '800', 
+    color: COLORS.cacao, 
+    marginBottom: 6,
+    textTransform: 'uppercase' 
+  },
+  sinUbicacionText: { 
+    fontSize: 12, 
+    color: COLORS.textLight, 
+    textAlign: 'center',
+    lineHeight: 18 
+  },
+
+  // ── 5. PANEL INFORMATIVO INFERIOR (INFO CARD FLOTANTE) ──
   infoCard: {
     backgroundColor: COLORS.white, 
     padding: 16,
     maxHeight: 280,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
     borderTopWidth: 1, 
     borderTopColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  infoLabel: { fontSize: 11, color: COLORS.textLight, fontWeight: '600' },
-  infoVal: { fontSize: 12, color: COLORS.textDark, fontWeight: '700' },
+  infoRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    paddingVertical: 8, 
+    borderBottomWidth: 1, 
+    borderBottomColor: COLORS.border 
+  },
+  infoLabel: { 
+    fontSize: 11, 
+    color: COLORS.textLight, 
+    fontWeight: '700',
+    textTransform: 'uppercase' 
+  },
+  infoVal: { 
+    fontSize: 12, 
+    color: COLORS.textDark, 
+    fontWeight: '800' 
+  },
   centrarBtn: {
-    backgroundColor: COLORS.cacao, borderRadius: 10, padding: 12,
-    alignItems: 'center', marginTop: 12,
+    backgroundColor: COLORS.cacao, 
+    borderRadius: 12, 
+    paddingVertical: 14,
+    alignItems: 'center', 
+    marginTop: 12,
+    shadowColor: COLORS.cacao,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  centrarBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.white },
+  centrarBtnText: { 
+    fontSize: 13, 
+    fontWeight: '800', 
+    color: COLORS.white,
+    letterSpacing: 0.5 
+  },
 });

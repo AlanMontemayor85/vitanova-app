@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { actualizarPaciente, clearToken, configurarReloj, getPacientes, getToken, reiniciarRegistroServidor } from '../services/api'; // 📡 Asegúrate de exportar configurarReloj de tu services/api.ts
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
@@ -712,44 +712,225 @@ const guardar = async () => {
   );
 }
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.cream },
-  header: {
-    backgroundColor: COLORS.cacao, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
+  // ── 1. ESTRUCTURA Y CONTENEDORES ──
+  container: { 
+    flex: 1, 
+    backgroundColor: COLORS.cream 
   },
-  greeting: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: 2 },
-  userName: { fontSize: 18, fontWeight: '800', color: COLORS.white },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontSize: 18, color: COLORS.white },
-  body: { flex: 1, paddingHorizontal: 16, paddingTop: 20 },
-  label: { fontSize: 11, fontWeight: '700', color: COLORS.textLight, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, marginTop: 4 },
-  input: { backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 16, paddingVertical: 14, fontSize: 14, color: COLORS.textDark, marginBottom: 12 },
-  condicionesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16, marginTop: 4 },
-  condicionBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.white },
-  condicionBtnActive: { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold },
-  condicionBtnText: { fontSize: 12, color: COLORS.textLight },
-  condicionBtnTextActive: { color: COLORS.gold, fontWeight: '700' },
-  
-  // SECCIÓN RELOJEADO HARDWARE UX
-  seccionReloj: { backgroundColor: COLORS.goldPale, borderRadius: 10, padding: 12, marginBottom: 12, marginTop: 8, borderWidth: 1, borderColor: 'rgba(191,154,64,0.3)' },
-  relojTitulo: { fontSize: 12, fontWeight: '800', color: COLORS.gold },
-  
-  // Estilo del botón táctico de Redis
-  btnSincronizar: { backgroundColor: COLORS.cacao, borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginBottom: 16, borderWidth: 1, borderColor: COLORS.border },
-  btnSincronizarText: { color: COLORS.white, fontSize: 13, fontWeight: '700', letterSpacing: 0.5 },
-
-  seccionClinica: { backgroundColor: '#EBEAE6', borderRadius: 10, padding: 12, marginBottom: 12, marginTop: 8, borderWidth: 1, borderColor: COLORS.border },
-  clinicaTitulo: { fontSize: 12, fontWeight: '800', color: COLORS.textMid },
+  body: { 
+    flex: 1, 
+    paddingHorizontal: 16, 
+    paddingTop: 16 
+  },
   formGroup: {
-    marginBottom: 16, // Le da espacio hacia abajo para que no se pegue con el siguiente input
+    marginBottom: 16,
     width: '100%',
   },
-  seccionEmergencia: { backgroundColor: COLORS.redPale, borderRadius: 10, padding: 12, marginBottom: 12, marginTop: 8, borderWidth: 1, borderColor: 'rgba(217,79,79,0.2)' },
-  seccionTitulo: { fontSize: 12, fontWeight: '800', color: COLORS.red },
-  error: { color: COLORS.red, fontSize: 12, marginBottom: 12, textAlign: 'center' },
-  exito: { color: COLORS.green, fontSize: 12, marginBottom: 12, textAlign: 'center' },
-  btn: { backgroundColor: COLORS.gold, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
-  btnText: { color: COLORS.white, fontSize: 15, fontWeight: '800', letterSpacing: 1 },
-  btnDesactivar: { backgroundColor: COLORS.redPale, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 8, borderWidth: 1, borderColor: 'rgba(217,79,79,0.3)' },
-  btnDesactivarText: { color: COLORS.red, fontSize: 13, fontWeight: '700' },
+
+  // ── 2. ENCABEZADO ESTANDARIZADO (CACAO + DORADOS) ──
+  header: {
+    backgroundColor: COLORS.cacao,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#3A3530',
+  },
+  greeting: { 
+    fontSize: 10, 
+    fontWeight: '800', 
+    letterSpacing: 1, 
+    textTransform: 'uppercase', 
+    color: COLORS.gold, 
+    marginBottom: 2 
+  },
+  userName: { 
+    fontSize: 18, 
+    fontWeight: '800', 
+    color: COLORS.white 
+  },
+  backBtn: { 
+    width: 36, 
+    height: 36, 
+    borderRadius: 18, 
+    backgroundColor: 'rgba(255,255,255,0.1)', 
+    alignItems: 'center', 
+    justifyContent: 'center' 
+  },
+  backIcon: { 
+    fontSize: 18, 
+    color: COLORS.white,
+    fontWeight: 'bold' 
+  },
+
+  // ── 3. CAMPOS DE ENTRADA Y FORMULARIOS ──
+  label: { 
+    fontSize: 11, 
+    fontWeight: '700', 
+    color: COLORS.textLight, 
+    letterSpacing: 0.5, 
+    textTransform: 'uppercase', 
+    marginBottom: 6, 
+    marginTop: 4 
+  },
+  input: { 
+    backgroundColor: COLORS.white, 
+    borderRadius: 12, 
+    borderWidth: 1, 
+    borderColor: COLORS.border, 
+    paddingHorizontal: 16, 
+    paddingVertical: 12, 
+    fontSize: 14, 
+    color: COLORS.textDark, 
+    marginBottom: 12 
+  },
+
+  // ── 4. CHIPS DE CONDICIONES Y SELECCIÓN ──
+  condicionesGrid: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    gap: 8, 
+    marginBottom: 16, 
+    marginTop: 4 
+  },
+  condicionBtn: { 
+    paddingHorizontal: 12, 
+    paddingVertical: 8, 
+    borderRadius: 8, 
+    borderWidth: 1, 
+    borderColor: COLORS.border, 
+    backgroundColor: COLORS.white 
+  },
+  condicionBtnActive: { 
+    backgroundColor: COLORS.goldPale, 
+    borderColor: COLORS.gold 
+  },
+  condicionBtnText: { 
+    fontSize: 12, 
+    color: COLORS.textLight,
+    fontWeight: '600' 
+  },
+  condicionBtnTextActive: { 
+    color: COLORS.gold, 
+    fontWeight: '800' 
+  },
+
+  // ── 5. SECCIÓN HARDWARE / RELOJ (REDIS & TELEMETRÍA) ──
+  seccionReloj: { 
+    backgroundColor: COLORS.goldPale, 
+    borderRadius: 12, 
+    padding: 14, 
+    marginBottom: 14, 
+    marginTop: 4, 
+    borderWidth: 1, 
+    borderColor: COLORS.gold + '40' 
+  },
+  relojTitulo: { 
+    fontSize: 12, 
+    fontWeight: '800', 
+    color: COLORS.gold,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 4 
+  },
+  btnSincronizar: { 
+    backgroundColor: COLORS.cacao, 
+    borderRadius: 10, 
+    paddingVertical: 12, 
+    alignItems: 'center', 
+    marginBottom: 12, 
+    borderWidth: 1, 
+    borderColor: COLORS.border 
+  },
+  btnSincronizarText: { 
+    color: COLORS.white, 
+    fontSize: 13, 
+    fontWeight: '800', 
+    letterSpacing: 0.5 
+  },
+
+  // ── 6. SECCIÓN CLINICA Y EMERGENCIA ──
+  seccionClinica: { 
+    backgroundColor: COLORS.cream, 
+    borderRadius: 12, 
+    padding: 14, 
+    marginBottom: 14, 
+    borderWidth: 1, 
+    borderColor: COLORS.border 
+  },
+  clinicaTitulo: { 
+    fontSize: 12, 
+    fontWeight: '800', 
+    color: COLORS.cacao,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 6 
+  },
+  seccionEmergencia: { 
+    backgroundColor: COLORS.redPale, 
+    borderRadius: 12, 
+    padding: 14, 
+    marginBottom: 14, 
+    borderWidth: 1, 
+    borderColor: COLORS.red + '30' 
+  },
+  seccionTitulo: { 
+    fontSize: 12, 
+    fontWeight: '800', 
+    color: COLORS.red,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: 4 
+  },
+
+  // ── 7. ALERTAS Y BOTONES ACCIONABLES ──
+  error: { 
+    color: COLORS.red, 
+    fontSize: 12, 
+    marginBottom: 12, 
+    textAlign: 'center',
+    fontWeight: '700' 
+  },
+  exito: { 
+    color: COLORS.green, 
+    fontSize: 12, 
+    marginBottom: 12, 
+    textAlign: 'center',
+    fontWeight: '700' 
+  },
+  btn: { 
+    backgroundColor: COLORS.cacao, 
+    borderRadius: 12, 
+    paddingVertical: 14, 
+    alignItems: 'center', 
+    marginTop: 8,
+    shadowColor: COLORS.cacao,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  btnText: { 
+    color: COLORS.white, 
+    fontSize: 14, 
+    fontWeight: '800', 
+    letterSpacing: 0.5 
+  },
+  btnDesactivar: { 
+    backgroundColor: COLORS.redPale, 
+    borderRadius: 12, 
+    paddingVertical: 12, 
+    alignItems: 'center', 
+    marginTop: 8, 
+    borderWidth: 1, 
+    borderColor: COLORS.red + '40' 
+  },
+  btnDesactivarText: { 
+    color: COLORS.red, 
+    fontSize: 13, 
+    fontWeight: '800' 
+  },
 });

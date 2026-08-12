@@ -4,7 +4,7 @@ import * as Print from 'expo-print';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Modal, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, } from 'react-native';
 import { loadStoredToken } from '../services/api';
 const { documentDirectory, moveAsync, readAsStringAsync } = require('expo-file-system/legacy');
 
@@ -1156,33 +1156,200 @@ useFocusEffect(
   );
 }
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.cream },
-  header: { backgroundColor: COLORS.cacao, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16, flexDirection: 'row', alignItems: 'center' },
-  greeting: { fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginBottom: 2 },
-  userName: { fontSize: 20, fontWeight: '800', color: COLORS.white },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  backIcon: { fontSize: 18, color: COLORS.white },
-  body: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
-  emptyCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  cierreCard: { backgroundColor: COLORS.white, borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
-  cierreHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
-  cierreNombreCuidador: { fontSize: 13, fontWeight: '700', color: COLORS.textDark },
-  cierreFecha: { fontSize: 10, color: COLORS.textLight, marginTop: 2 },
-  estadoPill: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  estadoPillText: { fontSize: 10, fontWeight: '700' },
-  signosRow: { flexDirection: 'row', gap: 4, marginBottom: 10 },
-  signoItem: { flex: 1, backgroundColor: COLORS.cream, borderRadius: 6, paddingVertical: 8, paddingHorizontal: 2, alignItems: 'center', justifyContent: 'center' },
-  signoVal: { fontSize: 11, fontWeight: '800', color: COLORS.gold, textAlign: 'center' },
-  signoLabel: { fontSize: 9, color: COLORS.textLight, marginTop: 2 },
-  tareasSection: { borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 10, marginTop: 8 },
-  notasSection: { borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 10, marginTop: 10 },
-  tareasSectionTitle: { fontSize: 9, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase', color: COLORS.textLight, marginBottom: 8 },
-  tareaItem: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  tareaItemIcon: { fontSize: 14 },
-  tareaItemText: { flex: 1, fontSize: 12, fontWeight: '600', color: COLORS.textDark },
-  tareaItemHora: { fontSize: 10, color: COLORS.textLight },
-  notaItem: { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0', borderWidth: 1, borderRadius: 8, padding: 10, marginTop: 4 },
-  escalaRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  escalaLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textDark, minWidth: 80 },
-  escalaVal: { fontSize: 11, color: COLORS.textLight, flex: 1 },
+  // ── 1. ESTRUCTURA Y CONTENEDORES BASE ──
+  container: { 
+    flex: 1, 
+    backgroundColor: COLORS.cream 
+  },
+  body: { 
+    flex: 1, 
+    paddingHorizontal: 16, 
+    paddingTop: 16 
+  },
+
+  // ── 2. ENCABEZADO ESTANDARIZADO (CACAO + DORADOS) ──
+  header: { 
+    backgroundColor: COLORS.cacao, 
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52, 
+    paddingHorizontal: 16, 
+    paddingBottom: 16, 
+    flexDirection: 'row', 
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#3A3530',
+  },
+  greeting: { 
+    fontSize: 10, 
+    fontWeight: '800', 
+    letterSpacing: 1, 
+    textTransform: 'uppercase', 
+    color: COLORS.gold, 
+    marginBottom: 2 
+  },
+  userName: { 
+    fontSize: 18, 
+    fontWeight: '800', 
+    color: COLORS.white 
+  },
+  backBtn: { 
+    width: 36, 
+    height: 36, 
+    borderRadius: 18, 
+    backgroundColor: 'rgba(255,255,255,0.1)', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    marginRight: 12 
+  },
+  backIcon: { 
+    fontSize: 18, 
+    color: COLORS.white,
+    fontWeight: 'bold' 
+  },
+
+  // ── 3. TARJETAS DE HISTORIAL Y CIERRES ──
+  emptyCard: { 
+    backgroundColor: COLORS.white, 
+    borderRadius: 14, 
+    padding: 32, 
+    alignItems: 'center', 
+    borderWidth: 1, 
+    borderColor: COLORS.border 
+  },
+  cierreCard: { 
+    backgroundColor: COLORS.white, 
+    borderRadius: 14, 
+    padding: 16, 
+    marginBottom: 12, 
+    borderWidth: 1, 
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  cierreHeader: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between',
+    gap: 10, 
+    marginBottom: 12 
+  },
+  cierreNombreCuidador: { 
+    fontSize: 13, 
+    fontWeight: '800', 
+    color: COLORS.textDark 
+  },
+  cierreFecha: { 
+    fontSize: 10, 
+    color: COLORS.textLight, 
+    marginTop: 2,
+    fontWeight: '600'
+  },
+  estadoPill: { 
+    borderRadius: 20, 
+    paddingHorizontal: 10, 
+    paddingVertical: 4 
+  },
+  estadoPillText: { 
+    fontSize: 10, 
+    fontWeight: '800' 
+  },
+
+  // ── 4. SIGNOS VITALES DEL REGISTRO ──
+  signosRow: { 
+    flexDirection: 'row', 
+    gap: 4, 
+    marginBottom: 10 
+  },
+  signoItem: { 
+    flex: 1, 
+    backgroundColor: COLORS.cream, 
+    borderRadius: 8, 
+    paddingVertical: 8, 
+    paddingHorizontal: 2, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border + '60'
+  },
+  signoVal: { 
+    fontSize: 11, 
+    fontWeight: '800', 
+    color: COLORS.gold, 
+    textAlign: 'center' 
+  },
+  signoLabel: { 
+    fontSize: 9, 
+    color: COLORS.textLight, 
+    marginTop: 2,
+    fontWeight: '700',
+    textTransform: 'uppercase'
+  },
+
+  // ── 5. SECCIÓN DE TAREAS Y NOTAS CLINICAS ──
+  tareasSection: { 
+    borderTopWidth: 1, 
+    borderTopColor: COLORS.border, 
+    paddingTop: 10, 
+    marginTop: 8 
+  },
+  notasSection: { 
+    borderTopWidth: 1, 
+    borderTopColor: COLORS.border, 
+    paddingTop: 10, 
+    marginTop: 10 
+  },
+  tareasSectionTitle: { 
+    fontSize: 9, 
+    fontWeight: '800', 
+    letterSpacing: 1, 
+    textTransform: 'uppercase', 
+    color: COLORS.cacao, 
+    marginBottom: 8 
+  },
+  tareaItem: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 8, 
+    marginBottom: 6 
+  },
+  tareaItemIcon: { 
+    fontSize: 14 
+  },
+  tareaItemText: { 
+    flex: 1, 
+    fontSize: 12, 
+    fontWeight: '600', 
+    color: COLORS.textDark 
+  },
+  tareaItemHora: { 
+    fontSize: 10, 
+    color: COLORS.textLight,
+    fontWeight: '600'
+  },
+  notaItem: { 
+    backgroundColor: COLORS.amberPale, 
+    borderColor: COLORS.border, 
+    borderWidth: 1, 
+    borderRadius: 8, 
+    padding: 10, 
+    marginTop: 4 
+  },
+  escalaRow: { 
+    flexDirection: 'row', 
+    gap: 8, 
+    alignItems: 'center' 
+  },
+  escalaLabel: { 
+    fontSize: 11, 
+    fontWeight: '700', 
+    color: COLORS.textDark, 
+    minWidth: 80 
+  },
+  escalaVal: { 
+    fontSize: 11, 
+    color: COLORS.textLight, 
+    flex: 1 
+  },
 });
