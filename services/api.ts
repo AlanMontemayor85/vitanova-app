@@ -135,6 +135,54 @@ export const getNotasTurno = async (pacienteId: string) => {
   }
 };
 
+// 🎯 Interface para escribir de forma segura en TypeScript
+export interface DatosCierreTurno {
+  pacienteId: string;
+  estadoPaciente?: 'bien' | 'regular' | 'preocupante';
+  dolorEva: number;
+  estadoAnimo: string;
+  hidratacion: number;
+  alimentacion: string;
+  spo2?: number | null;
+  presionSistolica?: number | null;
+  presionDiastolica?: number | null;
+  frecuenciaCardiaca?: number | null;
+  temperatura?: number | null;
+  notas?: string;
+  insumos?: any[];
+}
+
+// 🎯 Función que realiza el POST al endpoint de FastAPI
+export const enviarCierreTurno = async (datos: DatosCierreTurno) => {
+  const payload = {
+    paciente_id: datos.pacienteId,
+    estado_paciente: datos.estadoPaciente || 'bien',
+    
+    // 🎯 MAPEADO DIRECTO A FastAPI Y SUPABASE:
+    dolor_eva: datos.dolorEva,
+    estado_animo: datos.estadoAnimo,
+    hidratacion_vasos: datos.hidratacion, // ⚠️ Mapeo clave para tu backend Pydantic
+    alimentacion: datos.alimentacion,
+
+    // Signos vitales opcionales
+    spo2: datos.spo2 ? Number(datos.spo2) : null,
+    presion_sistolica: datos.presionSistolica ? Number(datos.presionSistolica) : null,
+    presion_diastolica: datos.presionDiastolica ? Number(datos.presionDiastolica) : null,
+    frecuencia_cardiaca: datos.frecuenciaCardiaca ? Number(datos.frecuenciaCardiaca) : null,
+    temperatura: datos.temperatura ? Number(datos.temperatura) : null,
+    
+    notas: datos.notas || null,
+    inventario_usado: datos.insumos || []
+  };
+
+  const res = await fetchWithAuth(`${BASE_URL}/turnos/cerrar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  return res.json();
+};
 export const getHistorialCierres = async (pacienteId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/pacientes/${pacienteId}/historial-cierres`);
   return res.json();

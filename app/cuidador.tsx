@@ -2328,67 +2328,109 @@ if (vista === 'espontaneo') {
               <Text style={{ fontSize: 13, color: COLORS.textLight }}>{'kg'}</Text>
             </View>
 
-            {/* DOLOR EVA */}
-            <Text style={styles.sectionTitle}>{`Intensidad del Dolor (EVA): ${dolorEva}/10`}</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-              {[0,1,2,3,4,5,6,7,8,9,10].map(n => (
+            {/* 🔴 INTENSIDAD DEL DOLOR (ESCALA EVA) */}
+          <Text style={styles.sectionTitle}>{`Intensidad del Dolor (Escala EVA): ${dolorEva}/10`}</Text>
+          <Text style={{ fontSize: 11, color: COLORS.textLight, marginBottom: 8 }}>
+            0 = Sin dolor | 1-3 = Leve | 4-6 = Moderado | 7-10 = Severo
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => {
+              // Colorimetría clínica según nivel de dolor
+              let activeBg = COLORS.greenPale;
+              let activeColor = COLORS.green;
+              if (n >= 4 && n <= 6) { activeBg = COLORS.amberPale; activeColor = COLORS.amber; }
+              if (n >= 7) { activeBg = COLORS.redPale; activeColor = COLORS.red; }
+
+              const esSeleccionado = dolorEva === n;
+
+              return (
                 <TouchableOpacity
                   key={n}
                   style={{
-                    width: 44, height: 44, borderRadius: 22,
+                    width: 40, height: 40, borderRadius: 20,
                     borderWidth: 2,
-                    borderColor: dolorEva === n ? COLORS.gold : COLORS.border,
-                    backgroundColor: dolorEva === n ? COLORS.goldPale : COLORS.white,
+                    borderColor: esSeleccionado ? activeColor : COLORS.border,
+                    backgroundColor: esSeleccionado ? activeBg : COLORS.white,
                     justifyContent: 'center', alignItems: 'center'
                   }}
                   onPress={() => setDolorEva(n)}
                 >
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: dolorEva === n ? COLORS.gold : COLORS.textLight }}>{n}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* ESTADO DE ÁNIMO */}
-            <Text style={styles.sectionTitle}>Estado de ánimo</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-              {[
-                { val: 'tranquilo', icon: '😌' },
-                { val: 'ansioso', icon: '😰' },
-                { val: 'triste', icon: '😢' },
-                { val: 'agitado', icon: '😤' },
-                { val: 'confundido', icon: '😵' },
-                { val: 'alegre', icon: '😊' },
-              ].map(e => (
-                <TouchableOpacity
-                  key={e.val}
-                  style={{
-                    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
-                    borderWidth: 1,
-                    borderColor: estadoAnimo === e.val ? COLORS.gold : COLORS.border,
-                    backgroundColor: estadoAnimo === e.val ? COLORS.goldPale : COLORS.white,
-                  }}
-                  onPress={() => setEstadoAnimo(e.val)}
-                >
-                  <Text style={{ fontSize: 12, color: estadoAnimo === e.val ? COLORS.gold : COLORS.textLight }}>
-                    {`${e.icon} ${e.val}`}
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: esSeleccionado ? activeColor : COLORS.textLight }}>
+                    {n}
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </View>
+              );
+            })}
+          </View>
 
-            {/* HIDRATACIÓN */}
-            <Text style={styles.sectionTitle}>{`Hidratación: ${hidratacion} de 8 vasos`}</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-              {[1,2,3,4,5,6,7,8].map(n => (
-                <TouchableOpacity
-                  key={n}
-                  onPress={() => setHidratacion(hidratacion === n ? 0 : n)}
-                  style={{ alignItems: 'center' }}
-                >
-                  <Text style={{ fontSize: 28, opacity: hidratacion >= n ? 1 : 0.3 }}>💧</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+          {/* 🧠 ESTADO CONDUCTUAL Y ÁNIMO (CRITERIOS CAM / NPI-Q) */}
+          <Text style={styles.sectionTitle}>Estado de ánimo / Conducta</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+            {[
+              { val: 'tranquilo', icon: '😌', label: 'Tranquilo' },
+              { val: 'alegre', icon: '😊', label: 'Alegre' },
+              { val: 'ansioso', icon: '😰', label: 'Ansioso' },
+              { val: 'triste', icon: '😢', label: 'Triste' },
+              { val: 'agitado', icon: '😤', label: 'Agitado' },
+              { val: 'confundido', icon: '😵', label: 'Confundido' },
+              { val: 'somnoliento', icon: '😴', label: 'Somnoliento' },
+            ].map(e => (
+              <TouchableOpacity
+                key={e.val}
+                style={{
+                  paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
+                  borderWidth: 1,
+                  borderColor: estadoAnimo === e.val ? COLORS.gold : COLORS.border,
+                  backgroundColor: estadoAnimo === e.val ? COLORS.goldPale : COLORS.white,
+                }}
+                onPress={() => setEstadoAnimo(e.val)}
+              >
+                <Text style={{ fontSize: 12, fontWeight: '600', color: estadoAnimo === e.val ? COLORS.gold : COLORS.textLight }}>
+                  {`${e.icon} ${e.label}`}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* 💧 HIDRATACIÓN (CRITERIOS ESPEN) */}
+          <Text style={styles.sectionTitle}>{`Hidratación Aportada: ${hidratacion} de 8 vasos (Aprox. ${(hidratacion * 250)} ml)`}</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
+              <TouchableOpacity
+                key={n}
+                onPress={() => setHidratacion(hidratacion === n ? 0 : n)}
+                style={{ alignItems: 'center' }}
+              >
+                <Text style={{ fontSize: 26, opacity: hidratacion >= n ? 1 : 0.25 }}>💧</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* 🥗 APORTE NUTRICIONAL (CRITERIOS MNA) */}
+          <Text style={styles.sectionTitle}>Ingesta de Alimentos</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+            {[
+              { val: 'completa', label: '🍽️ Completa (>75%)' },
+              { val: 'parcial', label: '🥣 Parcial (25-75%)' },
+              { val: 'ninguna', label: '❌ Nula (<25%)' },
+            ].map(a => (
+              <TouchableOpacity
+                key={a.val}
+                style={{
+                  flex: 1, padding: 10, borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: alimentacion === a.val ? COLORS.green : COLORS.border,
+                  backgroundColor: alimentacion === a.val ? COLORS.greenPale : COLORS.white,
+                  alignItems: 'center'
+                }}
+                onPress={() => setAlimentacion(a.val)}
+              >
+                <Text style={{ fontSize: 10, color: alimentacion === a.val ? COLORS.green : COLORS.textLight, fontWeight: '700', textAlign: 'center' }}>
+                  {a.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
             {/* ALIMENTACIÓN */}
             <Text style={styles.sectionTitle}>Alimentación</Text>
