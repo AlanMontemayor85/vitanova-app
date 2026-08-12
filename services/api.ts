@@ -184,8 +184,15 @@ export const enviarCierreTurno = async (datos: DatosCierreTurno) => {
   return res.json();
 };
 export const getHistorialCierres = async (pacienteId: string) => {
-  const res = await fetchWithAuth(`${BASE_URL}/pacientes/${pacienteId}/historial-cierres`);
-  return res.json();
+  try {
+    const res = await fetchWithAuth(`${BASE_URL}/pacientes/${pacienteId}/historial-cierres`);
+    if (!res.ok) return { cierres: [] };
+    const data = await res.json();
+    return Array.isArray(data) ? data : (data?.cierres || []);
+  } catch (error) {
+    console.error('Error al obtener historial de cierres:', error);
+    return { cierres: [] };
+  }
 };
 
 export const getEquipoPaciente = async (pacienteId: string) => {

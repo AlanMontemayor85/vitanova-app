@@ -5,8 +5,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, DeviceEventEmitter, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getHoyLocalISO, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
+import { BannerAlertasPreventivas } from './components/BannerAlertasPreventivas';
+import { TarjetaUltimoCierre } from './components/TarjetaUltimoCierre';
 import CuidadorScreen from './cuidador';
-
 
 const COLORS = {
   gold: '#BF9A40',
@@ -891,7 +892,11 @@ useEffect(() => {
                 </Text>
               </View>
             )}
+            {/* 📊 Estado del último cierre registrado */}
+            {pacienteId && <TarjetaUltimoCierre pacienteId={pacienteId} />}
 
+            {/* 🛡️ Alertas y tamizaje preventivo basado en tendencias */}
+            {pacienteId && <BannerAlertasPreventivas pacienteId={pacienteId} />}
            {/* ======================================================== */}
             {/* 🎛️ SECCIÓN 2: ACCESOS RÁPIDOS OPERATIVOS                */}
             {/* ======================================================== */}
