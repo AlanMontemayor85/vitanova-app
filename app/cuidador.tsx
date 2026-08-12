@@ -173,7 +173,7 @@ export default function CuidadorScreen({
   const yaTransicionadoRef = useRef(false);
   const [nuevaTareaDesc, setNuevaTareaDesc] = useState('');
   const [nuevaTareaTipo, setNuevaTareaTipo] = useState('otro');
-  
+  const [mostrarSignosReloj, setMostrarSignosReloj] = useState<boolean>(false);
   const [nuevaTareaHora, setNuevaTareaHora] = useState(''); // Ej. "11:30" o "" para incidental pura
   const vistaRef = useRef(vista);
   const yaEntroConsolaRef = useRef(false);
@@ -2036,124 +2036,150 @@ const guardarRegistroEspontaneo = async () => {
     );
 }
 
-  // ── 3. VISTA MONITOREO ESPONTÁNEO (DISEÑO PREMIUM) ──
-if (vista === 'espontaneo') {
-  return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
-      
-      {/* ENCABEZADO */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={() => setVista('turno')} 
-          style={styles.backBtn}
-        >
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.greeting}>REGISTRO ESPONTÁNEO</Text>
-          <Text style={styles.userName}>Toma Manual de Signos Vitales</Text>
+  // ── 3. VISTA MONITOREO ESPONTÁNEO (DISEÑO PREMIUM ESTANDARIZADO) ──
+  if (vista === 'espontaneo') {
+    return (
+      <View style={styles.espontaneoContainer}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
+        
+        {/* ENCABEZADO ESTANDARIZADO CON DORADOS */}
+        <View style={styles.espontaneoHeader}>
+          <TouchableOpacity 
+            onPress={() => setVista('turno')} 
+            style={styles.espontaneoBackBtn}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.espontaneoBackIcon}>←</Text>
+          </TouchableOpacity>
+
+          <View style={{ flex: 1, marginLeft: 4 }}>
+            <Text style={styles.espontaneoTagline}>REGISTRO ESPONTÁNEO</Text>
+            <Text style={styles.espontaneoTitle} numberOfLines={1}>Captura Manual de Signos</Text>
+          </View>
+
+          <View style={styles.liveBadge}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveBadgeText}>MANUAL</Text>
+          </View>
         </View>
-      </View>
 
-      <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-        <View style={{ backgroundColor: COLORS.white, borderRadius: 16, padding: 18, borderWidth: 1, borderColor: COLORS.border, marginTop: 12 }}>
+        <ScrollView style={styles.espontaneoBody} showsVerticalScrollIndicator={false}>
           
-          <Text style={{ fontSize: 13, fontWeight: '800', color: COLORS.cacao, marginBottom: 16, textTransform: 'uppercase' }}>
-            🩺 Captura de Parámetros Clínicos
-          </Text>
-
-          {/* 1. PRESIÓN ARTERIAL */}
-          <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>
-            Presión Arterial (mmHg)
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 16 }}>
-            <TextInput
-              style={[styles.input, { flex: 1, textAlign: 'center', marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border }]}
-              placeholder="Sistólica (120)"
-              placeholderTextColor={COLORS.textLight}
-              keyboardType="numeric"
-              value={presionSist}
-              onChangeText={setPresionSist}
-            />
-            <Text style={{ fontSize: 20, color: COLORS.textLight, fontWeight: '700' }}>/</Text>
-            <TextInput
-              style={[styles.input, { flex: 1, textAlign: 'center', marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border }]}
-              placeholder="Diastólica (80)"
-              placeholderTextColor={COLORS.textLight}
-              keyboardType="numeric"
-              value={presionDiast}
-              onChangeText={setPresionDiast}
-            />
-          </View>
-
-          {/* 2. SPO2 Y PULSO */}
-          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>
-                SpO₂ Oxígeno (%)
-              </Text>
-              <TextInput
-                style={[styles.input, { marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, textAlign: 'center' }]}
-                placeholder="Ej. 98"
-                placeholderTextColor={COLORS.textLight}
-                keyboardType="numeric"
-                value={spo2Manual}
-                onChangeText={setSpo2Manual}
-              />
+          {/* MÓDULO 1: SIGNOS VITALES PRINCIPALES */}
+          <View style={styles.cardModulo}>
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardHeaderTitle}>🩺 Presión Arterial y Oxigenación</Text>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>
-                Pulso (bpm)
-              </Text>
-              <TextInput
-                style={[styles.input, { marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, textAlign: 'center' }]}
-                placeholder="Ej. 72"
-                placeholderTextColor={COLORS.textLight}
-                keyboardType="numeric"
-                value={frecCard}
-                onChangeText={setFrecCard}
-              />
-            </View>
-          </View>
 
-          {/* 3. TEMPERATURA Y GLUCOSA */}
-          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>
-                Temperatura (°C)
-              </Text>
-              <TextInput
-                style={[styles.input, { marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, textAlign: 'center' }]}
-                placeholder="Ej. 36.5"
-                placeholderTextColor={COLORS.textLight}
-                keyboardType="numeric"
-                value={tempManual}
-                onChangeText={setTempManual}
-              />
+            {/* PRESIÓN ARTERIAL */}
+            <Text style={styles.fieldLabel}>Presión Arterial (Sistólica / Diastólica)</Text>
+            <View style={styles.paRow}>
+              <View style={{ flex: 1 }}>
+                <TextInput
+                  style={styles.inputCentradoGrande}
+                  placeholder="120"
+                  placeholderTextColor={COLORS.textLight}
+                  keyboardType="numeric"
+                  value={presionSist}
+                  onChangeText={setPresionSist}
+                />
+                <Text style={styles.inputSubLabel}>Sistólica (mmHg)</Text>
+              </View>
+              
+              <Text style={styles.paSeparator}>/</Text>
+              
+              <View style={{ flex: 1 }}>
+                <TextInput
+                  style={styles.inputCentradoGrande}
+                  placeholder="80"
+                  placeholderTextColor={COLORS.textLight}
+                  keyboardType="numeric"
+                  value={presionDiast}
+                  onChangeText={setPresionDiast}
+                />
+                <Text style={styles.inputSubLabel}>Diastólica (mmHg)</Text>
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>
-                Glucosa (mg/dL)
-              </Text>
-              <TextInput
-                style={[styles.input, { marginBottom: 0, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, textAlign: 'center' }]}
-                placeholder="Ej. 95"
-                placeholderTextColor={COLORS.textLight}
-                keyboardType="numeric"
-                value={glucosa}
-                onChangeText={setGlucosa}
-              />
+
+            {/* SPO2 Y PULSO */}
+            <View style={styles.gridDosColumnas}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fieldLabel}>SpO₂ Oxígeno</Text>
+                <View style={styles.inputWithSuffix}>
+                  <TextInput
+                    style={styles.inputClean}
+                    placeholder="98"
+                    placeholderTextColor={COLORS.textLight}
+                    keyboardType="numeric"
+                    value={spo2Manual}
+                    onChangeText={setSpo2Manual}
+                  />
+                  <Text style={styles.suffixText}>%</Text>
+                </View>
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fieldLabel}>Pulso Cardiaco</Text>
+                <View style={styles.inputWithSuffix}>
+                  <TextInput
+                    style={styles.inputClean}
+                    placeholder="72"
+                    placeholderTextColor={COLORS.textLight}
+                    keyboardType="numeric"
+                    value={frecCard}
+                    onChangeText={setFrecCard}
+                  />
+                  <Text style={styles.suffixText}>bpm</Text>
+                </View>
+              </View>
             </View>
           </View>
 
-          {/* PESO */}
-            <Text style={styles.sectionTitle}>Peso del paciente (kg)</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 16, marginBottom: 16 }}>
-              <Text style={{ fontSize: 20, marginRight: 8 }}>⚖️</Text>
+          {/* MÓDULO 2: BIOMETRÍA Y TEMPERATURA */}
+          <View style={styles.cardModulo}>
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardHeaderTitle}>🌡️ Temperatura, Glucosa y Peso</Text>
+            </View>
+
+            <View style={styles.gridDosColumnas}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fieldLabel}>Temperatura</Text>
+                <View style={styles.inputWithSuffix}>
+                  <TextInput
+                    style={styles.inputClean}
+                    placeholder="36.5"
+                    placeholderTextColor={COLORS.textLight}
+                    keyboardType="numeric"
+                    value={tempManual}
+                    onChangeText={setTempManual}
+                  />
+                  <Text style={styles.suffixText}>°C</Text>
+                </View>
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fieldLabel}>Glucosa Capilar</Text>
+                <View style={styles.inputWithSuffix}>
+                  <TextInput
+                    style={styles.inputClean}
+                    placeholder="95"
+                    placeholderTextColor={COLORS.textLight}
+                    keyboardType="numeric"
+                    value={glucosa}
+                    onChangeText={setGlucosa}
+                  />
+                  <Text style={styles.suffixText}>mg/dL</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* PESO */}
+            <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Peso Corporal</Text>
+            <View style={styles.inputWithSuffix}>
+              <Text style={{ fontSize: 16, marginRight: 8 }}>⚖️</Text>
               <TextInput
-                style={{ flex: 1, fontSize: 16, color: COLORS.textDark, paddingVertical: 14 }}
-                placeholder="Ej. 70.5"
+                style={styles.inputClean}
+                placeholder="70.5"
                 placeholderTextColor={COLORS.textLight}
                 keyboardType="numeric"
                 value={peso === 0 ? '' : peso.toString()}
@@ -2165,66 +2191,71 @@ if (vista === 'espontaneo') {
                   if (!isNaN(num)) setPeso(num);
                 }}
               />
-              <Text style={{ fontSize: 13, color: COLORS.textLight }}>{'kg'}</Text>
+              <Text style={styles.suffixText}>kg</Text>
             </View>
+          </View>
 
-          {/* 5. OBSERVACIONES ADICIONALES */}
-          <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 6 }}>
-            Notas / Observaciones
-          </Text>
-          <TextInput
-            style={[styles.input, { height: 75, textAlignVertical: 'top', borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, padding: 10 }]}
-            placeholder="Escribe algún detalle relevante de la toma..."
-            placeholderTextColor={COLORS.textLight}
-            multiline
-            value={observaciones}
-            onChangeText={setObservaciones}
-          />
+          {/* MÓDULO 3: NOTAS DE OBSERVACIÓN */}
+          <View style={styles.cardModulo}>
+            <Text style={styles.fieldLabel}>📝 Notas y Contexto de la Toma</Text>
+            <TextInput
+              style={styles.textAreaPro}
+              placeholder="Ej. Paciente en reposo tras consumir alimentos..."
+              placeholderTextColor={COLORS.textLight}
+              multiline
+              numberOfLines={3}
+              value={observaciones}
+              onChangeText={setObservaciones}
+            />
+          </View>
 
-          {/* BOTÓN DE GUARDADO */}
-          <TouchableOpacity
-            style={[styles.cerrarBtn, { marginTop: 10, paddingVertical: 14 }]}
-            onPress={guardarRegistroEspontaneo}
-            disabled={guardandoEspontaneo}
-          >
-            {guardandoEspontaneo ? (
-              <ActivityIndicator color={COLORS.white} />
-            ) : (
-              <Text style={styles.cerrarBtnText}>💾 Guardar Toma Manual</Text>
-            )}
-          </TouchableOpacity>
+          {/* BOTONES Y ACCIONES (CON MARGEN INFERIOR DE SEGURIDAD) */}
+          <View style={styles.actionSection}>
+            <TouchableOpacity
+              style={styles.btnGuardarPro}
+              onPress={guardarRegistroEspontaneo}
+              disabled={guardandoEspontaneo}
+              activeOpacity={0.8}
+            >
+              {guardandoEspontaneo ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <Text style={styles.btnGuardarProText}>💾 Guardar Medición Clínica</Text>
+              )}
+            </TouchableOpacity>
 
-          {/* BOTÓN DE CANCELAR */}
-          <TouchableOpacity
-            style={{ marginTop: 12, paddingVertical: 10, alignItems: 'center' }}
-            onPress={() => setVista('turno')}
-          >
-            <Text style={{ color: COLORS.textLight, fontSize: 13, fontWeight: '600' }}>Cancelar y Volver</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.btnCancelarPro}
+              onPress={() => setVista('turno')}
+              activeOpacity={0.6}
+            >
+              <Text style={styles.btnCancelarProText}>Cancelar y Volver</Text>
+            </TouchableOpacity>
+          </View>
 
-        </View>
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    </View>
-  );
-}
-// ── 4. VISTA CIERRE DE TURNO ──
+          {/* 🎯 MARGEN DE RESGUARDO PARA BOTONES DE NAVEGACIÓN ANDROID */}
+          <View style={{ height: 60 }} />
+        </ScrollView>
+      </View>
+    );
+  }
+// ── 4. VISTA CIERRE DE TURNO (DISEÑO PRO & DESPLEGABLE) ──
   if (vista === 'cierre' && pacienteActivo) {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
         
+        {/* ENCABEZADO ESTANDARIZADO */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => setVista('turno')} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => setVista('turno')} style={styles.backBtn} activeOpacity={0.7}>
             <Text style={styles.backIcon}>←</Text>
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>Cierre de operaciones</Text>
-            <Text style={styles.userName}>{pacienteActivo.nombre_completo}</Text>
+            <Text style={styles.greeting}>CIERRE DE OPERACIONES</Text>
+            <Text style={styles.userName} numberOfLines={1}>{pacienteActivo.nombre_completo}</Text>
           </View>
         </View>
 
-        {/* 🚀 COMPONENTE CLAVE: Evita que el teclado sepulte el input de observaciones */}
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
@@ -2232,127 +2263,159 @@ if (vista === 'espontaneo') {
         >
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
 
-            {/* CONDICIÓN DE ENTREGA */}
+            {/* 1. CONDICIÓN DE ENTREGA (3 OPCIONES CLINICAS) */}
             <Text style={styles.sectionTitle}>Condición de Entrega del Paciente</Text>
             <View style={styles.estadoRow}>
-              {[{ val: 'bien', icon: '😊', label: 'Estable' }, { val: 'regular', icon: '😐', label: 'Regular' }].map((e) => (
-                <TouchableOpacity key={e.val} style={[styles.estadoCard, estadoPaciente === e.val && styles.estadoCardActive]} onPress={() => setEstadoPaciente(e.val)}>
-                  <Text style={{ fontSize: 26 }}>{e.icon}</Text>
+              {[
+                { val: 'bien', icon: '😊', label: 'Estable' },
+                { val: 'regular', icon: '😐', label: 'Regular' },
+                { val: 'preocupante', icon: '😟', label: 'Delicado' }
+              ].map((e) => (
+                <TouchableOpacity 
+                  key={e.val} 
+                  style={[styles.estadoCard, estadoPaciente === e.val && styles.estadoCardActive]} 
+                  onPress={() => setEstadoPaciente(e.val)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ fontSize: 24 }}>{e.icon}</Text>
                   <Text style={[styles.estadoLabel, estadoPaciente === e.val && { color: COLORS.gold }]}>{e.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
-             {/* 🩺 SECCIÓN DE SIGNOS VITALES EN CIERRE */}
-            <View style={{ backgroundColor: COLORS.white, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: COLORS.border, marginBottom: 16 }}>
+
+            {/* 2. 🩺 SIGNOS VITALES DE CIERRE (DESPLEGABLE SI HAY RELOJ) */}
+            <View style={{ backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, marginBottom: 16, overflow: 'hidden' }}>
               
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: COLORS.cacao }}>
-                  🩺 Signos Vitales de Cierre
-                </Text>
-                <View style={{ backgroundColor: signosDispositivo ? COLORS.greenPale : COLORS.amberPale, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
-                  <Text style={{ fontSize: 10, fontWeight: '700', color: signosDispositivo ? COLORS.green : COLORS.amber }}>
-                    {signosDispositivo ? '⌚ Reloj detectado' : '📝 Captura manual'}
+              {/* CABECERA ACORDEÓN */}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setMostrarSignosReloj(!mostrarSignosReloj)}
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: 14,
+                  backgroundColor: signosDispositivo ? COLORS.cream : COLORS.white
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: COLORS.cacao }}>
+                    🩺 Signos Vitales de Cierre
                   </Text>
+                  <View style={{ backgroundColor: signosDispositivo ? COLORS.greenPale : COLORS.amberPale, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
+                    <Text style={{ fontSize: 9, fontWeight: '800', color: signosDispositivo ? COLORS.green : COLORS.amber }}>
+                      {signosDispositivo ? '⌚ Reloj detectado' : '📝 Captura manual'}
+                    </Text>
+                  </View>
                 </View>
-              </View>
 
-              <Text style={{ fontSize: 10, color: COLORS.textLight, marginBottom: 12 }}>
-                {signosDispositivo 
-                  ? 'Puedes ingresar valores manuales si se tomaron con equipo médico (baumanómetro, glucómetro). Si se dejan vacíos, se usarán los del reloj.'
-                  : 'Ingresa los signos tomados durante el turno:'}
-              </Text>
+                {signosDispositivo && (
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.gold }}>
+                    {mostrarSignosReloj ? '▲ Ocultar' : '▼ Ajustar'}
+                  </Text>
+                )}
+              </TouchableOpacity>
 
-              {/* Presión Arterial */}
-              <Text style={{ fontSize: 10, fontWeight: '700', color: COLORS.textLight, marginBottom: 4 }}>
-                PRESIÓN ARTERIAL (mmHg)
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-                <TextInput
-                  style={{ flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, paddingVertical: 8, textAlign: 'center', fontSize: 13 }}
-                  placeholder={
-                    signosDispositivo?.presion && String(signosDispositivo.presion).includes('/')
-                      ? `Reloj: ${String(signosDispositivo.presion).split('/')[0]}`
-                      : "Sistólica"
-                  }
-                  placeholderTextColor={COLORS.textLight}
-                  keyboardType="numeric"
-                  value={presionSist}
-                  onChangeText={setPresionSist}
-                />
-                <Text style={{ fontWeight: '700', color: COLORS.textLight }}>/</Text>
-                <TextInput
-                  style={{ flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, paddingVertical: 8, textAlign: 'center', fontSize: 13 }}
-                  placeholder={
-                    signosDispositivo?.presion && String(signosDispositivo.presion).includes('/')
-                      ? `Reloj: ${String(signosDispositivo.presion).split('/')[1] || ''}`
-                      : "Diastólica"
-                  }
-                  placeholderTextColor={COLORS.textLight}
-                  keyboardType="numeric"
-                  value={presionDiast}
-                  onChangeText={setPresionDiast}
-                />
-              </View>
+              {/* CONTENIDO DE CAMPOS (SI NO HAY RELOJ O SI EL ACORDEÓN ESTÁ EXPANDIDO) */}
+              {(!signosDispositivo || mostrarSignosReloj) && (
+                <View style={{ padding: 14, borderTopWidth: 1, borderTopColor: COLORS.border + '50' }}>
+                  <Text style={{ fontSize: 10, color: COLORS.textLight, marginBottom: 12 }}>
+                    {signosDispositivo 
+                      ? 'Puedes ingresar valores manuales para sobreescribir la lectura del reloj si se tomaron con equipo médico.'
+                      : 'Ingresa los signos tomados durante el turno:'}
+                  </Text>
 
-              {/* SpO2 y Pulso */}
-              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 10, fontWeight: '700', color: COLORS.textLight, marginBottom: 4 }}>SpO₂ (%)</Text>
-                  <TextInput
-                    style={{ borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, paddingVertical: 8, textAlign: 'center', fontSize: 13 }}
-                    placeholder={signosDispositivo?.spo2 ? `Reloj: ${signosDispositivo.spo2}%` : "Ej. 98"}
-                    placeholderTextColor={COLORS.textLight}
-                    keyboardType="numeric"
-                    value={spo2Manual}
-                    onChangeText={setSpo2Manual}
-                  />
+                  {/* PRESIÓN ARTERIAL */}
+                  <Text style={styles.fieldLabel}>PRESIÓN ARTERIAL (mmHg)</Text>
+                  <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+                    <TextInput
+                      style={[styles.inputCentradoGrande, { flex: 1, paddingHorizontal: 4 }]}
+                      placeholder={
+                        signosDispositivo?.presion && String(signosDispositivo.presion).includes('/')
+                          ? `Reloj: ${String(signosDispositivo.presion).split('/')[0]}`
+                          : "Sistólica"
+                      }
+                      placeholderTextColor={COLORS.textLight}
+                      keyboardType="numeric"
+                      value={presionSist}
+                      onChangeText={setPresionSist}
+                    />
+                    <Text style={{ fontWeight: '700', color: COLORS.textLight, fontSize: 18 }}>/</Text>
+                    <TextInput
+                      style={[styles.inputCentradoGrande, { flex: 1, paddingHorizontal: 4 }]}
+                      placeholder={
+                        signosDispositivo?.presion && String(signosDispositivo.presion).includes('/')
+                          ? `Reloj: ${String(signosDispositivo.presion).split('/')[1] || ''}`
+                          : "Diastólica"
+                      }
+                      placeholderTextColor={COLORS.textLight}
+                      keyboardType="numeric"
+                      value={presionDiast}
+                      onChangeText={setPresionDiast}
+                    />
+                  </View>
+
+                  {/* SPO2 Y PULSO */}
+                  <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.fieldLabel}>SpO₂ (%)</Text>
+                      <TextInput
+                        style={styles.inputCentradoGrande}
+                        placeholder={signosDispositivo?.spo2 ? `Reloj: ${signosDispositivo.spo2}%` : "Ej. 98"}
+                        placeholderTextColor={COLORS.textLight}
+                        keyboardType="numeric"
+                        value={spo2Manual}
+                        onChangeText={setSpo2Manual}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.fieldLabel}>PULSO (bpm)</Text>
+                      <TextInput
+                        style={styles.inputCentradoGrande}
+                        placeholder={signosDispositivo?.fc ? `Reloj: ${signosDispositivo.fc}` : "Ej. 72"}
+                        placeholderTextColor={COLORS.textLight}
+                        keyboardType="numeric"
+                        value={frecCard}
+                        onChangeText={setFrecCard}
+                      />
+                    </View>
+                  </View>
+
+                  {/* TEMPERATURA Y GLUCOSA */}
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.fieldLabel}>TEMP (°C)</Text>
+                      <TextInput
+                        style={styles.inputCentradoGrande}
+                        placeholder={signosDispositivo?.temperatura ? `Reloj: ${signosDispositivo.temperatura}°` : "Ej. 36.5"}
+                        placeholderTextColor={COLORS.textLight}
+                        keyboardType="numeric"
+                        value={tempManual}
+                        onChangeText={setTempManual}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.fieldLabel}>GLUCOSA (mg/dL)</Text>
+                      <TextInput
+                        style={styles.inputCentradoGrande}
+                        placeholder="Ej. 95"
+                        placeholderTextColor={COLORS.textLight}
+                        keyboardType="numeric"
+                        value={glucosa}
+                        onChangeText={setGlucosa}
+                      />
+                    </View>
+                  </View>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 10, fontWeight: '700', color: COLORS.textLight, marginBottom: 4 }}>PULSO (bpm)</Text>
-                  <TextInput
-                    style={{ borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, paddingVertical: 8, textAlign: 'center', fontSize: 13 }}
-                    placeholder={signosDispositivo?.fc ? `Reloj: ${signosDispositivo.fc}` : "Ej. 72"}
-                    placeholderTextColor={COLORS.textLight}
-                    keyboardType="numeric"
-                    value={frecCard}
-                    onChangeText={setFrecCard}
-                  />
-                </View>
-              </View>
-
-              {/* Temperatura y Glucosa */}
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 10, fontWeight: '700', color: COLORS.textLight, marginBottom: 4 }}>TEMP (°C)</Text>
-                  <TextInput
-                    style={{ borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, paddingVertical: 8, textAlign: 'center', fontSize: 13 }}
-                    placeholder={signosDispositivo?.temperatura ? `Reloj: ${signosDispositivo.temperatura}°` : "Ej. 36.5"}
-                    placeholderTextColor={COLORS.textLight}
-                    keyboardType="numeric"
-                    value={tempManual}
-                    onChangeText={setTempManual}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 10, fontWeight: '700', color: COLORS.textLight, marginBottom: 4 }}>GLUCOSA (mg/dL)</Text>
-                  <TextInput
-                    style={{ borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, paddingVertical: 8, textAlign: 'center', fontSize: 13 }}
-                    placeholder="Ej. 95"
-                    placeholderTextColor={COLORS.textLight}
-                    keyboardType="numeric"
-                    value={glucosa}
-                    onChangeText={setGlucosa}
-                  />
-                </View>
-              </View>
-
+              )}
             </View>
-            {/* PESO */}
+
+            {/* 3. PESO CORPORAL */}
             <Text style={styles.sectionTitle}>Peso del paciente (kg)</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 16, marginBottom: 16 }}>
-              <Text style={{ fontSize: 20, marginRight: 8 }}>⚖️</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 14, marginBottom: 16 }}>
+              <Text style={{ fontSize: 18, marginRight: 8 }}>⚖️</Text>
               <TextInput
-                style={{ flex: 1, fontSize: 16, color: COLORS.textDark, paddingVertical: 14 }}
+                style={{ flex: 1, fontSize: 15, fontWeight: '700', color: COLORS.textDark, paddingVertical: 12 }}
                 placeholder="Ej. 70.5"
                 placeholderTextColor={COLORS.textLight}
                 keyboardType="numeric"
@@ -2365,242 +2428,211 @@ if (vista === 'espontaneo') {
                   if (!isNaN(num)) setPeso(num);
                 }}
               />
-              <Text style={{ fontSize: 13, color: COLORS.textLight }}>{'kg'}</Text>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textLight }}>kg</Text>
             </View>
 
-            {/* 🔴 INTENSIDAD DEL DOLOR (ESCALA EVA) */}
-          <Text style={styles.sectionTitle}>{`Intensidad del Dolor (Escala EVA): ${dolorEva}/10`}</Text>
-          <Text style={{ fontSize: 11, color: COLORS.textLight, marginBottom: 8 }}>
-            0 = Sin dolor | 1-3 = Leve | 4-6 = Moderado | 7-10 = Severo
-          </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => {
-              // Colorimetría clínica según nivel de dolor
-              let activeBg = COLORS.greenPale;
-              let activeColor = COLORS.green;
-              if (n >= 4 && n <= 6) { activeBg = COLORS.amberPale; activeColor = COLORS.amber; }
-              if (n >= 7) { activeBg = COLORS.redPale; activeColor = COLORS.red; }
+            {/* 4. 🔴 INTENSIDAD DEL DOLOR (ESCALA EVA MEJORADA) */}
+            <View style={{ backgroundColor: COLORS.white, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: COLORS.border, marginBottom: 16 }}>
+              <Text style={styles.sectionTitle}>{`Intensidad del Dolor (Escala EVA): ${dolorEva}/10`}</Text>
+              <Text style={{ fontSize: 10, color: COLORS.textLight, marginBottom: 12 }}>
+                0 = Sin dolor | 1-3 = Leve | 4-6 = Moderado | 7-10 = Severo
+              </Text>
+              
+              {/* 🎯 GRID EQUILIBRADO: Distribución responsiva */}
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => {
+                  let activeBg = COLORS.greenPale;
+                  let activeColor = COLORS.green;
+                  if (n >= 4 && n <= 6) { activeBg = COLORS.amberPale; activeColor = COLORS.amber; }
+                  if (n >= 7) { activeBg = COLORS.redPale; activeColor = COLORS.red; }
 
-              const esSeleccionado = dolorEva === n;
+                  const esSeleccionado = dolorEva === n;
 
-              return (
+                  return (
+                    <TouchableOpacity
+                      key={n}
+                      style={{
+                        width: 36, 
+                        height: 36, 
+                        borderRadius: 18,
+                        borderWidth: 1.5,
+                        borderColor: esSeleccionado ? activeColor : COLORS.border,
+                        backgroundColor: esSeleccionado ? activeBg : COLORS.cream,
+                        justifyContent: 'center', 
+                        alignItems: 'center'
+                      }}
+                      onPress={() => setDolorEva(n)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: esSeleccionado ? activeColor : COLORS.textDark }}>
+                        {n}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* 5. 🧠 ESTADO CONDUCTUAL Y ÁNIMO */}
+            <Text style={styles.sectionTitle}>Estado de ánimo / Conducta</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+              {[
+                { val: 'tranquilo', icon: '😌', label: 'Tranquilo' },
+                { val: 'alegre', icon: '😊', label: 'Alegre' },
+                { val: 'ansioso', icon: '😰', label: 'Ansioso' },
+                { val: 'triste', icon: '😢', label: 'Triste' },
+                { val: 'agitado', icon: '😤', label: 'Agitado' },
+                { val: 'confundido', icon: '😵', label: 'Confundido' },
+                { val: 'somnoliento', icon: '😴', label: 'Somnoliento' },
+              ].map(e => (
                 <TouchableOpacity
-                  key={n}
+                  key={e.val}
                   style={{
-                    width: 40, height: 40, borderRadius: 20,
-                    borderWidth: 2,
-                    borderColor: esSeleccionado ? activeColor : COLORS.border,
-                    backgroundColor: esSeleccionado ? activeBg : COLORS.white,
-                    justifyContent: 'center', alignItems: 'center'
+                    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: estadoAnimo === e.val ? COLORS.gold : COLORS.border,
+                    backgroundColor: estadoAnimo === e.val ? COLORS.goldPale : COLORS.white,
                   }}
-                  onPress={() => setDolorEva(n)}
+                  onPress={() => setEstadoAnimo(e.val)}
+                  activeOpacity={0.8}
                 >
-                  <Text style={{ fontSize: 13, fontWeight: '800', color: esSeleccionado ? activeColor : COLORS.textLight }}>
-                    {n}
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: estadoAnimo === e.val ? COLORS.gold : COLORS.textDark }}>
+                    {`${e.icon} ${e.label}`}
                   </Text>
                 </TouchableOpacity>
-              );
-            })}
-          </View>
+              ))}
+            </View>
 
-          {/* 🧠 ESTADO CONDUCTUAL Y ÁNIMO (CRITERIOS CAM / NPI-Q) */}
-          <Text style={styles.sectionTitle}>Estado de ánimo / Conducta</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-            {[
-              { val: 'tranquilo', icon: '😌', label: 'Tranquilo' },
-              { val: 'alegre', icon: '😊', label: 'Alegre' },
-              { val: 'ansioso', icon: '😰', label: 'Ansioso' },
-              { val: 'triste', icon: '😢', label: 'Triste' },
-              { val: 'agitado', icon: '😤', label: 'Agitado' },
-              { val: 'confundido', icon: '😵', label: 'Confundido' },
-              { val: 'somnoliento', icon: '😴', label: 'Somnoliento' },
-            ].map(e => (
-              <TouchableOpacity
-                key={e.val}
-                style={{
-                  paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
-                  borderWidth: 1,
-                  borderColor: estadoAnimo === e.val ? COLORS.gold : COLORS.border,
-                  backgroundColor: estadoAnimo === e.val ? COLORS.goldPale : COLORS.white,
-                }}
-                onPress={() => setEstadoAnimo(e.val)}
-              >
-                <Text style={{ fontSize: 12, fontWeight: '600', color: estadoAnimo === e.val ? COLORS.gold : COLORS.textLight }}>
-                  {`${e.icon} ${e.label}`}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+            {/* 6. 💧 HIDRATACIÓN (APORTE EN VASOS) */}
+            <Text style={styles.sectionTitle}>{`Hidratación: ${hidratacion} de 8 vasos (${(hidratacion * 250)} ml)`}</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, backgroundColor: COLORS.white, padding: 10, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border }}>
+              {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
+                <TouchableOpacity
+                  key={n}
+                  onPress={() => setHidratacion(hidratacion === n ? 0 : n)}
+                  style={{ alignItems: 'center' }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 22, opacity: hidratacion >= n ? 1 : 0.2 }}>💧</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-          {/* 💧 HIDRATACIÓN (CRITERIOS ESPEN) */}
-          <Text style={styles.sectionTitle}>{`Hidratación Aportada: ${hidratacion} de 8 vasos (Aprox. ${(hidratacion * 250)} ml)`}</Text>
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-            {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
-              <TouchableOpacity
-                key={n}
-                onPress={() => setHidratacion(hidratacion === n ? 0 : n)}
-                style={{ alignItems: 'center' }}
-              >
-                <Text style={{ fontSize: 26, opacity: hidratacion >= n ? 1 : 0.25 }}>💧</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* 🥗 APORTE NUTRICIONAL (CRITERIOS MNA) */}
-          <Text style={styles.sectionTitle}>Ingesta de Alimentos</Text>
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-            {[
-              { val: 'completa', label: '🍽️ Completa (>75%)' },
-              { val: 'parcial', label: '🥣 Parcial (25-75%)' },
-              { val: 'ninguna', label: '❌ Nula (<25%)' },
-            ].map(a => (
-              <TouchableOpacity
-                key={a.val}
-                style={{
-                  flex: 1, padding: 10, borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: alimentacion === a.val ? COLORS.green : COLORS.border,
-                  backgroundColor: alimentacion === a.val ? COLORS.greenPale : COLORS.white,
-                  alignItems: 'center'
-                }}
-                onPress={() => setAlimentacion(a.val)}
-              >
-                <Text style={{ fontSize: 10, color: alimentacion === a.val ? COLORS.green : COLORS.textLight, fontWeight: '700', textAlign: 'center' }}>
-                  {a.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-            {/* ALIMENTACIÓN */}
-            <Text style={styles.sectionTitle}>Alimentación</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+            {/* 7. 🥗 APORTE NUTRICIONAL */}
+            <Text style={styles.sectionTitle}>Ingesta de Alimentos</Text>
+            <View style={{ flexDirection: 'row', gap: 6, marginBottom: 16 }}>
               {[
                 { val: 'completa', label: '🍽️ Completa' },
                 { val: 'parcial', label: '🥣 Parcial' },
-                { val: 'ninguna', label: '❌ Ninguna' },
+                { val: 'ninguna', label: '❌ Nula' },
               ].map(a => (
                 <TouchableOpacity
                   key={a.val}
                   style={{
-                    flex: 1, padding: 10, borderRadius: 10,
+                    flex: 1, paddingVertical: 10, borderRadius: 10,
                     borderWidth: 1,
                     borderColor: alimentacion === a.val ? COLORS.green : COLORS.border,
                     backgroundColor: alimentacion === a.val ? COLORS.greenPale : COLORS.white,
                     alignItems: 'center'
                   }}
                   onPress={() => setAlimentacion(a.val)}
+                  activeOpacity={0.8}
                 >
-                  <Text style={{ fontSize: 11, color: alimentacion === a.val ? COLORS.green : COLORS.textLight, fontWeight: '700' }}>
+                  <Text style={{ fontSize: 11, color: alimentacion === a.val ? COLORS.green : COLORS.textDark, fontWeight: '700', textAlign: 'center' }}>
                     {a.label}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            {/* 📦 INSUMOS CONSUMIDOS EN ESTE TURNO */}
-        <Text style={{ fontSize: 13, fontWeight: '800', color: COLORS.textDark, marginTop: 16, marginBottom: 8 }}>
-          📦 Insumos consumidos en este turno
-        </Text>
+            {/* 8. 📦 INSUMOS CONSUMIDOS */}
+            <Text style={styles.sectionTitle}>📦 Insumos consumidos en este turno</Text>
 
-        {!inventarioHogar || inventarioHogar.length === 0 ? (
-          <View style={{
-            backgroundColor: COLORS.white,
-            borderRadius: 12,
-            padding: 16,
-            alignItems: 'center',
-            borderWidth: 1,
-            borderColor: COLORS.border,
-            marginBottom: 16
-          }}>
-            <Text style={{ color: COLORS.textLight, fontSize: 12 }}>
-              Sin insumos registrados en el inventario del hogar.
-            </Text>
-          </View>
-        ) : (
-          <View style={{ gap: 8, marginBottom: 16 }}>
-            {inventarioHogar.map((item: any) => {
-              const usandose = consumosTurno[item.id] || 0;
+            {!inventarioHogar || inventarioHogar.length === 0 ? (
+              <View style={{ backgroundColor: COLORS.white, borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, marginBottom: 16 }}>
+                <Text style={{ color: COLORS.textLight, fontSize: 11 }}>Sin insumos registrados en el inventario del hogar.</Text>
+              </View>
+            ) : (
+              <View style={{ gap: 8, marginBottom: 16 }}>
+                {inventarioHogar.map((item: any) => {
+                  const usandose = consumosTurno[item.id] || 0;
 
-              return (
-                <View 
-                  key={item.id} 
-                  style={{
-                    backgroundColor: COLORS.white,
-                    borderRadius: 12,
-                    padding: 12,
-                    borderWidth: 1,
-                    borderColor: COLORS.border,
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <Text style={{ fontWeight: '800', color: COLORS.textDark, fontSize: 13 }}>
-                      {item.nombre}
-                    </Text>
-                    <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 2 }}>
-                      Disponible: {item.cantidad} {item.unidad}
-                    </Text>
-                  </View>
-
-                  {/* Botones de consumo (-1 / +1) */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    {/* Botón Decrementar (Flecha Abajo) */}
-                    <TouchableOpacity
-                      onPress={() => cambiarConsumoItem(item.id, -1)}
-                      disabled={usandose <= 0}
+                  return (
+                    <View 
+                      key={item.id} 
                       style={{
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                        backgroundColor: COLORS.cream,
-                        borderRadius: 8,
+                        backgroundColor: COLORS.white,
+                        borderRadius: 12,
+                        padding: 10,
                         borderWidth: 1,
                         borderColor: COLORS.border,
-                        opacity: usandose <= 0 ? 0.3 : 1, // Se atenúa si ya está en 0
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
                       }}
                     >
-                      <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>▼</Text>
-                    </TouchableOpacity>
+                      <View style={{ flex: 1, marginRight: 8 }}>
+                        <Text style={{ fontWeight: '800', color: COLORS.textDark, fontSize: 12 }}>
+                          {item.nombre}
+                        </Text>
+                        <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 1 }}>
+                          Disponible: {item.cantidad} {item.unidad}
+                        </Text>
+                      </View>
 
-                    {/* Valor Usándose */}
-                    <Text style={{ fontWeight: '800', fontSize: 14, minWidth: 20, textAlign: 'center', color: COLORS.cacao }}>
-                      {usandose}
-                    </Text>
+                      {/* Botones (- / +) */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <TouchableOpacity
+                          onPress={() => cambiarConsumoItem(item.id, -1)}
+                          disabled={usandose <= 0}
+                          style={{
+                            paddingHorizontal: 10,
+                            paddingVertical: 4,
+                            backgroundColor: COLORS.cream,
+                            borderRadius: 6,
+                            borderWidth: 1,
+                            borderColor: COLORS.border,
+                            opacity: usandose <= 0 ? 0.3 : 1,
+                          }}
+                        >
+                          <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 12 }}>▼</Text>
+                        </TouchableOpacity>
 
-                    {/* Botón Incrementar (Flecha Arriba) */}
-                    <TouchableOpacity
-                      onPress={() => {
-                        if (usandose < item.cantidad) {
-                          cambiarConsumoItem(item.id, 1);
-                        }
-                      }}
-                      disabled={usandose >= item.cantidad}
-                      style={{
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                        backgroundColor: COLORS.cream,
-                        borderRadius: 8,
-                        borderWidth: 1,
-                        borderColor: COLORS.border,
-                        opacity: usandose >= item.cantidad ? 0.3 : 1, // Se atenúa si llega al stock máximo
-                      }}
-                    >
-                      <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 13 }}>▲</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
+                        <Text style={{ fontWeight: '800', fontSize: 13, minWidth: 18, textAlign: 'center', color: COLORS.cacao }}>
+                          {usandose}
+                        </Text>
 
-            {/* OBSERVACIONES */}
+                        <TouchableOpacity
+                          onPress={() => {
+                            if (usandose < item.cantidad) {
+                              cambiarConsumoItem(item.id, 1);
+                            }
+                          }}
+                          disabled={usandose >= item.cantidad}
+                          style={{
+                            paddingHorizontal: 10,
+                            paddingVertical: 4,
+                            backgroundColor: COLORS.cream,
+                            borderRadius: 6,
+                            borderWidth: 1,
+                            borderColor: COLORS.border,
+                            opacity: usandose >= item.cantidad ? 0.3 : 1,
+                          }}
+                        >
+                          <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 12 }}>▲</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* 9. OBSERVACIONES DEL TURNO */}
             <Text style={styles.sectionTitle}>Observaciones del turno</Text>
-            <View style={{ backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 16, marginBottom: 16 }}>
+            <View style={{ backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 12, marginBottom: 16 }}>
               <TextInput
-                style={{ fontSize: 14, color: COLORS.textDark, paddingVertical: 14, minHeight: 80, textAlignVertical: 'top' }}
+                style={{ fontSize: 13, color: COLORS.textDark, paddingVertical: 10, minHeight: 70, textAlignVertical: 'top' }}
                 placeholder="Comportamiento, incidencias, notas importantes..."
                 placeholderTextColor={COLORS.textLight}
                 multiline
@@ -2609,15 +2641,17 @@ if (vista === 'espontaneo') {
               />
             </View>
 
-            <TouchableOpacity style={[styles.confirmarBtn, { backgroundColor: '#25D366' }]} onPress={compartirWhatsApp}>
-              <Text style={styles.confirmarBtnText}>{'📲 Resumen por WhatsApp'}</Text>
+            {/* 10. ACCIONES FINALES */}
+            <TouchableOpacity style={[styles.confirmarBtn, { backgroundColor: '#25D366', marginTop: 0, marginBottom: 8 }]} onPress={compartirWhatsApp}>
+              <Text style={styles.confirmarBtnText}>📲 Resumen por WhatsApp</Text>
             </TouchableOpacity>
             
             <TouchableOpacity style={styles.confirmarBtn} onPress={ejecutarCierre}>
-              <Text style={styles.confirmarBtnText}>{'Confirmar y Concluir Turno'}</Text>
+              <Text style={styles.confirmarBtnText}>Confirmar y Concluir Turno</Text>
             </TouchableOpacity>
             
-            <View style={{ height: 40 }} />
+            {/* 🎯 ESPACIO DE SEGURIDAD PARA LIBERAR LA BARRA NATIVA DE ANDROID */}
+            <View style={{ height: 80 }} />
           </ScrollView>
         </KeyboardAvoidingView>
       </View>
@@ -2628,152 +2662,188 @@ if (vista === 'espontaneo') {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.cream },
-  header: { backgroundColor: COLORS.cacao, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16, flexDirection: 'row', alignItems: 'center' },
-  backBtn: { marginRight: 12 },
-  backIcon: { color: COLORS.white, fontSize: 20 },
-  greeting: { color: 'rgba(255,255,255,0.6)', fontSize: 12 },
-  userName: { color: COLORS.white, fontSize: 16, fontWeight: '700' },
+  // ── 1. ESTRUCTURA Y CONTENEDORES BASE ──
+  container: { 
+    flex: 1, 
+    backgroundColor: COLORS.cream 
+  },
+  espontaneoContainer: { 
+    flex: 1, 
+    backgroundColor: COLORS.cream 
+  },
+  body: { 
+    flex: 1, 
+    padding: 16 
+  },
+  espontaneoBody: { 
+    flex: 1, 
+    paddingHorizontal: 16, 
+    paddingTop: 12 
+  },
+
+  // ── 2. ENCABEZADOS Y NAVEGACIÓN ESTANDARIZADOS ──
+  header: { 
+    backgroundColor: COLORS.cacao, 
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52, 
+    paddingHorizontal: 16, 
+    paddingBottom: 14, 
+    flexDirection: 'row', 
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#3A3530',
+  },
+  espontaneoHeader: { 
+    backgroundColor: COLORS.cacao, 
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52, 
+    paddingBottom: 14, 
+    paddingHorizontal: 16, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between',
+    borderBottomWidth: 1, 
+    borderBottomColor: '#3A3530',
+  },
+  backBtn: { 
+    width: 36, 
+    height: 36, 
+    borderRadius: 18, 
+    backgroundColor: 'rgba(255,255,255,0.1)', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  espontaneoBackBtn: { 
+    width: 36, 
+    height: 36, 
+    borderRadius: 18, 
+    backgroundColor: 'rgba(255,255,255,0.1)', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  backIcon: { color: COLORS.white, fontSize: 18, fontWeight: 'bold' },
+  espontaneoBackIcon: { color: COLORS.white, fontSize: 18, fontWeight: 'bold' },
+  greeting: { color: COLORS.gold, fontSize: 10, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
+  espontaneoTagline: { color: COLORS.gold, fontSize: 10, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
+  userName: { color: COLORS.white, fontSize: 15, fontWeight: '800' },
+  espontaneoTitle: { color: COLORS.white, fontSize: 15, fontWeight: '800' },
   notifBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
   notifIcon: { fontSize: 16 },
-  body: { flex: 1, padding: 16 },
-  sectionTitle: { fontSize: 14, fontWeight: '800', color: COLORS.cacao, marginBottom: 12 },
+
+  // ── 3. BADGES E INDICADORES DE ESTADO ──
+  liveBadge: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: 'rgba(191, 154, 64, 0.15)', 
+    paddingHorizontal: 8, 
+    paddingVertical: 4, 
+    borderRadius: 6, 
+    borderWidth: 1, 
+    borderColor: COLORS.gold, 
+    gap: 5 
+  },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.gold },
+  liveBadgeText: { fontSize: 9, fontWeight: '900', color: COLORS.gold, letterSpacing: 0.5 },
+  badgeActivo: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.greenPale, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  activoDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.green },
+  badgeActivoText: { fontSize: 11, fontWeight: '700', color: COLORS.green },
+  turnoActivoPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  activoText: { color: COLORS.white, fontSize: 11, fontWeight: '600' },
+
+  // ── 4. TARJETAS Y MÓDULOS REUTILIZABLES ──
+  sectionTitle: { fontSize: 13, fontWeight: '800', color: COLORS.cacao, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   pacienteCard: { backgroundColor: COLORS.white, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
   pacienteAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.goldPale, justifyContent: 'center', alignItems: 'center' },
   pacienteAvatarText: { color: COLORS.gold, fontWeight: '700', fontSize: 16 },
   pacienteNombre: { fontSize: 15, fontWeight: '700', color: COLORS.textDark },
   pacienteCondiciones: { fontSize: 12, color: COLORS.textLight, marginTop: 2 },
-  badgeActivo: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.greenPale, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  activoDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.green },
-  badgeActivoText: { fontSize: 11, fontWeight: '700', color: COLORS.green },
-  iniciarBtn: { backgroundColor: COLORS.cacao, borderRadius: 8, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: COLORS.cacao },
-  iniciarBtnText: { color: COLORS.white, fontWeight: '700', fontSize: 13 },
-  turnoActivoPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  activoText: { color: COLORS.white, fontSize: 11, fontWeight: '600' },
   monitorCard: { borderRadius: 12, padding: 16, borderWidth: 1 },
   monitorSubTextLabel: { fontSize: 9, color: COLORS.textLight, marginTop: 4, fontWeight: '600' },
+  moduloCard: { backgroundColor: COLORS.white, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
+  cardModulo: { 
+    backgroundColor: COLORS.white, 
+    borderRadius: 14, 
+    padding: 16, 
+    marginBottom: 12, 
+    borderWidth: 1, 
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  cardHeaderRow: { borderBottomWidth: 1, borderBottomColor: COLORS.border + '60', paddingBottom: 8, marginBottom: 12 },
+  cardHeaderTitle: { fontSize: 12, fontWeight: '800', color: COLORS.cacao, textTransform: 'uppercase', letterSpacing: 0.5 },
+
+  // ── 5. SELECTORES Y CONTROLES DE ESTADO ──
   estadoRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   estadoCard: { flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
   estadoCardActive: { borderColor: COLORS.gold, backgroundColor: COLORS.goldPale },
   estadoLabel: { fontSize: 13, fontWeight: '600', color: COLORS.textMid, marginTop: 4 },
-  confirmarBtn: { backgroundColor: COLORS.cacao, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 12 },
-  confirmarBtnText: { color: COLORS.white, fontWeight: '800', fontSize: 14 },
-  moduloCard: { backgroundColor: COLORS.white, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
   signoLabel: { fontSize: 13, fontWeight: '700', color: COLORS.cacao, marginBottom: 10 },
+  fieldLabel: { fontSize: 10, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
   evaContainer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
   evaBtn: { padding: 8, borderRadius: 4, backgroundColor: COLORS.cream, borderWidth: 1, borderColor: COLORS.border },
   evaBtnActive: { backgroundColor: COLORS.red, borderColor: COLORS.red },
   evaBtnText: { fontSize: 12, color: COLORS.textDark, fontWeight: '600' },
   evaBtnTextActive: { color: COLORS.white },
+
+  // ── 6. CAMPOS DE ENTRADA (INPUTS) ──
+  input: { borderBottomWidth: 1, borderBottomColor: COLORS.border, paddingVertical: 10, fontSize: 15, color: COLORS.textDark, marginBottom: 16 },
+  inputSmall: { backgroundColor: COLORS.cream, borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, color: COLORS.textDark },
+  inputLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 4 },
+  paRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  paSeparator: { fontSize: 24, fontWeight: '300', color: COLORS.textLight, marginTop: -16 },
+  inputCentradoGrande: { backgroundColor: COLORS.cream, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, fontSize: 20, fontWeight: '800', color: COLORS.textDark, textAlign: 'center', paddingVertical: 10 },
+  inputSubLabel: { fontSize: 9, color: COLORS.textLight, textAlign: 'center', marginTop: 4, fontWeight: '600' },
+  gridDosColumnas: { flexDirection: 'row', gap: 12 },
+  inputWithSuffix: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.cream, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 12 },
+  inputClean: { flex: 1, fontSize: 15, fontWeight: '700', color: COLORS.textDark, paddingVertical: 10, textAlign: 'center' },
+  suffixText: { fontSize: 12, fontWeight: '700', color: COLORS.textLight, marginLeft: 4 },
+  textAreaPro: { backgroundColor: COLORS.cream, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, padding: 12, fontSize: 13, color: COLORS.textDark, height: 70, textAlignVertical: 'top' },
+
+  // ── 7. LISTAS, LISTADO DE TAREAS Y ALERTAS ──
   tareaCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, padding: 12, borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: COLORS.border },
   tareaIcon: { fontSize: 18, marginRight: 12 },
   tareaInfo: { flex: 1 },
   tareaTexto: { fontSize: 13, fontWeight: '600', color: COLORS.textDark },
   tareaHora: { fontSize: 11, color: COLORS.textLight, marginTop: 2 },
   tareaCheck: { width: 18, height: 18, borderRadius: 4, borderWidth: 2, borderColor: COLORS.border },
-  accionesRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  accionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 10, borderWidth: 1 },
-  accionBtnText: { fontSize: 12, fontWeight: '700' },
-  cerrarBtn: { backgroundColor: COLORS.gold, paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 8 },
-  cerrarBtnText: { color: COLORS.white, fontWeight: '800', fontSize: 14 },
   alertCard: { flexDirection: 'row', padding: 12, borderRadius: 10, borderWidth: 1, marginBottom: 8 },
   alertIcon: { fontSize: 18, marginRight: 10 },
   alertContent: { flex: 1 },
   alertTitle: { fontSize: 13, fontWeight: '700', color: COLORS.textDark },
   alertSub: { fontSize: 11, color: COLORS.textLight, marginTop: 2 },
-  input: {
-  borderBottomWidth: 1,
-  borderBottomColor: COLORS.border,
-  paddingVertical: 10,
-  fontSize: 15,
-  color: COLORS.textDark,
-  marginBottom: 16,
-},
-// 🎨 Estilos para Modales y Formularios
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContainer: {
-    width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1E293B',
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-    marginBottom: 4,
-  },
-  inputSmall: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 13,
-    color: '#0F172A',
-  },
-  
-  // 🏷️ Chips de Categoría
-  chipCat: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  chipCatSelected: {
-    backgroundColor: '#0284C7',
-    borderColor: '#0284C7',
-  },
-  chipCatText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  chipCatTextSelected: {
-    color: '#FFFFFF',
-  },
 
-  // 🔘 Botones
-  btnPrimario: {
-    backgroundColor: '#0284C7',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  btnPrimarioTexto: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  btnSecundario: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  btnSecundarioTexto: {
-    color: '#64748B',
-    fontWeight: '600',
-    fontSize: 13,
-  },
+  // ── 8. BOTONES ACCIONABLES Y ESTANDARIZADOS ──
+  iniciarBtn: { backgroundColor: COLORS.cacao, borderRadius: 8, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: COLORS.cacao },
+  iniciarBtnText: { color: COLORS.white, fontWeight: '700', fontSize: 13 },
+  confirmarBtn: { backgroundColor: COLORS.cacao, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 12 },
+  confirmarBtnText: { color: COLORS.white, fontWeight: '800', fontSize: 14 },
+  cerrarBtn: { backgroundColor: COLORS.gold, paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 8 },
+  cerrarBtnText: { color: COLORS.white, fontWeight: '800', fontSize: 14 },
+  accionesRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  accionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 10, borderWidth: 1 },
+  accionBtnText: { fontSize: 12, fontWeight: '700' },
+  actionSection: { marginTop: 8, gap: 8, marginBottom: 8 },
+  btnGuardarPro: { backgroundColor: COLORS.cacao, borderRadius: 12, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', shadowColor: COLORS.cacao, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 3 },
+  btnGuardarProText: { color: COLORS.white, fontSize: 14, fontWeight: '800', letterSpacing: 0.3 },
+  btnCancelarPro: { paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
+  btnCancelarProText: { color: COLORS.textDark, fontSize: 13, fontWeight: '700' },
+
+  // Botones Modales Estandarizados con la Paleta Institucional
+  btnPrimario: { backgroundColor: COLORS.cacao, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
+  btnPrimarioTexto: { color: COLORS.white, fontWeight: '800', fontSize: 13 },
+  btnSecundario: { backgroundColor: COLORS.cream, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center' },
+  btnSecundarioTexto: { color: COLORS.textDark, fontWeight: '700', fontSize: 13 },
+
+  // ── 9. MODALES Y CHIPS DE CATEGORÍA ──
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContainer: { width: '100%', backgroundColor: COLORS.white, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: COLORS.border, elevation: 5 },
+  modalTitle: { fontSize: 16, fontWeight: '800', color: COLORS.cacao, marginBottom: 16, textTransform: 'uppercase' },
+  chipCat: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: COLORS.cream, borderWidth: 1, borderColor: COLORS.border },
+  chipCatSelected: { backgroundColor: COLORS.gold, borderColor: COLORS.gold },
+  chipCatText: { fontSize: 11, fontWeight: '600', color: COLORS.textLight },
+  chipCatTextSelected: { color: COLORS.white, fontWeight: '800' },
 });
