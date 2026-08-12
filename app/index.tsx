@@ -497,50 +497,85 @@ useEffect(() => {
   const iniciales = paciente?.nombre_completo?.split(' ').map((n: string) => n[0]).slice(0, 2).join('') ?? 'VN';
 
  return (
-    <View style={styles.container}>
+   <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
-      
-      {/* HEADER */}
-      <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.greeting}>
-            {new Date().getHours() < 12 ? 'Buenos días' : new Date().getHours() < 19 ? 'Buenas tardes' : 'Buenas noches'}
-          </Text>
-          <Text style={styles.userName}>{nombreUsuario || getUserNombre() || 'Familiar'}</Text>
+
+      {/* ── 1. ENCABEZADO DINÁMICO SEGÚN MODO ── */}
+      {modoCuidadorFamiliar ? (
+        /* 🩺 HEADER ULTRA-COMPACTO (MODO CONSOLA) */
+        <View style={styles.headerConsolaCompacto}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+            <Text style={{ fontSize: 13 }}>🩺</Text>
+            <Text style={styles.userNameConsola} numberOfLines={1}>
+              {nombreUsuario || getUserNombre() || 'Cuidador'}
+            </Text>
+            <View style={styles.badgeConsola}>
+              <Text style={styles.badgeConsolaText}>MODO SWITCH</Text>
+            </View>
+          </View>
+
+          {/* SWITCH COMPACTO */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Switch
+              value={modoCuidadorFamiliar}
+              onValueChange={setModoCuidadorFamiliar}
+              trackColor={{ false: '#767577', true: COLORS.gold } as any}
+              thumbColor="#ffffff"
+              ios_backgroundColor="#3e3e3e"
+              style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+            />
+            <TouchableOpacity 
+              style={styles.notifBtnMin}
+              onPress={async () => {
+                await clearToken();
+                router.replace('/login');
+              }}
+            >
+              <Text style={{ fontSize: 13 }}>🚪</Text>
+            </TouchableOpacity>
+          </View>
         </View>
+      ) : (
+        /* 👨‍👩‍👧 HEADER AMPLIO HABITUAL (MODO FAMILIAR) */
+        <View style={styles.header}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.greeting}>
+              {new Date().getHours() < 12 ? 'Buenos días' : new Date().getHours() < 19 ? 'Buenas tardes' : 'Buenas noches'}
+            </Text>
+            <Text style={styles.userName}>{nombreUsuario || getUserNombre() || 'Familiar'}</Text>
+          </View>
 
-        {/* SWITCH MODO */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12, gap: 4 }}>
-          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>
-            {modoCuidadorFamiliar ? '🩺' : '👨‍👩‍👧'}
-          </Text>
-          <Switch
-            value={modoCuidadorFamiliar}
-            onValueChange={setModoCuidadorFamiliar}
-            trackColor={{ false: '#767577', true: COLORS.gold } as any}
-            thumbColor="#ffffff"
-            ios_backgroundColor="#3e3e3e"
-          />
+          {/* SWITCH MODO */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12, gap: 4 }}>
+            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>👨‍👩‍👧</Text>
+            <Switch
+              value={modoCuidadorFamiliar}
+              onValueChange={setModoCuidadorFamiliar}
+              trackColor={{ false: '#767577', true: COLORS.gold } as any}
+              thumbColor="#ffffff"
+              ios_backgroundColor="#3e3e3e"
+            />
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.notifBtn, { marginRight: 5 }]}
+            onPress={() => router.push('/nuevo-paciente' as any)}
+          >
+            <Text style={{ color: COLORS.gold, fontSize: 22, fontWeight: '800' }}>+</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.notifBtn}
+            onPress={async () => {
+              await clearToken();
+              router.replace('/login');
+            }}
+          >
+            <Text style={styles.notifIcon}>🚪</Text>
+          </TouchableOpacity>
         </View>
+      )}
 
-        <TouchableOpacity 
-          style={[styles.notifBtn, { marginRight: 5 }]}
-          onPress={() => router.push('/nuevo-paciente' as any)}
-        >
-          <Text style={{ color: COLORS.gold, fontSize: 22, fontWeight: '800' }}>+</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.notifBtn}
-          onPress={async () => {
-            await clearToken();
-            router.replace('/login');
-          }}
-        >
-          <Text style={styles.notifIcon}>🚪</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* ── INTERRUPTOR DINÁMICO DE CONSOLA ── */}
+      {/* ── 2. CONTENIDO PRINCIPAL SEGÚN MODO ── */}
       {modoCuidadorFamiliar ? (
         <CuidadorScreen
           key={params.pacienteIdConsola || 'embed'}
@@ -552,7 +587,7 @@ useEffect(() => {
           initialVista={params.pacienteIdConsola ? 'turno' : 'lista'}
         />
       ) : (
-        /* 👨‍👩‍👧 MODO FAMILIAR (Tu interfaz normal con tarjeta de paciente, scroll, bottomNav y modal) */
+        /* 👨‍👩‍👧 MODO FAMILIAR (Tu interfaz normal continua hacia abajo con el fragmento <>) */
         <>
           {/* PATIENT CARD */}
         <View style={{
@@ -1601,5 +1636,40 @@ btnMedirText: {
     borderWidth: 2,
     borderColor: '#D1D5DB',
   },
-
+headerConsolaCompacto: {
+    backgroundColor: '#3A3530',
+    // 🎯 AJUSTE DE ALTURA PARA LIBERAR LA BARRA DE ESTADO EN ANDROID E IOS
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 8 : 38) : 50,
+    paddingBottom: 10,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2C2820',
+  },
+  userNameConsola: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  badgeConsola: {
+    backgroundColor: COLORS.gold,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  badgeConsolaText: {
+    fontSize: 8,
+    fontWeight: '900',
+    color: '#2C2820',
+  },
+  notifBtnMin: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });

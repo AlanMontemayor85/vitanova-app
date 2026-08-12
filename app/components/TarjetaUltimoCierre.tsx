@@ -1,7 +1,7 @@
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { getUltimoCierre } from '../../services/api';
+import { getHistorialCierres, getUltimoCierre } from '../../services/api';
 
 const COLORS = {
   gold: '#BF9A40', goldPale: '#F5EDD8', cacao: '#4A4540', cream: '#FAFAF7',
@@ -42,19 +42,59 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
   const cargarCierre = async () => {
     try {
       setLoading(true);
-      const data = await getUltimoCierre(pacienteId);
       
-      // Si la API devuelve una lista o un objeto envuelto
-      const registro = Array.isArray(data) ? data[0] : (data?.cierre || data);
+      // 1. Intentamos obtener el último cierre
+      let res = await getUltimoCierre(pacienteId);
       
-      if (registro && !registro.error) {
-        setCierre(registro);
+      // 🎯 EXTRAER EL REGISTRO INDIVIDUAL
+      let registro = desempaquetarRegistro(res);
+
+      // 🛡️ FALLBACK DE SEGURIDAD:
+      // Si getUltimoCierre no devolvió un objeto válido con datos clínicos,
+      // consultamos el historial de cierres (que ya sabemos que sí funciona).
+      if (!registro || (registro.dolor_eva === undefined && !registro.created_at && !registro.id)) {
+        const resHistorial = await getHistorialCierres(pacienteId);
+        const listaHistorial = Array.isArray(resHistorial) 
+          ? resHistorial 
+          : (resHistorial?.cierres || resHistorial?.data || []);
+          
+        if (listaHistorial.length > 0) {
+          registro = listaHistorial[0]; // El primer elemento es el más reciente
+        }
       }
+
+      setCierre(registro);
     } catch (e) {
       console.error('Error cargando el último cierre:', e);
+      setCierre(null);
     } finally {
       setLoading(false);
     }
+  };
+
+  // 🔍 FUNCIÓN AUXILIAR PARA ABRIR CUALQUIER ENVOLTURA DE API
+  const desempaquetarRegistro = (res: any) => {
+    if (!res || res.error) return null;
+    
+    // Si viene como Array directo [...]
+    if (Array.isArray(res)) return res[0] || null;
+    
+    // Si viene envuelto en { cierres: [...] }
+    if (Array.isArray(res.cierres) && res.cierres.length > 0) return res.cierres[0];
+    
+    // Si viene envuelto en { data: [...] } o { data: {...} }
+    if (Array.isArray(res.data) && res.data.length > 0) return res.data[0];
+    if (res.data && typeof res.data === 'object' && !Array.isArray(res.data)) return res.data;
+    
+    // Si viene envuelto en { cierre: {...} }
+    if (res.cierre && typeof res.cierre === 'object') return res.cierre;
+    
+    // Si es el objeto directo del registro (contiene alguna clave del registro)
+    if (res.dolor_eva !== undefined || res.estado_animo !== undefined || res.created_at || res.id) {
+      return res;
+    }
+    
+    return null;
   };
 
   if (loading) {
@@ -68,7 +108,7 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
   if (!cierre) {
     return (
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>📊 Estado Físico y Conductual</Text>
+        <Text style={styles.cardTitle}>📊 Estado del Último Relevo</Text>
         <Text style={styles.emptyText}>Sin registros de cierre de turno recientes.</Text>
       </View>
     );

@@ -121,7 +121,7 @@ export default function CuidadorScreen({
   const [tareaTipo, setTareaTipo] = useState('otro');
   const [tareaHora, setTareaHora] = useState('');
   const [guardandoTarea, setGuardandoTarea] = useState(false);
-
+  const [mostrarAvisoMonitoreo, setMostrarAvisoMonitoreo] = useState<boolean>(false); // Inicia colapsado por defecto
   // 📡 Estados de Telemetría Real del Reloj
   const [signosDispositivo, setSignosDispositivo] = useState<any>(null);
   const [cargandoSignos, setCargandoSignos] = useState<boolean>(false);
@@ -1042,7 +1042,7 @@ const guardarRegistroEspontaneo = async () => {
     // 🔍 LOG 2: Muestra el status HTTP de la respuesta del servidor (ej. 200 OK)
     console.log('📡 [CIERRE] Status HTTP recibido:', res.status);
 
-    
+
     const data = await res.json();
     if (data.status === 'ok') {
       const pData = await getPacientes('cierre');
@@ -1365,28 +1365,60 @@ const guardarRegistroEspontaneo = async () => {
 
 
 
-         {/* 🎯 ACCESOS RÁPIDOS DE CONTROL (Condicionados por UX) */}
+        {/* 🎯 ACCESOS RÁPIDOS DE CONTROL (Condicionados por UX) */}
         <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Accesos rápidos de control</Text>
 
         {pacienteProp || pacienteActivo?.rol_en_equipo === 'familiar_principal' || pacienteActivo?.usuarioRol === 'familiar_principal' ? (
+          /* ⚡ MODO CONSOLA: Acordeón colapsable para ahorrar espacio vertical */
           <View style={{
             backgroundColor: COLORS.cream,
-            borderRadius: 12,
-            padding: 16,
-            marginBottom: 14,
+            borderRadius: 10,
+            marginBottom: 12,
             borderWidth: 1,
             borderColor: COLORS.border,
-            alignItems: 'center'
+            overflow: 'hidden'
           }}>
-            <Text style={{ fontSize: 18, marginBottom: 6 }}>👨‍👩‍👧</Text>
-            <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textDark, textAlign: 'center' }}>
-              Modo de Monitoreo Activo
-            </Text>
-            <Text style={{ fontSize: 10, color: COLORS.textLight, textAlign: 'center', marginTop: 2, lineHeight: 14 }}>
-              Para visualizar las gráficas, el mapa de ubicación o la red de cuidadores, por favor regrese al modo familiar usando el interruptor de arriba.
-            </Text>
+            {/* Cabecera delgada siempre visible (Haz clic para expandir/colapsar) */}
+            <TouchableOpacity 
+              activeOpacity={0.7}
+              onPress={() => setMostrarAvisoMonitoreo(!mostrarAvisoMonitoreo)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ fontSize: 13 }}>👨‍👩‍👧</Text>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textDark }}>
+                  Modo de Monitoreo Activo
+                </Text>
+              </View>
+              
+              <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.gold }}>
+                {mostrarAvisoMonitoreo ? '▲ Ocultar' : '▼ Info'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Contenido explicativo (Solo visible al desplegar) */}
+            {mostrarAvisoMonitoreo && (
+              <View style={{
+                paddingHorizontal: 12,
+                paddingBottom: 10,
+                paddingTop: 2,
+                borderTopWidth: 1,
+                borderTopColor: COLORS.border + '50',
+              }}>
+                <Text style={{ fontSize: 10, color: COLORS.textLight, textAlign: 'center', lineHeight: 14 }}>
+                  Para visualizar las gráficas, el mapa de ubicación o la red de cuidadores, por favor regrese al modo familiar usando el interruptor de arriba.
+                </Text>
+              </View>
+            )}
           </View>
         ) : (
+          /* 👨‍👩‍👧 MODO NORMAL: Botones de acceso directo */
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
             {/* 💬 Cuidadores */}
             <TouchableOpacity 
@@ -1402,7 +1434,7 @@ const guardarRegistroEspontaneo = async () => {
               <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Cuidadores</Text>
             </TouchableOpacity>
 
-            {/* ⚠️ Alertas - FIX: Pasa pacienteId y pacienteNombre */}
+            {/* ⚠️ Alertas */}
             <TouchableOpacity 
               style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
               onPress={() => router.push({ 
@@ -1418,7 +1450,7 @@ const guardarRegistroEspontaneo = async () => {
               <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Alertas</Text>
             </TouchableOpacity>
 
-            {/* 📍 Ubicación - Solo visible si el paciente tiene un reloj GPS activo */}
+            {/* 📍 Ubicación */}
             {Boolean(pacienteActivo?.reloj_imei && pacienteActivo.reloj_imei.trim() !== '') && (
               <TouchableOpacity 
                 style={{ 
