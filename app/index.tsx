@@ -62,6 +62,41 @@ export default function HomeScreen() {
   const esCoAdmin = miRol === 'familiar_co_admin';
   const esAdminRed = esPrincipal || esCoAdmin;
   const isFirstFocus = useRef(true);
+
+
+  const formatearHorarioRango = (horarioRaw: string | null | undefined): string => {
+  if (!horarioRaw) return 'Sin horario';
+
+  const formatearHoraUnica = (hora: string): string => {
+    let soloHora = hora.includes('T') ? hora.split('T')[1] : hora;
+    soloHora = soloHora.split('.')[0].split('-')[0].split('+')[0].trim();
+
+    const partes = soloHora.split(':');
+    if (partes.length < 1) return hora;
+
+    let horas = parseInt(partes[0], 10);
+    const minutos = partes[1] ? partes[1].padStart(2, '0') : '00';
+
+    if (isNaN(horas)) return hora;
+
+    const ampm = horas >= 12 ? 'p.m.' : 'a.m.';
+    horas = horas % 12;
+    horas = horas ? horas : 12;
+
+    return `${horas}:${minutos} ${ampm}`;
+  };
+
+  // Si contiene un guion/rango (ej. "08:00 - 18:00" o "08:00 — 18:00")
+  if (horarioRaw.includes('-') || horarioRaw.includes('—')) {
+    const separador = horarioRaw.includes('—') ? '—' : '-';
+    const partes = horarioRaw.split(separador);
+    if (partes.length === 2) {
+      return `${formatearHoraUnica(partes[0])} - ${formatearHoraUnica(partes[1])}`;
+    }
+  }
+
+  return formatearHoraUnica(horarioRaw);
+};
 // 📡 1. Función para jalar la telemetría más reciente del reloj
 const cargarSignosDispositivo = async (idToLoad?: string) => {
   const targetId = idToLoad || pacienteId;
@@ -829,7 +864,12 @@ useEffect(() => {
                   </View>
                   <View>
                     <Text style={styles.turnoName}>{turnoResumen.cuidador_nombre}</Text>
-                    <Text style={styles.turnoHora}>{turnoResumen.horario}</Text>
+                    
+                    {/* 🎯 HORARIO RANGO ESTANDARIZADO (Ej: 8:00 a.m. - 6:00 p.m.) */}
+                    <Text style={styles.turnoHora}>
+                      {formatearHorarioRango(turnoResumen.horario)}
+                    </Text>
+
                     {(turnoResumen.es_cobertura || turnoResumen.tipo_turno === 'familiar') && (
                       <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '700', marginTop: 2 }}>
                         👑 Cobertura familiar
