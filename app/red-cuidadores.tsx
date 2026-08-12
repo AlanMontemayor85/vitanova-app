@@ -41,9 +41,31 @@ const ROL_COLOR: Record<string, { bg: string; text: string; border: string }> = 
   medico: { bg: '#FFF0F0', text: COLORS.red, border: '#FFB0B0' },
 };
 
+// 🎯 Helper 12 Horas Limpia
+const formatearHoraBonita = (horaRaw: string | null | undefined): string => {
+  if (!horaRaw || horaRaw === 'Incidental') return 'Sin hora';
+  let soloHora = horaRaw.includes('T') ? horaRaw.split('T')[1] : horaRaw;
+  soloHora = soloHora.split('.')[0].split('-')[0].split('+')[0].trim();
+
+  const partes = soloHora.split(':');
+  if (partes.length < 1) return horaRaw;
+
+  let horas = parseInt(partes[0], 10);
+  const minutos = partes[1] ? partes[1].padStart(2, '0') : '00';
+
+  if (isNaN(horas)) return horaRaw;
+
+  const ampm = horas >= 12 ? 'p.m.' : 'a.m.';
+  horas = horas % 12;
+  horas = horas ? horas : 12;
+
+  return `${horas}:${minutos} ${ampm}`;
+};
+
+// 🎯 Formateador de Horarios para la Tarjeta de la Red
 function formatHorario(inicio?: string, fin?: string) {
   if (!inicio || !fin) return null;
-  return `${inicio.slice(0, 5)} — ${fin.slice(0, 5)}`;
+  return `${formatearHoraBonita(inicio)} — ${formatearHoraBonita(fin)}`;
 }
 
 export default function RedCuidadoresScreen() {
@@ -123,11 +145,9 @@ export default function RedCuidadoresScreen() {
         dias_semana: diasNormalizados,
       });
 
-      // Eventos para actualizar otros módulos de la app
       DeviceEventEmitter.emit('RECARGAR_TAREAS');
       DeviceEventEmitter.emit('RECARGAR_CUIDADORES');
 
-      // 🔄 1. Re-fetch directo para sincronizar con el estado real de la BD
       await cargarEquipo();
 
       setEditando(null);
@@ -153,15 +173,12 @@ export default function RedCuidadoresScreen() {
       mensaje: invMensaje.trim() || null,
     };
 
-    // Si es cuidador, adjuntamos los horarios normalizados
     if (invRol === 'cuidador_contratado') {
       const diasNormalizados = invDiasSeleccionados.map(d => DIAS_MAPA[d.toLowerCase()] || d);
       payloadInvitacion.horario_inicio = invHoraInicio.length === 5 ? invHoraInicio + ':00' : invHoraInicio;
       payloadInvitacion.horario_fin = invHoraFin.length === 5 ? invHoraFin + ':00' : invHoraFin;
       payloadInvitacion.dias_semana = diasNormalizados;
     }
-
-    console.log('🚀 [INVITACIÓN] Enviando payload:', payloadInvitacion);
 
     try {
       const res = await crearInvitacion(payloadInvitacion);
@@ -373,7 +390,10 @@ export default function RedCuidadoresScreen() {
 
             <Text style={styles.modalLabel}>Hora inicio</Text>
             <TouchableOpacity style={styles.modalInput} onPress={() => setShowInicioTimePicker(true)}>
-              <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.cacao }}>🕐 {horaInicio || '08:00'}</Text>
+              {/* 🎯 MUESTRA HORA FORMATO 12 HRS */}
+              <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.cacao }}>
+                🕐 {formatearHoraBonita(horaInicio || '08:00')}
+              </Text>
             </TouchableOpacity>
 
             {showInicioTimePicker && (
@@ -396,7 +416,10 @@ export default function RedCuidadoresScreen() {
 
             <Text style={styles.modalLabel}>Hora fin</Text>
             <TouchableOpacity style={styles.modalInput} onPress={() => setShowFinTimePicker(true)}>
-              <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.cacao }}>🕐 {horaFin || '20:00'}</Text>
+              {/* 🎯 MUESTRA HORA FORMATO 12 HRS */}
+              <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.cacao }}>
+                🕐 {formatearHoraBonita(horaFin || '20:00')}
+              </Text>
             </TouchableOpacity>
 
             {showFinTimePicker && (
@@ -445,7 +468,7 @@ export default function RedCuidadoresScreen() {
         </View>
       )}
 
-      {/* MODAL INVITAR CON DÍAS Y HORARIOS (SI ES CUIDADOR) */}
+      {/* MODAL INVITAR CON DÍAS Y HORARIOS */}
       {invitandoOpen && (
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { maxHeight: '85%' }]}>
@@ -499,25 +522,30 @@ export default function RedCuidadoresScreen() {
                   ))}
                 </View>
 
-                {/* 🎯 SECCIÓN DINÁMICA: SÓLO APARECE SI EL ROL ES CUIDADOR */}
                 {invRol === 'cuidador_contratado' && (
                   <View style={styles.horarioBox}>
                     <Text style={[styles.modalLabel, { marginTop: 0, color: COLORS.gold }]}>⏰ Asignación de Turno Inicial</Text>
                     
                     <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
-                      {/* HORA INICIO INVITACION */}
+                      {/* HORA INICIO INVITACIÓN */}
                       <View style={{ flex: 1 }}>
                         <Text style={{ fontSize: 10, color: COLORS.textLight, marginBottom: 4 }}>ENTRADA</Text>
                         <TouchableOpacity style={styles.modalInput} onPress={() => setShowInvInicioTimePicker(true)}>
-                          <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao }}>{invHoraInicio}</Text>
+                          {/* 🎯 MUESTRA HORA FORMATO 12 HRS */}
+                          <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao }}>
+                            {formatearHoraBonita(invHoraInicio)}
+                          </Text>
                         </TouchableOpacity>
                       </View>
 
-                      {/* HORA FIN INVITACION */}
+                      {/* HORA FIN INVITACIÓN */}
                       <View style={{ flex: 1 }}>
                         <Text style={{ fontSize: 10, color: COLORS.textLight, marginBottom: 4 }}>SALIDA</Text>
                         <TouchableOpacity style={styles.modalInput} onPress={() => setShowInvFinTimePicker(true)}>
-                          <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao }}>{invHoraFin}</Text>
+                          {/* 🎯 MUESTRA HORA FORMATO 12 HRS */}
+                          <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao }}>
+                            {formatearHoraBonita(invHoraFin)}
+                          </Text>
                         </TouchableOpacity>
                       </View>
                     </View>

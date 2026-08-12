@@ -1,7 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
-import { Calendar as CalendarIcon, CheckCircle, Clock } from 'lucide-react-native';
+import { Calendar as CalendarIcon, CheckCircle, Clock, Info } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
@@ -33,12 +33,46 @@ const ICONOS_TIPO: Record<string, string> = {
   incidental: '⚡',
 };
 
+// 🎯 Helper 1: Formato 12 Horas limpia
+const formatearHoraBonita = (horaRaw: string | null | undefined): string => {
+  if (!horaRaw || horaRaw === 'Incidental') return 'Incidental';
+  let soloHora = horaRaw.includes('T') ? horaRaw.split('T')[1] : horaRaw;
+  soloHora = soloHora.split('.')[0].split('-')[0].split('+')[0].trim();
+
+  const partes = soloHora.split(':');
+  if (partes.length < 1) return horaRaw;
+
+  let horas = parseInt(partes[0], 10);
+  const minutos = partes[1] ? partes[1].padStart(2, '0') : '00';
+
+  if (isNaN(horas)) return horaRaw;
+
+  const ampm = horas >= 12 ? 'p.m.' : 'a.m.';
+  horas = horas % 12;
+  horas = horas ? horas : 12;
+
+  return `${horas}:${minutos} ${ampm}`;
+};
+
+// 🎯 Helper 2: Formato Día / Mes / Año
+const ISOaLatino = (fechaISO: string | null | undefined): string => {
+  if (!fechaISO || fechaISO === 'null' || fechaISO === '') return '';
+  const soloFecha = fechaISO.split('T')[0].trim();
+  const partes = soloFecha.split('-');
+  if (partes.length !== 3) return fechaISO;
+  const [yyyy, mm, dd] = partes;
+  return `${dd}/${mm}/${yyyy}`;
+};
+
 interface TareaPlan {
   id: string;
   descripcion: string;
   hora: string;
   tipo: string;
   completada: boolean;
+  indicaciones?: string | null;
+  notas?: string | null;
+  ubicacion?: string | null;
 }
 
 export default function CalendarioScreen() {
@@ -48,6 +82,9 @@ export default function CalendarioScreen() {
   const [diaSeleccionado, setDiaSeleccionado] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [tareas, setTareas] = useState<TareaPlan[]>([]);
+  
+  // 🎯 Estado para el Modal Informativo de Detalle
+  const [itemSeleccionadoDetalle, setItemSeleccionadoDetalle] = useState<TareaPlan | null>(null);
 
   // 1. Inicializar con la fecha local de Monterrey
   useEffect(() => {
@@ -66,49 +103,48 @@ export default function CalendarioScreen() {
   }, [diaSeleccionado, pacienteId]);
 
   const cargarPlanDelDia = async () => {
-  setLoading(true);
-  try {
-    await loadStoredToken(); // Asegurar sesión
-    console.log(`🛰️ Consultando plan para fecha: ${diaSeleccionado} y paciente: ${pacienteId}`);
-    
-    const response = await getTareasDia(pacienteId, diaSeleccionado);
-    console.log("📥 Respuesta de tareas-dia:", response);
+    setLoading(true);
+    try {
+      await loadStoredToken();
+      
+      const response = await getTareasDia(pacienteId, diaSeleccionado);
 
-    // 🎯 FIX: Extraemos el arreglo de tareas desde response.tareas si viene dentro de un objeto
-    const arregloTareas = response && Array.isArray(response.tareas) 
-      ? response.tareas 
-      : Array.isArray(response) 
-        ? response 
-        : [];
+      const arregloTareas = response && Array.isArray(response.tareas) 
+        ? response.tareas 
+        : Array.isArray(response) 
+          ? response 
+          : [];
 
-    if (arregloTareas.length > 0) {
-      // Mapeamos los datos para homogeneizarlos en nuestro estado local
-      const formatoTareas = arregloTareas.map((t: any) => ({
-        id: t.id || String(Math.random()),
-        descripcion: t.descripcion || t.nombre || 'Sin descripción',
-        hora: t.hora || 'Incidental',
-        tipo: t.tipo || 'rutina',
-        completada: !!t.completada
-      }));
+      if (arregloTareas.length > 0) {
+        const formatoTareas = arregloTareas.map((t: any) => ({
+          id: t.id || String(Math.random()),
+          descripcion: t.descripcion || t.nombre || 'Sin descripción',
+          hora: t.hora || 'Incidental',
+          tipo: t.tipo || 'rutina',
+          completada: !!t.completada,
+          // 🎯 Guardamos las observaciones/modo de uso para el modal
+          indicaciones: t.indicaciones || t.instrucciones || t.modo_uso || null,
+          notas: t.notas || t.observaciones || null,
+          ubicacion: t.ubicacion || t.lugar_almacenaje || t.almacen || null,
+        }));
 
-      // Ordenar cronológicamente (las incidentales o sin hora al final)
-      formatoTareas.sort((a: TareaPlan, b: TareaPlan) => {
-        if (a.hora === 'Incidental') return 1;
-        if (b.hora === 'Incidental') return -1;
-        return a.hora.localeCompare(b.hora);
-      });
+        formatoTareas.sort((a: TareaPlan, b: TareaPlan) => {
+          if (a.hora === 'Incidental') return 1;
+          if (b.hora === 'Incidental') return -1;
+          return a.hora.localeCompare(b.hora);
+        });
 
-      setTareas(formatoTareas);
-    } else {
+        setTareas(formatoTareas);
+      } else {
+        setTareas([]);
+      }
+    } catch (error) {
+      console.error('❌ Error cargando plan de cuidados:', error);
       setTareas([]);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('❌ Error cargando plan de cuidados:', error);
-    setTareas([]);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <SafeAreaProvider>
@@ -135,11 +171,11 @@ export default function CalendarioScreen() {
           }}
         />
 
-        {/* Info del día seleccionado */}
+        {/* Info del día seleccionado (🎯 Fecha estandarizada DD/MM/YYYY) */}
         <View style={styles.headerDia}>
           <CalendarIcon size={18} color={COLORS.gold} style={{ marginRight: 8 }} />
           <Text style={styles.tituloDia}>
-            Plan de cuidados del <Text style={{ color: COLORS.gold }}>{diaSeleccionado}</Text>
+            Plan de cuidados del <Text style={{ color: COLORS.gold }}>{ISOaLatino(diaSeleccionado)}</Text>
           </Text>
         </View>
 
@@ -157,7 +193,11 @@ export default function CalendarioScreen() {
               <Text style={styles.listaVacia}>No hay actividades programadas para este día.</Text>
             }
             renderItem={({ item }) => (
-              <View style={[styles.card, item.completada && styles.cardCompletada]}>
+              <TouchableOpacity 
+                style={[styles.card, item.completada && styles.cardCompletada]}
+                onPress={() => setItemSeleccionadoDetalle(item)}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.tareaIcon}>{ICONOS_TIPO[item.tipo] ?? '📋'}</Text>
                 
                 <View style={styles.infoContainer}>
@@ -166,17 +206,93 @@ export default function CalendarioScreen() {
                   </Text>
                   <View style={styles.rowHora}>
                     <Clock size={12} color="#777777" style={{ marginRight: 4 }} />
-                    <Text style={styles.cardDetalle}>{item.hora}</Text>
+                    {/* 🎯 Hora formateada a 12 horas */}
+                    <Text style={styles.cardDetalle}>{formatearHoraBonita(item.hora)}</Text>
                   </View>
                 </View>
 
-                {item.completada && (
+                {item.completada ? (
                   <CheckCircle size={20} color={COLORS.green} style={styles.checkIcon} />
+                ) : (
+                  <Info size={18} color={COLORS.gold} style={styles.infoBtnIcon} />
                 )}
-              </View>
+              </TouchableOpacity>
             )}
           />
         )}
+
+        {/* 🎯 MODAL INFORMATIVO ESTANDARIZADO */}
+        <Modal 
+          visible={!!itemSeleccionadoDetalle} 
+          transparent 
+          animationType="fade" 
+          onRequestClose={() => setItemSeleccionadoDetalle(null)}
+        >
+          <TouchableOpacity 
+            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}
+            activeOpacity={1}
+            onPress={() => setItemSeleccionadoDetalle(null)}
+          >
+            <View style={{ backgroundColor: '#FFF', borderRadius: 14, padding: 20, width: '100%', maxWidth: 340, elevation: 5 }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: '#1E293B', marginBottom: 4 }}>
+                {itemSeleccionadoDetalle?.descripcion || 'Detalle de la tarea'}
+              </Text>
+
+              {itemSeleccionadoDetalle?.hora && (
+                <Text style={{ fontSize: 12, color: '#0EA5E9', fontWeight: '700', marginBottom: 14 }}>
+                  ⏰ Horario: {formatearHoraBonita(itemSeleccionadoDetalle.hora)}
+                </Text>
+              )}
+
+              {/* 📍 Ubicación en Casa */}
+              <View style={{ marginBottom: 12 }}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: 3 }}>
+                  📍 Ubicación en Casa:
+                </Text>
+                <Text style={{ fontSize: 13, color: '#334155' }}>
+                  {itemSeleccionadoDetalle?.ubicacion || 'Botiquín principal / Almacén general.'}
+                </Text>
+              </View>
+
+              {/* 💡 Indicaciones / Modo de Uso */}
+              <View style={{ marginBottom: 12 }}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: 3 }}>
+                  💡 Indicaciones / Modo de Uso:
+                </Text>
+                <Text style={{ fontSize: 13, color: '#334155' }}>
+                  {itemSeleccionadoDetalle?.indicaciones || 'Sin indicaciones especiales.'}
+                </Text>
+              </View>
+
+              {/* 📌 Notas adicionales (Oculta si es idéntico a Indicaciones) */}
+              {(() => {
+                const ind = itemSeleccionadoDetalle?.indicaciones || '';
+                const notas = itemSeleccionadoDetalle?.notas || '';
+                
+                if (!notas || notas.trim() === ind.trim()) return null;
+
+                return (
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: 3 }}>
+                      📌 Notas Adicionales:
+                    </Text>
+                    <Text style={{ fontSize: 13, color: '#334155' }}>
+                      {notas}
+                    </Text>
+                  </View>
+                );
+              })()}
+
+              <TouchableOpacity 
+                style={{ marginTop: 10, backgroundColor: '#0EA5E9', paddingVertical: 10, borderRadius: 8, alignItems: 'center' }}
+                onPress={() => setItemSeleccionadoDetalle(null)}
+              >
+                <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 13 }}>Entendido</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -249,6 +365,10 @@ const styles = StyleSheet.create({
   },
   checkIcon: {
     marginLeft: 8,
+  },
+  infoBtnIcon: {
+    marginLeft: 8,
+    opacity: 0.8,
   },
   listaVacia: {
     textAlign: 'center',

@@ -1582,12 +1582,13 @@ const guardarRegistroEspontaneo = async () => {
             >
               <View style={{ backgroundColor: '#FFF', borderRadius: 14, padding: 20, width: '100%', maxWidth: 340, elevation: 5 }}>
                 <Text style={{ fontSize: 16, fontWeight: '800', color: '#1E293B', marginBottom: 4 }}>
-                  {itemSeleccionadoDetalle?.descripcion || 'Detalle de la tarea'}
+                  {itemSeleccionadoDetalle?.descripcion || itemSeleccionadoDetalle?.nombre || 'Detalle de la tarea'}
                 </Text>
 
-                {itemSeleccionadoDetalle?.hora && (
+                {/* 🎯 1. HORA FORMATO 12 HRS (Convierte 19:00 a 7:00 p.m.) */}
+                {(itemSeleccionadoDetalle?.hora || itemSeleccionadoDetalle?.hora_programada) && (
                   <Text style={{ fontSize: 12, color: '#0EA5E9', fontWeight: '700', marginBottom: 14 }}>
-                    ⏰ Horario: {itemSeleccionadoDetalle.hora}
+                    ⏰ Horario: {formatearHoraBonita(itemSeleccionadoDetalle.hora_programada || itemSeleccionadoDetalle.hora)}
                   </Text>
                 )}
 
@@ -1607,21 +1608,28 @@ const guardarRegistroEspontaneo = async () => {
                     💡 Indicaciones / Modo de Uso:
                   </Text>
                   <Text style={{ fontSize: 13, color: '#334155' }}>
-                    {itemSeleccionadoDetalle?.indicaciones || 'Sin indicaciones especiales.'}
+                    {itemSeleccionadoDetalle?.indicaciones || itemSeleccionadoDetalle?.instrucciones || 'Sin indicaciones especiales.'}
                   </Text>
                 </View>
 
-                {/* 📌 Notas adicionales */}
-                {itemSeleccionadoDetalle?.notas && (
-                  <View style={{ marginBottom: 12 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: 3 }}>
-                      📌 Notas Adicionales:
-                    </Text>
-                    <Text style={{ fontSize: 13, color: '#334155' }}>
-                      {itemSeleccionadoDetalle.notas}
-                    </Text>
-                  </View>
-                )}
+                {/* 📌 Notas adicionales (🎯 2. Solo se muestra si es DIFERENTE a Indicaciones) */}
+                {(() => {
+                  const ind = itemSeleccionadoDetalle?.indicaciones || itemSeleccionadoDetalle?.instrucciones || '';
+                  const notas = itemSeleccionadoDetalle?.notas || '';
+                  
+                  if (!notas || notas.trim() === ind.trim()) return null;
+
+                  return (
+                    <View style={{ marginBottom: 12 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: 3 }}>
+                        📌 Notas Adicionales:
+                      </Text>
+                      <Text style={{ fontSize: 13, color: '#334155' }}>
+                        {notas}
+                      </Text>
+                    </View>
+                  );
+                })()}
 
                 <TouchableOpacity 
                   style={{ marginTop: 10, backgroundColor: '#0EA5E9', paddingVertical: 10, borderRadius: 8, alignItems: 'center' }}
