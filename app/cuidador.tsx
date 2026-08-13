@@ -2721,7 +2721,7 @@ const guardarRegistroEspontaneo = async () => {
                               onPress={() => setItemSeleccionadoDetalle(item)}
                               activeOpacity={0.7}
                             >
-                              <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: '#E3F2FD', justifyContent: 'center', alignItems: 'center' }}>
+                              <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' }}>
                                 <Text style={{ fontSize: 13 }}>ℹ️</Text>
                               </View>
                               <View style={{ flex: 1 }}>
