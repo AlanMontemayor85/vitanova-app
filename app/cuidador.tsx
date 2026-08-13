@@ -928,32 +928,41 @@ const guardarRegistroEspontaneo = async () => {
   };
 
   const compartirWhatsApp = () => {
-    // 🎯 1. Lectura directa de tus estados confirmados
-    const valSpo2 = spo2Manual || '';
-    const valSist = presionSist || '';
-    const valDiast = presionDiast || '';
-    const valFc = frecCard || '';
-    const valTemp = tempManual || '';
-    const valPeso = peso || '';
+    // 🎯 1. Jerarquía de Signos Vitales (Manual si existe, si no usa Reloj)
+    const valSpo2 = spo2Manual || signosDispositivo?.spo2 || '';
+    
+    // Presión
+    let valPresion = '';
+    if (presionSist && presionDiast) {
+      valPresion = `${presionSist}/${presionDiast}`;
+    } else if (signosDispositivo?.presion) {
+      valPresion = String(signosDispositivo.presion);
+    }
 
-    // 🎯 2. Emoji y etiqueta del estado de confort
-    const estadoActual = estadoPaciente || 'bien';
-    const emojiEstado = estadoActual === 'bien' ? '🟢' : estadoActual === 'preocupante' ? '🔴' : '🟡';
-    const textoEstado = estadoActual === 'bien' ? 'Estable / Sin Novedad' : estadoActual === 'preocupante' ? 'Requiere Atención' : 'Regular / Bajo Observación';
+    const valFc = frecCard || signosDispositivo?.fc || '';
+    const valTemp = tempManual || signosDispositivo?.temperatura || '';
+    const valGlucosa = glucosa || '';
+    const valPeso = peso && peso !== 0 ? peso : '';
 
-    // 🎯 3. Formateo de Signos Vitales
+    // 🎯 2. Condición y Conducta del Paciente
+    const emojiEstado = estadoPaciente === 'bien' ? '🟢' : estadoPaciente === 'preocupante' ? '🔴' : '🟡';
+    const textoEstado = estadoPaciente === 'bien' ? 'Estable' : estadoPaciente === 'preocupante' ? 'Delicado' : 'Regular';
+    const animoTexto = estadoAnimo ? estadoAnimo.toUpperCase() : 'TRANQUILO';
+
+    // 🎯 3. Formateo de Signos Vitales para WhatsApp
     const signosArr: string[] = [];
     if (valSpo2) signosArr.push(`• *SpO₂:* ${valSpo2}%`);
-    if (valSist && valDiast) signosArr.push(`• *Presión:* ${valSist}/${valDiast} mmHg`);
+    if (valPresion) signosArr.push(`• *Presión:* ${valPresion} mmHg`);
     if (valFc) signosArr.push(`• *FC:* ${valFc} bpm`);
     if (valTemp) signosArr.push(`• *Temp:* ${valTemp} °C`);
+    if (valGlucosa) signosArr.push(`• *Glucosa:* ${valGlucosa} mg/dL`);
     if (valPeso) signosArr.push(`• *Peso:* ${valPeso} kg`);
 
     const signosVitalesTexto = signosArr.length > 0 
       ? signosArr.join('\n') 
-      : '• Registrados en la consola clínica';
+      : '• Signos registrados en consola digital';
 
-    // 🎯 4. Formateo de Insumos Consumidos en el Turno
+    // 🎯 4. Consumo de Insumos del Turno
     const consumosMap = consumosTurno || {};
     const inventarioArr = inventarioHogar || [];
     const insumosConsumidosKeys = Object.keys(consumosMap).filter(id => consumosMap[id] > 0);
@@ -965,8 +974,7 @@ const guardarRegistroEspontaneo = async () => {
         }).filter(Boolean).join('\n')
       : '• Ninguno consumido';
 
-    // 🎯 5. Armado del texto formateado para WhatsApp
-    const nombrePaciente = pacienteActivo?.nombre_completo || 'Paciente';
+    // 🎯 5. Parámetros de Confort (Dolor EVA, Hidratación, Alimentos)
     const vasosHidratacion = typeof hidratacion === 'number' ? hidratacion : 0;
     const alimentacionTexto = alimentacion ? alimentacion.toUpperCase() : 'COMPLETA';
 
@@ -974,14 +982,17 @@ const guardarRegistroEspontaneo = async () => {
       ? `\n📝 *OBSERVACIONES DEL CUIDADOR:*\n_"${observaciones.trim()}"_\n` 
       : '';
 
+    // 🎯 6. Ensamblado del Mensaje Estructurado
     const mensaje = [
       `🏛️ *VITANOVA INTEGRALIS — REPORTE DE TURNO*`,
       `━━━━━━━━━━━━━━━━━━━━━━`,
-      `👤 *Paciente:* ${nombrePaciente}`,
+      `👤 *Paciente:* ${pacienteActivo?.nombre_completo || 'Paciente'}`,
       `📅 *Fecha/Hora:* ${new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })} | ${new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true })}`,
-      `🩺 *Estado de Confort:* ${emojiEstado} *${textoEstado}*`,
+      `🩺 *Condición de Entrega:* ${emojiEstado} *${textoEstado}*`,
+      `🧠 *Ánimo/Conducta:* ${animoTexto}`,
+      `🩹 *Dolor (EVA):* ${dolorEva}/10`,
       ``,
-      `📊 *SIGNOS VITALES REGISTRADOS:*`,
+      `📊 *SIGNOS VITALES:*`,
       signosVitalesTexto,
       ``,
       `🥣 *NUTRICIÓN E HIDRATACIÓN:*`,
@@ -996,10 +1007,10 @@ const guardarRegistroEspontaneo = async () => {
       `_Vitanova Integralis — Cuidado y Confort en Casa_`
     ].filter(Boolean).join('\n');
 
-    // 🎯 6. Abrir WhatsApp
+    // 🎯 7. Abrir WhatsApp
     const url = `whatsapp://send?text=${encodeURIComponent(mensaje)}`;
     Linking.openURL(url).catch(() => {
-      Alert.alert('Error', 'WhatsApp no está disponible en este dispositivo.');
+      Alert.alert('Error', 'WhatsApp no está disponible o instalado en este dispositivo.');
     });
   };
 
