@@ -106,18 +106,41 @@ export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
     }
 
     // 4. 🥗 RIESGO NUTRICIONAL (Mini Nutritional Assessment - MNA)
-    const turnosIncompletaONula = ultimosTurnos.filter(
-      t => t.alimentacion === 'parcial' || t.alimentacion === 'ninguna'
-    );
+    if (ultimosTurnos.length > 0) {
+      // A) EVALUACIÓN DEL TURNO MÁS RECIENTE (Actualidad)
+      const ultimoCierre = ultimosTurnos[0];
+      const valUltimo = ultimoCierre.alimentacion ? String(ultimoCierre.alimentacion).toLowerCase().trim() : '';
+      
+      const esUltimaIngestaNula = valUltimo === 'ninguna' || valUltimo === 'nula';
 
-    if (turnosIncompletaONula.length >= 2) {
-      hallazgos.push({
-        id: 'alerta_alimentacion',
-        nivel: 'AMBER',
-        titulo: '🥗 Ingesta Nutricional Incompleta',
-        mensaje: `Se reporta ingesta parcial o nula de alimentos en cierres recientes. Conviene monitorear apetito, disfagia o náuseas.`,
-        escala: 'Mini Nutritional Assessment (MNA)'
+      // B) EVALUACIÓN DE TENDENCIA (Últimos 7 turnos)
+      const turnosIncompletos = ultimosTurnos.filter(t => {
+        if (!t.alimentacion) return false;
+        const val = String(t.alimentacion).toLowerCase().trim();
+        return val === 'parcial' || val === 'ninguna' || val === 'nula';
       });
+
+      // 🎯 CONDICIONES PARA DISPARAR LA ALERTA:
+      // 1. Si el ÚLTIMO turno registrado fue nulo -> Alerta Roja (RED)
+      if (esUltimaIngestaNula) {
+        hallazgos.push({
+          id: 'alerta_alimentacion',
+          nivel: 'RED',
+          titulo: '🚨 Ingesta Nutricional Nula Registrada',
+          mensaje: 'Se ha registrado reporte de ingesta nula de alimentos en el cierre más reciente. Conviene verificar causas como disfagia, náuseas o inapetencia.',
+          escala: 'Mini Nutritional Assessment (MNA)'
+        });
+      
+      // 2. Si el último turno comió, pero acumula 3+ turnos con ingesta parcial -> Alerta Ámbar (AMBER)
+      } else if (turnosIncompletos.length >= 3) {
+        hallazgos.push({
+          id: 'alerta_alimentacion',
+          nivel: 'AMBER',
+          titulo: '🥗 Ingesta Nutricional Incompleta Persistente',
+          mensaje: `Se reportan ${turnosIncompletos.length} turnos recientes con ingesta parcial o insuficiente. Se sugiere monitorear la aceptación de la dieta.`,
+          escala: 'Mini Nutritional Assessment (MNA)'
+        });
+      }
     }
 
     return hallazgos;

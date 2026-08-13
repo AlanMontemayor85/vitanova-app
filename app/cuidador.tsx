@@ -2755,7 +2755,7 @@ const guardarRegistroEspontaneo = async () => {
               {[
                 { val: 'completa', label: '🍽️ Completa' },
                 { val: 'parcial', label: '🥣 Parcial' },
-                { val: 'ninguna', label: '❌ Nula' },
+                { val: 'ninguna', label: '❌ Nula' }, // 👈 El valor 'ninguna' empata con la alerta RED
               ].map(a => (
                 <TouchableOpacity
                   key={a.val}

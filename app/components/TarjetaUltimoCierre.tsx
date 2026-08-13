@@ -153,15 +153,44 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
   }
 
   return (
-    <View style={styles.card}>
-      <View style={styles.headerRow}>
+  <View style={styles.card}>
+    <View style={styles.headerRow}>
+      
+      {/* 📊 Título + 👤 Nombre del Cuidador/Especialista */}
+      <View style={{ flex: 1 }}>
         <Text style={styles.cardTitle}>📊 Estado del Último Relevo</Text>
-        {(cierre.created_at || cierre.fecha) && (
-          <Text style={styles.fechaBadge}>
-            {new Date(cierre.created_at || cierre.fecha).toLocaleDateString('es-MX')}
+        
+        {/* Muestra quién envió el reporte con fallbacks de nombre */}
+        {(cierre.cuidador_nombre || cierre.usuario_nombre || cierre.cuidador) && (
+          <Text style={{ fontSize: 11, color: '#8A8078', fontWeight: '600', marginTop: 2 }}>
+            Por: {cierre.cuidador_nombre || cierre.usuario_nombre || cierre.cuidador}
           </Text>
         )}
       </View>
+
+      {/* 📅 Fecha y 🕒 Hora Exacta del Cierre */}
+      {(cierre.created_at || cierre.fecha) && (
+        <View style={{ alignItems: 'flex-end' }}>
+          {/* Badge de Fecha */}
+          <Text style={styles.fechaBadge}>
+            {new Date(cierre.created_at || cierre.fecha).toLocaleDateString('es-MX', {
+              day: '2-digit',
+              month: 'short'
+            })}
+          </Text>
+
+          {/* Hora formateada a 12 horas (ej. 03:15 p.m.) */}
+          <Text style={{ fontSize: 10, color: '#8A8078', fontWeight: '700', marginTop: 3 }}>
+            🕒 {new Date(cierre.created_at || cierre.fecha).toLocaleTimeString('es-MX', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true
+            })}
+          </Text>
+        </View>
+      )}
+
+    </View>
 
       <View style={styles.grid}>
         {/* 🔴 DOLOR EVA */}
