@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   DeviceEventEmitter,
+  Modal,
   Platform,
   ScrollView,
   StatusBar,
@@ -1704,24 +1705,24 @@ const ejecutarEliminacion = async () => {
         <Text style={styles.label}>Nombre del ítem *</Text>
         <TextInput
           style={styles.input}
-          placeholder="Ej. Paracetamol, Pañales, Silla de Ruedas, Bastón"
+          placeholder="Ej. Paracetamol, Pañales Adulto, Gasas"
           placeholderTextColor={COLORS.textLight}
           value={invNombre}
           onChangeText={setInvNombre}
           autoFocus
         />
 
-        {/* 2. Dosis / Presentación */}
+        {/* 2. Dosis / Presentación (NUEVO E IMPRESCINDIBLE) */}
         <Text style={styles.label}>Dosis / Presentación</Text>
         <TextInput
           style={styles.input}
-          placeholder="Ej. 500 mg, Talla M, Plegable, Puntas de goma"
+          placeholder="Ej. 500 mg, 10 mg / 5 ml, Talla M"
           placeholderTextColor={COLORS.textLight}
           value={invDosis}
           onChangeText={setInvDosis}
         />
 
-        {/* 3. Categoría */}
+       {/* 🎯 3. Categoría (SE MANTIENE IGUAL PARA NO ROMPER EL BORRADO) */}
         <Text style={styles.label}>Categoría</Text>
         <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
           {[
@@ -1732,11 +1733,7 @@ const ejecutarEliminacion = async () => {
             <TouchableOpacity
               key={item.id}
               style={[styles.chipBtn, invTipo === item.id && styles.chipBtnActive]}
-              onPress={() => {
-                setInvTipo(item.id as any);
-                // Si cambia a medicamento o insumo, vuelve por defecto a consumible
-                if (item.id !== 'otro') setInvEsConsumible(true);
-              }}
+              onPress={() => setInvTipo(item.id as any)}
             >
               <Text style={[styles.chipBtnText, invTipo === item.id && styles.chipBtnTextActive]}>
                 {item.label}
@@ -1745,17 +1742,15 @@ const ejecutarEliminacion = async () => {
           ))}
         </View>
 
-        {/* 🎯 3.5. SELECTOR DE TIPO DE PROPIEDAD (SOLO SI ES 'OTRO') */}
+        {/* 🎯 3.5. SELECTOR ADICIONAL (Solo aparece si invTipo === 'otro', pero NO modifica invTipo) */}
         {invTipo === 'otro' && (
           <View style={{ marginBottom: 12 }}>
-            <Text style={styles.label}>Tipo de Propiedad / Uso</Text>
+            <Text style={styles.label}>Propiedad del elemento</Text>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              
-              {/* Opción Consumible */}
               <TouchableOpacity
                 style={{
                   flex: 1,
-                  paddingVertical: 10,
+                  paddingVertical: 8,
                   borderRadius: 8,
                   borderWidth: 1,
                   alignItems: 'center',
@@ -1769,11 +1764,10 @@ const ejecutarEliminacion = async () => {
                 </Text>
               </TouchableOpacity>
 
-              {/* Opción Activo Fijo / Equipo */}
               <TouchableOpacity
                 style={{
                   flex: 1,
-                  paddingVertical: 10,
+                  paddingVertical: 8,
                   borderRadius: 8,
                   borderWidth: 1,
                   alignItems: 'center',
@@ -1786,119 +1780,119 @@ const ejecutarEliminacion = async () => {
                   ♿ Activo Fijo / Equipo
                 </Text>
               </TouchableOpacity>
-
             </View>
           </View>
         )}
 
-        {/* 🎯 CAMPOS DE CONSUMO (Solo se muestran si ES CONSUMIBLE) */}
+        {/* 4. Cantidad y Unidad */}
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.label}>Cantidad Actual</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0"
+              placeholderTextColor={COLORS.textLight}
+              keyboardType="numeric"
+              value={invCantidad}
+              onChangeText={setInvCantidad}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.label}>Unidad</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="piezas, tabletas, ml"
+              placeholderTextColor={COLORS.textLight}
+              value={invUnidad}
+              onChangeText={setInvUnidad}
+            />
+          </View>
+        </View>
+
+        {/* 5. Mínimo en Stock y Fecha de Caducidad (SOLO SI ES CONSUMIBLE) */}
         {invEsConsumible ? (
-          <>
-            {/* 4. Cantidad y Unidad */}
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Cantidad Actual</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="0"
-                  placeholderTextColor={COLORS.textLight}
-                  keyboardType="numeric"
-                  value={invCantidad}
-                  onChangeText={setInvCantidad}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Unidad</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="piezas, ml"
-                  placeholderTextColor={COLORS.textLight}
-                  value={invUnidad}
-                  onChangeText={setInvUnidad}
-                />
-              </View>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Mínimo Stock</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ej. 5"
+                placeholderTextColor={COLORS.textLight}
+                keyboardType="numeric"
+                value={invMinimo}
+                onChangeText={setInvMinimo}
+              />
             </View>
 
-            {/* 5. Mínimo en Stock y Fecha de Caducidad */}
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Mínimo Stock</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ej. 5"
-                  placeholderTextColor={COLORS.textLight}
-                  keyboardType="numeric"
-                  value={invMinimo}
-                  onChangeText={setInvMinimo}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Fecha Caducidad</Text>
+              <TouchableOpacity
+                style={[styles.input, { justifyContent: 'center' }]}
+                onPress={() => setShowDatePickerInv(true)}
+              >
+                {/* 🎯 MUESTRA FECHA EN DD/MM/YYYY USANDO ISOaLatino */}
+                <Text style={{ color: invCaducidad ? COLORS.textDark : COLORS.textLight }}>
+                  {invCaducidad ? `🗓️ ${ISOaLatino(invCaducidad)}` : 'Seleccionar fecha...'}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Componente DatePicker */}
+              {showDatePickerInv && (
+                <DateTimePicker
+                  value={invCaducidad ? new Date(invCaducidad + 'T12:00:00') : new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, selectedDate) => {
+                    setShowDatePickerInv(false);
+                    if (selectedDate) {
+                      const yyyy = selectedDate.getFullYear();
+                      const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                      const dd = String(selectedDate.getDate()).padStart(2, '0');
+                      setInvCaducidad(`${yyyy}-${mm}-${dd}`);
+                    }
+                  }}
                 />
-              </View>
-
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Fecha Caducidad</Text>
-                <TouchableOpacity
-                  style={[styles.input, { justifyContent: 'center' }]}
-                  onPress={() => setShowDatePickerInv(true)}
-                >
-                  <Text style={{ color: invCaducidad ? COLORS.textDark : COLORS.textLight }}>
-                    {invCaducidad ? `🗓️ ${ISOaLatino(invCaducidad)}` : 'Seleccionar fecha...'}
-                  </Text>
-                </TouchableOpacity>
-
-                {showDatePickerInv && (
-                  <DateTimePicker
-                    value={invCaducidad ? new Date(invCaducidad + 'T12:00:00') : new Date()}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={(event, selectedDate) => {
-                      setShowDatePickerInv(false);
-                      if (selectedDate) {
-                        const yyyy = selectedDate.getFullYear();
-                        const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
-                        const dd = String(selectedDate.getDate()).padStart(2, '0');
-                        setInvCaducidad(`${yyyy}-${mm}-${dd}`);
-                      }
-                    }}
-                  />
-                )}
-              </View>
+              )}
             </View>
-          </>
+          </View>
         ) : (
-          /* INDICADOR VISUAL PARA ACTIVO FIJO */
-          <View style={{ backgroundColor: '#E3F2FD', padding: 10, borderRadius: 8, marginBottom: 12, borderWidth: 1, borderColor: '#BBDEFB' }}>
+          /* ♿ AVISO PARA ACTIVO FIJO / EQUIPO */
+          <View style={{ backgroundColor: '#E3F2FD', padding: 10, borderRadius: 8, marginVertical: 8, borderWidth: 1, borderColor: '#BBDEFB' }}>
             <Text style={{ fontSize: 11, color: '#1565C0', fontWeight: '700' }}>
-              ♿ Este elemento quedará registrado como equipo reutilizable. No requerirá stock mínimo ni fecha de caducidad.
+              ♿ Registrado como equipo reutilizable. No requiere alertas de stock mínimo ni fecha de caducidad.
             </Text>
           </View>
         )}
 
-        {/* 6. Casilla de Insumo Compartido */}
-        <TouchableOpacity
-          style={{ 
-            flexDirection: 'row', 
-            alignItems: 'center', 
-            backgroundColor: invEsCompartido ? '#E8F5E9' : '#F5F5F5', 
-            padding: 10, 
-            borderRadius: 8, 
-            marginVertical: 10,
-            borderWidth: 1,
-            borderColor: invEsCompartido ? COLORS.gold : '#E0E0E0'
-          }}
-          onPress={() => setInvEsCompartido(!invEsCompartido)}
-        >
-          <Text style={{ fontSize: 18, marginRight: 8 }}>
-            {invEsCompartido ? '☑️' : '⬛'}
-          </Text>
-          <Text style={{ color: COLORS.textDark, fontWeight: '600', fontSize: 13 }}>
-            Elemento compartido del hogar 🏠
-          </Text>
-        </TouchableOpacity>
+        {/* 6. Casilla de Insumo Compartido (NUEVO) */}
+       
+          <TouchableOpacity
+            style={{ 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              backgroundColor: invEsCompartido ? '#E8F5E9' : '#F5F5F5', 
+              padding: 10, 
+              borderRadius: 8, 
+              marginVertical: 10,
+              borderWidth: 1,
+              borderColor: invEsCompartido ? COLORS.gold : '#E0E0E0'
+            }}
+            onPress={() => setInvEsCompartido(!invEsCompartido)}
+          >
+            <Text style={{ fontSize: 18, marginRight: 8 }}>
+              {invEsCompartido ? '☑️' : '⬛'}
+            </Text>
+            <Text style={{ color: COLORS.textDark, fontWeight: '600', fontSize: 13 }}>
+              Insumo compartido del hogar 🏠
+            </Text>
+          </TouchableOpacity>
+ 
 
         {/* 7. Notas adicionales */}
         <Text style={styles.label}>Notas adicionales</Text>
         <TextInput
           style={[styles.input, { minHeight: 50, textAlignVertical: 'top' }]}
-          placeholder="Ubicación en recámara, número de serie o instrucciones..."
+          placeholder="Ubicación en repisa o instrucciones de compra..."
           placeholderTextColor={COLORS.textLight}
           multiline
           value={invNotas}
@@ -1930,6 +1924,90 @@ const ejecutarEliminacion = async () => {
     </ScrollView>
   </View>
 )}
+{/* 🏠 MODAL DE VINCULACIÓN DE HOGAR */}
+<Modal visible={modalVincularOpen} transparent animationType="slide">
+  <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
+    <View style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20 }}>
+      
+      <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 8 }}>
+        🏠 Compartir Despensa del Hogar
+      </Text>
+      
+      <Text style={{ fontSize: 13, color: '#666', marginBottom: 16 }}>
+        Selecciona con qué paciente deseas vincular a <Text style={{ fontWeight: 'bold' }}>{paciente?.nombre_completo}</Text> para compartir insumos comunes.
+      </Text>
+
+      {/* Lista de otros pacientes (excluyendo al paciente actual) */}
+      {listaPacientes
+        .filter((p: any) => p.id !== paciente?.id)
+        .map((p: any) => (
+          <TouchableOpacity
+            key={p.id}
+            disabled={procesandoVinculo}
+            onPress={() => handleVincularPacientes(p.id)}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#F5F5F5',
+              padding: 14,
+              borderRadius: 10,
+              marginBottom: 10,
+            }}
+          >
+            <Text style={{ fontSize: 20, marginRight: 10 }}>👤</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, fontWeight: '600', color: '#333' }}>{p.nombre_completo}</Text>
+              <Text style={{ fontSize: 12, color: '#888' }}>Tocar para vincular hogar</Text>
+            </View>
+            {procesandoVinculo && <ActivityIndicator color="#007AFF" />}
+          </TouchableOpacity>
+        ))}
+
+      {/* Botón Cancelar */}
+      <TouchableOpacity
+        onPress={() => setModalVincularOpen(false)}
+        style={{ marginTop: 10, padding: 12, alignItems: 'center' }}
+      >
+        <Text style={{ color: '#888', fontWeight: 'bold' }}>Cancelar</Text>
+      </TouchableOpacity>
+
+    </View>
+  </View>
+</Modal>
+      {/* MODAL CONFIRMAR ELIMINACIÓN */}
+      {confirmDelete && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Confirmar eliminación</Text>
+            <Text style={{ color: COLORS.textDark, marginVertical: 12 }}>
+              ¿Estás seguro de que deseas eliminar "{confirmDelete.nombre}"?
+            </Text>
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: COLORS.cream, flex: 1 }]}
+                onPress={() => setConfirmDelete(null)}
+              >
+                <Text style={{ color: COLORS.textLight, textAlign: 'center', fontWeight: '700' }}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: COLORS.red, flex: 1 }]}
+                onPress={() => {
+                  console.log("👆 Botón Confirmar Borrado Presionado para:", confirmDelete);
+                  ejecutarEliminacion();
+                }}
+              >
+                <Text style={{ color: '#FFF', textAlign: 'center', fontWeight: '700' }}>
+                  Eliminar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
