@@ -192,300 +192,460 @@ useFocusEffect(
   }, [pacienteId])
 );
 
-  // 📄 EXPORTACIÓN COMPLETA A PDF CON ALINEACIÓN PERFECTA
-  const generarPDF = async (c: any) => {
-    let logoBase64 = "";
-    try {
-      const asset = Asset.fromModule(require('../assets/images/logo.png'));
-      await asset.downloadAsync();
-      if (asset.localUri) {
-        const base64Raw = await readAsStringAsync(asset.localUri, { encoding: 'base64' });
-        logoBase64 = `data:image/png;base64,${base64Raw}`;
-      }
-    } catch (err) {
-      console.error("⚠️ No se pudo procesar el logo para el PDF:", err);
+  // 📄 EXPORTACIÓN COMPLETA A PDF — Reporte Clínico de Turno
+const generarPDF = async (c: any) => {
+  // ── 1. LOGO ──────────────────────────────────────────────
+  let logoBase64 = '';
+  try {
+    const asset = Asset.fromModule(require('../assets/images/logo.png'));
+    await asset.downloadAsync();
+    if (asset.localUri) {
+      const base64Raw = await readAsStringAsync(asset.localUri, { encoding: 'base64' });
+      logoBase64 = `data:image/png;base64,${base64Raw}`;
     }
-    
-    const desglosePersonas = c?.desglose_por_persona || [];
-    const inventarioUsado = c?.inventario_usado || [];
-    const notasTurno = c?.notas_turno || [];
-    const alertasClinicas = c?.alertas_clinicas || c?.alertas || [];
+  } catch (err) {
+    console.error('⚠️ Logo PDF:', err);
+  }
 
-    // 🕒 FUNCIÓN EXTRAORDINARIA PARA PARSEAR HORA SIN ERRORES
-    const obtenerHoraFormateada = (objeto: any) => {
-      const horaRaw = objeto?.created_at || objeto?.fecha_hora || objeto?.hora || objeto?.timestamp || '';
-      if (!horaRaw) return '';
+  // ── 2. DATOS ─────────────────────────────────────────────
+  const desglosePersonas = c?.desglose_por_persona || [];
+  const inventarioUsado = c?.inventario_usado || [];
+  const notasTurno = c?.notas_turno || [];
+  const alertasClinicas = c?.alertas_clinicas || c?.alertas || [];
 
-      try {
-        if (typeof formatHora === 'function') {
-          const resultado = formatHora(horaRaw);
-          if (resultado && resultado !== '—') return resultado;
-        }
+  const consumiblesUsados = inventarioUsado.filter(
+    (inv: any) => inv.es_consumible !== false && inv.tipo !== 'otro'
+  );
+  const equiposEnHogar = inventarioUsado.filter(
+    (inv: any) => inv.es_consumible === false || inv.tipo === 'otro'
+  );
 
-        // Si es una cadena, normalizamos el espacio a 'T' para asegurar parseo ISO estricto
-        const isoString = String(horaRaw).trim().replace(' ', 'T');
-        const d = new Date(isoString);
-
-        if (!isNaN(d.getTime())) {
-          return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true });
-        }
-      } catch (err) {
-        console.warn('⚠️ Error al parsear fecha:', horaRaw);
+  // ── 3. HELPERS ───────────────────────────────────────────
+  const obtenerHoraFormateada = (objeto: any) => {
+    const horaRaw =
+      objeto?.created_at || objeto?.fecha_hora || objeto?.hora || objeto?.timestamp || '';
+    if (!horaRaw) return '';
+    try {
+      if (typeof formatHora === 'function') {
+        const r = formatHora(horaRaw);
+        if (r && r !== '—') return r;
       }
-      return '';
-    };
+      const d = new Date(String(horaRaw).trim().replace(' ', 'T'));
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleTimeString('es-MX', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+        });
+      }
+    } catch {
+      /* ignore */
+    }
+    return '';
+  };
 
-    // 🎯 Separación de Inventario
-    const consumiblesUsados = inventarioUsado.filter((inv: any) => inv.es_consumible !== false && inv.tipo !== 'otro');
-    const equiposEnHogar = inventarioUsado.filter((inv: any) => inv.es_consumible === false || inv.tipo === 'otro');
+  const colorEstado = (estado?: string) =>
+    estado === 'bien' ? '#3DAA6A' : '#D94F4F';
 
-    // 🎯 HTML DESGLOSE DE ACTIVIDADES
-    const htmlDesglose = desglosePersonas.map((g: any) => `
-      <div style="margin-bottom: 14px; background-color: #FFFFFF; border: 1px solid #E0D8CC; border-radius: 8px; padding: 12px;" class="no-split">
-        <div style="font-size: 13px; font-weight: 800; color: #BF9A40; margin-bottom: 8px;">
-          👤 ${g.persona} (${g.tareas.length} actividades)
-        </div>
-        <table style="width: 100%; border-collapse: collapse;">
-          ${g.tareas.map((t: any) => {
-            const hComp = obtenerHoraFormateada(t) || t.hora_completada || '—';
-            return `
-              <tr style="border-top: 1px solid #F0EAE1;">
-                <td style="padding: 6px; font-size: 12px; color: #2C2820;">
-                  ${(typeof ICONOS_TIPO !== 'undefined' && ICONOS_TIPO[t.tipo]) || '📋'} ${t.descripcion}
-                </td>
-                <td style="padding: 6px; font-size: 11px; color: #8A8078; text-align: right; white-space: nowrap;">
-                  ${hComp}
-                </td>
-              </tr>
-            `;
-          }).join('')}
-        </table>
-      </div>
-    `).join('');
+  // ── 4. BLOQUES HTML ──────────────────────────────────────
+  const htmlDesglose =
+    desglosePersonas.length === 0
+      ? `<p class="empty">Sin actividades registradas.</p>`
+      : desglosePersonas
+          .map(
+            (g: any) => `
+        <div class="card no-split">
+          <div class="card-title">👤 ${g.persona}
+            <span class="badge">${g.tareas.length} actividades</span>
+          </div>
+          <table class="inner-table">
+            ${g.tareas
+              .map((t: any) => {
+                const h = obtenerHoraFormateada(t) || t.hora_completada || '—';
+                const icon =
+                  (typeof ICONOS_TIPO !== 'undefined' && ICONOS_TIPO[t.tipo]) || '📋';
+                return `
+                  <tr>
+                    <td class="td-desc">${icon} ${t.descripcion}</td>
+                    <td class="td-time">${h}</td>
+                  </tr>`;
+              })
+              .join('')}
+          </table>
+        </div>`
+          )
+          .join('');
 
-    // 🎯 HTML INSUMOS CONSUMIBLES
-    const htmlInsumos = consumiblesUsados.length > 0 ? `
+  const htmlInsumos =
+    consumiblesUsados.length === 0
+      ? `<p class="empty">No se registraron consumos de insumos en este turno.</p>`
+      : `
       <table class="data-table no-split">
         <thead>
           <tr>
-            <th style="width: 50%;">Insumo / Medicamento</th>
-            <th style="width: 25%; text-align: center;">Usado en Turno</th>
-            <th style="width: 25%; text-align: center;">Stock Restante</th>
+            <th style="width:50%">Insumo / Medicamento</th>
+            <th style="width:25%; text-align:center">Usado en turno</th>
+            <th style="width:25%; text-align:center">Stock restante</th>
           </tr>
         </thead>
         <tbody>
-          ${consumiblesUsados.map((inv: any) => `
-            <tr style="border-bottom: 1px solid #E0D8CC;">
-              <td style="padding: 8px 10px; font-size: 12px; font-weight: 600;">${inv.nombre}</td>
-              <td style="padding: 8px 10px; font-size: 12px; text-align: center; color: #D4860A; font-weight: 700;">-${inv.usado_hoy || inv.cantidad_usada || 0} ${inv.unidad || 'piezas'}</td>
-              <td style="padding: 8px 10px; font-size: 12px; text-align: center; color: #3DAA6A; font-weight: 800;">${inv.stock_restante ?? inv.cantidad ?? '—'} ${inv.unidad || 'piezas'}</td>
-            </tr>
-          `).join('')}
+          ${consumiblesUsados
+            .map(
+              (inv: any) => `
+            <tr>
+              <td class="td-strong">${inv.nombre}</td>
+              <td class="td-center amber">−${inv.usado_hoy || inv.cantidad_usada || 0} ${inv.unidad || 'piezas'}</td>
+              <td class="td-center green">${inv.stock_restante ?? inv.cantidad ?? '—'} ${inv.unidad || 'piezas'}</td>
+            </tr>`
+            )
+            .join('')}
         </tbody>
-      </table>
-    ` : '<p style="font-size: 12px; color: #8A8078; font-style: italic;">No se registraron consumos de insumos en este turno.</p>';
+      </table>`;
 
-    // 🎯 HTML EQUIPOS Y ACTIVOS FIJOS
-    const htmlEquipos = equiposEnHogar.length > 0 ? `
-      <table class="data-table no-split" style="margin-top: 10px;">
+  const htmlEquipos =
+    equiposEnHogar.length === 0
+      ? ''
+      : `
+      <table class="data-table no-split" style="margin-top:10px">
         <thead>
           <tr>
-            <th style="width: 60%;">Equipo / Activo Fijo</th>
-            <th style="width: 40%; text-align: center;">Estatus / Observación</th>
+            <th style="width:60%">Equipo / Activo fijo</th>
+            <th style="width:40%; text-align:center">Estatus</th>
           </tr>
         </thead>
         <tbody>
-          ${equiposEnHogar.map((eq: any) => {
-            const tieneFalla = String(eq.notas || '').includes('FALLA') || String(eq.estatus || '').includes('falla');
-            return `
-              <tr style="border-bottom: 1px solid #E0D8CC;">
-                <td style="padding: 8px 10px; font-size: 12px; font-weight: 600;">♿ ${eq.nombre}</td>
-                <td style="padding: 8px 10px; font-size: 11px; text-align: center; font-weight: 700; color: ${tieneFalla ? '#D94F4F' : '#3DAA6A'};">
-                  ${tieneFalla ? `⚠️ ${eq.notas}` : '✅ Operativo y Disponible'}
-                </td>
-              </tr>
-            `;
-          }).join('')}
-        </tbody>
-      </table>
-    ` : '';
-
-    // 🎯 HTML ALERTAS CLÍNICAS CON HORA GARANTIZADA
-    const htmlAlertas = alertasClinicas.length > 0 ? `
-      <div class="alert-box" style="background-color: #FDEAEA; border-left: 5px solid #D94F4F; margin-bottom: 20px; box-sizing: border-box; width: 100%;">
-        <div class="alert-title" style="color: #D94F4F;">🚨 Alertas Clínicas e Incidentes de Relevo (${alertasClinicas.length})</div>
-        <ul style="margin: 6px 0 0 0; padding-left: 20px; font-size: 12px; line-height: 1.6; color: #2C2820; word-break: break-word;">
-          ${alertasClinicas.map((alt: any) => {
-            const esFalla = alt.tipo === 'fallo_equipo' || String(alt.descripcion || alt.mensaje || '').includes('FALLA DE EQUIPO');
-            const horaStr = obtenerHoraFormateada(alt);
-            const horaBadge = horaStr ? `<span style="color: #8A8078; font-weight: 700;">[${horaStr}]</span> ` : '';
-
-            return `
-              <li style="margin-bottom: 4px;">
-                ${horaBadge}
-                <strong style="color: ${esFalla ? '#D94F4F' : (alt.severidad === 'alta' ? '#D94F4F' : '#D4860A')};">
-                  [${esFalla ? '♿ FALLA EQUIPO' : (alt.severidad || 'ALERTA').toUpperCase()}]
-                </strong> 
-                ${alt.descripcion || alt.mensaje}
-              </li>
-            `;
-          }).join('')}
-        </ul>
-      </div>
-    ` : '<p style="font-size: 12px; color: #3DAA6A; font-weight: 600;">✅ Sin alertas ni eventos críticos registrados durante el turno.</p>';
-
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          @page { size: letter; margin: 12mm; }
-          * { box-sizing: border-box; }
-          body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 0; margin: 0; color: #2C2820; background-color: #FAFAF7; }
-          .no-split { page-break-inside: avoid !important; break-inside: avoid !important; }
-          tr { page-break-inside: avoid !important; break-inside: avoid !important; }
-          
-          .header-table { width: 100%; background-color: #4A4540; border-radius: 12px; padding: 18px; color: #FFFFFF; margin-bottom: 20px; border-collapse: collapse; }
-          .brand-title { font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: #BF9A40; margin-bottom: 4px; }
-          .main-title { font-size: 22px; font-weight: 800; margin: 0; padding-bottom: 4px; }
-          .meta-info { font-size: 12px; color: #E0D8CC; margin-top: 6px; line-height: 1.5; }
-          .header-logo { width: 120px; max-height: 90px; object-fit: contain; }
-          
-          .section-title { font-size: 13px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #8A8078; margin-top: 20px; margin-bottom: 10px; border-bottom: 2px solid #E0D8CC; padding-bottom: 4px; }
-          
-          /* 📐 ESTRUCTURA DE TARJETAS FIJAS PARA EVITAR DEFORMACIÓN EN PDF */
-          .grid-table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 6px; margin-bottom: 15px; }
-          .metric-td { background-color: #FFFFFF; border: 1px solid #E0D8CC; border-radius: 8px; padding: 8px 4px; text-align: center; vertical-align: middle; overflow: hidden; }
-          .metric-val { font-size: 14px; font-weight: 800; color: #BF9A40; white-space: nowrap; }
-          .metric-label { font-size: 9px; font-weight: 700; color: #8A8078; text-transform: uppercase; margin-top: 2px; white-space: nowrap; }
-          
-          .data-table { width: 100%; border-collapse: collapse; background-color: #FFFFFF; border: 1px solid #E0D8CC; border-radius: 10px; overflow: hidden; margin-bottom: 15px; }
-          .data-table th { background-color: #F5EDD8; color: #4A4540; padding: 10px; font-size: 10px; font-weight: 800; text-transform: uppercase; text-align: left; letter-spacing: 1px; }
-          
-          .alert-box { background-color: #FFF4E0; border-left: 5px solid #D4860A; border-radius: 8px; padding: 14px; margin-top: 10px; }
-          .alert-title { font-size: 11px; font-weight: 800; color: #D4860A; text-transform: uppercase; margin-bottom: 4px; }
-          .alert-desc { font-size: 12px; color: #2C2820; margin: 0; line-height: 1.4; word-break: break-word; }
-        </style>
-      </head>
-      <body>
-
-        <!-- ENCABEZADO EN TABLA -->
-        <table class="header-table no-split">
-          <tr>
-            <td style="vertical-align: middle;">
-              <div class="brand-title">Vitanova Integralis — Telemetría Vital</div>
-              <h1 class="main-title">Reporte Clínico de Turno</h1>
-              <div class="meta-info">
-                <strong>Paciente:</strong> ${typeof pacienteNombre !== 'undefined' ? pacienteNombre : 'Paciente Vitanova'}<br/>
-                <strong>Especialista/Cuidador:</strong> ${c.nombre_cuidador ?? 'Personal Vitanova'}<br/>
-                <strong>Fecha de Consolidación:</strong> ${typeof formatFecha === 'function' ? formatFecha(c.created_at) : c.created_at}<br/>
-                <strong>Estado General Dictado:</strong> <span style="font-weight: 800; color: ${c.estado_paciente === 'bien' ? '#3DAA6A' : '#D94F4F'};">${(c.estado_paciente || 'Normal').toUpperCase()}</span>
-              </div>
-            </td>
-            ${logoBase64 ? `
-              <td style="width: 130px; text-align: right; vertical-align: middle;">
-                <img class="header-logo" src="${logoBase64}" alt="Logo Vitanova" />
-              </td>
-            ` : ''}
-          </tr>
-        </table>
-
-        <!-- SIGNOS VITALES EN TABLA (5 COLUMNAS SIMÉTRICAS) -->
-        <div class="no-split">
-          <div class="section-title">Signos Vitales Consolidados</div>
-          <table class="grid-table">
-            <tr>
-              <td class="metric-td" style="width: 20%;"><div class="metric-val">${c.spo2 ? `${c.spo2}%` : '—'}</div><div class="metric-label">SpO₂</div></td>
-              <td class="metric-td" style="width: 20%;"><div class="metric-val">${c.presion_sistolica && c.presion_diastolica ? `${Math.round(c.presion_sistolica)}/${Math.round(c.presion_diastolica)}` : '—'}</div><div class="metric-label">Presión (mmHg)</div></td>
-              <td class="metric-td" style="width: 20%;"><div class="metric-val">${c.frecuencia_cardiaca ? `${c.frecuencia_cardiaca}` : '—'}</div><div class="metric-label">Pulso (bpm)</div></td>
-              <td class="metric-td" style="width: 20%;"><div class="metric-val">${c.temperatura ? `${c.temperatura}°C` : '—'}</div><div class="metric-label">Temperatura</div></td>
-              <td class="metric-td" style="width: 20%;"><div class="metric-val">${c.peso_kg ? `${c.peso_kg} kg` : '—'}</div><div class="metric-label">Peso</div></td>
-            </tr>
-          </table>
-        </div>
-
-        <!-- ALERTAS CLÍNICAS -->
-        <div class="no-split">
-          <div class="section-title">🚨 Alertas Clínicas del Día</div>
-          ${htmlAlertas}
-        </div>
-
-        <!-- EVALUACIÓN DE CONFORT EN TABLA (4 COLUMNAS SIMÉTRICAS) -->
-        ${c.dolor_eva !== null && c.dolor_eva !== undefined ? `
-          <div class="no-split">
-            <div class="section-title">Evaluación de Confort Diario</div>
-            <table class="grid-table">
+          ${equiposEnHogar
+            .map((eq: any) => {
+              const falla =
+                String(eq.notas || '').includes('FALLA') ||
+                String(eq.estatus || '').includes('falla');
+              return `
               <tr>
-                <td class="metric-td" style="width: 25%; border-top: 3px solid ${c.dolor_eva > 4 ? '#D94F4F' : '#3DAA6A'};">
-                  <div class="metric-val">${c.dolor_eva}/10</div>
-                  <div class="metric-label">Dolor (EVA)</div>
+                <td class="td-strong">♿ ${eq.nombre}</td>
+                <td class="td-center" style="color:${falla ? '#D94F4F' : '#3DAA6A'}; font-weight:700">
+                  ${falla ? `⚠️ ${eq.notas}` : '✅ Operativo'}
                 </td>
-                <td class="metric-td" style="width: 25%;">
-                  <div class="metric-val" style="text-transform: capitalize;">${c.estado_animo ?? '—'}</div>
-                  <div class="metric-label">Estado de Ánimo</div>
-                </td>
-                <td class="metric-td" style="width: 25%;">
-                  <div class="metric-val">${c.hidratacion_vasos ?? '0'} 💧</div>
-                  <div class="metric-label">Hidratación</div>
-                </td>
-                <td class="metric-td" style="width: 25%;">
-                  <div class="metric-val" style="text-transform: capitalize;">${c.alimentacion ?? '—'}</div>
-                  <div class="metric-label">Alimentación</div>
-                </td>
-              </tr>
-            </table>
-          </div>
-        ` : ''}
+              </tr>`;
+            })
+            .join('')}
+        </tbody>
+      </table>`;
 
-        <div class="no-split">
-          <div class="section-title">✅ Actividades Realizadas por Responsable</div>
-          ${htmlDesglose || '<p style="font-size: 12px; color: #8A8078;">Sin actividades registradas.</p>'}
-        </div>
+  const htmlAlertas =
+    alertasClinicas.length === 0
+      ? `<p class="ok-line">✅ Sin alertas ni eventos críticos en el turno.</p>`
+      : `
+      <div class="alert-box alert-danger no-split">
+        <div class="alert-title danger">🚨 Alertas e incidentes (${alertasClinicas.length})</div>
+        <ul class="alert-list">
+          ${alertasClinicas
+            .map((alt: any) => {
+              const esFalla =
+                alt.tipo === 'fallo_equipo' ||
+                String(alt.descripcion || alt.mensaje || '').includes('FALLA DE EQUIPO');
+              const horaStr = obtenerHoraFormateada(alt);
+              const sevColor = esFalla || alt.severidad === 'alta' ? '#D94F4F' : '#D4860A';
+              const label = esFalla
+                ? 'FALLA EQUIPO'
+                : (alt.severidad || 'ALERTA').toUpperCase();
+              return `
+              <li>
+                ${horaStr ? `<span class="time-badge">[${horaStr}]</span> ` : ''}
+                <strong style="color:${sevColor}">[${label}]</strong>
+                ${alt.descripcion || alt.mensaje}
+              </li>`;
+            })
+            .join('')}
+        </ul>
+      </div>`;
 
-        <div class="no-split">
-          <div class="section-title">📦 Inventario y Control de Equipos del Hogar</div>
-          ${htmlInsumos}
-          ${htmlEquipos}
-        </div>
+  const tieneConfort =
+    c.dolor_eva !== null && c.dolor_eva !== undefined;
 
-        ${c.observaciones || notasTurno.length > 0 ? `
-          <div class="no-split">
-            <div class="section-title">Observaciones Especiales</div>
-            ${c.observaciones ? `
-              <div class="alert-box">
-                <div class="alert-title">🚨 Reporte de Anomalía o Alerta de Confort</div>
-                <p class="alert-desc">${c.observaciones}</p>
-              </div>
-            ` : ''}
-            ${notasTurno.length > 0 ? `
-              <div class="alert-box" style="background-color: #EEF3FC; border-left-color: #2D6BE4; margin-top: 10px;">
-                <div class="alert-title" style="color: #2D6BE4;">📝 Notas de Evolución Clínicas</div>
-                <ul style="margin: 6px 0 0 0; padding-left: 20px; font-size: 12px; line-height: 1.5; color: #2C2820; word-break: break-word;">
-                  ${notasTurno.map((n: any) => `<li>${String(n.descripcion || '').replace('📝 ', '')} (${obtenerHoraFormateada(n) || n.hora_completada || '—'})</li>`).join('')}
-                </ul>
-              </div>
-            ` : ''}
-          </div>
-        ` : ''}
+  const htmlConfort = !tieneConfort
+    ? ''
+    : `
+    <div class="no-split">
+      <div class="section-title">Evaluación de confort</div>
+      <table class="grid-table">
+        <tr>
+          <td class="metric-td" style="width:25%; border-top:3px solid ${Number(c.dolor_eva) > 4 ? '#D94F4F' : '#3DAA6A'}">
+            <div class="metric-val">${c.dolor_eva}/10</div>
+            <div class="metric-label">Dolor (EVA)</div>
+          </td>
+          <td class="metric-td" style="width:25%">
+            <div class="metric-val" style="text-transform:capitalize">${c.estado_animo ?? '—'}</div>
+            <div class="metric-label">Ánimo</div>
+          </td>
+          <td class="metric-td" style="width:25%">
+            <div class="metric-val">${c.hidratacion_vasos ?? '0'} 💧</div>
+            <div class="metric-label">Hidratación</div>
+          </td>
+          <td class="metric-td" style="width:25%">
+            <div class="metric-val" style="text-transform:capitalize">${c.alimentacion ?? '—'}</div>
+            <div class="metric-label">Alimentación</div>
+          </td>
+        </tr>
+      </table>
+    </div>`;
 
-      </body>
-      </html>
-    `;
+  const htmlObservaciones =
+    !c.observaciones && notasTurno.length === 0
+      ? ''
+      : `
+    <div class="no-split">
+      <div class="section-title">Observaciones</div>
+      ${
+        c.observaciones
+          ? `
+        <div class="alert-box alert-warn">
+          <div class="alert-title warn">Reporte de anomalía / confort</div>
+          <p class="alert-desc">${c.observaciones}</p>
+        </div>`
+          : ''
+      }
+      ${
+        notasTurno.length > 0
+          ? `
+        <div class="alert-box alert-info" style="margin-top:10px">
+          <div class="alert-title info">📝 Notas de evolución</div>
+          <ul class="alert-list">
+            ${notasTurno
+              .map(
+                (n: any) =>
+                  `<li>${String(n.descripcion || '').replace('📝 ', '')}
+                    <span class="time-badge">(${obtenerHoraFormateada(n) || n.hora_completada || '—'})</span>
+                  </li>`
+              )
+              .join('')}
+          </ul>
+        </div>`
+          : ''
+      }
+    </div>`;
 
-    try {
-      const { uri } = await Print.printToFileAsync({ html });
-      const nombreSanitizado = ((typeof pacienteNombre !== 'undefined' && pacienteNombre) || 'paciente')
-        .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_]/g, '').replace(/\s+/g, '_');
-      const targetPath = `${documentDirectory}reporte_clinico_${nombreSanitizado}.pdf`;
+  // ── 5. DOCUMENTO ─────────────────────────────────────────
+  const nombrePaciente =
+    typeof pacienteNombre !== 'undefined' ? pacienteNombre : 'Paciente Vitanova';
+  const fechaCons =
+    typeof formatFecha === 'function' ? formatFecha(c.created_at) : c.created_at;
 
-      await moveAsync({ from: uri, to: targetPath });
-      await Sharing.shareAsync(targetPath, { mimeType: 'application/pdf', dialogTitle: `Reporte Clínico — ${pacienteNombre}` });
-    } catch (e) {
-      console.error("❌ Error imprimiendo PDF:", e);
-      Alert.alert("Error de Impresión", "Hubo un fallo al compilar el reporte clínico.");
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    @page { size: letter; margin: 12mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      margin: 0; padding: 0;
+      color: #2C2820; background: #FAFAF7;
     }
-  };
+    .no-split { page-break-inside: avoid !important; break-inside: avoid !important; }
+    tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+
+    /* Header */
+    .header-table {
+      width: 100%; background: #4A4540; color: #fff;
+      border-radius: 12px; border-collapse: collapse; margin-bottom: 20px;
+    }
+    .header-table td { padding: 18px; vertical-align: middle; }
+    .brand-title {
+      font-size: 11px; font-weight: 800; letter-spacing: 2px;
+      text-transform: uppercase; color: #BF9A40; margin-bottom: 4px;
+    }
+    .main-title { font-size: 22px; font-weight: 800; margin: 0 0 6px 0; }
+    .meta-info { font-size: 12px; color: #E0D8CC; line-height: 1.55; }
+    .header-logo { width: 120px; max-height: 90px; object-fit: contain; }
+
+    /* Sections */
+    .section-title {
+      font-size: 12px; font-weight: 800; letter-spacing: 1.5px;
+      text-transform: uppercase; color: #8A8078;
+      border-bottom: 2px solid #E0D8CC; padding-bottom: 4px;
+      margin: 22px 0 12px 0;
+    }
+
+    /* Metrics */
+    .grid-table {
+      width: 100%; table-layout: fixed;
+      border-collapse: separate; border-spacing: 6px; margin-bottom: 8px;
+    }
+    .metric-td {
+      background: #fff; border: 1px solid #E0D8CC; border-radius: 8px;
+      padding: 10px 4px; text-align: center; vertical-align: middle;
+    }
+    .metric-val { font-size: 15px; font-weight: 800; color: #BF9A40; white-space: nowrap; }
+    .metric-label {
+      font-size: 9px; font-weight: 700; color: #8A8078;
+      text-transform: uppercase; margin-top: 3px; white-space: nowrap;
+    }
+
+    /* Cards & tables */
+    .card {
+      background: #fff; border: 1px solid #E0D8CC; border-radius: 8px;
+      padding: 12px; margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 13px; font-weight: 800; color: #BF9A40; margin-bottom: 8px;
+    }
+    .badge {
+      font-size: 11px; font-weight: 600; color: #8A8078; margin-left: 6px;
+    }
+    .inner-table { width: 100%; border-collapse: collapse; }
+    .inner-table tr { border-top: 1px solid #F0EAE1; }
+    .td-desc { padding: 6px; font-size: 12px; color: #2C2820; }
+    .td-time {
+      padding: 6px; font-size: 11px; color: #8A8078;
+      text-align: right; white-space: nowrap;
+    }
+
+    .data-table {
+      width: 100%; border-collapse: collapse; background: #fff;
+      border: 1px solid #E0D8CC; border-radius: 10px; overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .data-table th {
+      background: #F5EDD8; color: #4A4540; padding: 10px;
+      font-size: 10px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 1px; text-align: left;
+    }
+    .data-table td {
+      padding: 8px 10px; font-size: 12px; border-bottom: 1px solid #E0D8CC;
+    }
+    .td-strong { font-weight: 600; }
+    .td-center { text-align: center; font-weight: 700; }
+    .amber { color: #D4860A; }
+    .green { color: #3DAA6A; }
+
+    /* Alerts */
+    .alert-box { border-radius: 8px; padding: 14px; margin-top: 8px; }
+    .alert-warn { background: #FFF4E0; border-left: 5px solid #D4860A; }
+    .alert-danger { background: #FDEAEA; border-left: 5px solid #D94F4F; }
+    .alert-info { background: #EEF3FC; border-left: 5px solid #2D6BE4; }
+    .alert-title { font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; }
+    .alert-title.warn { color: #D4860A; }
+    .alert-title.danger { color: #D94F4F; }
+    .alert-title.info { color: #2D6BE4; }
+    .alert-desc { font-size: 12px; margin: 0; line-height: 1.45; word-break: break-word; }
+    .alert-list {
+      margin: 6px 0 0 0; padding-left: 20px;
+      font-size: 12px; line-height: 1.55; color: #2C2820; word-break: break-word;
+    }
+    .time-badge { color: #8A8078; font-weight: 700; font-size: 11px; }
+    .empty { font-size: 12px; color: #8A8078; font-style: italic; }
+    .ok-line { font-size: 12px; color: #3DAA6A; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <table class="header-table no-split">
+    <tr>
+      <td>
+        <div class="brand-title">Vitanova Integralis — Telemetría Vital</div>
+        <h1 class="main-title">Reporte Clínico de Turno</h1>
+        <div class="meta-info">
+          <strong>Paciente:</strong> ${nombrePaciente}<br/>
+          <strong>Cuidador:</strong> ${c.nombre_cuidador ?? 'Personal Vitanova'}<br/>
+          <strong>Consolidación:</strong> ${fechaCons}<br/>
+          <strong>Estado general:</strong>
+          <span style="font-weight:800;color:${colorEstado(c.estado_paciente)}">
+            ${(c.estado_paciente || 'Normal').toUpperCase()}
+          </span>
+        </div>
+      </td>
+      ${
+        logoBase64
+          ? `<td style="width:130px;text-align:right">
+               <img class="header-logo" src="${logoBase64}" alt="Logo" />
+             </td>`
+          : ''
+      }
+    </tr>
+  </table>
+
+  <!-- Signos vitales -->
+  <div class="no-split">
+    <div class="section-title">Signos vitales</div>
+    <table class="grid-table">
+      <tr>
+        <td class="metric-td" style="width:20%">
+          <div class="metric-val">${c.spo2 ? `${c.spo2}%` : '—'}</div>
+          <div class="metric-label">SpO₂</div>
+        </td>
+        <td class="metric-td" style="width:20%">
+          <div class="metric-val">${
+            c.presion_sistolica && c.presion_diastolica
+              ? `${Math.round(c.presion_sistolica)}/${Math.round(c.presion_diastolica)}`
+              : '—'
+          }</div>
+          <div class="metric-label">Presión</div>
+        </td>
+        <td class="metric-td" style="width:20%">
+          <div class="metric-val">${c.frecuencia_cardiaca ?? '—'}</div>
+          <div class="metric-label">Pulso</div>
+        </td>
+        <td class="metric-td" style="width:20%">
+          <div class="metric-val">${c.temperatura ? `${c.temperatura}°C` : '—'}</div>
+          <div class="metric-label">Temp.</div>
+        </td>
+        <td class="metric-td" style="width:20%">
+          <div class="metric-val">${c.peso_kg ? `${c.peso_kg} kg` : '—'}</div>
+          <div class="metric-label">Peso</div>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Alertas -->
+  <div class="no-split">
+    <div class="section-title">Alertas clínicas</div>
+    ${htmlAlertas}
+  </div>
+
+  ${htmlConfort}
+
+  <!-- Actividades -->
+  <div class="no-split">
+    <div class="section-title">Actividades por responsable</div>
+    ${htmlDesglose}
+  </div>
+
+  <!-- Inventario -->
+  <div class="no-split">
+    <div class="section-title">Inventario y equipos</div>
+    ${htmlInsumos}
+    ${htmlEquipos}
+  </div>
+
+  ${htmlObservaciones}
+
+</body>
+</html>`;
+
+  // ── 6. GENERAR Y COMPARTIR ───────────────────────────────
+  try {
+    const { uri } = await Print.printToFileAsync({ html });
+    const nombreSanitizado = (nombrePaciente || 'paciente')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9_]/g, '')
+      .replace(/\s+/g, '_');
+    const targetPath = `${documentDirectory}reporte_clinico_${nombreSanitizado}.pdf`;
+
+    await moveAsync({ from: uri, to: targetPath });
+    await Sharing.shareAsync(targetPath, {
+      mimeType: 'application/pdf',
+      dialogTitle: `Reporte clínico — ${nombrePaciente}`,
+    });
+  } catch (e) {
+    console.error('❌ PDF:', e);
+    Alert.alert('Error de impresión', 'No se pudo generar el reporte clínico.');
+  }
+};
 
   // 📲 MENSAJE ESTRUCTURADO Y COMPLETO PARA WHATSAPP
   const compartirPorWhatsApp = (c: any) => {
