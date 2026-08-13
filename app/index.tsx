@@ -63,6 +63,7 @@ export default function HomeScreen() {
   const esCoAdmin = miRol === 'familiar_co_admin';
   const esAdminRed = esPrincipal || esCoAdmin;
   const isFirstFocus = useRef(true);
+  const [ubicacion, setUbicacion] = useState<any>(null);
 
 
   const formatearHorarioRango = (horarioRaw: string | null | undefined): string => {
@@ -737,25 +738,82 @@ useEffect(() => {
             {Boolean(paciente?.reloj_imei) && (
               <>
                 {/* VITALS CON TELEMETRÍA EN VIVO */}
-                <View style={styles.vitalsContainer}>
-                  {/* CABECERA DEL MÓDULO */}
-                  <View style={styles.vitalsHeaderRow}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <View style={styles.liveDot} />
-                      <Text style={styles.vitalsHeaderTitle}>Telemetría en Vivo</Text>
-                    </View>
+              <View style={styles.vitalsContainer}>
+                {/* CABECERA DEL MÓDULO */}
+                <View style={styles.vitalsHeaderRow}>
+                  
+                  {/* Título + Live Dot + Pill Batería */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={styles.liveDot} />
+                    <Text style={styles.vitalsHeaderTitle}>Telemetría en Vivo</Text>
 
-                    <TouchableOpacity 
-                      style={[styles.btnMedir, midiendo && styles.btnMedirDesactivado]} 
-                      onPress={ejecutarMedicionRemota}
-                      disabled={midiendo}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.btnMedirText}>
-                        {midiendo ? "Leyendo... ⏳" : "🔄 Sensa Reloj"}
-                      </Text>
-                    </TouchableOpacity>
+                    {/* 🔋 PILL DE BATERÍA ESTANDARIZADA */}
+                    {(() => {
+                      const batVal = 
+                        signosDispositivo?.bateria_pct ?? 
+                        signosDispositivo?.bateria ?? 
+                        ubicacion?.bateria_pct ?? 
+                        paciente?.bateria_pct ?? 
+                        null;
+
+                      const esBaja = batVal !== null && typeof batVal === 'number' && batVal < 20;
+
+                      return (
+                        <View style={{ 
+                          flexDirection: 'row', 
+                          alignItems: 'center', 
+                          backgroundColor: esBaja ? '#FFEBEE' : '#E8F5E9', 
+                          paddingHorizontal: 7, 
+                          paddingVertical: 2, 
+                          borderRadius: 6,
+                          borderWidth: 1,
+                          borderColor: esBaja ? '#FFCDD2' : '#C8E6C9',
+                          marginLeft: 4
+                        }}>
+                          <Text style={{ fontSize: 10, marginRight: 2 }}>
+                            {esBaja ? '🪫' : '🔋'}
+                          </Text>
+                          <Text style={{ 
+                            fontSize: 10, 
+                            fontWeight: '800', 
+                            color: esBaja ? '#D94F4F' : '#2E7D32' 
+                          }}>
+                            {batVal !== null ? `${batVal}%` : '--%'}
+                          </Text>
+                        </View>
+                      );
+                    })()}
                   </View>
+
+                  {/* Botón Sensa Ahora */}
+                  <TouchableOpacity 
+                    style={[
+                      styles.btnMedir, 
+                      {
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        borderRadius: 8,
+                        minWidth: 105,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      },
+                      midiendo 
+                        ? { backgroundColor: '#E65100', opacity: 0.9 } 
+                        : (styles.btnMedirDesactivado && midiendo && styles.btnMedirDesactivado)
+                    ]} 
+                    onPress={ejecutarMedicionRemota}
+                    disabled={midiendo}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      styles.btnMedirText,
+                      { fontSize: 11, fontWeight: '800', textAlign: 'center' },
+                      midiendo && { color: '#FFFFFF' }
+                    ]}>
+                      {midiendo ? "⏳ Sensando..." : "⚡ Sensa Ahora"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
 
                   {/* FILA 1: ESTADO DE BIENESTAR, TEMPERATURA Y PESO */}
                   <View style={styles.vitalsGridRow}>
