@@ -192,7 +192,7 @@ useFocusEffect(
   }, [pacienteId])
 );
 
-  // 📄 EXPORTACIÓN COMPLETA A PDF CON ALERTAS CLÍNICAS
+  // 📄 EXPORTACIÓN COMPLETA A PDF CON ALINEACIÓN PERFECTA (TABLE-BASED)
   const generarPDF = async (c: any) => {
     let logoBase64 = "";
     try {
@@ -211,7 +211,7 @@ useFocusEffect(
     const notasTurno = c?.notas_turno || [];
     const alertasClinicas = c?.alertas_clinicas || c?.alertas || [];
 
-    // 🎯 Separación de Inventario: Consumibles vs Equipos / Activos
+    // 🎯 Separación de Inventario
     const consumiblesUsados = inventarioUsado.filter((inv: any) => inv.es_consumible !== false && inv.tipo !== 'otro');
     const equiposEnHogar = inventarioUsado.filter((inv: any) => inv.es_consumible === false || inv.tipo === 'otro');
 
@@ -236,7 +236,7 @@ useFocusEffect(
       </div>
     `).join('');
 
-    // 🎯 HTML TABLA INSUMOS CONSUMIBLES
+    // 🎯 HTML INSUMOS CONSUMIBLES
     const htmlInsumos = consumiblesUsados.length > 0 ? `
       <table class="data-table no-split">
         <thead>
@@ -258,7 +258,7 @@ useFocusEffect(
       </table>
     ` : '<p style="font-size: 12px; color: #8A8078; font-style: italic;">No se registraron consumos de insumos en este turno.</p>';
 
-    // 🎯 HTML TABLA EQUIPOS Y ACTIVOS FIJOS
+    // 🎯 HTML EQUIPOS Y ACTIVOS FIJOS
     const htmlEquipos = equiposEnHogar.length > 0 ? `
       <table class="data-table no-split" style="margin-top: 10px;">
         <thead>
@@ -283,11 +283,11 @@ useFocusEffect(
       </table>
     ` : '';
 
-    // 🎯 HTML SECCIÓN DE ALERTAS CLÍNICAS Y FALLAS DE EQUIPO
+    // 🎯 HTML ALERTAS CLÍNICAS
     const htmlAlertas = alertasClinicas.length > 0 ? `
-      <div class="alert-box" style="background-color: #FDEAEA; border-left: 5px solid #D94F4F; margin-bottom: 20px;">
+      <div class="alert-box" style="background-color: #FDEAEA; border-left: 5px solid #D94F4F; margin-bottom: 20px; box-sizing: border-box; width: 100%;">
         <div class="alert-title" style="color: #D94F4F;">🚨 Alertas Clínicas e Incidentes de Relevo (${alertasClinicas.length})</div>
-        <ul style="margin: 6px 0 0 0; padding-left: 20px; font-size: 13px; line-height: 1.6; color: #2C2820;">
+        <ul style="margin: 6px 0 0 0; padding-left: 20px; font-size: 12px; line-height: 1.6; color: #2C2820; word-break: break-word;">
           ${alertasClinicas.map((alt: any) => {
             const esFalla = alt.tipo === 'fallo_equipo' || String(alt.descripcion || alt.mensaje || '').includes('FALLA DE EQUIPO');
             return `
@@ -309,70 +309,100 @@ useFocusEffect(
       <head>
         <meta charset="UTF-8">
         <style>
-          @page { size: letter; margin: 15mm; }
-          body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 10px; color: #2C2820; background-color: #FAFAF7; }
+          @page { size: letter; margin: 12mm; }
+          body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 0; margin: 0; color: #2C2820; background-color: #FAFAF7; box-sizing: border-box; }
           .no-split { page-break-inside: avoid !important; break-inside: avoid !important; }
           tr { page-break-inside: avoid !important; break-inside: avoid !important; }
-          .header-container { background-color: #4A4540; padding: 24px; border-radius: 14px; color: #FFFFFF; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
-          .header-text { flex: 1; }
-          .header-logo { width: 140px; height: auto; margin-left: 20px; object-fit: contain; max-height: 120px; }
+          
+          .header-table { width: 100%; background-color: #4A4540; border-radius: 12px; padding: 18px; color: #FFFFFF; margin-bottom: 20px; border-collapse: collapse; }
           .brand-title { font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: #BF9A40; margin-bottom: 4px; }
-          .main-title { font-size: 24px; font-weight: 800; margin: 0; padding-bottom: 4px; }
-          .meta-info { font-size: 13px; color: #E0D8CC; margin-top: 8px; line-height: 1.6; }
-          .section-title { font-size: 14px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #8A8078; margin-top: 25px; margin-bottom: 12px; border-bottom: 2px solid #E0D8CC; padding-bottom: 6px; }
-          .grid-container { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
-          .metric-card { flex: 1; min-width: 120px; background-color: #FFFFFF; border: 1px solid #E0D8CC; border-radius: 10px; padding: 12px; text-align: center; }
-          .metric-val { font-size: 16px; font-weight: 800; color: #BF9A40; margin-bottom: 2px; }
-          .metric-label { font-size: 10px; font-weight: 700; color: #8A8078; text-transform: uppercase; }
-          .data-table { width: 100%; border-collapse: collapse; background-color: #FFFFFF; border: 1px solid #E0D8CC; border-radius: 12px; overflow: hidden; margin-bottom: 15px; }
-          .data-table th { background-color: #F5EDD8; color: #4A4540; padding: 12px; font-size: 11px; font-weight: 800; text-transform: uppercase; text-align: left; letter-spacing: 1px; }
-          .alert-box { background-color: #FFF4E0; border-left: 5px solid #D4860A; border-radius: 8px; padding: 16px; margin-top: 15px; }
-          .alert-title { font-size: 12px; font-weight: 800; color: #D4860A; text-transform: uppercase; margin-bottom: 6px; }
-          .alert-desc { font-size: 13px; color: #2C2820; margin: 0; line-height: 1.5; }
+          .main-title { font-size: 22px; font-weight: 800; margin: 0; padding-bottom: 4px; }
+          .meta-info { font-size: 12px; color: #E0D8CC; margin-top: 6px; line-height: 1.5; }
+          .header-logo { width: 120px; max-height: 90px; object-fit: contain; }
+          
+          .section-title { font-size: 13px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #8A8078; margin-top: 20px; margin-bottom: 10px; border-bottom: 2px solid #E0D8CC; padding-bottom: 4px; }
+          
+          /* 📐 ESTRUCTURA DE TARJETAS BASADA EN TABLAS PARA EVITAR DESFASES */
+          .grid-table { width: 100%; border-collapse: separate; border-spacing: 8px; margin-bottom: 15px; }
+          .metric-td { background-color: #FFFFFF; border: 1px solid #E0D8CC; border-radius: 8px; padding: 10px; text-align: center; vertical-align: middle; }
+          .metric-val { font-size: 15px; font-weight: 800; color: #BF9A40; }
+          .metric-label { font-size: 9px; font-weight: 700; color: #8A8078; text-transform: uppercase; margin-top: 2px; }
+          
+          .data-table { width: 100%; border-collapse: collapse; background-color: #FFFFFF; border: 1px solid #E0D8CC; border-radius: 10px; overflow: hidden; margin-bottom: 15px; }
+          .data-table th { background-color: #F5EDD8; color: #4A4540; padding: 10px; font-size: 10px; font-weight: 800; text-transform: uppercase; text-align: left; letter-spacing: 1px; }
+          
+          .alert-box { background-color: #FFF4E0; border-left: 5px solid #D4860A; border-radius: 8px; padding: 14px; margin-top: 10px; box-sizing: border-box; }
+          .alert-title { font-size: 11px; font-weight: 800; color: #D4860A; text-transform: uppercase; margin-bottom: 4px; }
+          .alert-desc { font-size: 12px; color: #2C2820; margin: 0; line-height: 1.4; word-break: break-word; }
         </style>
       </head>
       <body>
 
-        <div class="header-container no-split">
-          <div class="header-text">
-            <div class="brand-title">Vitanova Integralis — Telemetría Vital</div>
-            <h1 class="main-title">Reporte Clínico de Turno</h1>
-            <div class="meta-info">
-              <strong>Paciente:</strong> ${typeof pacienteNombre !== 'undefined' ? pacienteNombre : 'Paciente Vitanova'}<br/>
-              <strong>Especialista/Cuidador:</strong> ${c.nombre_cuidador ?? 'Personal Vitanova'}<br/>
-              <strong>Fecha de Consolidación:</strong> ${typeof formatFecha === 'function' ? formatFecha(c.created_at) : c.created_at}<br/>
-              <strong>Estado General Dictado:</strong> <span style="font-weight: 800; color: ${c.estado_paciente === 'bien' ? '#3DAA6A' : '#D94F4F'};">${(c.estado_paciente || 'Normal').toUpperCase()}</span>
-            </div>
-          </div>
-          ${logoBase64 ? `<img class="header-logo" src="${logoBase64}" alt="Logo Vitanova" />` : ''}
-        </div>
+        <!-- ENCABEZADO EN TABLA -->
+        <table class="header-table no-split">
+          <tr>
+            <td style="vertical-align: middle;">
+              <div class="brand-title">Vitanova Integralis — Telemetría Vital</div>
+              <h1 class="main-title">Reporte Clínico de Turno</h1>
+              <div class="meta-info">
+                <strong>Paciente:</strong> ${typeof pacienteNombre !== 'undefined' ? pacienteNombre : 'Paciente Vitanova'}<br/>
+                <strong>Especialista/Cuidador:</strong> ${c.nombre_cuidador ?? 'Personal Vitanova'}<br/>
+                <strong>Fecha de Consolidación:</strong> ${typeof formatFecha === 'function' ? formatFecha(c.created_at) : c.created_at}<br/>
+                <strong>Estado General Dictado:</strong> <span style="font-weight: 800; color: ${c.estado_paciente === 'bien' ? '#3DAA6A' : '#D94F4F'};">${(c.estado_paciente || 'Normal').toUpperCase()}</span>
+              </div>
+            </td>
+            ${logoBase64 ? `
+              <td style="width: 130px; text-align: right; vertical-align: middle;">
+                <img class="header-logo" src="${logoBase64}" alt="Logo Vitanova" />
+              </td>
+            ` : ''}
+          </tr>
+        </table>
 
+        <!-- SIGNOS VITALES EN TABLA (5 COLUMNAS EXACTAS) -->
         <div class="no-split">
           <div class="section-title">Signos Vitales Consolidados</div>
-          <div class="grid-container">
-            <div class="metric-card"><div class="metric-val">${c.spo2 ? `${c.spo2}%` : '—'}</div><div class="metric-label">SpO₂</div></div>
-            <div class="metric-card"><div class="metric-val">${c.presion_sistolica && c.presion_diastolica ? `${Math.round(c.presion_sistolica)}/${Math.round(c.presion_diastolica)}` : '—'}</div><div class="metric-label">Presión (mmHg)</div></div>
-            <div class="metric-card"><div class="metric-val">${c.frecuencia_cardiaca ? `${c.frecuencia_cardiaca}` : '—'}</div><div class="metric-label">Pulso (bpm)</div></div>
-            <div class="metric-card"><div class="metric-val">${c.temperatura ? `${c.temperatura}°C` : '—'}</div><div class="metric-label">Temperatura</div></div>
-            <div class="metric-card"><div class="metric-val">${c.peso_kg ? `${c.peso_kg} kg` : '—'}</div><div class="metric-label">Peso</div></div>
-          </div>
+          <table class="grid-table">
+            <tr>
+              <td class="metric-td" style="width: 20%;"><div class="metric-val">${c.spo2 ? `${c.spo2}%` : '—'}</div><div class="metric-label">SpO₂</div></td>
+              <td class="metric-td" style="width: 20%;"><div class="metric-val">${c.presion_sistolica && c.presion_diastolica ? `${Math.round(c.presion_sistolica)}/${Math.round(c.presion_diastolica)}` : '—'}</div><div class="metric-label">Presión (mmHg)</div></td>
+              <td class="metric-td" style="width: 20%;"><div class="metric-val">${c.frecuencia_cardiaca ? `${c.frecuencia_cardiaca}` : '—'}</div><div class="metric-label">Pulso (bpm)</div></td>
+              <td class="metric-td" style="width: 20%;"><div class="metric-val">${c.temperatura ? `${c.temperatura}°C` : '—'}</div><div class="metric-label">Temperatura</div></td>
+              <td class="metric-td" style="width: 20%;"><div class="metric-val">${c.peso_kg ? `${c.peso_kg} kg` : '—'}</div><div class="metric-label">Peso</div></td>
+            </tr>
+          </table>
         </div>
 
-        {/* 🚨 SECCIÓN DE ALERTAS CLÍNICAS Y FALLAS */}
+        <!-- ALERTAS CLÍNICAS -->
         <div class="no-split">
           <div class="section-title">🚨 Alertas Clínicas del Día</div>
           ${htmlAlertas}
         </div>
 
+        <!-- EVALUACIÓN DE CONFORT EN TABLA (4 COLUMNAS EXACTAS) -->
         ${c.dolor_eva !== null && c.dolor_eva !== undefined ? `
           <div class="no-split">
             <div class="section-title">Evaluación de Confort Diario</div>
-            <div class="grid-container">
-              <div class="metric-card" style="border-top: 3px solid ${c.dolor_eva > 4 ? '#D94F4F' : '#3DAA6A'};"><div class="metric-val">${c.dolor_eva}/10</div><div class="metric-label">Dolor (EVA)</div></div>
-              <div class="metric-card"><div class="metric-val" style="text-transform: capitalize;">${c.estado_animo ?? '—'}</div><div class="metric-label">Estado de Ánimo</div></div>
-              <div class="metric-card"><div class="metric-val">${c.hidratacion_vasos ?? '0'} 💧</div><div class="metric-label">Hidratación</div></div>
-              <div class="metric-card"><div class="metric-val" style="text-transform: capitalize;">${c.alimentacion ?? '—'}</div><div class="metric-label">Alimentación</div></div>
-            </div>
+            <table class="grid-table">
+              <tr>
+                <td class="metric-td" style="width: 25%; border-top: 3px solid ${c.dolor_eva > 4 ? '#D94F4F' : '#3DAA6A'};">
+                  <div class="metric-val">${c.dolor_eva}/10</div>
+                  <div class="metric-label">Dolor (EVA)</div>
+                </td>
+                <td class="metric-td" style="width: 25%;">
+                  <div class="metric-val" style="text-transform: capitalize;">${c.estado_animo ?? '—'}</div>
+                  <div class="metric-label">Estado de Ánimo</div>
+                </td>
+                <td class="metric-td" style="width: 25%;">
+                  <div class="metric-val">${c.hidratacion_vasos ?? '0'} 💧</div>
+                  <div class="metric-label">Hidratación</div>
+                </td>
+                <td class="metric-td" style="width: 25%;">
+                  <div class="metric-val" style="text-transform: capitalize;">${c.alimentacion ?? '—'}</div>
+                  <div class="metric-label">Alimentación</div>
+                </td>
+              </tr>
+            </table>
           </div>
         ` : ''}
 
@@ -397,9 +427,9 @@ useFocusEffect(
               </div>
             ` : ''}
             ${notasTurno.length > 0 ? `
-              <div class="alert-box" style="background-color: #EEF3FC; border-left-color: #2D6BE4;">
+              <div class="alert-box" style="background-color: #EEF3FC; border-left-color: #2D6BE4; margin-top: 10px;">
                 <div class="alert-title" style="color: #2D6BE4;">📝 Notas de Evolución Clínicas</div>
-                <ul style="margin: 6px 0 0 0; padding-left: 20px; font-size: 13px; line-height: 1.6; color: #2C2820;">
+                <ul style="margin: 6px 0 0 0; padding-left: 20px; font-size: 12px; line-height: 1.5; color: #2C2820; word-break: break-word;">
                   ${notasTurno.map((n: any) => `<li>${String(n.descripcion || '').replace('📝 ', '')} (${typeof formatHora === 'function' ? formatHora(n.hora_completada) : n.hora_completada})</li>`).join('')}
                 </ul>
               </div>
