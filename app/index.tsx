@@ -3,7 +3,7 @@ import { useFocusEffect, useLocalSearchParams, usePathname, useRouter } from 'ex
 import { Bell, Calendar, MapPin, Pill } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, DeviceEventEmitter, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getHoyLocalISO, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
+import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getHoyLocalISO, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUbicacion, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 import { BannerAlertasPreventivas } from './components/BannerAlertasPreventivas';
 import { TarjetaUltimoCierre } from './components/TarjetaUltimoCierre';
@@ -103,8 +103,9 @@ export default function HomeScreen() {
 const cargarSignosDispositivo = async (idToLoad?: string) => {
   const targetId = idToLoad || pacienteId;
   if (!targetId) return;
-  
+
   try {
+    // 1. Telemetría / Signos vitales
     const res = await getSignosRecientes(targetId);
     if (res && res.success) {
       console.log(`📥 [INDEX] Telemetría fresca guardada para el paciente: ${targetId}`);
@@ -113,6 +114,19 @@ const cargarSignosDispositivo = async (idToLoad?: string) => {
       // 💾 Guardamos respaldo local persistente
       await AsyncStorage.setItem(`@vitals_${targetId}`, JSON.stringify(res));
     }
+
+    // 2. Ubicación y Nivel de Batería del Reloj
+    try {
+      const ubData = await getUbicacion(targetId);
+      if (ubData && ubData.ubicacion) {
+        setUbicacion(ubData.ubicacion);
+      } else if (ubData) {
+        setUbicacion(ubData);
+      }
+    } catch (ubErr) {
+      console.log("⚠️ Error consultando ubicación/batería:", ubErr);
+    }
+
   } catch (error) {
     console.log("⚠️ Error cargando signos vitales:", error);
   }
@@ -478,6 +492,7 @@ useEffect(() => {
   // ⏱️ Cronómetro silencioso en segundo plano cada 30 segundos
   const intervalo = setInterval(() => {
     console.log(`🔄 [POLLING] Solicitando signos frescos para: ${p.id}`);
+    console.log('🔋 CONTENIDO DE SIGNOS DISPOSITIVO:', JSON.stringify(signosDispositivo, null, 2));
     cargarSignosDispositivo(p.id);
   }, 30000);
 
@@ -748,41 +763,43 @@ useEffect(() => {
                     <Text style={styles.vitalsHeaderTitle}>Telemetría en Vivo</Text>
 
                     {/* 🔋 PILL DE BATERÍA ESTANDARIZADA */}
-                    {(() => {
-                      const batVal = 
-                        signosDispositivo?.bateria_pct ?? 
-                        signosDispositivo?.bateria ?? 
-                        ubicacion?.bateria_pct ?? 
-                        paciente?.bateria_pct ?? 
-                        null;
+                      {(() => {
+                        const batVal = 
+                          ubicacion?.bateria_pct ?? 
+                          ubicacion?.bateria ?? 
+                          signosDispositivo?.bateria_pct ?? 
+                          signosDispositivo?.bateria ?? 
+                          signosDispositivo?.data?.bateria_pct ?? 
+                          paciente?.bateria_pct ?? 
+                          null;
 
-                      const esBaja = batVal !== null && typeof batVal === 'number' && batVal < 20;
+                        const esBaja = batVal !== null && typeof batVal === 'number' && batVal < 20;
 
-                      return (
-                        <View style={{ 
-                          flexDirection: 'row', 
-                          alignItems: 'center', 
-                          backgroundColor: esBaja ? '#FFEBEE' : '#E8F5E9', 
-                          paddingHorizontal: 7, 
-                          paddingVertical: 2, 
-                          borderRadius: 6,
-                          borderWidth: 1,
-                          borderColor: esBaja ? '#FFCDD2' : '#C8E6C9',
-                          marginLeft: 4
-                        }}>
-                          <Text style={{ fontSize: 10, marginRight: 2 }}>
-                            {esBaja ? '🪫' : '🔋'}
-                          </Text>
-                          <Text style={{ 
-                            fontSize: 10, 
-                            fontWeight: '800', 
-                            color: esBaja ? '#D94F4F' : '#2E7D32' 
+                        return (
+                          <View style={{ 
+                            flexDirection: 'row', 
+                            alignItems: 'center', 
+                            backgroundColor: esBaja ? '#FFEBEE' : '#E8F5E9', 
+                            paddingHorizontal: 7, 
+                            paddingVertical: 2, 
+                            borderRadius: 6,
+                            borderWidth: 1,
+                            borderColor: esBaja ? '#FFCDD2' : '#C8E6C9',
+                            marginLeft: 4
                           }}>
-                            {batVal !== null ? `${batVal}%` : '--%'}
-                          </Text>
-                        </View>
-                      );
-                    })()}
+                            <Text style={{ fontSize: 10, marginRight: 2 }}>
+                              {esBaja ? '🪫' : '🔋'}
+                            </Text>
+                            <Text style={{ 
+                              fontSize: 10, 
+                              fontWeight: '800', 
+                              color: esBaja ? '#D94F4F' : '#2E7D32' 
+                            }}>
+                              {batVal !== null && batVal !== undefined ? `${batVal}%` : '--%'}
+                            </Text>
+                          </View>
+                        );
+                      })()}
                   </View>
 
                   {/* Botón Sensa Ahora */}
