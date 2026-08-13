@@ -1288,39 +1288,86 @@ const guardarRegistroEspontaneo = async () => {
         {/* ⌚ SECCIÓN DE HARDWARE Y TELEMETRÍA (Solo visible si pacienteActivo tiene reloj IMEI) */}
         {Boolean(pacienteActivo?.reloj_imei && pacienteActivo.reloj_imei.trim() !== '') && (
           <>
-            {/* TARJETA 1: TELEMETRÍA EN VIVO */}
-            <View style={[styles.monitorCard, { marginHorizontal: 16, marginTop: 16, backgroundColor: COLORS.white, borderColor: COLORS.border }]}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <Text style={{ fontSize: 9, fontWeight: '800', color: COLORS.textLight }}>📡 TELEMETRÍA EN VIVO</Text>
-                <TouchableOpacity 
-                  onPress={() => sincronizarSignosReloj(pacienteActivo.id, true)} 
-                  disabled={cargandoSignos}
-                  style={[styles.iniciarBtn, { paddingHorizontal: 10, paddingVertical: 4 }, cargandoSignos && { backgroundColor: COLORS.border }]}
-                >
-                  <Text style={styles.iniciarBtnText}>{cargandoSignos ? "Inyectando Comando..." : "⚡ Sensa Ahora "}</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 4 }}>
-                <View style={{ alignItems: 'center' }}><Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.cacao }}>{signosDispositivo?.spo2 ?? "—"}%</Text><Text style={styles.monitorSubTextLabel}>SpO₂</Text></View>
-                <View style={{ width: 1, height: 24, backgroundColor: COLORS.border }} />
-                <View style={{ alignItems: 'center' }}><Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.cacao }}>{signosDispositivo?.presion ?? "—"}</Text><Text style={styles.monitorSubTextLabel}>Presión</Text></View>
-                <View style={{ width: 1, height: 24, backgroundColor: COLORS.border }} />
-                <View style={{ alignItems: 'center' }}><Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.red }}>{signosDispositivo?.fc ?? "—"}</Text><Text style={styles.monitorSubTextLabel}>Pulso (bpm)</Text></View>
-                <View style={{ width: 1, height: 24, backgroundColor: COLORS.border }} />
-                <View style={{ alignItems: 'center' }}>
-                  {signosDispositivo?.temperatura && signosDispositivo.temperatura !== "—" ? (
-                    <Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.green }}>
-                      {`${signosDispositivo.temperatura}°`}
-                    </Text>
-                  ) : (
-                    <Text style={{ fontSize: 9, color: COLORS.gold, textAlign: 'center', fontWeight: '700' }}>
-                      {'Presiona\n"Sensa Ahora"'}
-                    </Text>
-                  )}
-                  <Text style={styles.monitorSubTextLabel}>T. Corporal</Text>
-                </View>
-              </View>
+           {/* 📡 TARJETA 1: TELEMETRÍA EN VIVO (ESTANDARIZADA) */}
+          <View style={[styles.monitorCard, { marginHorizontal: 16, marginTop: 16, backgroundColor: COLORS.white, borderColor: COLORS.border }]}>
+            
+            {/* ENCABEZADO Y BOTÓN SENSA AHORA */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Text style={{ fontSize: 9, fontWeight: '800', color: COLORS.textLight, letterSpacing: 0.5 }}>
+                📡 TELEMETRÍA EN VIVO
+              </Text>
+              
+              <TouchableOpacity 
+                onPress={() => pacienteActivo?.id && sincronizarSignosReloj(pacienteActivo.id, true)} 
+                disabled={cargandoSignos || !pacienteActivo?.id}
+                style={[
+                  styles.iniciarBtn, 
+                  { paddingHorizontal: 10, paddingVertical: 4 }, 
+                  (cargandoSignos || !pacienteActivo?.id) && { backgroundColor: COLORS.border, opacity: 0.6 }
+                ]}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.iniciarBtnText}>
+                  {cargandoSignos ? "Inyectando Comando..." : "⚡ Sensa Ahora "}
+                </Text>
+              </TouchableOpacity>
             </View>
+
+            {/* LECTURA DE SIGNOS VITALES */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingVertical: 4 }}>
+              
+              {/* 1. SpO2 */}
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.cacao }}>
+                  {signosDispositivo?.spo2 ? `${signosDispositivo.spo2}%` : "—"}
+                </Text>
+                <Text style={styles.monitorSubTextLabel}>SpO₂</Text>
+              </View>
+
+              <View style={{ width: 1, height: 24, backgroundColor: COLORS.border }} />
+
+              {/* 2. PRESIÓN */}
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.cacao }}>
+                  {(() => {
+                    if (signosDispositivo?.presion) return signosDispositivo.presion;
+                    if (signosDispositivo?.presion_sistolica && signosDispositivo?.presion_diastolica) {
+                      return `${signosDispositivo.presion_sistolica}/${signosDispositivo.presion_diastolica}`;
+                    }
+                    return "—";
+                  })()}
+                </Text>
+                <Text style={styles.monitorSubTextLabel}>Presión</Text>
+              </View>
+
+              <View style={{ width: 1, height: 24, backgroundColor: COLORS.border }} />
+
+              {/* 3. PULSO */}
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.red }}>
+                  {signosDispositivo?.fc ?? signosDispositivo?.frecuencia_cardiaca ?? "—"}
+                </Text>
+                <Text style={styles.monitorSubTextLabel}>Pulso (bpm)</Text>
+              </View>
+
+              <View style={{ width: 1, height: 24, backgroundColor: COLORS.border }} />
+
+              {/* 4. T. CORPORAL */}
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                {signosDispositivo?.temperatura && signosDispositivo.temperatura !== "—" ? (
+                  <Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.green }}>
+                    {`${signosDispositivo.temperatura}°`}
+                  </Text>
+                ) : (
+                  <Text style={{ fontSize: 9, color: COLORS.gold, textAlign: 'center', fontWeight: '700' }}>
+                    {'Presiona\n"Sensa Ahora"'}
+                  </Text>
+                )}
+                <Text style={styles.monitorSubTextLabel}>T. Corporal</Text>
+              </View>
+
+            </View>
+          </View>
 
             {/* TARJETA 2: CONFIG RELOJ — Vista Cuidador (solo lectura) */}
             {signosDispositivo?.reloj_config && (
