@@ -1370,13 +1370,28 @@ const guardarRegistroEspontaneo = async () => {
                 disabled={cargandoSignos || !pacienteActivo?.id}
                 style={[
                   styles.iniciarBtn, 
-                  { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }, 
-                  (cargandoSignos || !pacienteActivo?.id) && { backgroundColor: COLORS.border, opacity: 0.6 }
+                  { 
+                    paddingHorizontal: 10, 
+                    paddingVertical: 6, 
+                    borderRadius: 8,
+                    minWidth: 105, // 👈 1. Mantiene el ancho estable para que no brinquen los lados
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }, 
+                  // 👈 2. Cambio de color dinámico al cargar o estar deshabilitado
+                  cargandoSignos 
+                    ? { backgroundColor: '#E65100', opacity: 0.9 } // 🟠 Naranja/Ámbar de proceso
+                    : (!pacienteActivo?.id && { backgroundColor: COLORS.border, opacity: 0.6 })
                 ]}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.iniciarBtnText, { fontSize: 11, fontWeight: '800' }]}>
-                  {cargandoSignos ? "Inyectando Comando..." : "⚡ Sensa Ahora"}
+                <Text style={[
+                  styles.iniciarBtnText, 
+                  { fontSize: 11, fontWeight: '800', textAlign: 'center' },
+                  cargandoSignos && { color: '#FFFFFF' }
+                ]}>
+                  {/* 👈 3. Texto corto e impacto directo */}
+                  {cargandoSignos ? "⏳ Sensando..." : "⚡ Sensa Ahora"}
                 </Text>
               </TouchableOpacity>
             </View>
