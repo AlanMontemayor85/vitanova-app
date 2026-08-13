@@ -453,94 +453,105 @@ export default function GraficaSignosScreen() {
                 </Text>
               </TouchableOpacity>
 
-              {/* 👑 ENCABEZADOS DE COLUMNA */}
+              {/* 👑 ENCABEZADOS DE COLUMNA (PROPORCIONES UNIFICADAS) */}
               <View style={{ 
                 flexDirection: 'row', 
+                alignItems: 'center',
                 borderBottomWidth: 1, 
                 borderBottomColor: COLORS.border, 
                 paddingBottom: 6, 
                 marginBottom: 8 
               }}>
-                <Text style={{ flex: 1.2, fontSize: 10, fontWeight: '700', color: COLORS.textLight }}>Fecha/Hora</Text>
-                <Text style={{ flex: 0.8, fontSize: 10, fontWeight: '700', color: COLORS.textLight, textAlign: 'center' }}>SpO₂</Text>
-                <Text style={{ flex: 1.1, fontSize: 10, fontWeight: '700', color: COLORS.textLight, textAlign: 'center' }}>Presión A.</Text>
-                <Text style={{ flex: 0.7, fontSize: 10, fontWeight: '700', color: COLORS.textLight, textAlign: 'center' }}>FC</Text>
-                <Text style={{ flex: 0.8, fontSize: 10, fontWeight: '700', color: COLORS.textLight, textAlign: 'center' }}>Temp</Text>
-                <Text style={{ flex: 0.8, fontSize: 10, fontWeight: '700', color: COLORS.textLight, textAlign: 'center' }}>Peso</Text>
+                <Text style={{ flex: 3.2, fontSize: 10, fontWeight: '700', color: COLORS.textLight }}>Fecha/Hora</Text>
+                <Text style={{ flex: 1.1, fontSize: 10, fontWeight: '700', color: COLORS.textLight, textAlign: 'center' }}>SpO₂</Text>
+                <Text style={{ flex: 1.8, fontSize: 10, fontWeight: '700', color: COLORS.textLight, textAlign: 'center' }}>Presión A.</Text>
+                <Text style={{ flex: 1.1, fontSize: 10, fontWeight: '700', color: COLORS.textLight, textAlign: 'center' }}>FC</Text>
+                <Text style={{ flex: 1.2, fontSize: 10, fontWeight: '700', color: COLORS.textLight, textAlign: 'center' }}>Temp</Text>
+                <Text style={{ flex: 1.1, fontSize: 10, fontWeight: '700', color: COLORS.textLight, textAlign: 'center' }}>Peso</Text>
               </View>
 
               {/* Cuerpo de la Tabla Dinámica */}
               <View style={{ marginTop: 4 }}>
-              {registrosBitacoraFiltrados.length === 0 ? (
-                <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-                  <Text style={{ fontSize: 12, color: COLORS.textLight, fontStyle: 'italic' }}>
-                    No hay registros en el periodo seleccionado.
-                  </Text>
-                </View>
-              ) : (
-                registrosBitacoraFiltrados.map((r, i) => {
-                  const temp = r.temperatura !== null && r.temperatura !== undefined ? r.temperatura : null;
-                  
-                  const esReloj = r.fuente === 'reloj';
-                  const esManual = r.fuente === 'manual';
-                  const esCuidador = r.fuente === 'cuidador';
+                {registrosBitacoraFiltrados.length === 0 ? (
+                  <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 12, color: COLORS.textLight, fontStyle: 'italic' }}>
+                      No hay registros en el periodo seleccionado.
+                    </Text>
+                  </View>
+                ) : (
+                  registrosBitacoraFiltrados.map((r, i) => {
+                    const temp = r.temperatura !== null && r.temperatura !== undefined ? r.temperatura : null;
+                    
+                    const esReloj = r.fuente === 'reloj';
+                    const esManual = r.fuente === 'manual';
+                    const esCuidador = r.fuente === 'cuidador';
 
-                  // Flags de trazabilidad clínica
-                  const spo2Heredado = esReloj && r.spo2_heredado;
-                  const presionHeredada = esReloj && r.presion_heredado;
-                  const fcHeredado = esReloj && r.fc_heredado;
-                  const tempHeredada = esReloj && r.temp_heredado;
+                    // Flags de trazabilidad clínica
+                    const spo2Heredado = esReloj && r.spo2_heredado;
+                    const presionHeredada = esReloj && r.presion_heredado;
+                    const fcHeredado = esReloj && r.fc_heredado;
+                    const tempHeredada = esReloj && r.temp_heredado;
 
-                  // 🎯 Extracción limpia del nombre del cuidador/familiar
-                  const nombreOperador = (r.nombre_cuidador || r.usuarios?.nombre_completo || 'Personal').split(' ')[0];
+                    // 🎯 Extracción limpia del nombre del cuidador/familiar
+                    const nombreOperador = (r.nombre_cuidador || r.usuarios?.nombre_completo || 'Personal').split(' ')[0];
 
-                  return (
-                    <View key={i} style={styles.historialRow}>
-                      {/* Fecha y Operador */}
-                      <View style={{ flex: 1.5 }}>
-                        <Text style={styles.historialFecha}>
-                          {new Date(r.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    return (
+                      <View 
+                        key={i} 
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          paddingVertical: 8,
+                          borderBottomWidth: 1,
+                          borderBottomColor: COLORS.cream || '#F5F4F0'
+                        }}
+                      >
+                        {/* 1. Fecha y Operador (flex: 3.2) */}
+                        <View style={{ flex: 3.2, paddingRight: 4 }}>
+                          <Text style={styles.historialFecha}>
+                            {new Date(r.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </Text>
+
+                          <Text style={[styles.historialCuidador, !esReloj && { color: esManual ? COLORS.amber : COLORS.green, fontWeight: '700' }]}>
+                            {esCuidador 
+                              ? `👤 ${nombreOperador}`
+                              : esManual
+                                ? `🩺 ${nombreOperador} (Toma manual)`
+                                : '⌚ Reloj'}
+                          </Text>
+                        </View>
+
+                        {/* 2. SpO2 (flex: 1.1) */}
+                        <Text style={[styles.historialVal, { flex: 1.1, textAlign: 'center' }]}>
+                          {r.spo2 ? `${r.spo2}%${spo2Heredado ? '*' : ''}` : '—'}
                         </Text>
 
-                        {/* 🎯 ETIQUETA DINÁMICA DE FUENTE (Reloj / Cierre / Toma Manual) */}
-                        <Text style={[styles.historialCuidador, !esReloj && { color: esManual ? COLORS.amber : COLORS.green, fontWeight: '700' }]}>
-                        {esCuidador 
-                          ? `👤 ${nombreOperador}`
-                          : esManual
-                            ? `🩺 ${nombreOperador} (Toma manual) `
-                            : '⌚ Reloj'}
-                      </Text>
-                      </View> 
+                        {/* 3. Presión Arterial (flex: 1.8) */}
+                        <Text style={[styles.historialVal, { flex: 1.8, textAlign: 'center' }]}>
+                          {r.presion_sistolica && r.presion_diastolica 
+                            ? `${Math.round(r.presion_sistolica)}/${Math.round(r.presion_diastolica)}${presionHeredada ? '*' : ''}` 
+                            : '—'}
+                        </Text>
 
-                      {/* SpO2 */}
-                      <Text style={styles.historialVal}>
-                        {r.spo2 ? `${r.spo2}%${spo2Heredado ? '*' : ''}` : '—'}
-                      </Text>
+                        {/* 4. Frecuencia Cardíaca (flex: 1.1) */}
+                        <Text style={[styles.historialVal, { flex: 1.1, textAlign: 'center' }]}>
+                          {r.frecuencia_cardiaca ? `${r.frecuencia_cardiaca}${fcHeredado ? '*' : ''}` : '—'}
+                        </Text>
 
-                      {/* Presión Arterial */}
-                      <Text style={styles.historialVal}>
-                        {r.presion_sistolica && r.presion_diastolica 
-                          ? `${Math.round(r.presion_sistolica)}/${Math.round(r.presion_diastolica)}${presionHeredada ? '*' : ''}` 
-                          : '—'}
-                      </Text>
+                        {/* 5. Temperatura (flex: 1.2) */}
+                        <Text style={[styles.historialVal, { flex: 1.2, textAlign: 'center' }]}>
+                          {temp !== null ? `${temp.toFixed(1)}°${tempHeredada ? '*' : ''}` : '—'}
+                        </Text>
 
-                      {/* Frecuencia Cardíaca */}
-                      <Text style={styles.historialVal}>
-                        {r.frecuencia_cardiaca ? `${r.frecuencia_cardiaca}${fcHeredado ? '*' : ''}` : '—'}
-                      </Text>
-
-                      {/* Temperatura */}
-                      <Text style={styles.historialVal}>
-                        {temp !== null ? `${temp.toFixed(1)}°${tempHeredada ? '*' : ''}` : '—'}
-                      </Text>
-
-                      {/* Peso */}
-                      <Text style={styles.historialVal}>{r.peso_kg ? `${r.peso_kg}k` : '—'}</Text>
-                    </View>
-                  );
-                })
-              )}
-            </View>
+                        {/* 6. Peso (flex: 1.1) */}
+                        <Text style={[styles.historialVal, { flex: 1.1, textAlign: 'center' }]}>
+                          {r.peso_kg ? `${r.peso_kg}k` : '—'}
+                        </Text>
+                      </View>
+                    );
+                  })
+                )}
+              </View>
 
               {/* Nota de Deslinde Regulativo y Metodología */}
               <Text style={{ fontSize: 9, color: COLORS.textLight, fontStyle: 'italic', marginTop: 12, paddingHorizontal: 4, lineHeight: 12 }}>

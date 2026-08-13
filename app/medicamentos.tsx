@@ -533,151 +533,195 @@ const resetFormularioMedicamento = () => {
   
 
   const importarDesdeExcel = async () => {
-    if (!paciente?.id) return;
+  if (!paciente?.id) return;
 
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: [
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'application/vnd.ms-excel',
-          'text/csv',
-        ],
-        copyToCacheDirectory: true,
-      });
+  try {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel',
+        'text/csv',
+      ],
+      copyToCacheDirectory: true,
+    });
 
-      if (result.canceled || !result.assets || result.assets.length === 0) return;
+    if (result.canceled || !result.assets || result.assets.length === 0) return;
 
-      setImportando(true);
-      const fileUri = result.assets[0].uri;
+    setImportando(true);
+    const fileUri = result.assets[0].uri;
 
-      const response = await fetch(fileUri);
-      const arrayBuffer = await response.arrayBuffer();
-      const dataBuffer = new Uint8Array(arrayBuffer);
+    const response = await fetch(fileUri);
+    const arrayBuffer = await response.arrayBuffer();
+    const dataBuffer = new Uint8Array(arrayBuffer);
 
-      const workbook = XLSX.read(dataBuffer, { type: 'array' });
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
+    const workbook = XLSX.read(dataBuffer, { type: 'array' });
+    const firstSheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[firstSheetName];
 
-      const filas: any[] = XLSX.utils.sheet_to_json(worksheet);
+    const filas: any[] = XLSX.utils.sheet_to_json(worksheet);
 
-      if (filas.length === 0) {
-        alert('El archivo Excel está vacío o no tiene el formato correcto.');
-        setImportando(false);
-        return;
+    if (filas.length === 0) {
+      alert('El archivo Excel está vacío o no tiene el formato correcto.');
+      setImportando(false);
+      return;
+    }
+
+    // 🛠️ HELPER 1: LIMPIEZA DE FECHAS (ISO / Excel Serial / DD/MM/YYYY)
+    const limpiarYFormatearFecha = (fechaRaw: any) => {
+      if (!fechaRaw) return null;
+
+      if (typeof fechaRaw === 'number' || (!isNaN(Number(fechaRaw)) && !String(fechaRaw).includes('/') && !String(fechaRaw).includes('-'))) {
+        const serialExcel = Number(fechaRaw);
+        const fechaJS = new Date((serialExcel - 25569) * 86400 * 1000);
+        const anio = fechaJS.getUTCFullYear();
+        const mes = String(fechaJS.getUTCMonth() + 1).padStart(2, '0');
+        const dia = String(fechaJS.getUTCDate()).padStart(2, '0');
+        return `${anio}-${mes}-${dia}`;
       }
 
-      const limpiarYFormatearFecha = (fechaRaw: any) => {
-        if (!fechaRaw) return null;
+      const fechaStr = String(fechaRaw).trim();
 
-        if (typeof fechaRaw === 'number' || !isNaN(Number(fechaRaw))) {
-          const serialExcel = Number(fechaRaw);
-          const fechaJS = new Date((serialExcel - 25569) * 86400 * 1000);
-          const anio = fechaJS.getUTCFullYear();
-          const mes = String(fechaJS.getUTCMonth() + 1).padStart(2, '0');
-          const dia = String(fechaJS.getUTCDate()).padStart(2, '0');
+      if (fechaStr.includes('/')) {
+        const partes = fechaStr.split('/');
+        if (partes.length === 3) {
+          const dia = partes[0].padStart(2, '0');
+          const mes = partes[1].padStart(2, '0');
+          const anio = partes[2].length === 2 ? `20${partes[2]}` : partes[2];
           return `${anio}-${mes}-${dia}`;
         }
-
-        const fechaStr = String(fechaRaw).trim();
-
-        if (fechaStr.includes('/')) {
-          const partes = fechaStr.split('/');
-          if (partes.length === 3) {
-            const dia = partes[0].padStart(2, '0');
-            const mes = partes[1].padStart(2, '0');
-            const anio = partes[2];
-            return `${anio}-${mes}-${dia}`;
-          }
-        }
-
-        return fechaStr.split('T')[0];
-      };
-
-      for (const fila of filas) {
-        const tipo = String(fila.Tipo || '').toLowerCase().trim();
-        const fInicioClean = limpiarYFormatearFecha(fila.FechaInicio || fila['Fecha Inicio']);
-        const fFinClean = limpiarYFormatearFecha(fila.FechaFin || fila['Fecha Fin']);
-
-        const fecha_inicio = fInicioClean || getHoyISO();
-        const fecha_fin = fFinClean ? fFinClean : null;
-
-        try {
-          if (tipo === 'medicina' || tipo === 'medicamento') {
-            let horariosRaw = fila.Horarios ? String(fila.Horarios).trim() : '08:00';
-
-            if (!isNaN(Number(horariosRaw)) && Number(horariosRaw) > 0 && Number(horariosRaw) < 1) {
-              const fraccionDia = Number(horariosRaw);
-              const totalMinutos = Math.round(fraccionDia * 24 * 60);
-              const horas = Math.floor(totalMinutos / 60);
-              const minutos = totalMinutos % 60;
-              horariosRaw = `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}`;
-            }
-
-            const horariosArr = horariosRaw.split(',').map(h => {
-              let horaLimpia = h.trim();
-              if (!isNaN(Number(horaLimpia)) && Number(horaLimpia) > 0 && Number(horaLimpia) < 1) {
-                const f = Number(horaLimpia);
-                const tm = Math.round(f * 24 * 60);
-                horaLimpia = `${String(Math.floor(tm / 60)).padStart(2, '0')}:${String(tm % 60).padStart(2, '0')}`;
-              }
-              return horaLimpia;
-            });
-
-            await crearMedicamento(paciente.id, {
-              nombre: String(fila.Nombre || 'Medicamento Sin Nombre').trim(),
-              dosis: String(fila.Dosis || '1 tableta').trim(),
-              frecuencia: String(fila.Frecuencia || 'cada 12 horas').trim(),
-              via_administracion: String(fila.Via || 'oral').toLowerCase().trim(),
-              horarios: horariosArr,
-              indicaciones: fila.Indicaciones ? String(fila.Indicaciones).trim() : null,
-              fecha_inicio,
-              fecha_fin,
-              fuente: 'manual',
-              activo: true,
-            });
-          } else if (tipo === 'rutina' || tipo === 'actividad') {
-            let horaRaw = fila.Hora ? String(fila.Hora).trim() : '09:00';
-
-            if (!isNaN(Number(horaRaw)) && Number(horaRaw) > 0 && Number(horaRaw) < 1) {
-              const fraccionDia = Number(horaRaw);
-              const totalMinutos = Math.round(fraccionDia * 24 * 60);
-              const horas = Math.floor(totalMinutos / 60);
-              const minutos = totalMinutos % 60;
-              horaRaw = `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}`;
-            }
-
-            await crearTareaRecurrente(paciente.id, {
-              descripcion: String(fila.Descripcion || 'Rutina sin descripción').trim(),
-              tipo: String(fila.Categoria || 'otro').toLowerCase().trim(),
-              hora: horaRaw,
-              fecha_inicio,
-              fecha_fin,
-            });
-          }
-        } catch (apiError: any) {
-          console.error(`❌ Error importando fila "${fila.Nombre || fila.Descripcion}":`, apiError?.message || apiError);
-        }
       }
 
-      const [meds, rutinas, inv] = await Promise.all([
-        getMedicamentos(paciente.id),
-        getTareasRecurrentes(paciente.id),
-        getInventario(paciente.id),
-      ]);
+      return fechaStr.split('T')[0];
+    };
 
-      if (meds.medicamentos) setMedicamentos(meds.medicamentos);
-      if (rutinas.tareas) setTareasRec(rutinas.tareas);
-      if (inv.items) setInventario(inv.items);
+    // 🛠️ HELPER 2: PARSER DE HORAS DE EXCEL
+    const parsearHora = (horaRaw: any): string => {
+      if (!horaRaw) return '08:00';
+      const str = String(horaRaw).trim();
 
-      DeviceEventEmitter.emit('RECARGAR_TAREAS');
-      alert('📊 ¡Itinerario importado e integrado con éxito!');
-    } catch (error) {
-      console.error('❌ Error procesando Excel:', error);
-      alert('Ocurrió un error al procesar el archivo Excel. Revisa el formato.');
-    } finally {
-      setImportando(false);
+      if (!isNaN(Number(str)) && Number(str) >= 0 && Number(str) < 1) {
+        const totalMin = Math.round(Number(str) * 24 * 60);
+        const h = Math.floor(totalMin / 60);
+        const m = totalMin % 60;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      }
+
+      if (str.toLowerCase().includes('am') || str.toLowerCase().includes('pm')) {
+        const esPM = str.toLowerCase().includes('pm');
+        const soloNum = str.replace(/[^\d:]/g, '');
+        const partes = soloNum.split(':');
+        let h = parseInt(partes[0] || '0', 10);
+        const m = parseInt(partes[1] || '0', 10);
+
+        if (esPM && h < 12) h += 12;
+        if (!esPM && h === 12) h = 0;
+
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      }
+
+      const partes = str.split(':');
+      if (partes.length >= 2) {
+        const h = String(partes[0]).padStart(2, '0');
+        const m = String(partes[1]).padStart(2, '0');
+        return `${h}:${m}`;
+      }
+
+      return '08:00';
+    };
+
+    for (const fila of filas) {
+      const tipo = String(fila.Tipo || fila.Categoría || fila.Categoria || '').toLowerCase().trim();
+      const fInicioClean = limpiarYFormatearFecha(fila.FechaInicio || fila['Fecha Inicio']);
+      const fFinClean = limpiarYFormatearFecha(fila.FechaFin || fila['Fecha Fin']);
+      const fCaducidadClean = limpiarYFormatearFecha(fila.Caducidad || fila.FechaCaducidad || fila['Fecha Caducidad']);
+
+      const fecha_inicio = fInicioClean || getHoyISO();
+      const fecha_fin = fFinClean ? fFinClean : null;
+
+      try {
+        // 💊 1. MEDICAMENTOS
+        if (tipo === 'medicina' || tipo === 'medicamento' || tipo === 'med') {
+          const horariosRaw = fila.Horarios || fila.Hora || '08:00';
+          const horariosArr = String(horariosRaw)
+            .split(',')
+            .map(h => parsearHora(h));
+
+          await crearMedicamento(paciente.id, {
+            nombre: String(fila.Nombre || 'Medicamento Sin Nombre').trim(),
+            dosis: String(fila.Dosis || fila.Presentacion || '1 tableta').trim(),
+            frecuencia: String(fila.Frecuencia || 'cada 12 horas').trim(),
+            via_administracion: String(fila.Via || fila['Vía'] || 'oral').toLowerCase().trim(),
+            horarios: horariosArr,
+            indicaciones: fila.Indicaciones ? String(fila.Indicaciones).trim() : null,
+            fecha_inicio,
+            fecha_fin,
+            fuente: 'manual',
+            activo: true,
+          });
+
+        // 🔄 2. RUTINAS Y ACTIVIDADES RECURRENTES
+        } else if (tipo === 'rutina' || tipo === 'actividad' || tipo === 'tarea') {
+          const horaLimpia = parsearHora(fila.Hora || fila.Horarios);
+
+          await crearTareaRecurrente(paciente.id, {
+            descripcion: String(fila.Descripcion || fila.Nombre || 'Rutina sin descripción').trim(),
+            tipo: String(fila.Categoria || 'otro').toLowerCase().trim(),
+            hora: horaLimpia,
+            fecha_inicio,
+            fecha_fin,
+          });
+
+        // 📦 3. INSUMOS Y ACTIVOS FIJOS (Sillas de Ruedas, Bastones, Pañales, Gasas)
+        } else if (tipo === 'insumo' || tipo === 'otro' || tipo === 'inventario' || tipo === 'equipo') {
+          const esConsumibleRaw = String(fila.EsConsumible || fila['Es Consumible'] || '').toLowerCase().trim();
+          let esConsumible = true;
+          
+          if (esConsumibleRaw === 'false' || esConsumibleRaw === 'no' || tipo === 'equipo') {
+            esConsumible = false;
+          }
+
+          const esCompartidoRaw = String(fila.EsCompartido || fila['Es Compartido'] || '').toLowerCase().trim();
+          const esCompartido = esCompartidoRaw === 'true' || esCompartidoRaw === 'si' || esCompartidoRaw === 'sí';
+
+          await crearItemInventario(paciente.id, {
+          nombre: String(fila.Nombre || fila.Descripcion || 'Ítem de Inventario').trim(),
+          dosis: String(fila.Dosis || fila.Presentacion || '').trim(),
+          tipo: tipo === 'insumo' ? 'insumo' : 'otro',
+          cantidad: Number(fila.Cantidad || fila.Stock || 1),
+          unidad: String(fila.Unidad || 'piezas').toLowerCase().trim(),
+          minimo_stock: esConsumible ? Number(fila.Minimo || fila.StockMinimo || 2) : 0,
+          fecha_caducidad: esConsumible ? fCaducidadClean : null,
+          es_consumible: esConsumible,
+          es_compartido: esCompartido,
+          notas: fila.Notas || fila.Indicaciones ? String(fila.Notas || fila.Indicaciones).trim() : null,
+          activo: true,
+        } as any);
+        }
+      } catch (apiError: any) {
+        console.error(`❌ Error importando fila "${fila.Nombre || fila.Descripcion}":`, apiError?.message || apiError);
+      }
     }
-  };
+
+    // REFRESCAR LOS 3 ESTADOS LOCALES AL FINALIZAR LA IMPORTACIÓN
+    const [meds, rutinas, inv] = await Promise.all([
+      getMedicamentos(paciente.id),
+      getTareasRecurrentes(paciente.id),
+      getInventario(paciente.id),
+    ]);
+
+    if (meds.medicamentos) setMedicamentos(meds.medicamentos);
+    if (rutinas.tareas) setTareasRec(rutinas.tareas);
+    if (inv.items) setInventario(inv.items);
+
+    DeviceEventEmitter.emit('RECARGAR_TAREAS');
+    alert('📊 ¡Itinerario e Inventario importados e integrados con éxito!');
+  } catch (error) {
+    console.error('❌ Error procesando Excel:', error);
+    alert('Ocurrió un error al procesar el archivo Excel. Revisa el formato.');
+  } finally {
+    setImportando(false);
+  }
+};
 
   const abrirEdicionMedicamento = (med: any) => {
     setMedicamentoEditando(med);
