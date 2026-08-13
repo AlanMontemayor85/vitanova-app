@@ -192,7 +192,7 @@ useFocusEffect(
   }, [pacienteId])
 );
 
-  // 📄 EXPORTACIÓN COMPLETA A PDF CON ALINEACIÓN PERFECTA (TABLE-BASED)
+  // 📄 EXPORTACIÓN COMPLETA A PDF CON ALINEACIÓN PERFECTA
   const generarPDF = async (c: any) => {
     let logoBase64 = "";
     try {
@@ -211,6 +211,30 @@ useFocusEffect(
     const notasTurno = c?.notas_turno || [];
     const alertasClinicas = c?.alertas_clinicas || c?.alertas || [];
 
+    // 🕒 FUNCIÓN EXTRAORDINARIA PARA PARSEAR HORA SIN ERRORES
+    const obtenerHoraFormateada = (objeto: any) => {
+      const horaRaw = objeto?.created_at || objeto?.fecha_hora || objeto?.hora || objeto?.timestamp || '';
+      if (!horaRaw) return '';
+
+      try {
+        if (typeof formatHora === 'function') {
+          const resultado = formatHora(horaRaw);
+          if (resultado && resultado !== '—') return resultado;
+        }
+
+        // Si es una cadena, normalizamos el espacio a 'T' para asegurar parseo ISO estricto
+        const isoString = String(horaRaw).trim().replace(' ', 'T');
+        const d = new Date(isoString);
+
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true });
+        }
+      } catch (err) {
+        console.warn('⚠️ Error al parsear fecha:', horaRaw);
+      }
+      return '';
+    };
+
     // 🎯 Separación de Inventario
     const consumiblesUsados = inventarioUsado.filter((inv: any) => inv.es_consumible !== false && inv.tipo !== 'otro');
     const equiposEnHogar = inventarioUsado.filter((inv: any) => inv.es_consumible === false || inv.tipo === 'otro');
@@ -222,16 +246,19 @@ useFocusEffect(
           👤 ${g.persona} (${g.tareas.length} actividades)
         </div>
         <table style="width: 100%; border-collapse: collapse;">
-          ${g.tareas.map((t: any) => `
-            <tr style="border-top: 1px solid #F0EAE1;">
-              <td style="padding: 6px; font-size: 12px; color: #2C2820;">
-                ${(typeof ICONOS_TIPO !== 'undefined' && ICONOS_TIPO[t.tipo]) || '📋'} ${t.descripcion}
-              </td>
-              <td style="padding: 6px; font-size: 11px; color: #8A8078; text-align: right;">
-                ${t.hora_completada ? (typeof formatHora === 'function' ? formatHora(t.hora_completada) : t.hora_completada) : '—'}
-              </td>
-            </tr>
-          `).join('')}
+          ${g.tareas.map((t: any) => {
+            const hComp = obtenerHoraFormateada(t) || t.hora_completada || '—';
+            return `
+              <tr style="border-top: 1px solid #F0EAE1;">
+                <td style="padding: 6px; font-size: 12px; color: #2C2820;">
+                  ${(typeof ICONOS_TIPO !== 'undefined' && ICONOS_TIPO[t.tipo]) || '📋'} ${t.descripcion}
+                </td>
+                <td style="padding: 6px; font-size: 11px; color: #8A8078; text-align: right; white-space: nowrap;">
+                  ${hComp}
+                </td>
+              </tr>
+            `;
+          }).join('')}
         </table>
       </div>
     `).join('');
@@ -283,15 +310,19 @@ useFocusEffect(
       </table>
     ` : '';
 
-    // 🎯 HTML ALERTAS CLÍNICAS
+    // 🎯 HTML ALERTAS CLÍNICAS CON HORA GARANTIZADA
     const htmlAlertas = alertasClinicas.length > 0 ? `
       <div class="alert-box" style="background-color: #FDEAEA; border-left: 5px solid #D94F4F; margin-bottom: 20px; box-sizing: border-box; width: 100%;">
         <div class="alert-title" style="color: #D94F4F;">🚨 Alertas Clínicas e Incidentes de Relevo (${alertasClinicas.length})</div>
         <ul style="margin: 6px 0 0 0; padding-left: 20px; font-size: 12px; line-height: 1.6; color: #2C2820; word-break: break-word;">
           ${alertasClinicas.map((alt: any) => {
             const esFalla = alt.tipo === 'fallo_equipo' || String(alt.descripcion || alt.mensaje || '').includes('FALLA DE EQUIPO');
+            const horaStr = obtenerHoraFormateada(alt);
+            const horaBadge = horaStr ? `<span style="color: #8A8078; font-weight: 700;">[${horaStr}]</span> ` : '';
+
             return `
               <li style="margin-bottom: 4px;">
+                ${horaBadge}
                 <strong style="color: ${esFalla ? '#D94F4F' : (alt.severidad === 'alta' ? '#D94F4F' : '#D4860A')};">
                   [${esFalla ? '♿ FALLA EQUIPO' : (alt.severidad || 'ALERTA').toUpperCase()}]
                 </strong> 
@@ -310,7 +341,8 @@ useFocusEffect(
         <meta charset="UTF-8">
         <style>
           @page { size: letter; margin: 12mm; }
-          body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 0; margin: 0; color: #2C2820; background-color: #FAFAF7; box-sizing: border-box; }
+          * { box-sizing: border-box; }
+          body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 0; margin: 0; color: #2C2820; background-color: #FAFAF7; }
           .no-split { page-break-inside: avoid !important; break-inside: avoid !important; }
           tr { page-break-inside: avoid !important; break-inside: avoid !important; }
           
@@ -322,16 +354,16 @@ useFocusEffect(
           
           .section-title { font-size: 13px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #8A8078; margin-top: 20px; margin-bottom: 10px; border-bottom: 2px solid #E0D8CC; padding-bottom: 4px; }
           
-          /* 📐 ESTRUCTURA DE TARJETAS BASADA EN TABLAS PARA EVITAR DESFASES */
-          .grid-table { width: 100%; border-collapse: separate; border-spacing: 8px; margin-bottom: 15px; }
-          .metric-td { background-color: #FFFFFF; border: 1px solid #E0D8CC; border-radius: 8px; padding: 10px; text-align: center; vertical-align: middle; }
-          .metric-val { font-size: 15px; font-weight: 800; color: #BF9A40; }
-          .metric-label { font-size: 9px; font-weight: 700; color: #8A8078; text-transform: uppercase; margin-top: 2px; }
+          /* 📐 ESTRUCTURA DE TARJETAS FIJAS PARA EVITAR DEFORMACIÓN EN PDF */
+          .grid-table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 6px; margin-bottom: 15px; }
+          .metric-td { background-color: #FFFFFF; border: 1px solid #E0D8CC; border-radius: 8px; padding: 8px 4px; text-align: center; vertical-align: middle; overflow: hidden; }
+          .metric-val { font-size: 14px; font-weight: 800; color: #BF9A40; white-space: nowrap; }
+          .metric-label { font-size: 9px; font-weight: 700; color: #8A8078; text-transform: uppercase; margin-top: 2px; white-space: nowrap; }
           
           .data-table { width: 100%; border-collapse: collapse; background-color: #FFFFFF; border: 1px solid #E0D8CC; border-radius: 10px; overflow: hidden; margin-bottom: 15px; }
           .data-table th { background-color: #F5EDD8; color: #4A4540; padding: 10px; font-size: 10px; font-weight: 800; text-transform: uppercase; text-align: left; letter-spacing: 1px; }
           
-          .alert-box { background-color: #FFF4E0; border-left: 5px solid #D4860A; border-radius: 8px; padding: 14px; margin-top: 10px; box-sizing: border-box; }
+          .alert-box { background-color: #FFF4E0; border-left: 5px solid #D4860A; border-radius: 8px; padding: 14px; margin-top: 10px; }
           .alert-title { font-size: 11px; font-weight: 800; color: #D4860A; text-transform: uppercase; margin-bottom: 4px; }
           .alert-desc { font-size: 12px; color: #2C2820; margin: 0; line-height: 1.4; word-break: break-word; }
         </style>
@@ -359,7 +391,7 @@ useFocusEffect(
           </tr>
         </table>
 
-        <!-- SIGNOS VITALES EN TABLA (5 COLUMNAS EXACTAS) -->
+        <!-- SIGNOS VITALES EN TABLA (5 COLUMNAS SIMÉTRICAS) -->
         <div class="no-split">
           <div class="section-title">Signos Vitales Consolidados</div>
           <table class="grid-table">
@@ -379,7 +411,7 @@ useFocusEffect(
           ${htmlAlertas}
         </div>
 
-        <!-- EVALUACIÓN DE CONFORT EN TABLA (4 COLUMNAS EXACTAS) -->
+        <!-- EVALUACIÓN DE CONFORT EN TABLA (4 COLUMNAS SIMÉTRICAS) -->
         ${c.dolor_eva !== null && c.dolor_eva !== undefined ? `
           <div class="no-split">
             <div class="section-title">Evaluación de Confort Diario</div>
@@ -430,7 +462,7 @@ useFocusEffect(
               <div class="alert-box" style="background-color: #EEF3FC; border-left-color: #2D6BE4; margin-top: 10px;">
                 <div class="alert-title" style="color: #2D6BE4;">📝 Notas de Evolución Clínicas</div>
                 <ul style="margin: 6px 0 0 0; padding-left: 20px; font-size: 12px; line-height: 1.5; color: #2C2820; word-break: break-word;">
-                  ${notasTurno.map((n: any) => `<li>${String(n.descripcion || '').replace('📝 ', '')} (${typeof formatHora === 'function' ? formatHora(n.hora_completada) : n.hora_completada})</li>`).join('')}
+                  ${notasTurno.map((n: any) => `<li>${String(n.descripcion || '').replace('📝 ', '')} (${obtenerHoraFormateada(n) || n.hora_completada || '—'})</li>`).join('')}
                 </ul>
               </div>
             ` : ''}
