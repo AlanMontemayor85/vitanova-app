@@ -1288,15 +1288,43 @@ const guardarRegistroEspontaneo = async () => {
         {/* ⌚ SECCIÓN DE HARDWARE Y TELEMETRÍA (Solo visible si pacienteActivo tiene reloj IMEI) */}
         {Boolean(pacienteActivo?.reloj_imei && pacienteActivo.reloj_imei.trim() !== '') && (
           <>
-           {/* 📡 TARJETA 1: TELEMETRÍA EN VIVO (ESTANDARIZADA) */}
+           {/* 📡 TARJETA 1: TELEMETRÍA EN VIVO + BATERÍA DEL RELOJ */}
           <View style={[styles.monitorCard, { marginHorizontal: 16, marginTop: 16, backgroundColor: COLORS.white, borderColor: COLORS.border }]}>
             
-            {/* ENCABEZADO Y BOTÓN SENSA AHORA */}
+            {/* CABECERA: TÍTULO, BADGE DE BATERÍA Y BOTÓN SENSA AHORA */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <Text style={{ fontSize: 9, fontWeight: '800', color: COLORS.textLight, letterSpacing: 0.5 }}>
-                📡 TELEMETRÍA EN VIVO
-              </Text>
               
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 9, fontWeight: '800', color: COLORS.textLight, letterSpacing: 0.5 }}>
+                  📡 TELEMETRÍA EN VIVO
+                </Text>
+
+                {/* 🔋 PILL DE BATERÍA DINÁMICO */}
+                {(ubicacion?.bateria_pct !== undefined || signosDispositivo?.bateria_pct !== undefined) && (
+                  <View style={{ 
+                    flexDirection: 'row', 
+                    alignItems: 'center', 
+                    backgroundColor: (ubicacion?.bateria_pct ?? signosDispositivo?.bateria_pct ?? 0) < 20 ? '#FFEBEE' : '#E8F5E9', 
+                    paddingHorizontal: 7, 
+                    paddingVertical: 2, 
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: (ubicacion?.bateria_pct ?? signosDispositivo?.bateria_pct ?? 0) < 20 ? '#FFCDD2' : '#C8E6C9'
+                  }}>
+                    <Text style={{ fontSize: 10, marginRight: 3 }}>
+                      {(ubicacion?.bateria_pct ?? signosDispositivo?.bateria_pct ?? 0) < 20 ? '🪫' : '🔋'}
+                    </Text>
+                    <Text style={{ 
+                      fontSize: 10, 
+                      fontWeight: '800', 
+                      color: (ubicacion?.bateria_pct ?? signosDispositivo?.bateria_pct ?? 0) < 20 ? COLORS.red : COLORS.green 
+                    }}>
+                      {ubicacion?.bateria_pct ?? signosDispositivo?.bateria_pct ?? 0}%
+                    </Text>
+                  </View>
+                )}
+              </View>
+
               <TouchableOpacity 
                 onPress={() => pacienteActivo?.id && sincronizarSignosReloj(pacienteActivo.id, true)} 
                 disabled={cargandoSignos || !pacienteActivo?.id}
