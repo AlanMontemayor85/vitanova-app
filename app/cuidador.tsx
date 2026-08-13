@@ -181,7 +181,11 @@ export default function CuidadorScreen({
   const [inventarioHogar, setInventarioHogar] = useState<any[]>([]);
   const [consumosTurno, setConsumosTurno] = useState<Record<string, number>>({});
   const [itemSeleccionadoDetalle, setItemSeleccionadoDetalle] = useState<any>(null);
-  // 🎯 3. AQUÍ VA ESTA FUNCIÓN HELPER:
+  // 🎯 Estados para el reporte de falla de activos fijos / equipos
+  const [itemFallaSeleccionado, setItemFallaSeleccionado] = useState<any>(null);
+  const [descripcionFalla, setDescripcionFalla] = useState('');
+  const [enviandoFalla, setEnviandoFalla] = useState(false);
+
   const cambiarConsumoItem = (itemId: string, delta: number) => {
     setConsumosTurno((prev: Record<string, number>) => {
       const actual = prev[itemId] || 0;
@@ -2048,6 +2052,8 @@ const guardarRegistroEspontaneo = async () => {
         </Modal>
       </View>
     );
+
+
 }
 
   // ── 3. VISTA MONITOREO ESPONTÁNEO (DISEÑO PREMIUM ESTANDARIZADO) ──
@@ -2559,89 +2565,203 @@ const guardarRegistroEspontaneo = async () => {
               ))}
             </View>
 
-            {/* 8. 📦 INSUMOS CONSUMIDOS */}
-            <Text style={styles.sectionTitle}>📦 Insumos consumidos en este turno</Text>
+            {/* 8. 📦 INSUMOS Y EQUIPOS DEL HOGAR */}
+            {(() => {
+              const lista = inventarioHogar || [];
+              
+              // 🎯 FILTRADO INTELIGENTE Y BLINDADO
+              // Identifica activos por es_consumible, tipo O por palabras clave en el nombre (Silla, Bastón, etc.)
+              const esEquipoActivo = (i: any) => {
+                const nombre = (i.nombre || '').toLowerCase();
+                return (
+                  i.es_consumible === false || 
+                  i.tipo === 'otro' || 
+                  i.tipo === 'equipo' || 
+                  i.tipo === 'activo' ||
+                  nombre.includes('silla') ||
+                  nombre.includes('baston') ||
+                  nombre.includes('bastón') ||
+                  nombre.includes('andadera') ||
+                  nombre.includes('concentrador') ||
+                  nombre.includes('oxigeno') ||
+                  nombre.includes('oxígeno') ||
+                  nombre.includes('cama') ||
+                  nombre.includes('grua') ||
+                  nombre.includes('grúa')
+                );
+              };
 
-            {!inventarioHogar || inventarioHogar.length === 0 ? (
-              <View style={{ backgroundColor: COLORS.white, borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, marginBottom: 16 }}>
-                <Text style={{ color: COLORS.textLight, fontSize: 11 }}>Sin insumos registrados en el inventario del hogar.</Text>
-              </View>
-            ) : (
-              <View style={{ gap: 8, marginBottom: 16 }}>
-                {inventarioHogar.map((item: any) => {
-                  const usandose = consumosTurno[item.id] || 0;
+              const consumibles = lista.filter((i: any) => !esEquipoActivo(i));
+              const activosFijos = lista.filter((i: any) => esEquipoActivo(i));
 
-                  return (
-                    <View 
-                      key={item.id} 
-                      style={{
-                        backgroundColor: COLORS.white,
-                        borderRadius: 12,
-                        padding: 10,
-                        borderWidth: 1,
-                        borderColor: COLORS.border,
-                        flexDirection: 'row',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <View style={{ flex: 1, marginRight: 8 }}>
-                        <Text style={{ fontWeight: '800', color: COLORS.textDark, fontSize: 12 }}>
-                          {item.nombre}
-                        </Text>
-                        <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 1 }}>
-                          Disponible: {item.cantidad} {item.unidad}
-                        </Text>
-                      </View>
+              return (
+                <View style={{ marginBottom: 16 }}>
 
-                      {/* Botones (- / +) */}
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <TouchableOpacity
-                          onPress={() => cambiarConsumoItem(item.id, -1)}
-                          disabled={usandose <= 0}
-                          style={{
-                            paddingHorizontal: 10,
-                            paddingVertical: 4,
-                            backgroundColor: COLORS.cream,
-                            borderRadius: 6,
-                            borderWidth: 1,
-                            borderColor: COLORS.border,
-                            opacity: usandose <= 0 ? 0.3 : 1,
-                          }}
-                        >
-                          <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 12 }}>▼</Text>
-                        </TouchableOpacity>
+                  {/* ──────────────────────────────────────────────────────── */}
+                  {/* 📦 A. SECCIÓN INSUMOS CONSUMIBLES */}
+                  {/* ──────────────────────────────────────────────────────── */}
+                  <Text style={styles.sectionTitle}>📦 Insumos consumidos en este turno</Text>
 
-                        <Text style={{ fontWeight: '800', fontSize: 13, minWidth: 18, textAlign: 'center', color: COLORS.cacao }}>
-                          {usandose}
-                        </Text>
-
-                        <TouchableOpacity
-                          onPress={() => {
-                            if (usandose < item.cantidad) {
-                              cambiarConsumoItem(item.id, 1);
-                            }
-                          }}
-                          disabled={usandose >= item.cantidad}
-                          style={{
-                            paddingHorizontal: 10,
-                            paddingVertical: 4,
-                            backgroundColor: COLORS.cream,
-                            borderRadius: 6,
-                            borderWidth: 1,
-                            borderColor: COLORS.border,
-                            opacity: usandose >= item.cantidad ? 0.3 : 1,
-                          }}
-                        >
-                          <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 12 }}>▲</Text>
-                        </TouchableOpacity>
-                      </View>
+                  {consumibles.length === 0 ? (
+                    <View style={{ backgroundColor: COLORS.white, borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, marginBottom: 16 }}>
+                      <Text style={{ color: COLORS.textLight, fontSize: 11 }}>Sin insumos consumibles registrados.</Text>
                     </View>
-                  );
-                })}
-              </View>
-            )}
+                  ) : (
+                    <View style={{ gap: 8, marginBottom: 16 }}>
+                      {consumibles.map((item: any) => {
+                        const usandose = consumosTurno[item.id] || 0;
 
+                        return (
+                          <View 
+                            key={item.id} 
+                            style={{
+                              backgroundColor: COLORS.white,
+                              borderRadius: 12,
+                              padding: 10,
+                              borderWidth: 1,
+                              borderColor: COLORS.border,
+                              flexDirection: 'row',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                            }}
+                          >
+                            {/* BOTÓN DE INFORMACIÓN E INFO DEL ITEM */}
+                            <TouchableOpacity 
+                              style={{ flex: 1, marginRight: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                              onPress={() => setItemSeleccionadoDetalle(item)}
+                              activeOpacity={0.7}
+                            >
+                              <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' }}>
+                                <Text style={{ fontSize: 13 }}>ℹ️</Text>
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={{ fontWeight: '800', color: COLORS.textDark, fontSize: 12 }}>
+                                  {item.nombre}
+                                </Text>
+                                <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 1 }}>
+                                  Disponible: {item.cantidad} {item.unidad || 'piezas'}
+                                </Text>
+                              </View>
+                            </TouchableOpacity>
+
+                            {/* CONTROLES DE CANTIDAD (▼ 0 ▲) */}
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <TouchableOpacity
+                                onPress={() => cambiarConsumoItem(item.id, -1)}
+                                disabled={usandose <= 0}
+                                style={{
+                                  paddingHorizontal: 10,
+                                  paddingVertical: 4,
+                                  backgroundColor: COLORS.cream,
+                                  borderRadius: 6,
+                                  borderWidth: 1,
+                                  borderColor: COLORS.border,
+                                  opacity: usandose <= 0 ? 0.3 : 1,
+                                }}
+                              >
+                                <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 12 }}>▼</Text>
+                              </TouchableOpacity>
+
+                              <Text style={{ fontWeight: '800', fontSize: 13, minWidth: 18, textAlign: 'center', color: COLORS.cacao }}>
+                                {usandose}
+                              </Text>
+
+                              <TouchableOpacity
+                                onPress={() => {
+                                  if (usandose < item.cantidad) {
+                                    cambiarConsumoItem(item.id, 1);
+                                  }
+                                }}
+                                disabled={usandose >= item.cantidad}
+                                style={{
+                                  paddingHorizontal: 10,
+                                  paddingVertical: 4,
+                                  backgroundColor: COLORS.cream,
+                                  borderRadius: 6,
+                                  borderWidth: 1,
+                                  borderColor: COLORS.border,
+                                  opacity: usandose >= item.cantidad ? 0.3 : 1,
+                                }}
+                              >
+                                <Text style={{ fontWeight: '800', color: COLORS.cacao, fontSize: 12 }}>▲</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+
+
+                  {/* ──────────────────────────────────────────────────────── */}
+                  {/* ♿ B. SECCIÓN EQUIPOS Y ACTIVOS FIJOS (Silla, Bastón, etc.) */}
+                  {/* ──────────────────────────────────────────────────────── */}
+                  {activosFijos.length > 0 && (
+                    <>
+                      <Text style={[styles.sectionTitle, { marginTop: 12 }]}>♿ Equipos y Activos Fijos del Hogar</Text>
+
+                      <View style={{ gap: 8, marginBottom: 16 }}>
+                        {activosFijos.map((item: any) => (
+                          <View 
+                            key={item.id} 
+                            style={{
+                              backgroundColor: COLORS.white,
+                              borderRadius: 12,
+                              padding: 10,
+                              borderWidth: 1,
+                              borderColor: COLORS.border,
+                              flexDirection: 'row',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                            }}
+                          >
+                            {/* BOTÓN DE INFORMACIÓN E INFO DEL EQUIPO */}
+                            <TouchableOpacity 
+                              style={{ flex: 1, marginRight: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                              onPress={() => setItemSeleccionadoDetalle(item)}
+                              activeOpacity={0.7}
+                            >
+                              <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: '#E3F2FD', justifyContent: 'center', alignItems: 'center' }}>
+                                <Text style={{ fontSize: 13 }}>ℹ️</Text>
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={{ fontWeight: '800', color: COLORS.textDark, fontSize: 12 }}>
+                                  {item.nombre}
+                                </Text>
+                                <Text style={{ fontSize: 10, color: COLORS.gold || '#BF9A40', fontWeight: '700', marginTop: 1 }}>
+                                  ♿ {item.cantidad || 1} {item.unidad || 'unidad(es)'} en casa
+                                </Text>
+                              </View>
+                            </TouchableOpacity>
+
+                            {/* BOTÓN DE REPORTAR FALLA (❌) */}
+                            <TouchableOpacity
+                              style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                backgroundColor: '#FFF0F0',
+                                paddingHorizontal: 10,
+                                paddingVertical: 6,
+                                borderRadius: 8,
+                                borderWidth: 1,
+                                borderColor: '#F5C6C6',
+                                gap: 4
+                              }}
+                              onPress={() => setItemFallaSeleccionado(item)}
+                            >
+                              <Text style={{ fontSize: 11 }}>❌</Text>
+                              <Text style={{ fontSize: 10, fontWeight: '800', color: '#D94F4F' }}>Reportar Falla</Text>
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </View>
+                    </>
+                  )}
+
+                </View>
+              );
+            })()}
+            
             {/* 9. OBSERVACIONES DEL TURNO */}
             <Text style={styles.sectionTitle}>Observaciones del turno</Text>
             <View style={{ backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 12, marginBottom: 16 }}>
@@ -2664,9 +2784,195 @@ const guardarRegistroEspontaneo = async () => {
               <Text style={styles.confirmarBtnText}>Confirmar y Concluir Turno</Text>
             </TouchableOpacity>
             
-            {/* 🎯 ESPACIO DE SEGURIDAD PARA LIBERAR LA BARRA NATIVA DE ANDROID */}
+            {/* ESPACIO DE SEGURIDAD PARA LIBERAR LA BARRA NATIVA */}
             <View style={{ height: 80 }} />
           </ScrollView>
+
+          {/* ──────────────────────────────────────────────────────────── */}
+          {/* 🎯 1. MODAL DE DETALLE DEL ÍTEM (INFORMACIÓN ℹ️) */}
+          {/* ──────────────────────────────────────────────────────────── */}
+          <Modal 
+            visible={!!itemSeleccionadoDetalle} 
+            transparent 
+            animationType="fade" 
+            onRequestClose={() => setItemSeleccionadoDetalle(null)}
+          >
+            <TouchableOpacity 
+              style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}
+              activeOpacity={1}
+              onPress={() => setItemSeleccionadoDetalle(null)}
+            >
+              <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, width: '100%', maxWidth: 340, borderWidth: 1, borderColor: '#E0D8CC', elevation: 5 }}>
+                
+                <Text style={{ fontSize: 16, fontWeight: '800', color: '#4A4540', marginBottom: 4, textTransform: 'uppercase' }}>
+                  {(itemSeleccionadoDetalle as any)?.nombre || 'Detalle del Elemento'}
+                </Text>
+
+                <Text style={{ fontSize: 12, color: '#BF9A40', fontWeight: '800', marginBottom: 12 }}>
+                  📌 Categoría: {((itemSeleccionadoDetalle as any)?.tipo || 'Insumo').toUpperCase()}
+                </Text>
+
+                {/* UBICACIÓN */}
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: '#8A8078', textTransform: 'uppercase', marginBottom: 3 }}>
+                    📍 Ubicación en Casa:
+                  </Text>
+                  <Text style={{ fontSize: 13, color: '#2C2820', fontWeight: '600' }}>
+                    {(itemSeleccionadoDetalle as any)?.ubicacion || 'Almacén general / Botiquín'}
+                  </Text>
+                </View>
+
+                {/* NOTAS / INSTRUCCIONES */}
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: '#8A8078', textTransform: 'uppercase', marginBottom: 3 }}>
+                    💡 Instrucciones / Notas:
+                  </Text>
+                  <Text style={{ fontSize: 13, color: '#2C2820', fontWeight: '600', lineHeight: 18 }}>
+                    {(itemSeleccionadoDetalle as any)?.notas || 'Sin observaciones adicionales.'}
+                  </Text>
+                </View>
+
+                <TouchableOpacity 
+                  style={{ backgroundColor: '#4A4540', paddingVertical: 12, borderRadius: 10, alignItems: 'center' }}
+                  onPress={() => setItemSeleccionadoDetalle(null)}
+                >
+                  <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>Entendido</Text>
+                </TouchableOpacity>
+
+              </View>
+            </TouchableOpacity>
+          </Modal>
+
+          {/* ──────────────────────────────────────────────────────────── */}
+          {/* 🚨 2. MODAL DE REPORTE DE FALLA DE EQUIPO (❌) */}
+          {/* ──────────────────────────────────────────────────────────── */}
+          <Modal
+            visible={!!itemFallaSeleccionado}
+            transparent
+            animationType="fade"
+            onRequestClose={() => {
+              setItemFallaSeleccionado(null);
+              setDescripcionFalla('');
+            }}
+          >
+            <TouchableOpacity
+              style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}
+              activeOpacity={1}
+              onPress={() => {
+                setItemFallaSeleccionado(null);
+                setDescripcionFalla('');
+              }}
+            >
+              <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, width: '100%', maxWidth: 340, borderWidth: 1, borderColor: '#E0D8CC', elevation: 5 }}>
+                
+                <Text style={{ fontSize: 16, fontWeight: '800', color: '#4A4540', marginBottom: 4, textTransform: 'uppercase' }}>
+                  ⚠️ Reportar Falla de Equipo
+                </Text>
+                
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#BF9A40', marginBottom: 12 }}>
+                  ♿ {itemFallaSeleccionado?.nombre}
+                </Text>
+
+                <Text style={{ fontSize: 10, fontWeight: '800', color: '#8A8078', textTransform: 'uppercase', marginBottom: 4 }}>
+                  Descripción de la avería o daño:
+                </Text>
+                
+                <TextInput
+                  style={{
+                    backgroundColor: '#F5F4F0',
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: '#E0D8CC',
+                    padding: 10,
+                    fontSize: 13,
+                    color: '#2C2820',
+                    height: 75,
+                    textAlignVertical: 'top',
+                    marginBottom: 16
+                  }}
+                  placeholder="Ej. Llanta trasera ponchada, freno suelto, soporte flojo..."
+                  placeholderTextColor="#8A8078"
+                  multiline
+                  value={descripcionFalla}
+                  onChangeText={setDescripcionFalla}
+                />
+
+                {/* BOTONES DE ACCIÓN */}
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <TouchableOpacity
+                    style={{ flex: 1, backgroundColor: '#F1F5F9', paddingVertical: 12, borderRadius: 10, alignItems: 'center' }}
+                    onPress={() => {
+                      setItemFallaSeleccionado(null);
+                      setDescripcionFalla('');
+                    }}
+                  >
+                    <Text style={{ color: '#64748B', fontWeight: '700', fontSize: 13 }}>Cancelar</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={{ flex: 1, backgroundColor: '#D94F4F', paddingVertical: 12, borderRadius: 10, alignItems: 'center' }}
+                    disabled={enviandoFalla}
+                    onPress={async () => {
+                    if (!descripcionFalla.trim() || !itemFallaSeleccionado) {
+                      console.log("⚠️ [FALLA DE EQUIPO] Intento de envío con datos vacíos");
+                      return;
+                    }
+                    
+                    setEnviandoFalla(true);
+
+                    try {
+                      const pId = itemFallaSeleccionado?.paciente_id || null;
+                      const token = await getToken();
+
+                      const payload = {
+                        paciente_id: pId,
+                        tipo: 'fallo_equipo',
+                        descripcion: `⚠️ FALLA DE EQUIPO: ${itemFallaSeleccionado.nombre} — ${descripcionFalla}`
+                      };
+
+                      // 🚨 LOG DE CONTROL
+                      console.log("🚀 [ENVIANDO FALLA A API] Payload preparado:", JSON.stringify(payload, null, 2));
+
+                      const response = await fetch(`${BASE_URL}/api/alertas`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(payload)
+                      });
+
+                      const resJson = await response.json().catch(() => null);
+
+                      // 📡 LOG DE RESPUESTA
+                      console.log("📡 [RESPUESTA SERVER FALLA]:", response.status, resJson);
+
+                      if (!response.ok) {
+                        console.warn('⚠️ [RESPUESTA NOT OK] El servidor devolvió estado:', response.status);
+                      }
+
+                      setItemFallaSeleccionado(null);
+                      setDescripcionFalla('');
+                      Alert.alert('Reporte Registrado', 'La falla del equipo ha sido registrada correctamente.');
+                    } catch (err) {
+                      console.error('❌ [ERROR AL REPORTAR FALLA]:', err);
+                      setItemFallaSeleccionado(null);
+                      setDescripcionFalla('');
+                    } finally {
+                      setEnviandoFalla(false);
+                    }
+                  }}
+                                    >
+                    <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>
+                      {enviandoFalla ? 'Guardando...' : 'Confirmar Falla'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+              </View>
+            </TouchableOpacity>
+          </Modal>
+
         </KeyboardAvoidingView>
       </View>
     );
