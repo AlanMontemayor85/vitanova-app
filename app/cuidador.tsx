@@ -928,10 +928,79 @@ const guardarRegistroEspontaneo = async () => {
   };
 
   const compartirWhatsApp = () => {
-    const emoji = estadoPaciente === 'bien' ? '😊' : estadoPaciente === 'preocupante' ? '😟' : '😐';
-    const estado = estadoPaciente === 'bien' ? 'Bien' : estadoPaciente === 'preocupante' ? 'Preocupante' : 'Regular';
-    const mensaje = `🏠 *Vitanova Integralis — Resumen de Turno*\n\n👤 Paciente: *${pacienteActivo?.nombre_completo}*\n${emoji} Estado Confort: *${estado}*\n- Peso Cierre: ${peso} kg\n\n✅ Turno finalizado de forma segura por el personal asignado.\n_Vitanova Integralis — Confort y Cuidado Profesional_`;
-    Linking.openURL(`whatsapp://send?text=${encodeURIComponent(mensaje)}`).catch(() => Alert.alert('Error', 'WhatsApp no disponible.'));
+    // 🎯 1. Lectura directa de tus estados confirmados
+    const valSpo2 = spo2Manual || '';
+    const valSist = presionSist || '';
+    const valDiast = presionDiast || '';
+    const valFc = frecCard || '';
+    const valTemp = tempManual || '';
+    const valPeso = peso || '';
+
+    // 🎯 2. Emoji y etiqueta del estado de confort
+    const estadoActual = estadoPaciente || 'bien';
+    const emojiEstado = estadoActual === 'bien' ? '🟢' : estadoActual === 'preocupante' ? '🔴' : '🟡';
+    const textoEstado = estadoActual === 'bien' ? 'Estable / Sin Novedad' : estadoActual === 'preocupante' ? 'Requiere Atención' : 'Regular / Bajo Observación';
+
+    // 🎯 3. Formateo de Signos Vitales
+    const signosArr: string[] = [];
+    if (valSpo2) signosArr.push(`• *SpO₂:* ${valSpo2}%`);
+    if (valSist && valDiast) signosArr.push(`• *Presión:* ${valSist}/${valDiast} mmHg`);
+    if (valFc) signosArr.push(`• *FC:* ${valFc} bpm`);
+    if (valTemp) signosArr.push(`• *Temp:* ${valTemp} °C`);
+    if (valPeso) signosArr.push(`• *Peso:* ${valPeso} kg`);
+
+    const signosVitalesTexto = signosArr.length > 0 
+      ? signosArr.join('\n') 
+      : '• Registrados en la consola clínica';
+
+    // 🎯 4. Formateo de Insumos Consumidos en el Turno
+    const consumosMap = consumosTurno || {};
+    const inventarioArr = inventarioHogar || [];
+    const insumosConsumidosKeys = Object.keys(consumosMap).filter(id => consumosMap[id] > 0);
+    
+    const insumosTexto = insumosConsumidosKeys.length > 0
+      ? insumosConsumidosKeys.map(id => {
+          const item = inventarioArr.find((i: any) => i.id === id);
+          return item ? `• ${item.nombre}: *${consumosMap[id]} ${item.unidad || 'piezas'}*` : null;
+        }).filter(Boolean).join('\n')
+      : '• Ninguno consumido';
+
+    // 🎯 5. Armado del texto formateado para WhatsApp
+    const nombrePaciente = pacienteActivo?.nombre_completo || 'Paciente';
+    const vasosHidratacion = typeof hidratacion === 'number' ? hidratacion : 0;
+    const alimentacionTexto = alimentacion ? alimentacion.toUpperCase() : 'COMPLETA';
+
+    const obsTexto = (observaciones && typeof observaciones === 'string' && observaciones.trim()) 
+      ? `\n📝 *OBSERVACIONES DEL CUIDADOR:*\n_"${observaciones.trim()}"_\n` 
+      : '';
+
+    const mensaje = [
+      `🏛️ *VITANOVA INTEGRALIS — REPORTE DE TURNO*`,
+      `━━━━━━━━━━━━━━━━━━━━━━`,
+      `👤 *Paciente:* ${nombrePaciente}`,
+      `📅 *Fecha/Hora:* ${new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })} | ${new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true })}`,
+      `🩺 *Estado de Confort:* ${emojiEstado} *${textoEstado}*`,
+      ``,
+      `📊 *SIGNOS VITALES REGISTRADOS:*`,
+      signosVitalesTexto,
+      ``,
+      `🥣 *NUTRICIÓN E HIDRATACIÓN:*`,
+      `• *Alimentación:* ${alimentacionTexto}`,
+      `• *Hidratación:* ${vasosHidratacion} de 8 vasos (${vasosHidratacion * 250} ml)`,
+      ``,
+      `📦 *INSUMOS USADOS EN TURNO:*`,
+      insumosTexto,
+      obsTexto,
+      `━━━━━━━━━━━━━━━━━━━━━━`,
+      `✅ *Turno finalizado de forma segura.*`,
+      `_Vitanova Integralis — Cuidado y Confort en Casa_`
+    ].filter(Boolean).join('\n');
+
+    // 🎯 6. Abrir WhatsApp
+    const url = `whatsapp://send?text=${encodeURIComponent(mensaje)}`;
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Error', 'WhatsApp no está disponible en este dispositivo.');
+    });
   };
 
   const ejecutarCierre = async () => {
