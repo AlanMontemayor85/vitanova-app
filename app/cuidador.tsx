@@ -25,6 +25,7 @@ import {
   getTareasDia,
   getTareasHoy, getToken,
   getTurnoActivo,
+  getUbicacion,
   getUltimoCierre,
   iniciarTurno,
   loadStoredToken,
@@ -134,7 +135,7 @@ export default function CuidadorScreen({
   const [estadoAnimo, setEstadoAnimo] = useState('bien');
   const [alimentacion, setAlimentacion] = useState('bien');
   const [guardandoEspontaneo, setGuardandoEspontaneo] = useState(false);
-
+ 
   // 📋 Estados de Escalas Clínicas (Cierre) e Historiales del Familiar
   const [escalaRequerida, setEscalaRequerida] = useState(false);
   const [escalasLista, setEscalasLista] = useState<string[]>([]);
@@ -332,27 +333,40 @@ const refrescarPacientes = async (
   };
    
 useEffect(() => {
-    if (vista === 'turno' && pacienteActivo?.id) {
-      
-      // 🧼 LIMPIEZA INMEDIATA: Evita que Jorge herede el tablero pasivo de Blanca
-      setSignosDispositivo({
-        success: true,
-        spo2: "—",
-        presion: "—",
-        fc: "—",
-        temperatura: "—",
-        dispositivoPuesto: false
-      });
+  if (vista === 'turno' && pacienteActivo?.id) {
+    
+    // 🧼 LIMPIEZA INMEDIATA: Evita que Jorge herede el tablero pasivo de Blanca
+    setSignosDispositivo({
+      success: true,
+      spo2: "—",
+      presion: "—",
+      fc: "—",
+      temperatura: "—",
+      dispositivoPuesto: false
+    });
 
+    // 🔄 Función combinada de actualización
+    const actualizarTelemetriaYBateria = async () => {
       sincronizarSignosReloj(pacienteActivo.id);
       
-      const interval = setInterval(() => {
-        sincronizarSignosReloj(pacienteActivo.id);
-      }, 30000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [vista, pacienteActivo?.id]);
+      // 🔋 Cargar batería
+      try {
+        const ubData = await getUbicacion(pacienteActivo.id);
+        if (ubData?.ubicacion) setUbicacion(ubData.ubicacion);
+      } catch (e) {
+        console.error("❌ Error cargando batería:", e);
+      }
+    };
+
+    // Ejecución inicial al cambiar de paciente/vista
+    actualizarTelemetriaYBateria();
+    
+    // Polling cada 30 segundos
+    const interval = setInterval(actualizarTelemetriaYBateria, 30000);
+    
+    return () => clearInterval(interval);
+  }
+}, [vista, pacienteActivo?.id]);
   // 📦 CARGA DE INVENTARIO DEL HOGAR AL ABRIR EL CIERRE DE TURNO
  
   useEffect(() => {
@@ -1288,75 +1302,101 @@ const guardarRegistroEspontaneo = async () => {
         {/* ⌚ SECCIÓN DE HARDWARE Y TELEMETRÍA (Solo visible si pacienteActivo tiene reloj IMEI) */}
         {Boolean(pacienteActivo?.reloj_imei && pacienteActivo.reloj_imei.trim() !== '') && (
           <>
-           {/* 📡 TARJETA 1: TELEMETRÍA EN VIVO + BATERÍA DEL RELOJ */}
-          <View style={[styles.monitorCard, { marginHorizontal: 16, marginTop: 16, backgroundColor: COLORS.white, borderColor: COLORS.border }]}>
-            
+           {/* 📡 TARJETA PRINCIPAL: TELEMETRÍA EN VIVO */}
+          <View style={{
+            backgroundColor: COLORS.white || '#FFFFFF',
+            borderRadius: 16,
+            paddingHorizontal: 16,
+            paddingVertical: 16,
+            marginBottom: 16,
+            borderWidth: 1,
+            borderColor: COLORS.border || '#E0D8CC',
+            elevation: 2,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.05,
+            shadowRadius: 4,
+          }}>
+
             {/* CABECERA: TÍTULO, BADGE DE BATERÍA Y BOTÓN SENSA AHORA */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               
+              {/* Título + Batería */}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={{ fontSize: 9, fontWeight: '800', color: COLORS.textLight, letterSpacing: 0.5 }}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textLight, letterSpacing: 0.5 }}>
                   📡 TELEMETRÍA EN VIVO
                 </Text>
 
-                {/* 🔋 PILL DE BATERÍA DINÁMICO */}
-                {(ubicacion?.bateria_pct !== undefined || signosDispositivo?.bateria_pct !== undefined) && (
-                  <View style={{ 
-                    flexDirection: 'row', 
-                    alignItems: 'center', 
-                    backgroundColor: (ubicacion?.bateria_pct ?? signosDispositivo?.bateria_pct ?? 0) < 20 ? '#FFEBEE' : '#E8F5E9', 
-                    paddingHorizontal: 7, 
-                    paddingVertical: 2, 
-                    borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: (ubicacion?.bateria_pct ?? signosDispositivo?.bateria_pct ?? 0) < 20 ? '#FFCDD2' : '#C8E6C9'
-                  }}>
-                    <Text style={{ fontSize: 10, marginRight: 3 }}>
-                      {(ubicacion?.bateria_pct ?? signosDispositivo?.bateria_pct ?? 0) < 20 ? '🪫' : '🔋'}
-                    </Text>
-                    <Text style={{ 
-                      fontSize: 10, 
-                      fontWeight: '800', 
-                      color: (ubicacion?.bateria_pct ?? signosDispositivo?.bateria_pct ?? 0) < 20 ? COLORS.red : COLORS.green 
+                {/* 🔋 PILL DE BATERÍA */}
+                {(() => {
+                  const batVal = 
+                    signosDispositivo?.bateria_pct ?? 
+                    signosDispositivo?.bateria ?? 
+                    ubicacion?.bateria_pct ?? 
+                    pacienteActivo?.bateria_pct ?? 
+                    null;
+
+                  const esBaja = batVal !== null && typeof batVal === 'number' && batVal < 20;
+
+                  return (
+                    <View style={{ 
+                      flexDirection: 'row', 
+                      alignItems: 'center', 
+                      backgroundColor: esBaja ? '#FFEBEE' : '#E8F5E9', 
+                      paddingHorizontal: 8, 
+                      paddingVertical: 3, 
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: esBaja ? '#FFCDD2' : '#C8E6C9'
                     }}>
-                      {ubicacion?.bateria_pct ?? signosDispositivo?.bateria_pct ?? 0}%
-                    </Text>
-                  </View>
-                )}
+                      <Text style={{ fontSize: 10, marginRight: 3 }}>
+                        {esBaja ? '🪫' : '🔋'}
+                      </Text>
+                      <Text style={{ 
+                        fontSize: 10, 
+                        fontWeight: '800', 
+                        color: esBaja ? COLORS.red : COLORS.green 
+                      }}>
+                        {batVal !== null ? `${batVal}%` : '--%'}
+                      </Text>
+                    </View>
+                  );
+                })()}
               </View>
 
+              {/* Botón Sensa Ahora */}
               <TouchableOpacity 
                 onPress={() => pacienteActivo?.id && sincronizarSignosReloj(pacienteActivo.id, true)} 
                 disabled={cargandoSignos || !pacienteActivo?.id}
                 style={[
                   styles.iniciarBtn, 
-                  { paddingHorizontal: 10, paddingVertical: 4 }, 
+                  { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }, 
                   (cargandoSignos || !pacienteActivo?.id) && { backgroundColor: COLORS.border, opacity: 0.6 }
                 ]}
                 activeOpacity={0.7}
               >
-                <Text style={styles.iniciarBtnText}>
-                  {cargandoSignos ? "Inyectando Comando..." : "⚡ Sensa Ahora "}
+                <Text style={[styles.iniciarBtnText, { fontSize: 11, fontWeight: '800' }]}>
+                  {cargandoSignos ? "Inyectando Comando..." : "⚡ Sensa Ahora"}
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {/* LECTURA DE SIGNOS VITALES */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingVertical: 4 }}>
+            {/* LECTURA DE SIGNOS VITALES (MÉTRICAS DISTRIBUIDAS) */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingTop: 4, paddingBottom: 2 }}>
               
               {/* 1. SpO2 */}
               <View style={{ alignItems: 'center', flex: 1 }}>
-                <Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.cacao }}>
+                <Text style={{ fontSize: 19, fontWeight: '800', color: COLORS.cacao }}>
                   {signosDispositivo?.spo2 ? `${signosDispositivo.spo2}%` : "—"}
                 </Text>
-                <Text style={styles.monitorSubTextLabel}>SpO₂</Text>
+                <Text style={[styles.monitorSubTextLabel, { marginTop: 2 }]}>SpO₂</Text>
               </View>
 
-              <View style={{ width: 1, height: 24, backgroundColor: COLORS.border }} />
+              <View style={{ width: 1, height: 26, backgroundColor: COLORS.border }} />
 
               {/* 2. PRESIÓN */}
               <View style={{ alignItems: 'center', flex: 1 }}>
-                <Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.cacao }}>
+                <Text style={{ fontSize: 19, fontWeight: '800', color: COLORS.cacao }}>
                   {(() => {
                     if (signosDispositivo?.presion) return signosDispositivo.presion;
                     if (signosDispositivo?.presion_sistolica && signosDispositivo?.presion_diastolica) {
@@ -1365,36 +1405,37 @@ const guardarRegistroEspontaneo = async () => {
                     return "—";
                   })()}
                 </Text>
-                <Text style={styles.monitorSubTextLabel}>Presión</Text>
+                <Text style={[styles.monitorSubTextLabel, { marginTop: 2 }]}>Presión</Text>
               </View>
 
-              <View style={{ width: 1, height: 24, backgroundColor: COLORS.border }} />
+              <View style={{ width: 1, height: 26, backgroundColor: COLORS.border }} />
 
               {/* 3. PULSO */}
               <View style={{ alignItems: 'center', flex: 1 }}>
-                <Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.red }}>
+                <Text style={{ fontSize: 19, fontWeight: '800', color: COLORS.red }}>
                   {signosDispositivo?.fc ?? signosDispositivo?.frecuencia_cardiaca ?? "—"}
                 </Text>
-                <Text style={styles.monitorSubTextLabel}>Pulso (bpm)</Text>
+                <Text style={[styles.monitorSubTextLabel, { marginTop: 2 }]}>Pulso (bpm)</Text>
               </View>
 
-              <View style={{ width: 1, height: 24, backgroundColor: COLORS.border }} />
+              <View style={{ width: 1, height: 26, backgroundColor: COLORS.border }} />
 
               {/* 4. T. CORPORAL */}
               <View style={{ alignItems: 'center', flex: 1 }}>
                 {signosDispositivo?.temperatura && signosDispositivo.temperatura !== "—" ? (
-                  <Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.green }}>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: COLORS.green }}>
                     {`${signosDispositivo.temperatura}°`}
                   </Text>
                 ) : (
-                  <Text style={{ fontSize: 9, color: COLORS.gold, textAlign: 'center', fontWeight: '700' }}>
+                  <Text style={{ fontSize: 9, color: COLORS.gold, textAlign: 'center', fontWeight: '700', lineHeight: 11 }}>
                     {'Presiona\n"Sensa Ahora"'}
                   </Text>
                 )}
-                <Text style={styles.monitorSubTextLabel}>T. Corporal</Text>
+                <Text style={[styles.monitorSubTextLabel, { marginTop: 2 }]}>T. Corporal</Text>
               </View>
 
             </View>
+
           </View>
 
             {/* TARJETA 2: CONFIG RELOJ — Vista Cuidador (solo lectura) */}
