@@ -209,8 +209,13 @@ useFocusEffect(
     const desglosePersonas = c?.desglose_por_persona || [];
     const inventarioUsado = c?.inventario_usado || [];
     const notasTurno = c?.notas_turno || [];
-    const alertasClinicas = c?.alertas_clinicas || []; // 👈 🎯 NUEVA VARIABLE DE ALERTAS
+    const alertasClinicas = c?.alertas_clinicas || c?.alertas || [];
 
+    // 🎯 Separación de Inventario: Consumibles vs Equipos / Activos
+    const consumiblesUsados = inventarioUsado.filter((inv: any) => inv.es_consumible !== false && inv.tipo !== 'otro');
+    const equiposEnHogar = inventarioUsado.filter((inv: any) => inv.es_consumible === false || inv.tipo === 'otro');
+
+    // 🎯 HTML DESGLOSE DE ACTIVIDADES
     const htmlDesglose = desglosePersonas.map((g: any) => `
       <div style="margin-bottom: 14px; background-color: #FFFFFF; border: 1px solid #E0D8CC; border-radius: 8px; padding: 12px;" class="no-split">
         <div style="font-size: 13px; font-weight: 800; color: #BF9A40; margin-bottom: 8px;">
@@ -220,10 +225,10 @@ useFocusEffect(
           ${g.tareas.map((t: any) => `
             <tr style="border-top: 1px solid #F0EAE1;">
               <td style="padding: 6px; font-size: 12px; color: #2C2820;">
-                ${ICONOS_TIPO[t.tipo] || '📋'} ${t.descripcion}
+                ${(typeof ICONOS_TIPO !== 'undefined' && ICONOS_TIPO[t.tipo]) || '📋'} ${t.descripcion}
               </td>
               <td style="padding: 6px; font-size: 11px; color: #8A8078; text-align: right;">
-                ${t.hora_completada ? formatHora(t.hora_completada) : '—'}
+                ${t.hora_completada ? (typeof formatHora === 'function' ? formatHora(t.hora_completada) : t.hora_completada) : '—'}
               </td>
             </tr>
           `).join('')}
@@ -231,38 +236,69 @@ useFocusEffect(
       </div>
     `).join('');
 
-    const htmlInventario = inventarioUsado.length > 0 ? `
+    // 🎯 HTML TABLA INSUMOS CONSUMIBLES
+    const htmlInsumos = consumiblesUsados.length > 0 ? `
       <table class="data-table no-split">
         <thead>
           <tr>
             <th style="width: 50%;">Insumo / Medicamento</th>
-            <th style="width: 25%; text-align: center;">Usado Hoy</th>
+            <th style="width: 25%; text-align: center;">Usado en Turno</th>
             <th style="width: 25%; text-align: center;">Stock Restante</th>
           </tr>
         </thead>
         <tbody>
-          ${inventarioUsado.map((inv: any) => `
+          ${consumiblesUsados.map((inv: any) => `
             <tr style="border-bottom: 1px solid #E0D8CC;">
               <td style="padding: 8px 10px; font-size: 12px; font-weight: 600;">${inv.nombre}</td>
-              <td style="padding: 8px 10px; font-size: 12px; text-align: center; color: #D4860A; font-weight: 700;">-${inv.usado_hoy} ${inv.unidad}</td>
-              <td style="padding: 8px 10px; font-size: 12px; text-align: center; color: #3DAA6A; font-weight: 800;">${inv.stock_restante} ${inv.unidad}</td>
+              <td style="padding: 8px 10px; font-size: 12px; text-align: center; color: #D4860A; font-weight: 700;">-${inv.usado_hoy || inv.cantidad_usada || 0} ${inv.unidad || 'piezas'}</td>
+              <td style="padding: 8px 10px; font-size: 12px; text-align: center; color: #3DAA6A; font-weight: 800;">${inv.stock_restante ?? inv.cantidad ?? '—'} ${inv.unidad || 'piezas'}</td>
             </tr>
           `).join('')}
         </tbody>
       </table>
-    ` : '<p style="font-size: 12px; color: #8A8078;">No se registraron consumos de inventario en este día.</p>';
+    ` : '<p style="font-size: 12px; color: #8A8078; font-style: italic;">No se registraron consumos de insumos en este turno.</p>';
 
-    // 🎯 HTML PARA SECCIÓN DE ALERTAS CLÍNICAS
+    // 🎯 HTML TABLA EQUIPOS Y ACTIVOS FIJOS
+    const htmlEquipos = equiposEnHogar.length > 0 ? `
+      <table class="data-table no-split" style="margin-top: 10px;">
+        <thead>
+          <tr>
+            <th style="width: 60%;">Equipo / Activo Fijo</th>
+            <th style="width: 40%; text-align: center;">Estatus / Observación</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${equiposEnHogar.map((eq: any) => {
+            const tieneFalla = String(eq.notas || '').includes('FALLA') || String(eq.estatus || '').includes('falla');
+            return `
+              <tr style="border-bottom: 1px solid #E0D8CC;">
+                <td style="padding: 8px 10px; font-size: 12px; font-weight: 600;">♿ ${eq.nombre}</td>
+                <td style="padding: 8px 10px; font-size: 11px; text-align: center; font-weight: 700; color: ${tieneFalla ? '#D94F4F' : '#3DAA6A'};">
+                  ${tieneFalla ? `⚠️ ${eq.notas}` : '✅ Operativo y Disponible'}
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    ` : '';
+
+    // 🎯 HTML SECCIÓN DE ALERTAS CLÍNICAS Y FALLAS DE EQUIPO
     const htmlAlertas = alertasClinicas.length > 0 ? `
       <div class="alert-box" style="background-color: #FDEAEA; border-left: 5px solid #D94F4F; margin-bottom: 20px;">
-        <div class="alert-title" style="color: #D94F4F;">🚨 Alertas Clínicas e Incidentes del Día (${alertasClinicas.length})</div>
+        <div class="alert-title" style="color: #D94F4F;">🚨 Alertas Clínicas e Incidentes de Relevo (${alertasClinicas.length})</div>
         <ul style="margin: 6px 0 0 0; padding-left: 20px; font-size: 13px; line-height: 1.6; color: #2C2820;">
-          ${alertasClinicas.map((alt: any) => `
-            <li>
-              <strong style="color: ${alt.severidad === 'alta' ? '#D94F4F' : '#D4860A'};">[${(alt.severidad || 'baja').toUpperCase()}]</strong> 
-              ${alt.descripcion || alt.mensaje}
-            </li>
-          `).join('')}
+          ${alertasClinicas.map((alt: any) => {
+            const esFalla = alt.tipo === 'fallo_equipo' || String(alt.descripcion || alt.mensaje || '').includes('FALLA DE EQUIPO');
+            return `
+              <li style="margin-bottom: 4px;">
+                <strong style="color: ${esFalla ? '#D94F4F' : (alt.severidad === 'alta' ? '#D94F4F' : '#D4860A')};">
+                  [${esFalla ? '♿ FALLA EQUIPO' : (alt.severidad || 'ALERTA').toUpperCase()}]
+                </strong> 
+                ${alt.descripcion || alt.mensaje}
+              </li>
+            `;
+          }).join('')}
         </ul>
       </div>
     ` : '<p style="font-size: 12px; color: #3DAA6A; font-weight: 600;">✅ Sin alertas ni eventos críticos registrados durante el turno.</p>';
@@ -288,7 +324,7 @@ useFocusEffect(
           .metric-card { flex: 1; min-width: 120px; background-color: #FFFFFF; border: 1px solid #E0D8CC; border-radius: 10px; padding: 12px; text-align: center; }
           .metric-val { font-size: 16px; font-weight: 800; color: #BF9A40; margin-bottom: 2px; }
           .metric-label { font-size: 10px; font-weight: 700; color: #8A8078; text-transform: uppercase; }
-          .data-table { width: 100%; border-collapse: collapse; background-color: #FFFFFF; border: 1px solid #E0D8CC; border-radius: 12px; overflow: hidden; margin-bottom: 25px; }
+          .data-table { width: 100%; border-collapse: collapse; background-color: #FFFFFF; border: 1px solid #E0D8CC; border-radius: 12px; overflow: hidden; margin-bottom: 15px; }
           .data-table th { background-color: #F5EDD8; color: #4A4540; padding: 12px; font-size: 11px; font-weight: 800; text-transform: uppercase; text-align: left; letter-spacing: 1px; }
           .alert-box { background-color: #FFF4E0; border-left: 5px solid #D4860A; border-radius: 8px; padding: 16px; margin-top: 15px; }
           .alert-title { font-size: 12px; font-weight: 800; color: #D4860A; text-transform: uppercase; margin-bottom: 6px; }
@@ -302,10 +338,10 @@ useFocusEffect(
             <div class="brand-title">Vitanova Integralis — Telemetría Vital</div>
             <h1 class="main-title">Reporte Clínico de Turno</h1>
             <div class="meta-info">
-              <strong>Paciente:</strong> ${pacienteNombre}<br/>
+              <strong>Paciente:</strong> ${typeof pacienteNombre !== 'undefined' ? pacienteNombre : 'Paciente Vitanova'}<br/>
               <strong>Especialista/Cuidador:</strong> ${c.nombre_cuidador ?? 'Personal Vitanova'}<br/>
-              <strong>Fecha de Consolidación:</strong> ${formatFecha(c.created_at)}<br/>
-              <strong>Estado General Dictado:</strong> <span style="font-weight: 800; color: ${c.estado_paciente === 'bien' ? '#3DAA6A' : '#D94F4F'};">${c.estado_paciente?.toUpperCase()}</span>
+              <strong>Fecha de Consolidación:</strong> ${typeof formatFecha === 'function' ? formatFecha(c.created_at) : c.created_at}<br/>
+              <strong>Estado General Dictado:</strong> <span style="font-weight: 800; color: ${c.estado_paciente === 'bien' ? '#3DAA6A' : '#D94F4F'};">${(c.estado_paciente || 'Normal').toUpperCase()}</span>
             </div>
           </div>
           ${logoBase64 ? `<img class="header-logo" src="${logoBase64}" alt="Logo Vitanova" />` : ''}
@@ -322,7 +358,7 @@ useFocusEffect(
           </div>
         </div>
 
-        {/* 🚨 🎯 SECCIÓN INCLUIDA: ALERTAS CLÍNICAS */}
+        {/* 🚨 SECCIÓN DE ALERTAS CLÍNICAS Y FALLAS */}
         <div class="no-split">
           <div class="section-title">🚨 Alertas Clínicas del Día</div>
           ${htmlAlertas}
@@ -346,8 +382,9 @@ useFocusEffect(
         </div>
 
         <div class="no-split">
-          <div class="section-title">📦 Concentrado de Insumos Usados e Inventario Restante</div>
-          ${htmlInventario}
+          <div class="section-title">📦 Inventario y Control de Equipos del Hogar</div>
+          ${htmlInsumos}
+          ${htmlEquipos}
         </div>
 
         ${c.observaciones || notasTurno.length > 0 ? `
@@ -363,7 +400,7 @@ useFocusEffect(
               <div class="alert-box" style="background-color: #EEF3FC; border-left-color: #2D6BE4;">
                 <div class="alert-title" style="color: #2D6BE4;">📝 Notas de Evolución Clínicas</div>
                 <ul style="margin: 6px 0 0 0; padding-left: 20px; font-size: 13px; line-height: 1.6; color: #2C2820;">
-                  ${notasTurno.map((n: any) => `<li>${String(n.descripcion || '').replace('📝 ', '')} (${formatHora(n.hora_completada)})</li>`).join('')}
+                  ${notasTurno.map((n: any) => `<li>${String(n.descripcion || '').replace('📝 ', '')} (${typeof formatHora === 'function' ? formatHora(n.hora_completada) : n.hora_completada})</li>`).join('')}
                 </ul>
               </div>
             ` : ''}
@@ -376,7 +413,7 @@ useFocusEffect(
 
     try {
       const { uri } = await Print.printToFileAsync({ html });
-      const nombreSanitizado = (pacienteNombre || 'paciente')
+      const nombreSanitizado = ((typeof pacienteNombre !== 'undefined' && pacienteNombre) || 'paciente')
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_]/g, '').replace(/\s+/g, '_');
       const targetPath = `${documentDirectory}reporte_clinico_${nombreSanitizado}.pdf`;
 
@@ -388,72 +425,131 @@ useFocusEffect(
     }
   };
 
-  // 📲 MENSAJE ESTRUCTURADO PARA WHATSAPP
+  // 📲 MENSAJE ESTRUCTURADO Y COMPLETO PARA WHATSAPP
   const compartirPorWhatsApp = (c: any) => {
     const desglosePersonas = c?.desglose_por_persona || [];
     const inventarioUsado = c?.inventario_usado || [];
-    const alertasClinicas = c?.alertas_clinicas || [];
+    const alertasClinicas = c?.alertas_clinicas || c?.alertas || [];
+    const notasTurno = c?.notas_turno || [];
 
     // 🎯 1. Detección dinámica de Emoji y Nombre de Estado
-    const emojiEstado = c?.estado_paciente === 'bien' ? '😊' : c?.estado_paciente === 'preocupante' ? '😟' : '😐';
-    const labelEstado = c?.estado_paciente === 'bien' ? 'ESTABLE' : c?.estado_paciente === 'preocupante' ? 'CRÍTICO' : 'REGULAR';
+    const estadoRaw = String(c?.estado_paciente || 'bien').toLowerCase();
+    const emojiEstado = estadoRaw === 'bien' ? '🟢' : estadoRaw === 'preocupante' ? '🔴' : '🟡';
+    const labelEstado = estadoRaw === 'bien' ? 'ESTABLE' : estadoRaw === 'preocupante' ? 'CRÍTICO / ALERTA' : 'REGULAR';
 
     // 🎯 2. Nombre del cuidador asignado al cierre
     const nombreCuidador = c?.nombre_cuidador || c?.usuarios?.nombre_completo || 'Personal Vitanova';
 
+    // 🎯 3. Bloque de Alertas Clínicas y Fallas de Equipo
     let textoAlertas = "";
     if (alertasClinicas.length > 0) {
-      textoAlertas = `🚨 *ALERTAS CLÍNICAS DEL DÍA (${alertasClinicas.length}):*\n`;
+      textoAlertas = `🚨 *ALERTAS CLÍNICAS Y EVENTOS (${alertasClinicas.length}):*\n`;
       alertasClinicas.forEach((alt: any) => {
-        textoAlertas += `  • ${alt.descripcion || alt.mensaje}\n`;
+        const esFalla = alt.tipo === 'fallo_equipo' || String(alt.descripcion || alt.mensaje || '').includes('FALLA DE EQUIPO');
+        const icono = esFalla ? '♿ ⚠️' : '⚠️';
+        textoAlertas += `   ${icono} ${alt.descripcion || alt.mensaje}\n`;
       });
       textoAlertas += "\n";
     }
 
+    // 🎯 4. Bloque de Actividades Desglosadas por Responsable
     let textoPersonas = "";
     if (desglosePersonas.length === 0) {
-      textoPersonas = "Sin actividades registradas hoy.\n";
+      textoPersonas = "Sin actividades registradas en este turno.\n\n";
     } else {
       desglosePersonas.forEach((g: any) => {
-        textoPersonas += `👤 *${g.persona}* (${g.tareas.length} tareas):\n`;
+        textoPersonas += `👤 *${g.persona}* (${g.tareas.length} actividades):\n`;
         g.tareas.forEach((t: any) => {
-          const hora = t.hora_completada ? formatHora(t.hora_completada) : '';
-          textoPersonas += `   • [${hora}] ${t.descripcion}\n`;
+          const hora = t.hora_completada 
+            ? (typeof formatHora === 'function' ? formatHora(t.hora_completada) : t.hora_completada) 
+            : '';
+          const horaStr = hora ? `[${hora}] ` : '';
+          textoPersonas += `   • ${horaStr}${t.descripcion}\n`;
         });
         textoPersonas += "\n";
       });
     }
 
-    let textoInventario = "";
-    if (inventarioUsado.length === 0) {
-      textoInventario = "No se consumieron insumos de la despensa hoy.\n";
+    // 🎯 5. Bloque de Insumos Consumibles vs. Equipos/Activos Fijos
+    const consumibles = inventarioUsado.filter((inv: any) => inv.es_consumible !== false && inv.tipo !== 'otro');
+    const equipos = inventarioUsado.filter((inv: any) => inv.es_consumible === false || inv.tipo === 'otro');
+
+    let textoInventario = "*📦 Insumos Consumidos en Turno:*\n";
+    if (consumibles.length === 0) {
+      textoInventario += "   • No se registraron consumos de insumos.\n";
     } else {
-      inventarioUsado.forEach((inv: any) => {
-        textoInventario += `   • *${inv.nombre}*: Usado hoy: -${inv.usado_hoy} ${inv.unidad} | *Stock restante: ${inv.stock_restante} ${inv.unidad}*\n`;
+      consumibles.forEach((inv: any) => {
+        const gastado = inv.usado_hoy ?? inv.cantidad_usada ?? 0;
+        const restante = inv.stock_restante ?? inv.cantidad ?? '—';
+        textoInventario += `   • *${inv.nombre}*: -${gastado} ${inv.unidad || 'piezas'} | *Stock restante: ${restante}*\n`;
       });
     }
 
-    // 🎯 3. Mensaje dinámico completo y ordenado
-    const mensaje = 
-      `📋 *REPORTE DIARIO DE CUIDADOS*\n` +
-      `👤 Paciente: *${pacienteNombre}*\n` +
-      `🧑‍⚕️ Cuidador: *${nombreCuidador}*\n` +
-      `📅 Fecha: ${formatFecha(c.created_at)}\n` +
-      `${emojiEstado} Estado: *${labelEstado}*\n\n` +
-      `*Signos Vitales:*\n` +
-      `SpO₂: ${c.spo2 ?? '—'}% | PA: ${c.presion_sistolica ?? '—'}/${c.presion_diastolica ?? '—'} | FC: ${c.frecuencia_cardiaca ?? '—'} bpm\n` +
-      `Temp: ${c.temperatura ?? '—'}°C | Peso: ${c.peso_kg ?? '—'} kg\n\n` +
-      `${textoAlertas}` +
-      (c.dolor_eva !== null && c.dolor_eva !== undefined ? `*Confort:*\nDolor: ${c.dolor_eva}/10 | Ánimo: ${c.estado_animo ?? '—'} | Hidratación: ${c.hidratacion_vasos ?? '0'} vasos\n\n` : '') +
-      `─────────────────────────────\n` +
-      `✅ *ACTIVIDADES POR RESPONSABLE*\n\n` +
-      `${textoPersonas}` +
-      `─────────────────────────────\n` +
-      `📦 *CONCENTRADO DE INSUMOS Y STOCK RESTANTE*\n\n` +
-      `${textoInventario}` +
-      (c.observaciones ? `\n🚨 *Observaciones:* ${c.observaciones}\n` : '');
+    if (equipos.length > 0) {
+      textoInventario += "\n*♿ Estatus de Equipos del Hogar:*\n";
+      equipos.forEach((eq: any) => {
+        const tieneFalla = String(eq.notas || '').includes('FALLA');
+        textoInventario += `   • *${eq.nombre}*: ${tieneFalla ? `⚠️ ${eq.notas}` : '✅ Operativo'}\n`;
+      });
+    }
 
-    Linking.openURL(`whatsapp://send?text=${encodeURIComponent(mensaje)}`);
+    // 🎯 6. Bloque de Notas Clínicas de Evolución
+    let textoNotasEvolucion = "";
+    if (notasTurno.length > 0) {
+      textoNotasEvolucion = `\n📝 *NOTAS CLÍNICAS DE EVOLUCIÓN:*\n`;
+      notasTurno.forEach((n: any) => {
+        const hora = n.hora_completada ? (typeof formatHora === 'function' ? formatHora(n.hora_completada) : n.hora_completada) : '';
+        const horaStr = hora ? `[${hora}] ` : '';
+        textoNotasEvolucion += `   • ${horaStr}${String(n.descripcion || '').replace('📝 ', '')}\n`;
+      });
+    }
+
+    // 🎯 7. Ensamblado del Mensaje Final
+    const pNombre = typeof pacienteNombre !== 'undefined' ? pacienteNombre : 'Paciente Vitanova';
+    const fechaFormatted = typeof formatFecha === 'function' ? formatFecha(c.created_at) : c.created_at;
+
+    const mensaje = 
+      `📋 *REPORTE CLINICO DE TURNO*\n` +
+      `🏥 *Vitanova Integralis*\n` +
+      `─────────────────────────────\n` +
+      `👤 Paciente: *${pNombre}*\n` +
+      `🧑‍⚕️ Responsable: *${nombreCuidador}*\n` +
+      `📅 Fecha: ${fechaFormatted}\n` +
+      `${emojiEstado} Estado General: *${labelEstado}*\n\n` +
+
+      `🩺 *SIGNOS VITALES:*\n` +
+      `• SpO₂: *${c.spo2 ?? '—'}%*\n` +
+      `• Presión Arterial: *${c.presion_sistolica ?? '—'}/${c.presion_diastolica ?? '—'} mmHg*\n` +
+      `• Pulso: *${c.frecuencia_cardiaca ?? '—'} bpm*\n` +
+      `• Temperatura: *${c.temperatura ?? '—'} °C*\n` +
+      `• Peso: *${c.peso_kg ?? '—'} kg*\n\n` +
+
+      `${textoAlertas}` +
+
+      (c.dolor_eva !== null && c.dolor_eva !== undefined ? 
+        `🛋️ *CONFORT Y NUTRICIÓN:*\n` +
+        `• Dolor (EVA): *${c.dolor_eva}/10*\n` +
+        `• Estado de Ánimo: *${c.estado_animo ?? '—'}*\n` +
+        `• Hidratación: *${c.hidratacion_vasos ?? '0'} vasos*\n` +
+        `• Alimentación: *${c.alimentacion ?? '—'}*\n\n` : '') +
+
+      `─────────────────────────────\n` +
+      `✅ *ACTIVIDADES REALIZADAS*\n\n` +
+      `${textoPersonas}` +
+
+      `─────────────────────────────\n` +
+      `📦 *CONTROL DE INVENTARIO Y EQUIPOS*\n\n` +
+      `${textoInventario}` +
+
+      `${textoNotasEvolucion}` +
+
+      (c.observaciones ? `\n🚨 *OBSERVACIONES ESPECIALES:*\n${c.observaciones}\n` : '') +
+      `\n_Consolidación de Telemetría Clínica Vitanova App_`;
+
+    // Disparo a WhatsApp
+    Linking.openURL(`whatsapp://send?text=${encodeURIComponent(mensaje)}`).catch(() => {
+      Alert.alert('Error', 'No se pudo abrir WhatsApp en este dispositivo.');
+    });
   };
 
   if (loading) {
