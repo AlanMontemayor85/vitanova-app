@@ -985,55 +985,82 @@ useEffect(() => {
                 )}
               </>
             )}
+           {/* ======================================================== */}
+            {/* ⚡ SECCIÓN 1: TURNOS ACTIVOS DE CUIDADO                  */}
             {/* ======================================================== */}
-            {/* ⚡ SECCIÓN 1: TURNO ACTIVO DE CUIDADO                    */}
-            {/* ======================================================== */}
-            <View style={[styles.sectionHeader, { marginTop: 12, marginBottom: 8 }]}>
-              <Text style={styles.sectionTitle}>Turno activo</Text>
-            </View>
+            {(() => {
+              // 🎯 Si turnoResumen es arreglo lo usa, si es objeto lo mete en un array [turnoResumen], si no, vacío []
+              const listaTurnos: any[] = Array.isArray(turnoResumen) 
+                ? turnoResumen 
+                : (turnoResumen ? [turnoResumen] : []);
 
-            {turnoResumen ? (
-              <View style={[styles.turnoCard, { marginTop: 8 }]}>
-                <View style={styles.turnoLeft}>
-                  <View style={styles.turnoAvatar}>
-                    <Text style={styles.turnoAvatarText}>
-                      {turnoResumen.cuidador_nombre
-                        ?.split(' ')
-                        .map((n: string) => n[0])
-                        .join('')
-                        .slice(0, 2)
-                        .toUpperCase()}
+              const hayTurnos = listaTurnos.length > 0;
+
+              return (
+                <View style={{ marginTop: 12, marginBottom: 8 }}>
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>
+                      {listaTurnos.length > 1 ? `Turnos activos (${listaTurnos.length})` : 'Turno activo'}
                     </Text>
                   </View>
-                  <View>
-                    <Text style={styles.turnoName}>{turnoResumen.cuidador_nombre}</Text>
-                    
-                    {/* 🎯 HORARIO RANGO ESTANDARIZADO (Ej: 8:00 a.m. - 6:00 p.m.) */}
-                    <Text style={styles.turnoHora}>
-                      {formatearHorarioRango(turnoResumen.horario)}
-                    </Text>
 
-                    {(turnoResumen.es_cobertura || turnoResumen.tipo_turno === 'familiar') && (
-                      <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '700', marginTop: 2 }}>
-                        👑 Cobertura familiar
+                  {hayTurnos ? (
+                    <View style={{ gap: 8, marginTop: 8 }}>
+                      {listaTurnos.map((turno: any, idx: number) => {
+                        const completadas = Number(turno?.completadas || 0);
+                        const total = Number(turno?.total || 0);
+
+                        return (
+                          <View key={turno.id || turno.turno_id || idx} style={styles.turnoCard}>
+                            <View style={styles.turnoLeft}>
+                              <View style={styles.turnoAvatar}>
+                                <Text style={styles.turnoAvatarText}>
+                                  {turno.cuidador_nombre
+                                    ?.split(' ')
+                                    .map((n: string) => n[0])
+                                    .join('')
+                                    .slice(0, 2)
+                                    .toUpperCase() || 'CU'}
+                                </Text>
+                              </View>
+
+                              <View style={{ flex: 1, marginRight: 8 }}>
+                                <Text style={styles.turnoName} numberOfLines={1}>
+                                  {turno.cuidador_nombre}
+                                </Text>
+                                
+                                <Text style={styles.turnoHora}>
+                                  {formatearHorarioRango(turno.horario || turno.hora_inicio)}
+                                </Text>
+
+                                {(turno.es_cobertura || turno.tipo_turno === 'familiar') && (
+                                  <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '700', marginTop: 2 }}>
+                                    👑 Cobertura familiar
+                                  </Text>
+                                )}
+                              </View>
+                            </View>
+
+                            <View style={styles.turnoProgress}>
+                              <Text style={styles.turnoProgressText}>
+                                {`${completadas}/${total}`}
+                              </Text>
+                              <Text style={styles.turnoProgressLabel}>tareas</Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  ) : (
+                    <View style={[styles.turnoCard, { justifyContent: 'center', marginTop: 8 }]}>
+                      <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
+                        Sin turno activo en este momento
                       </Text>
-                    )}
-                  </View>
+                    </View>
+                  )}
                 </View>
-                <View style={styles.turnoProgress}>
-                  <Text style={styles.turnoProgressText}>
-                    {`${Number(turnoResumen?.completadas || 0)}/${Number(turnoResumen?.total || 0)}`}
-                  </Text>
-                  <Text style={styles.turnoProgressLabel}>tareas</Text>
-                </View>
-              </View>
-            ) : (
-              <View style={[styles.turnoCard, { justifyContent: 'center', marginTop: 8 }]}>
-                <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
-                  Sin turno activo en este momento
-                </Text>
-              </View>
-            )}
+              );
+            })()}
             {/* 📊 Estado del último cierre registrado */}
             {pacienteId && <TarjetaUltimoCierre pacienteId={pacienteId} />}
 
