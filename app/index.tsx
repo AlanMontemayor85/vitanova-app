@@ -989,7 +989,6 @@ useEffect(() => {
             {/* ⚡ SECCIÓN 1: TURNOS ACTIVOS DE CUIDADO                  */}
             {/* ======================================================== */}
             {(() => {
-              // 🎯 Si turnoResumen es arreglo lo usa, si es objeto lo mete en un array [turnoResumen], si no, vacío []
               const listaTurnos: any[] = Array.isArray(turnoResumen) 
                 ? turnoResumen 
                 : (turnoResumen ? [turnoResumen] : []);
@@ -1011,8 +1010,21 @@ useEffect(() => {
                         const total = Number(turno?.total || 0);
 
                         return (
-                          <View key={turno.id || turno.turno_id || idx} style={styles.turnoCard}>
-                            <View style={styles.turnoLeft}>
+                          <View 
+                            key={turno.id || turno.turno_id || idx} 
+                            style={[
+                              styles.turnoCard, 
+                              { 
+                                flexDirection: 'row', 
+                                alignItems: 'center', 
+                                justifyContent: 'space-between',
+                                paddingHorizontal: 12,
+                                paddingVertical: 10
+                              }
+                            ]}
+                          >
+                            {/* 👈 LADO IZQUIERDO: Avatar + Info (flex: 1 para respetar el espacio derecho) */}
+                            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 }}>
                               <View style={styles.turnoAvatar}>
                                 <Text style={styles.turnoAvatarText}>
                                   {turno.cuidador_nombre
@@ -1024,12 +1036,12 @@ useEffect(() => {
                                 </Text>
                               </View>
 
-                              <View style={{ flex: 1, marginRight: 8 }}>
+                              <View style={{ flex: 1 }}>
                                 <Text style={styles.turnoName} numberOfLines={1}>
                                   {turno.cuidador_nombre}
                                 </Text>
                                 
-                                <Text style={styles.turnoHora}>
+                                <Text style={styles.turnoHora} numberOfLines={1}>
                                   {formatearHorarioRango(turno.horario || turno.hora_inicio)}
                                 </Text>
 
@@ -1041,7 +1053,8 @@ useEffect(() => {
                               </View>
                             </View>
 
-                            <View style={styles.turnoProgress}>
+                            {/* 👉 LADO DERECHO: Progreso (ancho fijo y centrado) */}
+                            <View style={[styles.turnoProgress, { minWidth: 60, alignItems: 'center', flexShrink: 0 }]}>
                               <Text style={styles.turnoProgressText}>
                                 {`${completadas}/${total}`}
                               </Text>

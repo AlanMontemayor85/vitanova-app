@@ -387,7 +387,12 @@ export const registrarPushToken = async (token: string, plataforma: string) => {
   });
   return res.json();
 };
-
+export const solicitarGpsVivo = async (pacienteId: string) => {
+  const res = await fetchWithAuth(`${BASE_URL}/pacientes/${pacienteId}/solicitar-gps-vivo`, {
+    method: 'POST',
+  });
+  return res.json();
+};
 export const crearEvaluacion = async (data: object) => {
   const res = await fetchWithAuth(`${BASE_URL}/evaluaciones/hogar`, {
     method: 'POST',

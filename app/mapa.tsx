@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { crearGeocerca, eliminarGeocerca, getGeocercas, getPacientes, getUbicacion, loadStoredToken } from '../services/api';
+import { crearGeocerca, eliminarGeocerca, getGeocercas, getPacientes, getUbicacion, loadStoredToken, solicitarGpsVivo } from '../services/api';
 
 const COLORS = {
   gold: '#BF9A40',
@@ -30,7 +30,7 @@ export default function MapaScreen() {
   const [ubicacion, setUbicacion] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [geocercas, setGeocercas] = useState<any[]>([]);
-
+  const [solicitandoGps, setSolicitandoGps] = useState<boolean>(false);
   // 🛡️ HELPER DE SANITIZACIÓN ROBUSTO
   const parsearCoord = (val: any): number | null => {
     if (val === null || val === undefined || val === '') return null;
@@ -123,7 +123,41 @@ export default function MapaScreen() {
       console.error("❌ Error al crear geocerca:", e);
     }
   };
+const solicitarUbicacionEnVivo = async () => {
+  const idPaciente = paciente?.id;
+  if (!idPaciente || solicitandoGps) return;
 
+  try {
+    setSolicitandoGps(true);
+    await solicitarGpsVivo(idPaciente);
+
+    // Damos 5 segundos para que el chip GPS del reloj capture satélites y actualizamos
+    setTimeout(async () => {
+      try {
+        const data = await getUbicacion(idPaciente);
+        if (data?.ubicacion) {
+          // Si guardas el objeto completo:
+          setUbicacion(data.ubicacion);
+
+          // O si guardas latitud y longitud por separado:
+          // if (data.ubicacion.lat && data.ubicacion.lng) {
+          //   setCurrentLat(data.ubicacion.lat);
+          //   setCurrentLng(data.ubicacion.lng);
+          // }
+        }
+      } catch (err) {
+        console.error('Error refrescando mapa tras GPS en vivo:', err);
+      } finally {
+        setSolicitandoGps(false);
+      }
+    }, 5000);
+
+  } catch (error) {
+    console.error('❌ Error solicitando GPS en vivo:', error);
+    Alert.alert('Aviso', 'No se pudo forzar la señal GPS en este momento.');
+    setSolicitandoGps(false);
+  }
+};
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
@@ -237,16 +271,34 @@ export default function MapaScreen() {
             </View>
           )}
           
+          {/* 📍 BOTÓN DUAL: CENTRAR Y ACTUALIZAR GPS EN VIVO */}
           <TouchableOpacity
-            style={styles.centrarBtn}
-            onPress={() => mapRef.current?.animateToRegion({
-              latitude: currentLat,
-              longitude: currentLng,
-              latitudeDelta: 0.0122,
-              longitudeDelta: 0.0121,
-            })}
+            style={[
+              styles.centrarBtn, 
+              solicitandoGps && { opacity: 0.8, backgroundColor: '#4A423A' }
+            ]}
+            disabled={solicitandoGps}
+            onPress={async () => {
+              // 1. Centramos la cámara del mapa de inmediato en la posición actual
+              mapRef.current?.animateToRegion({
+                latitude: currentLat,
+                longitude: currentLng,
+                latitudeDelta: 0.0122,
+                longitudeDelta: 0.0121,
+              });
+
+              // 2. Disparamos la solicitud satelital al reloj
+              await solicitarUbicacionEnVivo();
+            }}
           >
-            <Text style={styles.centrarBtnText}>📍 Centrar en el mapa</Text>
+            {solicitandoGps ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <ActivityIndicator size="small" color="#BF9A40" />
+                <Text style={styles.centrarBtnText}>Triangulando satélites...</Text>
+              </View>
+            ) : (
+              <Text style={styles.centrarBtnText}>📍 Centrar y actualizar GPS</Text>
+            )}
           </TouchableOpacity>
 
           <Text style={[styles.infoLabel, { marginTop: 16, marginBottom: 8 }]}>Zona segura</Text>
