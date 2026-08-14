@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Calendar as CalendarIcon, CheckCircle, Clock, Info } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -79,9 +79,9 @@ interface TareaPlan {
 }
 
 export default function CalendarioScreen() {
+  const router = useRouter();
   const params = useLocalSearchParams<{ pacienteId?: string }>();
   const pacienteId = params.pacienteId || '';
-
   const [diaSeleccionado, setDiaSeleccionado] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [tareas, setTareas] = useState<TareaPlan[]>([]);
@@ -151,80 +151,115 @@ export default function CalendarioScreen() {
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        {/* Calendario */}
-        <Calendar
-          current={diaSeleccionado}
-          key={diaSeleccionado}
-          onDayPress={(day) => setDiaSeleccionado(day.dateString)}
-          monthFormat={'MMMM yyyy'}
-          markedDates={{
-            [diaSeleccionado]: {
-              selected: true,
-              selectedColor: COLORS.gold,
-              disableTouchEvent: true
-            }
-          }}
-          theme={{
-            todayTextColor: COLORS.gold,
-            arrowColor: COLORS.cacao,
-            selectedDayTextColor: COLORS.white,
-            textMonthFontWeight: 'bold',
-            textDayHeaderFontWeight: '700',
-          }}
-        />
+      <SafeAreaView style={[styles.container, { backgroundColor: '#3A3530' }]} edges={['top', 'left', 'right']}>
+        <StatusBar barStyle="light-content" backgroundColor="#3A3530" />
 
-        {/* Info del día seleccionado (🎯 Fecha estandarizada DD/MM/YYYY) */}
-        <View style={styles.headerDia}>
-          <CalendarIcon size={18} color={COLORS.gold} style={{ marginRight: 8 }} />
-          <Text style={styles.tituloDia}>
-            Plan de cuidados del <Text style={{ color: COLORS.gold }}>{ISOaLatino(diaSeleccionado)}</Text>
-          </Text>
+        {/* 🧭 HEADER INSTITUCIONAL ESTANDARIZADO (SIN LIBRERÍAS EXTERNAS) */}
+        <View style={styles.headerContainer}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity 
+              style={styles.backButton} 
+              onPress={() => router.back()} // o navigation.goBack()
+              activeOpacity={0.7}
+            >
+              <Text style={styles.backButtonText}>‹</Text>
+            </TouchableOpacity>
+
+            <View style={styles.headerTitleCenter}>
+              <Text style={styles.headerSubtitle}>AGENDA CLÍNICA</Text>
+              <Text style={styles.headerTitle}>Calendario de Cuidados</Text>
+            </View>
+
+            {/* Espaciador de balance para centrado simétrico */}
+            <View style={{ width: 38 }} />
+          </View>
         </View>
 
-        {/* Listado de tareas */}
-        {loading ? (
-          <View style={styles.loader}>
-            <ActivityIndicator size="large" color={COLORS.gold} />
+        {/* 📱 CUERPO PRINCIPAL */}
+        <View style={{ flex: 1, backgroundColor: '#F8F6F2' }}>
+          {/* 📅 TARJETA DEL CALENDARIO */}
+          <View style={styles.calendarCardWrapper}>
+            <View style={styles.calendarCard}>
+              <Calendar
+                current={diaSeleccionado}
+                key={diaSeleccionado}
+                onDayPress={(day) => setDiaSeleccionado(day.dateString)}
+                monthFormat={'MMMM yyyy'}
+                markedDates={{
+                  [diaSeleccionado]: {
+                    selected: true,
+                    selectedColor: COLORS.gold,
+                    disableTouchEvent: true,
+                  },
+                }}
+                theme={{
+                  backgroundColor: '#FFFFFF',
+                  calendarBackground: '#FFFFFF',
+                  todayTextColor: COLORS.gold,
+                  arrowColor: '#3A3530',
+                  selectedDayTextColor: COLORS.white,
+                  textMonthFontWeight: '800',
+                  textDayHeaderFontWeight: '700',
+                  textSectionTitleColor: '#8C8275',
+                  dayTextColor: '#2B2621',
+                  textMonthFontSize: 15,
+                  textDayFontSize: 14,
+                }}
+              />
+            </View>
           </View>
-        ) : (
-          <FlatList
-            data={tareas}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listaContainer}
-            ListEmptyComponent={
-              <Text style={styles.listaVacia}>No hay actividades programadas para este día.</Text>
-            }
-            renderItem={({ item }) => (
-              <TouchableOpacity 
-                style={[styles.card, item.completada && styles.cardCompletada]}
-                onPress={() => setItemSeleccionadoDetalle(item)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.tareaIcon}>{ICONOS_TIPO[item.tipo] ?? '📋'}</Text>
-                
-                <View style={styles.infoContainer}>
-                  <Text style={[styles.cardTitulo, item.completada && styles.textoCompletado]}>
-                    {item.descripcion}
-                  </Text>
-                  <View style={styles.rowHora}>
-                    <Clock size={12} color="#777777" style={{ marginRight: 4 }} />
-                    {/* 🎯 Hora formateada a 12 horas */}
-                    <Text style={styles.cardDetalle}>{formatearHoraBonita(item.hora)}</Text>
+
+          {/* 📋 INFO DEL DÍA SELECCIONADO */}
+          <View style={styles.headerDia}>
+            <CalendarIcon size={18} color={COLORS.gold} style={{ marginRight: 8 }} />
+            <Text style={styles.tituloDia}>
+              Plan de cuidados del <Text style={{ color: COLORS.gold }}>{ISOaLatino(diaSeleccionado)}</Text>
+            </Text>
+          </View>
+
+          {/* 📋 LISTADO DE TAREAS */}
+          {loading ? (
+            <View style={styles.loader}>
+              <ActivityIndicator size="large" color={COLORS.gold} />
+            </View>
+          ) : (
+            <FlatList
+              data={tareas}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.listaContainer}
+              ListEmptyComponent={
+                <Text style={styles.listaVacia}>No hay actividades programadas para este día.</Text>
+              }
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={[styles.card, item.completada && styles.cardCompletada]}
+                  onPress={() => setItemSeleccionadoDetalle(item)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.tareaIcon}>{ICONOS_TIPO[item.tipo] ?? '📋'}</Text>
+                  
+                  <View style={styles.infoContainer}>
+                    <Text style={[styles.cardTitulo, item.completada && styles.textoCompletado]}>
+                      {item.descripcion}
+                    </Text>
+                    <View style={styles.rowHora}>
+                      <Clock size={12} color="#777777" style={{ marginRight: 4 }} />
+                      <Text style={styles.cardDetalle}>{formatearHoraBonita(item.hora)}</Text>
+                    </View>
                   </View>
-                </View>
 
-                {item.completada ? (
-                  <CheckCircle size={20} color={COLORS.green} style={styles.checkIcon} />
-                ) : (
-                  <Info size={18} color={COLORS.gold} style={styles.infoBtnIcon} />
-                )}
-              </TouchableOpacity>
-            )}
-          />
-        )}
+                  {item.completada ? (
+                    <CheckCircle size={20} color={COLORS.green} style={styles.checkIcon} />
+                  ) : (
+                    <Info size={18} color={COLORS.gold} style={styles.infoBtnIcon} />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          )}
+        </View>
 
-        {/* 🎯 MODAL INFORMATIVO ESTANDARIZADO (TIPADO SEGURO) */}
+        {/* 🎯 MODAL INFORMATIVO ESTANDARIZADO */}
         <Modal 
           visible={!!itemSeleccionadoDetalle} 
           transparent 
@@ -250,7 +285,7 @@ export default function CalendarioScreen() {
                 </Text>
               )}
 
-              {/* 📍 UBICACIÓN EN CASA (Solo si es tipo 'medicamento') */}
+              {/* 📍 UBICACIÓN EN CASA */}
               {(itemSeleccionadoDetalle as any)?.tipo?.toLowerCase() === 'medicamento' && (
                 <View style={{ marginBottom: 12 }}>
                   <Text style={{ fontSize: 10, fontWeight: '800', color: '#8A8078', textTransform: 'uppercase', marginBottom: 3 }}>
@@ -262,7 +297,7 @@ export default function CalendarioScreen() {
                 </View>
               )}
 
-              {/* 💡 INDICACIONES / MODO DE USO */}
+              {/* 💡 INDICACIONES */}
               <View style={{ marginBottom: 12 }}>
                 <Text style={{ fontSize: 10, fontWeight: '800', color: '#8A8078', textTransform: 'uppercase', marginBottom: 3 }}>
                   💡 Indicaciones / Modo de Uso:
@@ -308,7 +343,7 @@ const styles = StyleSheet.create({
   // ── 1. ESTRUCTURA Y CONTENEDOR PRINCIPAL ──
   container: {
     flex: 1,
-    backgroundColor: COLORS.cream,
+    backgroundColor: '#3A3530', // Fondo base para emparejar el notch/header
   },
   loader: {
     flex: 1,
@@ -317,28 +352,93 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.cream,
   },
   listaContainer: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 24,
   },
 
-  // ── 2. CABECERA Y DÍA SELECCIONADO ──
+  // ── 2. HEADER INSTITUCIONAL ESTANDARIZADO ──
+  headerContainer: {
+    backgroundColor: '#3A3530',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? 6 : 4,
+    paddingBottom: 14,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButtonText: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontWeight: '300',
+    marginTop: -3,
+    marginLeft: -1,
+  },
+  headerTitleCenter: {
+    alignItems: 'center',
+  },
+  headerSubtitle: {
+    fontSize: 10,
+    letterSpacing: 1.5,
+    fontWeight: '800',
+    color: COLORS.gold,
+    textTransform: 'uppercase',
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+
+  // ── 3. TARJETA FLOTANTE DEL CALENDARIO ──
+  calendarCardWrapper: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 6,
+    backgroundColor: COLORS.cream,
+  },
+  calendarCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+
+  // ── 4. BARRA DEL PLAN DEL DÍA SELECCIONADO ──
   headerDia: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52,
-    paddingBottom: 14,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     backgroundColor: COLORS.cacao,
     borderBottomWidth: 1,
-    borderBottomColor: '#3A3530',
+    borderBottomColor: '#2B2621',
   },
   tituloDia: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: COLORS.white,
     letterSpacing: 0.3,
   },
 
-  // ── 3. TARJETAS DE TAREAS Y EVENTOS EN CALENDARIO ──
+  // ── 5. TARJETAS DE TAREAS Y ACTIVIDADES ──
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -385,7 +485,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // ── 4. BOTONES E ICONOS DE ACCIÓN ──
+  // ── 6. BOTONES E ICONOS DE ACCIÓN ──
   checkIcon: {
     marginLeft: 8,
   },
@@ -394,11 +494,11 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
 
-  // ── 5. ESTADO VACÍO (LISTA SIN TAREAS) ──
+  // ── 7. ESTADO VACÍO ──
   listaVacia: {
     textAlign: 'center',
     color: COLORS.textLight,
-    marginTop: 40,
+    marginTop: 36,
     fontSize: 13,
     fontWeight: '600',
   },
