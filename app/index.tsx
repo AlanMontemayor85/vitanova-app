@@ -382,13 +382,26 @@ useEffect(() => {
         console.log("==========================================");
 
         // 🎯 SETEAR EN EL ESTADO
-        setTurnoResumen({
-          ...(turnoRes?.turno || {}),
-          cuidador_nombre: turnoRes?.turno?.cuidador_nombre || "Turno del Día",
-          horario: turnoRes?.turno?.horario || "00:00 - 23:59",
-          total: totalCalculado,
-          completadas: completadasCalculadas
-        });
+        // 🎯 SETEAR EN EL ESTADO (Soporte para múltiples turnos simultáneos)
+        const turnosRecibidos = Array.isArray(turnoRes?.turnos)
+          ? turnoRes.turnos
+          : (turnoRes?.turno ? [turnoRes.turno] : (Array.isArray(turnoRes) ? turnoRes : []));
+
+        if (turnosRecibidos.length > 0) {
+          // Mapeamos los turnos respetando el conteo de tareas de cada uno
+          const turnosProcesados = turnosRecibidos.map((t: any) => ({
+            ...t,
+            cuidador_nombre: t.cuidador_nombre || "Turno del Día",
+            horario: t.horario || "00:00 - 23:59",
+            // Si el turno ya trae sus tareas calculadas del backend las usa, sino asigna el cálculo del día
+            total: t.total !== undefined ? t.total : totalCalculado,
+            completadas: t.completadas !== undefined ? t.completadas : completadasCalculadas,
+          }));
+
+          setTurnoResumen(turnosProcesados);
+        } else {
+          setTurnoResumen([]);
+        }
 
       } else {
         router.replace('/perfil-paciente');
@@ -989,85 +1002,118 @@ useEffect(() => {
             {/* ⚡ SECCIÓN 1: TURNOS ACTIVOS DE CUIDADO                  */}
             {/* ======================================================== */}
             {(() => {
-              const listaTurnos: any[] = Array.isArray(turnoResumen) 
-                ? turnoResumen 
-                : (turnoResumen ? [turnoResumen] : []);
+              // 1. Extraemos la lista cruda
+              let turnosBrutos: any[] = [];
+              if (Array.isArray(turnoResumen)) {
+                turnosBrutos = turnoResumen;
+              } else if (Array.isArray(turnoResumen?.turnos)) {
+                turnosBrutos = turnoResumen.turnos;
+              } else if (turnoResumen?.turno) {
+                turnosBrutos = Array.isArray(turnoResumen.turno) ? turnoResumen.turno : [turnoResumen.turno];
+              } else if (turnoResumen && typeof turnoResumen === 'object' && turnoResumen.id) {
+                turnosBrutos = [turnoResumen];
+              }
 
-              const hayTurnos = listaTurnos.length > 0;
+              // 🚫 2. FILTRAR AL FAMILIAR PRINCIPAL (Solo cuidadores contratados/profesionales)
+              const listaCuidadores = turnosBrutos.filter((t: any) => {
+                const esFamiliar = 
+                  t.es_cobertura === true ||
+                  t.tipo_turno === 'familiar' ||
+                  t._clase === 'familiar' ||
+                  t.rol === 'familiar_principal' ||
+                  t.rol === 'admin';
+                return !esFamiliar;
+              });
+
+              // 🎯 3. CONTADOR ÚNICO GLOBAL DE ACTIVIDADES DEL DÍA
+              const primerTurno = turnosBrutos[0] || {};
+              const totalTareas = Number(primerTurno?.total || 0);
+              const completadasTareas = Number(primerTurno?.completadas || 0);
+              const hayCuidadores = listaCuidadores.length > 0;
 
               return (
                 <View style={{ marginTop: 12, marginBottom: 8 }}>
-                  <View style={styles.sectionHeader}>
+                  {/* 🏷️ HEADER DE LA SECCIÓN CON EL CONTADOR ÚNICO */}
+                  <View style={[styles.sectionHeader, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
                     <Text style={styles.sectionTitle}>
-                      {listaTurnos.length > 1 ? `Turnos activos (${listaTurnos.length})` : 'Turno activo'}
+                      {listaCuidadores.length > 1 ? `Turnos activos (${listaCuidadores.length})` : 'Turno activo'}
                     </Text>
+
+                    {/* 📊 BADGE ÚNICO GLOBAL DE TAREAS DEL PACIENTE */}
+                    <View style={{
+                      backgroundColor: '#F5EFE6',
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: '#E8DFD1',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4
+                    }}>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#8C6D23' }}>
+                        {`${completadasTareas}/${totalTareas}`}
+                      </Text>
+                      <Text style={{ fontSize: 10, fontWeight: '600', color: '#8C8275' }}>
+                        tareas
+                      </Text>
+                    </View>
                   </View>
 
-                  {hayTurnos ? (
+                  {/* 📋 LISTA DE CUIDADORES EN TURNO */}
+                  {hayCuidadores ? (
                     <View style={{ gap: 8, marginTop: 8 }}>
-                      {listaTurnos.map((turno: any, idx: number) => {
-                        const completadas = Number(turno?.completadas || 0);
-                        const total = Number(turno?.total || 0);
-
-                        return (
-                          <View 
-                            key={turno.id || turno.turno_id || idx} 
-                            style={[
-                              styles.turnoCard, 
-                              { 
-                                flexDirection: 'row', 
-                                alignItems: 'center', 
-                                justifyContent: 'space-between',
-                                paddingHorizontal: 12,
-                                paddingVertical: 10
-                              }
-                            ]}
-                          >
-                            {/* 👈 LADO IZQUIERDO: Avatar + Info (flex: 1 para respetar el espacio derecho) */}
-                            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 }}>
-                              <View style={styles.turnoAvatar}>
-                                <Text style={styles.turnoAvatarText}>
-                                  {turno.cuidador_nombre
-                                    ?.split(' ')
-                                    .map((n: string) => n[0])
-                                    .join('')
-                                    .slice(0, 2)
-                                    .toUpperCase() || 'CU'}
-                                </Text>
-                              </View>
-
-                              <View style={{ flex: 1 }}>
-                                <Text style={styles.turnoName} numberOfLines={1}>
-                                  {turno.cuidador_nombre}
-                                </Text>
-                                
-                                <Text style={styles.turnoHora} numberOfLines={1}>
-                                  {formatearHorarioRango(turno.horario || turno.hora_inicio)}
-                                </Text>
-
-                                {(turno.es_cobertura || turno.tipo_turno === 'familiar') && (
-                                  <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '700', marginTop: 2 }}>
-                                    👑 Cobertura familiar
-                                  </Text>
-                                )}
-                              </View>
-                            </View>
-
-                            {/* 👉 LADO DERECHO: Progreso (ancho fijo y centrado) */}
-                            <View style={[styles.turnoProgress, { minWidth: 60, alignItems: 'center', flexShrink: 0 }]}>
-                              <Text style={styles.turnoProgressText}>
-                                {`${completadas}/${total}`}
-                              </Text>
-                              <Text style={styles.turnoProgressLabel}>tareas</Text>
-                            </View>
+                      {listaCuidadores.map((turno: any, idx: number) => (
+                        <View 
+                          key={turno.id || turno.turno_id || idx} 
+                          style={[
+                            styles.turnoCard, 
+                            { 
+                              flexDirection: 'row', 
+                              alignItems: 'center', 
+                              paddingHorizontal: 14,
+                              paddingVertical: 12
+                            }
+                          ]}
+                        >
+                          {/* 👤 Avatar con iniciales */}
+                          <View style={styles.turnoAvatar}>
+                            <Text style={styles.turnoAvatarText}>
+                              {turno.cuidador_nombre
+                                ?.split(' ')
+                                .map((n: string) => n[0])
+                                .join('')
+                                .slice(0, 2)
+                                .toUpperCase() || 'CU'}
+                            </Text>
                           </View>
-                        );
-                      })}
+
+                          {/* ℹ️ Nombre y Horario completo */}
+                          <View style={{ flex: 1, marginLeft: 12 }}>
+                            <Text style={[styles.turnoName, { fontSize: 15, fontWeight: '700' }]} numberOfLines={1}>
+                              {turno.cuidador_nombre}
+                            </Text>
+                            
+                            <Text style={[styles.turnoHora, { fontSize: 12, color: '#8C8275', marginTop: 2 }]} numberOfLines={1}>
+                              {formatearHorarioRango(turno.horario || turno.hora_inicio)}
+                            </Text>
+                          </View>
+
+                          {/* 🟢 Indicador sutil de turno en curso */}
+                          <View style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: 4,
+                            backgroundColor: '#2E7D32',
+                            marginRight: 4
+                          }} />
+                        </View>
+                      ))}
                     </View>
                   ) : (
-                    <View style={[styles.turnoCard, { justifyContent: 'center', marginTop: 8 }]}>
-                      <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
-                        Sin turno activo en este momento
+                    <View style={[styles.turnoCard, { justifyContent: 'center', alignItems: 'center', paddingVertical: 16, marginTop: 8 }]}>
+                      <Text style={{ fontSize: 13, color: COLORS.textLight, textAlign: 'center' }}>
+                        Sin cuidadores contratados en turno activo
                       </Text>
                     </View>
                   )}

@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Calendar as CalendarIcon, CheckCircle, Clock, Info } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -153,7 +153,8 @@ export default function CalendarioScreen() {
     <SafeAreaProvider>
       <SafeAreaView style={[styles.container, { backgroundColor: '#3A3530' }]} edges={['top', 'left', 'right']}>
         <StatusBar barStyle="light-content" backgroundColor="#3A3530" />
-
+        {/* 🚫 OCULTA EL HEADER BLANCO POR DEFECTO */}
+        <Stack.Screen options={{ headerShown: false }} />
         {/* 🧭 HEADER INSTITUCIONAL ESTANDARIZADO (SIN LIBRERÍAS EXTERNAS) */}
         <View style={styles.headerContainer}>
           <View style={styles.headerRow}>
