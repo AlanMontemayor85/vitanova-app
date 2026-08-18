@@ -3,13 +3,11 @@ import { router } from 'expo-router'; // 🎯 Importación clave para expulsión
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
-// 🎯 CORREGIDO: Usamos null en minúsculas en lugar de None (sintaxis de Python)
+
 let authToken: string | null = null;
 let userNombre: string | null = null;
 let userTipo: string | null = null;
 
-// 🎯 CORREGIDO: Comentarios nativos de JS (//) en lugar de (#)
-// Importación dinámica diferida de SecureStore y AsyncStorage para evitar colisiones en hilos nativos
 let SecureStore: any;
 let AsyncStorage: any;
 try {
@@ -18,6 +16,7 @@ try {
 } catch (e) {
   console.warn("⚠️ Advertencia: Error cargando módulos de almacenamiento persistente:", e);
 }
+
 export const setToken = async (token: string) => {
   authToken = token;
   if (SecureStore) {
@@ -64,9 +63,14 @@ const headers = () => ({
   ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
 });
 
-// 🚀 INTERCEPTOR GLOBAL: Asegura el ruteo limpio y la expulsión inmediata ante caídas de sesión
-const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
+// 🚀 INTERCEPTOR BLINDADO: Asegura token antes de enviar y evita falsos 401
+const fetchWithAuth = async (url: string, options: RequestInit = {}, reintentado: boolean = false): Promise<Response> => {
   try {
+    // 🛡️ 1. Si authToken en memoria está vacío, intentamos cargarlo de SecureStore primero
+    if (!authToken) {
+      await loadStoredToken();
+    }
+
     const res = await fetch(url, {
       ...options,
       headers: {
@@ -76,19 +80,28 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
       },
     });
 
-    // 🥾 DETECCIÓN Y EXPULSIÓN AUTOMÁTICA ENTERPRISE
+    // 🔄 2. Si da 401, reintentamos recargando el token almacenado antes de expulsar
+    if (res.status === 401 && !reintentado) {
+      console.log("🔄 [AUTH] 401 recibido. Reintentando con token de disco...");
+      const tokenDisco = await loadStoredToken();
+      if (tokenDisco) {
+        return await fetchWithAuth(url, options, true);
+      }
+    }
+
+    // 🥾 3. Expulsión solo si realmente no hay credenciales válidas
     if (res.status === 401 || res.status === 403) {
       console.warn("🚨 [SESIÓN CAÍDA] Token inválido o expirado. Purgando acceso local...");
       await clearToken();
       router.replace('/login'); 
     }
+
     return res;
   } catch (error) {
-    console.error("❌ Fallo crítico de red o Railway inalcanzable:", error);
+    console.error("❌ Fallo crítico de red o servidor inalcanzable:", error);
     throw error;
   }
 };
-
 export const login = async (email: string, password: string) => {
   const res = await fetch(`${BASE_URL}/auth/login`, {
     method: 'POST',
