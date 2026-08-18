@@ -21,7 +21,12 @@ const COLORS = {
   amber: '#D4860A',       
   amberPale: '#FFF4E0',   
 };
-
+const ZONAS_MX = [
+        { label: 'Centro (CDMX, Monterrey, GDL…) — UTC−6', value: -6 },
+        { label: 'Quintana Roo (Cancún) — UTC−5', value: -5 },
+        { label: 'Pacífico (Sonora, BCS…) — UTC−7', value: -7 },
+        { label: 'Noroeste (Baja California) — UTC−8', value: -8 },
+      ];
 const CONDICIONES = [
   'Diabetes T2', 'Hipertensión', 'EPOC', 'Alzheimer', 'Demencia',
   'Insuficiencia cardíaca', 'Osteoporosis', 'Artritis', 'Parkinson',
@@ -49,7 +54,7 @@ export default function PerfilPacienteScreen() {
   const [nombreAseguradora, setNombreAseguradora] = useState(paciente?.nombre_aseguradora ?? '');
   const [telefonoAseguradora, setTelefonoAseguradora] = useState(paciente?.telefono_aseguradora ?? '');
   const [telefonoAmbulancia, setTelefonoAmbulancia] = useState(paciente?.telefono_ambulancia ?? '');
-
+  const [zonaHoraria, setZonaHoraria] = useState<number>(-6);
   // ⌚ SWITCH MAESTRO DE HARDWARE (Se activa automáticamente si el paciente ya tiene IMEI)
   const [tieneReloj, setTieneReloj] = useState<boolean>(
     Boolean(paciente?.reloj_imei && paciente.reloj_imei.trim() !== '')
@@ -104,9 +109,12 @@ export default function PerfilPacienteScreen() {
               setSos2('');
               setSos3('');
             }
+            if (pFresco?.zona_horaria != null) {
+              setZonaHoraria(Number(pFresco.zona_horaria));
+            }
           }
         }
-      
+       
         const token = await getToken(); 
         const resDisp = await fetch(
           `${BASE_URL}/pacientes/${paciente.id}/config-reloj`,
@@ -196,6 +204,7 @@ const guardar = async () => {
         reloj_sos1: tieneReloj ? (sos1.trim() || null) : null,
         reloj_sos2: tieneReloj ? (sos2.trim() || null) : null,
         reloj_sos3: tieneReloj ? (sos3.trim() || null) : null,
+        zona_horaria: tieneReloj ? zonaHoraria : undefined,
       };
 
       const dataPac = await actualizarPaciente(paciente?.id || 'nuevo', payloadPaciente);
@@ -469,7 +478,36 @@ const guardar = async () => {
               onChangeText={setSos3}
               keyboardType="phone-pad"
             />
-          
+            <Text style={styles.label}>Zona horaria del paciente (reloj)</Text>
+            <Text style={{ fontSize: 11, color: COLORS.textLight, marginBottom: 8 }}>
+              Hora del hardware donde vive el paciente. No uses la zona de quien mira la app.
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {ZONAS_MX.map((z) => (
+                <TouchableOpacity
+                  key={z.value}
+                  onPress={() => setZonaHoraria(z.value)}
+                  style={{
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: zonaHoraria === z.value ? COLORS.gold : COLORS.border,
+                    backgroundColor: zonaHoraria === z.value ? COLORS.goldPale : COLORS.white,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: zonaHoraria === z.value ? '800' : '600',
+                      color: COLORS.textDark,
+                    }}
+                  >
+                    {z.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
             {/* SENSOR DE CAÍDAS */}
             <View style={[styles.seccionReloj, { marginTop: 16 }]}>
               <Text style={styles.relojTitulo}>⚙️ Parámetros del Sensor de Caídas</Text>
