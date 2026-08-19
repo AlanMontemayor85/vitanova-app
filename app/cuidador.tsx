@@ -285,52 +285,66 @@ const refrescarPacientes = async (
   }
 };
   const sincronizarSignosReloj = async (pacienteId: string, forzarComando: boolean = false) => {
-    if (!pacienteId) return;
-    setCargandoSignos(true);
-    try {
-      if (forzarComando) {
-        const token = getToken();
-        await fetch(`${BASE_URL}/pacientes/${pacienteId}/forzar-medicion`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json', 
-            'Authorization': `Bearer ${token}` 
-          }
-        });
-        await new Promise(resolve => setTimeout(resolve, 5000));
-      }
-      
-      const res = await getSignosRecientes(pacienteId);
-      
-      if (res && res.success) {
-        const tempFresca = res.frescura?.temperatura === true;
-        const bphrtFresco = res.frescura?.bphrt === true;
-
-        if (bphrtFresco) {
-          setSignosDispositivo({
-            ...res,
-            temperatura: tempFresca ? res.temperatura : "—",
-            dispositivoPuesto: true
-          });
-        } else {
-          setSignosDispositivo({
-            success: true,
-            spo2: "—",
-            presion: "—", 
-            fc: "—",
-            temperatura: "—",
-            dispositivoPuesto: false
-          });
-          console.log("⌚ [FRONTEND CUIDADOR] Dispositivo inactivo o retirado. Tablero en rayas.");
-        }
-      }
-    } catch (error) {
-      console.error("❌ Error sincronizando telemetría:", error);
-      setSignosDispositivo({ spo2: "—", presion: "—", fc: "—", temperatura: "—" });
-    } finally {
-      setCargandoSignos(false);
+  if (!pacienteId) return;
+  setCargandoSignos(true);
+  try {
+    if (forzarComando) {
+      const token = getToken();
+      await fetch(`${BASE_URL}/pacientes/${pacienteId}/forzar-medicion`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      await new Promise(resolve => setTimeout(resolve, 5000));
     }
-  };
+
+    const res = await getSignosRecientes(pacienteId);
+
+    if (res && res.success) {
+      // 🎯 Misma regla que Index: contacto del backend, no solo frescura
+      const puesto =
+        res.dispositivoPuesto !== false && res.sin_contacto !== true;
+
+      if (!puesto) {
+        setSignosDispositivo({
+          success: true,
+          spo2: '—',
+          presion: '—',
+          fc: '—',
+          temperatura: '—',
+          dispositivoPuesto: false,
+          sin_contacto: true,
+          reloj_config: res.reloj_config,
+        });
+        console.log('⌚ [FRONTEND CUIDADOR] Sin contacto → tablero en rayas.');
+      } else {
+        const tempFresca = res.frescura?.temperatura === true;
+        setSignosDispositivo({
+          ...res,
+          spo2: res.spo2 ?? '—',
+          presion: res.presion ?? '—',
+          fc: res.fc ?? '—',
+          // Temp: si quieres ocultarla cuando no es fresca, deja el ternario
+          temperatura: tempFresca ? (res.temperatura ?? '—') : (res.temperatura ?? '—'),
+          dispositivoPuesto: true,
+        });
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error sincronizando telemetría:', error);
+    setSignosDispositivo({
+      spo2: '—',
+      presion: '—',
+      fc: '—',
+      temperatura: '—',
+      dispositivoPuesto: false,
+    });
+  } finally {
+    setCargandoSignos(false);
+  }
+};
    
 useEffect(() => {
   if (vista === 'turno' && pacienteActivo?.id) {
