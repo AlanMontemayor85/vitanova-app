@@ -78,63 +78,74 @@ export default function PerfilPacienteScreen() {
 
   // ⚖️ Sincronizador Maestro de la Ficha Clínica
   useEffect(() => {
-    const refrescarDatosAlEntrar = async () => {
-      if (!paciente?.id) return;
+  const refrescarDatosAlEntrar = async () => {
+    if (!paciente?.id) return;
+    
+    try { 
+      console.log("🔍 Rompiendo caché de navegación. Solicitando datos frescos al servidor...");
       
-      try { 
-        console.log("🔍 Rompiendo caché de navegación. Solicitando datos frescos al servidor...");
-        
-        const data = await getPacientes('perfil-paciente');
-        if (data && data.patients) {
-          const pFresco = data.patients.find((x: any) => x.id === paciente.id);
-          if (pFresco) {
-            if (pFresco.peso_kg) {
-              setPesoInput(pFresco.peso_kg.toString());
-            }
-            if (pFresco.telefono_medico !== undefined) {
-              setTelefonoMedico(pFresco.telefono_medico ?? '');
-            }
+      // 1. Carga desde listado general de pacientes
+      const data = await getPacientes('perfil-paciente');
+      if (data && data.patients) {
+        const pFresco = data.patients.find((x: any) => x.id === paciente.id);
+        if (pFresco) {
+          if (pFresco.peso_kg) {
+            setPesoInput(pFresco.peso_kg.toString());
+          }
+          if (pFresco.telefono_medico !== undefined) {
+            setTelefonoMedico(pFresco.telefono_medico ?? '');
+          }
 
-            const imeiFresco = (pFresco.reloj_imei || '').trim();
-            if (imeiFresco) {
-              setTieneReloj(true);
-              setImei(imeiFresco);
-              setSos1(pFresco.reloj_sos1 ?? '');
-              setSos2(pFresco.reloj_sos2 ?? '');
-              setSos3(pFresco.reloj_sos3 ?? '');
-            } else {
-              setTieneReloj(false);
-              setImei('');
-              setSos1('');
-              setSos2('');
-              setSos3('');
-            }
-            if (pFresco?.zona_horaria != null) {
-              setZonaHoraria(Number(pFresco.zona_horaria));
-            }
+          const imeiFresco = (pFresco.reloj_imei || '').trim();
+          if (imeiFresco) {
+            setTieneReloj(true);
+            setImei(imeiFresco);
+            setSos1(pFresco.reloj_sos1 ?? '');
+            setSos2(pFresco.reloj_sos2 ?? '');
+            setSos3(pFresco.reloj_sos3 ?? '');
+          } else {
+            setTieneReloj(false);
+            setImei('');
+            setSos1('');
+            setSos2('');
+            setSos3('');
+          }
+
+          // 🕐 Asignación de Zona Horaria desde Pacientes
+          if (pFresco.zona_horaria !== undefined && pFresco.zona_horaria !== null) {
+            setZonaHoraria(Number(pFresco.zona_horaria));
           }
         }
-       
-        const token = await getToken(); 
-        const resDisp = await fetch(
-          `${BASE_URL}/pacientes/${paciente.id}/config-reloj`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const dataDisp = await resDisp.json();
-        if (dataDisp?.sensibilidad_caidas) {
+      }
+     
+      // 2. Carga específica de hardware desde config-reloj (Doble garantía)
+      const token = await getToken(); 
+      const resDisp = await fetch(
+        `${BASE_URL}/pacientes/${paciente.id}/config-reloj`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const dataDisp = await resDisp.json();
+      
+      if (dataDisp) {
+        if (dataDisp.sensibilidad_caidas) {
           setSensibilidadCaidas(dataDisp.sensibilidad_caidas.toString());
         }
-        if (dataDisp && 'caida_activa' in dataDisp) {
+        if ('caida_activa' in dataDisp) {
           setCaidaActiva(Boolean(dataDisp.caida_activa));
         }
-
-      } catch (err) {
-        console.log("⚠️ Error sincronizando datos en segundo plano:", err);
+        // ⚡ Si el endpoint de config-reloj devuelve zona_horaria, la sobreescribe con el valor más fresco de BD
+        if (dataDisp.zona_horaria !== undefined && dataDisp.zona_horaria !== null) {
+          setZonaHoraria(Number(dataDisp.zona_horaria));
+        }
       }
-    };
 
-    refrescarDatosAlEntrar();
-  }, [paciente?.id, params?.refresh]);
+    } catch (err) {
+      console.log("⚠️ Error sincronizando datos en segundo plano:", err);
+    }
+  };
+
+  refrescarDatosAlEntrar();
+}, [paciente?.id, params?.refresh]);
 
   // 📡 Disparador del Bus de Comandos por Redis
   const ejecutarSincronizacionReloj = async (targetId: string) => {
@@ -482,31 +493,75 @@ const guardar = async () => {
             <Text style={{ fontSize: 11, color: COLORS.textLight, marginBottom: 8 }}>
               Hora del hardware donde vive el paciente. No uses la zona de quien mira la app.
             </Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {ZONAS_MX.map((z) => (
-                <TouchableOpacity
-                  key={z.value}
-                  onPress={() => setZonaHoraria(z.value)}
-                  style={{
-                    paddingVertical: 10,
-                    paddingHorizontal: 12,
-                    borderRadius: 10,
-                    borderWidth: 1,
-                    borderColor: zonaHoraria === z.value ? COLORS.gold : COLORS.border,
-                    backgroundColor: zonaHoraria === z.value ? COLORS.goldPale : COLORS.white,
-                  }}
-                >
-                  <Text
+
+            <View style={{ flexDirection: 'column', gap: 8, marginTop: 4 }}>
+              {ZONAS_MX.map((z) => {
+                // 🛡️ Normalizamos ambos a Number para evitar fallos de tipo (-6 === -6)
+                const seleccionado = Number(zonaHoraria) === Number(z.value);
+
+                return (
+                  <TouchableOpacity
+                    key={z.value}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      console.log(`👉 Zona horaria seleccionada: ${z.value}`);
+                      setZonaHoraria(Number(z.value));
+                    }}
                     style={{
-                      fontSize: 12,
-                      fontWeight: zonaHoraria === z.value ? '800' : '600',
-                      color: COLORS.textDark,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingVertical: 12,
+                      paddingHorizontal: 14,
+                      borderRadius: 12,
+                      borderWidth: seleccionado ? 2 : 1,
+                      borderColor: seleccionado ? (COLORS.gold || '#D4AF37') : (COLORS.border || '#E2E8F0'),
+                      backgroundColor: seleccionado ? (COLORS.goldPale || '#FEF9C3') : '#FFFFFF',
+                      // Sombra sutil al estar activo
+                      elevation: seleccionado ? 2 : 0,
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 1 },
+                      shadowOpacity: seleccionado ? 0.15 : 0,
+                      shadowRadius: 2,
                     }}
                   >
-                    {z.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: seleccionado ? '800' : '500',
+                        color: seleccionado ? (COLORS.textDark || '#1E293B') : '#64748B',
+                      }}
+                    >
+                      {z.label}
+                    </Text>
+
+                    {/* Indicador visual tipo Radio Button */}
+                    <View
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: 9,
+                        borderWidth: 2,
+                        borderColor: seleccionado ? (COLORS.gold || '#D4AF37') : '#CBD5E1',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: '#FFFFFF',
+                      }}
+                    >
+                      {seleccionado && (
+                        <View
+                          style={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: 5,
+                            backgroundColor: COLORS.gold || '#D4AF37',
+                          }}
+                        />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
             {/* SENSOR DE CAÍDAS */}
             <View style={[styles.seccionReloj, { marginTop: 16 }]}>
