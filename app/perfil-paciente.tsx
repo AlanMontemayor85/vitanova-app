@@ -630,15 +630,17 @@ const guardar = async () => {
               </TouchableOpacity>
             </View>
 
+            // En tu pantalla de Perfil Paciente:
             <Text style={styles.label}>Sensibilidad del detector de caídas</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
               {[
-                { val: '1', label: '🔴 Alta', desc: 'Detecta mínimo movimiento' },
-                { val: '2', label: '🟠 Media', desc: 'Para adultos muy frágiles' },
-                { val: '3', label: '🟡 Estándar', desc: 'Uso normal' },
-                { val: '4', label: '🟢 Baja', desc: 'Recomendada ✓' },
+                { val: '1', label: '🔴 Muy Alta (1)', desc: 'Detecta mínimo movimiento' },
+                { val: '2', label: '🟠 Alta (2)', desc: 'Para adultos muy frágiles' },
+                { val: '3', label: '🟡 Media (3)', desc: 'Sensibilidad balanceada' },
+                { val: '4', label: '🟢 Estándar (4)', desc: 'Uso diario normal' },
+                { val: '5', label: '🔵 Baja (5)', desc: 'Requiere impacto moderado' },
+                { val: '6', label: '⚪ Mínima (6)', desc: 'Solo impactos severos' },
               ].map((op) => {
-                // 🛡️ Normalizar comparación para que '1' === 1 funcione sin problemas
                 const seleccionado = String(sensibilidadCaidas) === String(op.val);
 
                 return (
@@ -646,7 +648,7 @@ const guardar = async () => {
                     key={op.val}
                     activeOpacity={0.7}
                     style={{
-                      width: '48%',
+                      width: '48%', // Mantiene el grid limpio de 2 columnas (3 filas)
                       padding: 10,
                       borderRadius: 10,
                       borderWidth: 2,
@@ -655,27 +657,17 @@ const guardar = async () => {
                       alignItems: 'center',
                     }}
                     onPress={async () => {
-                      console.log(`🎯 Nueva sensibilidad seleccionada: ${op.val} (${op.label})`);
                       setSensibilidadCaidas(op.val);
-
-                      // ⚡ Enviar el comando FALL hacia el hardware y persistir en Supabase
                       if (paciente?.id) {
                         try {
                           await configurarReloj(paciente.id, undefined, 'FALL', op.val);
-                          console.log(`💾 Sensibilidad ${op.val} persistida con éxito.`);
                         } catch (err) {
                           console.log('⚠️ Error enviando comando FALL:', err);
                         }
                       }
                     }}
                   >
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        fontWeight: '800',
-                        color: seleccionado ? (COLORS.gold || '#D4AF37') : (COLORS.textDark || '#1E293B'),
-                      }}
-                    >
+                    <Text style={{ fontSize: 12, fontWeight: '800', color: seleccionado ? COLORS.gold : COLORS.textDark }}>
                       {op.label}
                     </Text>
                     <Text style={{ fontSize: 9, color: COLORS.textLight, textAlign: 'center', marginTop: 2 }}>

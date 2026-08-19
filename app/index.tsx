@@ -999,15 +999,16 @@ useEffect(() => {
                           const config = signosDispositivo.reloj_config;
                           if (!config.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
 
-                          // 🛡️ Soporta tanto 'sensibilidad_caidas' como 'sensibilidad' y normaliza a Number
                           const sens = Number(config.sensibilidad_caidas ?? config.sensibilidad);
 
-                          if (sens === 1) return 'Detector de caídas: 🔴 Alta';
-                          if (sens === 2) return 'Detector de caídas: 🟠 Media';
-                          if (sens === 3) return 'Detector de caídas: 🟡 Estándar';
-                          if (sens === 4) return 'Detector de caídas: 🟢 Baja (recomendada)';
+                          if (sens === 1) return 'Detector de caídas: 🔴 Muy Alta';
+                          if (sens === 2) return 'Detector de caídas: 🟠 Alta';
+                          if (sens === 3) return 'Detector de caídas: 🟡 Media';
+                          if (sens === 4) return 'Detector de caídas: 🟢 Estándar';
+                          if (sens === 5) return 'Detector de caídas: 🔵 Baja';
+                          if (sens === 6) return 'Detector de caídas: ⚪ Mínima';
                           
-                          return 'Detector de caídas: 🟢 Baja (recomendada)';
+                          return `Detector de caídas: Nivel ${sens}`;
                         })()}
                       </Text>
 
