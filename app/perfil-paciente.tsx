@@ -127,7 +127,8 @@ export default function PerfilPacienteScreen() {
       const dataDisp = await resDisp.json();
       
       if (dataDisp) {
-        if (dataDisp.sensibilidad_caidas) {
+        // ✅ Mejor así:
+        if (dataDisp.sensibilidad_caidas !== undefined && dataDisp.sensibilidad_caidas !== null) {
           setSensibilidadCaidas(dataDisp.sensibilidad_caidas.toString());
         }
         if ('caida_activa' in dataDisp) {
@@ -148,96 +149,108 @@ export default function PerfilPacienteScreen() {
 }, [paciente?.id, params?.refresh]);
 
   // 📡 Disparador del Bus de Comandos por Redis
-  const ejecutarSincronizacionReloj = async (targetId: string) => {
-    try {
-      setSincronizandoHardware(true);
-      const res = await configurarReloj(targetId, sensibilidadCaidas);
-      const argFalldown = caidaActiva ? '1,1' : '0,0';
-      await configurarReloj(targetId, undefined, 'FALLDOWN', argFalldown);
-      
-      if (res && res.success) {
-        Alert.alert(
-          '📡 Conexión Establecida',
-          `El perfil se guardó y se transmitieron las tramas de control al reloj (IMEI: ${imei.trim()}) de forma exitosa.`
-        );
-      } else {
-        Alert.alert(
-          '⚠️ Registro Guardado Localmente',
-          res?.detail || 'El reloj no respondió al empuje inicial de comandos por estar fuera de línea.'
-        );
-      }
-    } catch (hwErr) {
-      console.log('⚠️ Falla pasiva de bus de comandos de hardware:', hwErr);
-    } finally {
-      setSincronizandoHardware(false);
+const ejecutarSincronizacionReloj = async (targetId: string) => {
+  try {
+    setSincronizandoHardware(true);
+    console.log(`📡 [SINCRONIZACIÓN] Iniciando empuje de parámetros a paciente ${targetId}...`);
+
+    // 1. 📞 Sincronizar Números SOS (CENTER, SOS1, SOS2, SOS3)
+    const res = await configurarReloj(targetId);
+
+    // 2. 🎯 Enviar Sensibilidad de Caídas explícita (FALL, 1..4)
+    if (sensibilidadCaidas) {
+      await new Promise(r => setTimeout(r, 400)); // Breve respiro al bus
+      await configurarReloj(targetId, undefined, 'FALL', String(sensibilidadCaidas));
+      console.log(`🎯 [HARDWARE] Sensibilidad inyectada: FALL,${sensibilidadCaidas}`);
     }
-  };
+
+    // 3. 🛡️ Enviar Activación / Desactivación del Sensor (FALLDOWN, 1,1 o 0,0)
+    const argFalldown = caidaActiva ? '1,1' : '0,0';
+    await new Promise(r => setTimeout(r, 400));
+    await configurarReloj(targetId, undefined, 'FALLDOWN', argFalldown);
+    console.log(`🛡️ [HARDWARE] Sensor caídas inyectado: FALLDOWN,${argFalldown}`);
+    
+    if (res && res.success) {
+      Alert.alert(
+        '📡 Conexión Establecida',
+        `El perfil se guardó y se transmitieron las tramas de control al reloj (IMEI: ${imei.trim()}) de forma exitosa.`
+      );
+    } else {
+      Alert.alert(
+        '⚠️ Registro Guardado Localmente',
+        res?.detail || 'El reloj no respondió al empuje inicial de comandos por estar fuera de línea.'
+      );
+    }
+  } catch (hwErr) {
+    console.log('⚠️ Falla pasiva de bus de comandos de hardware:', hwErr);
+  } finally {
+    setSincronizandoHardware(false);
+  }
+};
 const guardar = async () => {
-    if (!nombre.trim()) { 
-      setError('El nombre es obligatorio'); 
-      return; 
-    }
+  if (!nombre.trim()) { 
+    setError('El nombre es obligatorio'); 
+    return; 
+  }
 
-    // 🎯 VALIDACIÓN: Solo exigimos IMEI si activa explícitamente el Modo Reloj
-    if (tieneReloj && (!imei.trim() || imei.trim().length < 10)) {
-      setError('Por favor ingresa un Device ID / IMEI válido para activar el monitoreo (mínimo 10 dígitos)');
-      return;
-    }
+  // 🎯 VALIDACIÓN: Solo exigimos IMEI si activa explícitamente el Modo Reloj
+  if (tieneReloj && (!imei.trim() || imei.trim().length < 10)) {
+    setError('Por favor ingresa un Device ID / IMEI válido para activar el monitoreo (mínimo 10 dígitos)');
+    return;
+  }
 
-    setGuardando(true);
-    setError('');
+  setGuardando(true);
+  setError('');
 
-    // 🎯 LÓGICA DE CONTROL:
-    // - Si tieneReloj === true  -> Guarda/Actualiza el IMEI escrito en la BD.
-    // - Si tieneReloj === false -> Envía NULL a la BD para pausar la telemetría en Home.
-    const payloadReloj = tieneReloj ? imei.trim() : null;
+  const payloadReloj = tieneReloj ? imei.trim() : null;
 
-    console.log("💾 [GUARDAR PACIENTE] Procesando estado de monitoreo...");
-    console.log(` ├─ Switch activo: ${tieneReloj}`);
-    console.log(` ├─ IMEI en caja de texto: "${imei}"`);
-    console.log(` └─ Payload enviado a BD (reloj_imei): ${payloadReloj}`);
+  console.log("💾 [GUARDAR PACIENTE] Procesando guardado integral...");
 
-    try {
-      const payloadPaciente = {
-        nombre_completo: nombre.trim(),
-        condiciones_medicas: condiciones,
-        medico_tratante: medico.trim() || null,
-        talla_cm: talla ? parseFloat(talla) : null,
-        peso_kg: pesoInput ? parseFloat(pesoInput) : null,
-        telefono_emergencia: telefonoEmergencia.trim() || null,
-        nombre_aseguradora: nombreAseguradora.trim() || null,
-        telefono_aseguradora: telefonoAseguradora.trim() || null,
-        telefono_ambulancia: telefonoAmbulancia.trim() || null,
-        telefono_medico: telefonoMedico.trim() || null,
-        
-        // Asignación de parámetros de hardware
-        reloj_imei: payloadReloj,
-        reloj_sos1: tieneReloj ? (sos1.trim() || null) : null,
-        reloj_sos2: tieneReloj ? (sos2.trim() || null) : null,
-        reloj_sos3: tieneReloj ? (sos3.trim() || null) : null,
-        zona_horaria: tieneReloj ? zonaHoraria : undefined,
-      };
+  try {
+    const payloadPaciente = {
+      nombre_completo: nombre.trim(),
+      condiciones_medicas: condiciones,
+      medico_tratante: medico.trim() || null,
+      talla_cm: talla ? parseFloat(talla) : null,
+      peso_kg: pesoInput ? parseFloat(pesoInput) : null,
+      telefono_emergencia: telefonoEmergencia.trim() || null,
+      nombre_aseguradora: nombreAseguradora.trim() || null,
+      telefono_aseguradora: telefonoAseguradora.trim() || null,
+      telefono_ambulancia: telefonoAmbulancia.trim() || null,
+      telefono_medico: telefonoMedico.trim() || null,
+      
+      // ⌚ Parámetros completos de hardware
+      reloj_imei: payloadReloj,
+      reloj_sos1: tieneReloj ? (sos1.trim() || null) : null,
+      reloj_sos2: tieneReloj ? (sos2.trim() || null) : null,
+      reloj_sos3: tieneReloj ? (sos3.trim() || null) : null,
+      
+      // ⚡ Hardware: Zona horaria, detector de caídas y sensibilidad
+      zona_horaria: tieneReloj ? Number(zonaHoraria) : -6,
+      caida_activa: tieneReloj ? Boolean(caidaActiva) : false,
+      sensibilidad_caidas: tieneReloj ? parseInt(sensibilidadCaidas, 10) : 4,
+    };
 
-      const dataPac = await actualizarPaciente(paciente?.id || 'nuevo', payloadPaciente);
-      const idParaNavegar = String(paciente?.id || dataPac?.paciente_id || dataPac?.id || '');
+    console.log("📦 Payload enviado a BD:", payloadPaciente);
 
-      setExito(true);
+    const dataPac = await actualizarPaciente(paciente?.id || 'nuevo', payloadPaciente);
+    setExito(true);
 
-      setTimeout(() => {
-        if (paciente?.id) {
-          router.back(); // conserva la posición del Index
-        } else {
-          router.replace('/');
-        }
-      }, 800);
+    setTimeout(() => {
+      if (paciente?.id) {
+        router.back();
+      } else {
+        router.replace('/');
+      }
+    }, 800);
 
-    } catch (e: any) {
-      console.error('❌ Fallo al guardar paciente:', e);
-      setError(e.message || 'Error al guardar los cambios');
-    } finally {
-      setGuardando(false);
-    }
-  };
+  } catch (e: any) {
+    console.error('❌ Fallo al guardar paciente:', e);
+    setError(e.message || 'Error al guardar los cambios');
+  } finally {
+    setGuardando(false);
+  }
+};
   const desactivar = async () => {
     if (!paciente?.id) return;
     setGuardando(true);
@@ -624,28 +637,53 @@ const guardar = async () => {
                 { val: '2', label: '🟠 Media', desc: 'Para adultos muy frágiles' },
                 { val: '3', label: '🟡 Estándar', desc: 'Uso normal' },
                 { val: '4', label: '🟢 Baja', desc: 'Recomendada ✓' },
-              ].map((op) => (
-                <TouchableOpacity
-                  key={op.val}
-                  style={{
-                    width: '48%',
-                    padding: 10,
-                    borderRadius: 10,
-                    borderWidth: 2,
-                    borderColor: sensibilidadCaidas === op.val ? COLORS.gold : COLORS.border,
-                    backgroundColor: sensibilidadCaidas === op.val ? COLORS.goldPale : COLORS.white,
-                    alignItems: 'center',
-                  }}
-                  onPress={() => setSensibilidadCaidas(op.val)}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: '800', color: sensibilidadCaidas === op.val ? COLORS.gold : COLORS.textLight }}>
-                    {op.label}
-                  </Text>
-                  <Text style={{ fontSize: 9, color: COLORS.textLight, textAlign: 'center', marginTop: 2 }}>
-                    {op.desc}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              ].map((op) => {
+                // 🛡️ Normalizar comparación para que '1' === 1 funcione sin problemas
+                const seleccionado = String(sensibilidadCaidas) === String(op.val);
+
+                return (
+                  <TouchableOpacity
+                    key={op.val}
+                    activeOpacity={0.7}
+                    style={{
+                      width: '48%',
+                      padding: 10,
+                      borderRadius: 10,
+                      borderWidth: 2,
+                      borderColor: seleccionado ? (COLORS.gold || '#D4AF37') : (COLORS.border || '#E2E8F0'),
+                      backgroundColor: seleccionado ? (COLORS.goldPale || '#FEF9C3') : '#FFFFFF',
+                      alignItems: 'center',
+                    }}
+                    onPress={async () => {
+                      console.log(`🎯 Nueva sensibilidad seleccionada: ${op.val} (${op.label})`);
+                      setSensibilidadCaidas(op.val);
+
+                      // ⚡ Enviar el comando FALL hacia el hardware y persistir en Supabase
+                      if (paciente?.id) {
+                        try {
+                          await configurarReloj(paciente.id, undefined, 'FALL', op.val);
+                          console.log(`💾 Sensibilidad ${op.val} persistida con éxito.`);
+                        } catch (err) {
+                          console.log('⚠️ Error enviando comando FALL:', err);
+                        }
+                      }
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontWeight: '800',
+                        color: seleccionado ? (COLORS.gold || '#D4AF37') : (COLORS.textDark || '#1E293B'),
+                      }}
+                    >
+                      {op.label}
+                    </Text>
+                    <Text style={{ fontSize: 9, color: COLORS.textLight, textAlign: 'center', marginTop: 2 }}>
+                      {op.desc}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             {/* BOTÓN SINCRONIZAR VÍA REDIS */}

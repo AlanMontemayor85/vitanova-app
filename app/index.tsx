@@ -99,7 +99,7 @@ export default function HomeScreen() {
 
   return formatearHoraUnica(horarioRaw);
 };
-// 📡 1. Función para jalar la telemetría más reciente del reloj
+
 // 📡 1. Función para jalar la telemetría más reciente del reloj
 const cargarSignosDispositivo = async (idToLoad?: string) => {
   const targetId = idToLoad || pacienteId;
@@ -973,57 +973,90 @@ useEffect(() => {
 
                 {/* TARJETA CONFIG RELOJ */}
                 {signosDispositivo?.reloj_config && (
-                  <View style={{
-                    backgroundColor: COLORS.white,
-                    borderRadius: 12,
-                    padding: 14,
-                    marginTop: 8,
-                    marginBottom: 4,
-                    borderWidth: 1,
-                    borderColor: COLORS.border,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 12
-                  }}>
+                  <View
+                    style={{
+                      backgroundColor: COLORS.white,
+                      borderRadius: 12,
+                      padding: 14,
+                      marginTop: 8,
+                      marginBottom: 4,
+                      borderWidth: 1,
+                      borderColor: COLORS.border,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                    }}
+                  >
                     <Text style={{ fontSize: 24 }}>{'⚙️'}</Text>
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textDark }}>
                         {'Configuración del reloj'}
                       </Text>
+
+                      {/* 🛡️ Estado y Sensibilidad del Detector de Caídas */}
                       <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
                         {(() => {
                           const config = signosDispositivo.reloj_config;
                           if (!config.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
-                          if (config.sensibilidad === 1) return 'Detector de caídas: 🔴 Alta';
-                          if (config.sensibilidad === 2) return 'Detector de caídas: 🟠 Media';
-                          if (config.sensibilidad === 3) return 'Detector de caídas: 🟡 Estándar';
+
+                          // 🛡️ Soporta tanto 'sensibilidad_caidas' como 'sensibilidad' y normaliza a Number
+                          const sens = Number(config.sensibilidad_caidas ?? config.sensibilidad);
+
+                          if (sens === 1) return 'Detector de caídas: 🔴 Alta';
+                          if (sens === 2) return 'Detector de caídas: 🟠 Media';
+                          if (sens === 3) return 'Detector de caídas: 🟡 Estándar';
+                          if (sens === 4) return 'Detector de caídas: 🟢 Baja (recomendada)';
+                          
                           return 'Detector de caídas: 🟢 Baja (recomendada)';
                         })()}
                       </Text>
+
+                      {/* 🕐 Zona Horaria (Opcional si viene en reloj_config) */}
+                      {signosDispositivo.reloj_config.zona_horaria !== undefined && (
+                        <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 1 }}>
+                          {(() => {
+                            const zh = Number(signosDispositivo.reloj_config.zona_horaria);
+                            if (zh === -5) return 'Zona horaria: Cancún (UTC-5)';
+                            if (zh === -7) return 'Zona horaria: Pacífico (UTC-7)';
+                            if (zh === -8) return 'Zona horaria: Noroeste (UTC-8)';
+                            return 'Zona horaria: Centro (UTC-6)';
+                          })()}
+                        </Text>
+                      )}
+
+                      {/* 📅 Última Sincronización */}
                       <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 2 }}>
                         {(() => {
                           const uc = signosDispositivo.reloj_config.ultima_configuracion;
                           if (!uc) return 'Última sincronización: Sin registro aún';
-                          return `Última sincronización: ${new Date(uc).toLocaleDateString('es-MX', { 
-                            day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
+                          return `Última sincronización: ${new Date(uc).toLocaleDateString('es-MX', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
                           })}`;
                         })()}
                       </Text>
                     </View>
+
                     <TouchableOpacity
-                      onPress={() => router.push({
-                        pathname: '/perfil-paciente' as any,
-                        params: { paciente: JSON.stringify(paciente) }
-                      })}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/perfil-paciente' as any,
+                          params: { paciente: JSON.stringify(paciente) },
+                        })
+                      }
                       style={{
                         backgroundColor: COLORS.goldPale,
                         borderRadius: 8,
                         padding: 8,
                         borderWidth: 1,
-                        borderColor: COLORS.gold
+                        borderColor: COLORS.gold,
                       }}
                     >
-                      <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '700' }}>{'Ajustar'}</Text>
+                      <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '700' }}>
+                        {'Ajustar'}
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 )}
