@@ -101,6 +101,7 @@ export default function HomeScreen() {
 };
 
 // 📡 1. Función para jalar la telemetría más reciente del reloj
+// 📡 1. Función para jalar la telemetría más reciente del reloj (Corregida)
 const cargarSignosDispositivo = async (idToLoad?: string) => {
   const targetId = idToLoad || pacienteId;
   if (!targetId) return;
@@ -109,35 +110,25 @@ const cargarSignosDispositivo = async (idToLoad?: string) => {
     const res = await getSignosRecientes(targetId);
 
     if (res && res.success) {
-      console.log(`📥 [INDEX] Telemetría fresca guardada para el paciente: ${targetId}`);
+      console.log(`📥 [INDEX] Telemetría obtenida para el paciente: ${targetId}`);
 
-      // 🎯 Rayas si el backend dice sin muñeca / carga / retiro
-      const puesto =
-        res.dispositivoPuesto !== false && res.sin_contacto !== true;
+      // 🛡️ Evaluamos si el reloj está puesto o fuera de contacto
+      const puesto = res.dispositivoPuesto !== false && res.sin_contacto !== true;
 
-      const normalizado = !puesto
-        ? {
-            ...res,
-            success: true,
-            spo2: "—",
-            presion: "—",
-            fc: "—",
-            temperatura: "—",
-            condicion_carita: "—",
-            dispositivoPuesto: false,
-            sin_contacto: true,
-          }
-        : {
-            ...res,
-            spo2: res.spo2 ?? "—",
-            presion: res.presion ?? "—",
-            fc: res.fc ?? "—",
-            temperatura: res.temperatura ?? "—",
-            dispositivoPuesto: true,
-          };
+      // ⚡ Conservamos siempre los valores reales si existen en la respuesta
+      const normalizado = {
+        ...res,
+        spo2: res.spo2 ?? "—",
+        presion: res.presion ?? "—",
+        fc: res.fc ?? "—",
+        temperatura: res.temperatura ?? "—",
+        condicion_carita: res.condicion_carita ?? "—",
+        dispositivoPuesto: puesto,
+        sin_contacto: !puesto,
+      };
 
       if (!puesto) {
-        console.log("⌚ [INDEX] Sin contacto → tablero en rayas");
+        console.log("⌚ [INDEX] Reloj fuera de muñeca o en reposo (conservando última telemetría).");
       }
 
       setSignosDispositivo(normalizado);
@@ -164,8 +155,8 @@ const cargarSignosDispositivo = async (idToLoad?: string) => {
 };
 
 // ⚡ 2. Función para disparar la ráfaga 'hrtstart' por Redis (Alineada para Index)
+// ⚡ 2. Función para disparar la ráfaga 'hrtstart' por Redis
 const ejecutarMedicionRemota = async () => {
-  // 🎯 CONCILIACIÓN DE LLAVES: Usamos el ID real de tu pantalla index
   const idReal = paciente?.id || paciente?.paciente_id || pacienteId;
 
   if (!idReal || midiendo) {
@@ -175,15 +166,19 @@ const ejecutarMedicionRemota = async () => {
   
   setMidiendo(true);
   try {
-    // Mandamos el ID real validado
     await forzarMedicionSignos(idReal);
     alert("📡 Solicitud enviada. El reloj comenzará la lectura en unos segundos...");
     
-    // Polling táctico: Esperamos 15 segundos a que el reloj mida y mande los datos a Supabase, luego refrescamos
+    // ⏱️ Doble verificación táctica (a los 15s y confirmación a los 30s)
     setTimeout(async () => {
-      await cargarSignosDispositivo();
-      setMidiendo(false);
+      await cargarSignosDispositivo(idReal);
     }, 15000);
+
+    setTimeout(async () => {
+      await cargarSignosDispositivo(idReal);
+      setMidiendo(false);
+    }, 30000);
+
   } catch (error) {
     console.error("❌ Error al inyectar comando desde la app familiar:", error);
     setMidiendo(false);

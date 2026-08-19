@@ -576,12 +576,13 @@ const guardar = async () => {
                 );
               })}
             </View>
-            {/* SENSOR DE CAÍDAS */}
-            <View style={[styles.seccionReloj, { marginTop: 16 }]}>
-              <Text style={styles.relojTitulo}>⚙️ Parámetros del Sensor de Caídas</Text>
-            </View>
+           {/* SENSOR DE CAÍDAS */}
+          <View style={[styles.seccionReloj, { marginTop: 16 }]}>
+            <Text style={styles.relojTitulo}>⚙️ Parámetros del Sensor de Caídas</Text>
+          </View>
 
-            <View style={{
+          <View
+            style={{
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -590,93 +591,104 @@ const guardar = async () => {
               borderWidth: 1,
               borderColor: COLORS.border,
               padding: 16,
-              marginBottom: 16
-            }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 13, fontWeight: '800', color: COLORS.textDark }}>
-                  🛡️ Detector de caídas
-                </Text>
-                <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 2 }}>
-                  {caidaActiva ? 'Activo — el reloj detecta caídas' : 'Desactivado — sin alertas de caída'}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={async () => {
-                  const nuevoEstado = !caidaActiva;
-                  setCaidaActiva(nuevoEstado);
-                  try {
-                    const arg = nuevoEstado ? '1,1' : '0,0';
-                    await configurarReloj(paciente.id, undefined, 'FALLDOWN', arg);
-                  } catch {
-                    console.log('⚠️ Toggle guardado localmente, se aplicará al sincronizar');
-                  }
-                }}
+              marginBottom: 16,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: COLORS.textDark }}>
+                🛡️ Detector de caídas
+              </Text>
+              <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 2 }}>
+                {caidaActiva ? 'Activo — el reloj detecta caídas' : 'Desactivado — sin alertas de caída'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={async () => {
+                const nuevoEstado = !caidaActiva;
+                setCaidaActiva(nuevoEstado);
+                try {
+                  const arg = nuevoEstado ? '1,1' : '0,0';
+                  await configurarReloj(paciente.id, undefined, 'FALLDOWN', arg);
+                } catch {
+                  console.log('⚠️ Toggle guardado localmente, se aplicará al sincronizar');
+                }
+              }}
+              style={{
+                width: 50,
+                height: 28,
+                borderRadius: 14,
+                backgroundColor: caidaActiva ? COLORS.green : COLORS.border,
+                justifyContent: 'center',
+                paddingHorizontal: 3,
+              }}
+            >
+              <View
                 style={{
-                  width: 50,
-                  height: 28,
-                  borderRadius: 14,
-                  backgroundColor: caidaActiva ? COLORS.green : COLORS.border,
-                  justifyContent: 'center',
-                  paddingHorizontal: 3,
-                }}
-              >
-                <View style={{
                   width: 22,
                   height: 22,
                   borderRadius: 11,
                   backgroundColor: COLORS.white,
                   alignSelf: caidaActiva ? 'flex-end' : 'flex-start',
-                }} />
-              </TouchableOpacity>
-            </View>
+                }}
+              />
+            </TouchableOpacity>
+          </View>
 
-            // En tu pantalla de Perfil Paciente:
-            <Text style={styles.label}>Sensibilidad del detector de caídas</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-              {[
-                { val: '1', label: '🔴 Muy Alta (1)', desc: 'Detecta mínimo movimiento' },
-                { val: '2', label: '🟠 Alta (2)', desc: 'Para adultos muy frágiles' },
-                { val: '3', label: '🟡 Media (3)', desc: 'Sensibilidad balanceada' },
-                { val: '4', label: '🟢 Estándar (4)', desc: 'Uso diario normal' },
-                { val: '5', label: '🔵 Baja (5)', desc: 'Requiere impacto moderado' },
-                { val: '6', label: '⚪ Mínima (6)', desc: 'Solo impactos severos' },
-              ].map((op) => {
-                const seleccionado = String(sensibilidadCaidas) === String(op.val);
+          {/* SENSIBILIDAD DEL DETECTOR (1 a 6) */}
+          <Text style={styles.label}>Sensibilidad del detector de caídas</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+            {[
+              { val: '1', label: '🔴 Muy Alta (1)', desc: 'Detecta mínimo movimiento' },
+              { val: '2', label: '🟠 Alta (2)', desc: 'Para adultos muy frágiles' },
+              { val: '3', label: '🟡 Media (3)', desc: 'Sensibilidad balanceada' },
+              { val: '4', label: '🟢 Estándar (4)', desc: 'Uso diario normal' },
+              { val: '5', label: '🔵 Baja (5)', desc: 'Requiere impacto moderado' },
+              { val: '6', label: '⚪ Mínima (6)', desc: 'Solo impactos severos' },
+            ].map((op) => {
+              const seleccionado = String(sensibilidadCaidas) === String(op.val);
 
-                return (
-                  <TouchableOpacity
-                    key={op.val}
-                    activeOpacity={0.7}
-                    style={{
-                      width: '48%', // Mantiene el grid limpio de 2 columnas (3 filas)
-                      padding: 10,
-                      borderRadius: 10,
-                      borderWidth: 2,
-                      borderColor: seleccionado ? (COLORS.gold || '#D4AF37') : (COLORS.border || '#E2E8F0'),
-                      backgroundColor: seleccionado ? (COLORS.goldPale || '#FEF9C3') : '#FFFFFF',
-                      alignItems: 'center',
-                    }}
-                    onPress={async () => {
-                      setSensibilidadCaidas(op.val);
-                      if (paciente?.id) {
-                        try {
-                          await configurarReloj(paciente.id, undefined, 'FALL', op.val);
-                        } catch (err) {
-                          console.log('⚠️ Error enviando comando FALL:', err);
-                        }
+              return (
+                <TouchableOpacity
+                  key={op.val}
+                  activeOpacity={0.7}
+                  style={{
+                    width: '48%',
+                    padding: 10,
+                    borderRadius: 10,
+                    borderWidth: 2,
+                    borderColor: seleccionado ? (COLORS.gold || '#D4AF37') : (COLORS.border || '#E2E8F0'),
+                    backgroundColor: seleccionado ? (COLORS.goldPale || '#FEF9C3') : '#FFFFFF',
+                    alignItems: 'center',
+                  }}
+                  onPress={async () => {
+                    setSensibilidadCaidas(op.val);
+                    if (paciente?.id) {
+                      try {
+                        // ⚡ Inyectamos el comando oficial LSSET,nivel+6
+                        await configurarReloj(paciente.id, undefined, 'LSSET', `${op.val}+6`);
+                        console.log(`🎯 Sensibilidad enviada: LSSET,${op.val}+6`);
+                      } catch (err) {
+                        console.log('⚠️ Error enviando comando LSSET:', err);
                       }
+                    }
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: '800',
+                      color: seleccionado ? (COLORS.gold || '#D4AF37') : (COLORS.textDark || '#1E293B'),
                     }}
                   >
-                    <Text style={{ fontSize: 12, fontWeight: '800', color: seleccionado ? COLORS.gold : COLORS.textDark }}>
-                      {op.label}
-                    </Text>
-                    <Text style={{ fontSize: 9, color: COLORS.textLight, textAlign: 'center', marginTop: 2 }}>
-                      {op.desc}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+                    {op.label}
+                  </Text>
+                  <Text style={{ fontSize: 9, color: COLORS.textLight, textAlign: 'center', marginTop: 2 }}>
+                    {op.desc}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
             {/* BOTÓN SINCRONIZAR VÍA REDIS */}
             {paciente?.id && imei.trim() ? (
