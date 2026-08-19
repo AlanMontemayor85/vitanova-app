@@ -100,22 +100,54 @@ export default function HomeScreen() {
   return formatearHoraUnica(horarioRaw);
 };
 // 📡 1. Función para jalar la telemetría más reciente del reloj
+// 📡 1. Función para jalar la telemetría más reciente del reloj
 const cargarSignosDispositivo = async (idToLoad?: string) => {
   const targetId = idToLoad || pacienteId;
   if (!targetId) return;
 
   try {
-    // 1. Telemetría / Signos vitales
     const res = await getSignosRecientes(targetId);
+
     if (res && res.success) {
       console.log(`📥 [INDEX] Telemetría fresca guardada para el paciente: ${targetId}`);
-      setSignosDispositivo(res);
-      
-      // 💾 Guardamos respaldo local persistente
-      await AsyncStorage.setItem(`@vitals_${targetId}`, JSON.stringify(res));
+
+      // 🎯 Rayas si el backend dice sin muñeca / carga / retiro
+      const puesto =
+        res.dispositivoPuesto !== false && res.sin_contacto !== true;
+
+      const normalizado = !puesto
+        ? {
+            ...res,
+            success: true,
+            spo2: "—",
+            presion: "—",
+            fc: "—",
+            temperatura: "—",
+            condicion_carita: "—",
+            dispositivoPuesto: false,
+            sin_contacto: true,
+          }
+        : {
+            ...res,
+            spo2: res.spo2 ?? "—",
+            presion: res.presion ?? "—",
+            fc: res.fc ?? "—",
+            temperatura: res.temperatura ?? "—",
+            dispositivoPuesto: true,
+          };
+
+      if (!puesto) {
+        console.log("⌚ [INDEX] Sin contacto → tablero en rayas");
+      }
+
+      setSignosDispositivo(normalizado);
+      await AsyncStorage.setItem(
+        `@vitals_${targetId}`,
+        JSON.stringify(normalizado)
+      );
     }
 
-    // 2. Ubicación y Nivel de Batería del Reloj
+    // 2. Ubicación y batería
     try {
       const ubData = await getUbicacion(targetId);
       if (ubData && ubData.ubicacion) {
@@ -126,7 +158,6 @@ const cargarSignosDispositivo = async (idToLoad?: string) => {
     } catch (ubErr) {
       console.log("⚠️ Error consultando ubicación/batería:", ubErr);
     }
-
   } catch (error) {
     console.log("⚠️ Error cargando signos vitales:", error);
   }
