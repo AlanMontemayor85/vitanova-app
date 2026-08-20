@@ -1,9 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { Bell, Calendar, MapPin, Pill } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, DeviceEventEmitter, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getHoyLocalISO, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUbicacion, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
+import { calibrarAcelerometroReloj, clearToken, enviarComandoReloj, forzarMedicionSignos, getAlertaPeso, getHoyLocalISO, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUbicacion, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 import { BannerAlertasPreventivas } from './components/BannerAlertasPreventivas';
 import { ControlRelojCard } from './components/ControlRelojCard';
@@ -70,7 +71,8 @@ export default function HomeScreen() {
   const isFirstFocus = useRef(true);
   const [ubicacion, setUbicacion] = useState<any>(null);
   const cargando = Boolean(signosDispositivo?.cargando);
-
+  const [modalConfigVisible, setModalConfigVisible] = useState(false);
+  const [ejecutandoCmd, setEjecutandoCmd] = useState<string | null>(null);
   const formatearHorarioRango = (horarioRaw: string | null | undefined): string => {
   if (!horarioRaw) return 'Sin horario';
 
@@ -252,6 +254,46 @@ const corregirResumenTurno = (turnoOriginal: any, listadoMedicamentos: any[], li
   };
 };
 
+const ejecutarComandoReloj = async (comando: 'FIND' | 'PEDO' | 'RESET' | 'POWEROFF', argumento: string = '') => {
+  if (!paciente?.id) return;
+  try {
+    setEjecutandoCmd(comando);
+    const res = await enviarComandoReloj(paciente.id, comando, argumento);
+    
+    if (res?.success) {
+      let msg = 'Comando enviado con éxito.';
+      if (comando === 'FIND') msg = 'El reloj está sonando (1 min).';
+      if (comando === 'PEDO') msg = 'Podómetro activado (conteo 24h).';
+      if (comando === 'RESET') msg = 'El reloj se está reiniciando.';
+      if (comando === 'POWEROFF') msg = 'El reloj se ha apagado.';
+      Alert.alert('Éxito', msg);
+    } else {
+      Alert.alert('Aviso', res?.detail || 'No se pudo comunicar con el dispositivo.');
+    }
+  } catch {
+    Alert.alert('Error', 'Error de conexión con el servidor.');
+  } finally {
+    setEjecutandoCmd(null);
+  }
+};
+
+const confirmarAccionCritica = (tipo: 'RESET' | 'POWEROFF') => {
+  const esReset = tipo === 'RESET';
+  Alert.alert(
+    esReset ? '¿Reiniciar Reloj?' : '¿Apagar Reloj?',
+    esReset
+      ? 'El reloj se reiniciará y tardará ~1 minuto en reconectarse.'
+      : '⚠️ ATENCIÓN: Si apagas el reloj remotamente, requerirá ser encendido de forma manual con el botón físico.',
+    [
+      { text: 'Cancelar', style: 'cancel' },
+      { 
+        text: esReset ? 'Reiniciar' : 'Apagar', 
+        style: 'destructive',
+        onPress: () => ejecutarComandoReloj(tipo)
+      }
+    ]
+  );
+};
 
 // 🔄 Carga inicial y Enrutador Inteligente Relacional
 useEffect(() => {
@@ -1022,102 +1064,79 @@ useEffect(() => {
                     </View>
                   </View>
                 </View>
-                  {/* 🎛️ Tarjeta de Control ReachFar (Sonar, Pasos, Reiniciar, Apagar) */}
-                  {paciente?.id && (
-                    <ControlRelojCard
-                      pacienteId={paciente.id}
-                      userRole="familiar_principal"
-                    />
-                  )}
-                {/* TARJETA CONFIG RELOJ */}
+                  
+              
+               {/* TARJETA CONFIG RELOJ */}
                 {signosDispositivo?.reloj_config && (
-                  <View
+                  <TouchableOpacity 
+                    activeOpacity={0.7}
+                    onPress={() => setModalConfigVisible(true)}
                     style={{
                       backgroundColor: COLORS.white,
-                      borderRadius: 12,
+                      borderRadius: 14,
                       padding: 14,
                       marginTop: 8,
-                      marginBottom: 4,
+                      marginBottom: 16,
                       borderWidth: 1,
                       borderColor: COLORS.border,
                       flexDirection: 'row',
                       alignItems: 'center',
                       gap: 12,
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 1 },
+                      shadowOpacity: 0.04,
+                      shadowRadius: 4,
+                      elevation: 2,
                     }}
                   >
-                    <Text style={{ fontSize: 24 }}>{'⚙️'}</Text>
+                    <Text style={{ fontSize: 24 }}>⚙️</Text>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textDark }}>
-                        {'Configuración del reloj'}
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.cacao, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                        Configuración del reloj
                       </Text>
-
-                      {/* 🛡️ Estado y Sensibilidad del Detector de Caídas */}
+                      
                       <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
                         {(() => {
                           const config = signosDispositivo.reloj_config;
                           if (!config.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
-
-                          const sens = Number(config.sensibilidad_caidas ?? config.sensibilidad);
-
-                          if (sens === 1) return 'Detector de caídas: 🔴 Muy Alta';
-                          if (sens === 2) return 'Detector de caídas: 🟠 Alta';
-                          if (sens === 3) return 'Detector de caídas: 🟡 Media';
-                          if (sens === 4) return 'Detector de caídas: 🟢 Estándar';
-                          if (sens === 5) return 'Detector de caídas: 🔵 Baja';
-                          if (sens === 6) return 'Detector de caídas: ⚪ Mínima';
-                          
-                          return `Detector de caídas: Nivel ${sens}`;
+                          const sens = Number(config.sensibilidad ?? config.sensibilidad_caidas);
+                          switch (sens) {
+                            case 1: return 'Detector de caídas: 🔴 Muy Alta';
+                            case 2: return 'Detector de caídas: 🟠 Alta';
+                            case 3: return 'Detector de caídas: 🟡 Media';
+                            case 4: return 'Detector de caídas: 🟢 Estándar';
+                            case 5: return 'Detector de caídas: 🔵 Baja';
+                            case 6: return 'Detector de caídas: ⚪ Mínima';
+                            default: return 'Detector de caídas: 🟢 Estándar';
+                          }
                         })()}
                       </Text>
 
-                      {/* 🕐 Zona Horaria (Opcional si viene en reloj_config) */}
-                      {signosDispositivo.reloj_config.zona_horaria !== undefined && (
-                        <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 1 }}>
-                          {(() => {
-                            const zh = Number(signosDispositivo.reloj_config.zona_horaria);
-                            if (zh === -5) return 'Zona horaria: Cancún (UTC-5)';
-                            if (zh === -7) return 'Zona horaria: Pacífico (UTC-7)';
-                            if (zh === -8) return 'Zona horaria: Noroeste (UTC-8)';
-                            return 'Zona horaria: Centro (UTC-6)';
-                          })()}
-                        </Text>
-                      )}
-
-                      {/* 📅 Última Sincronización */}
-                      <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 2 }}>
+                      <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 1 }}>
                         {(() => {
                           const uc = signosDispositivo.reloj_config.ultima_configuracion;
-                          if (!uc) return 'Última sincronización: Sin registro aún';
-                          return `Última sincronización: ${new Date(uc).toLocaleDateString('es-MX', {
-                            day: 'numeric',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}`;
+                          if (!uc) return 'Última sinc: Sin registro aún';
+                          try {
+                            const fecha = new Date(uc);
+                            return `Última sinc: ${fecha.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
+                          } catch {
+                            return 'Última sinc: Sin registro aún';
+                          }
                         })()}
                       </Text>
                     </View>
 
-                    <TouchableOpacity
-                      onPress={() =>
-                        router.push({
-                          pathname: '/perfil-paciente' as any,
-                          params: { paciente: JSON.stringify(paciente) },
-                        })
-                      }
-                      style={{
-                        backgroundColor: COLORS.goldPale,
-                        borderRadius: 8,
-                        padding: 8,
-                        borderWidth: 1,
-                        borderColor: COLORS.gold,
-                      }}
-                    >
-                      <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '700' }}>
-                        {'Ajustar'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                    <View style={{
+                      backgroundColor: COLORS.goldPale,
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: 'rgba(191, 154, 64, 0.3)',
+                    }}>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.gold }}>Ajustar</Text>
+                    </View>
+                  </TouchableOpacity>
                 )}
               </>
             )}
@@ -1493,7 +1512,13 @@ useEffect(() => {
                 </View>
               </View>
             )}
-
+             {/* 🎛️ Tarjeta de Control ReachFar (Sonar, Pasos, Reiniciar, Apagar) */}
+                  {paciente?.id && (
+                    <ControlRelojCard
+                      pacienteId={paciente.id}
+                      userRole="familiar_principal"
+                    />
+                  )}
             {/* Espaciador final correcto al fondo del ScrollView */}
             <View style={{ height: 60 }} />
           </ScrollView>
@@ -1572,7 +1597,182 @@ useEffect(() => {
             );
           })}
         </View>
+           {/* 🎛️ MODAL DE CONTROL Y CONFIGURACIÓN DEL RELOJ */}
+<Modal
+  visible={modalConfigVisible}
+  transparent={true}
+  animationType="slide"
+  onRequestClose={() => setModalConfigVisible(false)}
+>
+  <View style={{
+    flex: 1,
+    backgroundColor: 'rgba(43, 35, 29, 0.6)',
+    justifyContent: 'flex-end',
+  }}>
+    <View style={{
+      backgroundColor: COLORS.white,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      padding: 20,
+      maxHeight: '85%',
+    }}>
+      {/* Header del Modal */}
+      <View style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+        paddingBottom: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Ionicons name="watch-outline" size={20} color={COLORS.gold} />
+          <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.cacao }}>
+            Control de Dispositivo ReachFar
+          </Text>
+        </View>
+        <TouchableOpacity 
+          onPress={() => setModalConfigVisible(false)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="close-circle" size={24} color={COLORS.textLight} />
+        </TouchableOpacity>
+      </View>
 
+      {/* 🟢 SECCIÓN 1: ACCIONES RÁPIDAS (Cuidador & Familiar) */}
+      <Text style={{ fontSize: 10, fontWeight: '800', color: COLORS.textLight, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10 }}>
+        Acciones Rápidas
+      </Text>
+
+      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+        <TouchableOpacity
+          style={{
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: COLORS.cacao,
+            borderRadius: 12,
+            paddingVertical: 12,
+            gap: 8,
+          }}
+          disabled={ejecutandoCmd !== null}
+          onPress={() => ejecutarComandoReloj('FIND')}
+        >
+          {ejecutandoCmd === 'FIND' ? (
+            <ActivityIndicator color={COLORS.white} size="small" />
+          ) : (
+            <>
+              <Ionicons name="volume-high-outline" size={18} color={COLORS.gold} />
+              <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: '800' }}>Hacer Sonar</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={{
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: COLORS.cream,
+            borderRadius: 12,
+            paddingVertical: 12,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            gap: 8,
+          }}
+          disabled={ejecutandoCmd !== null}
+          onPress={() => ejecutarComandoReloj('PEDO', '1')}
+        >
+          {ejecutandoCmd === 'PEDO' ? (
+            <ActivityIndicator color={COLORS.cacao} size="small" />
+          ) : (
+            <>
+              <Ionicons name="footsteps-outline" size={18} color={COLORS.cacao} />
+              <Text style={{ color: COLORS.cacao, fontSize: 12, fontWeight: '800' }}>Activar Pasos</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* 🔴 SECCIÓN 2: ZONA DE MANTENIMIENTO REMOTO (Solo Familiar / Index) */}
+      <Text style={{ fontSize: 10, fontWeight: '800', color: COLORS.textLight, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10 }}>
+        Mantenimiento de Hardware
+      </Text>
+
+      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
+        <TouchableOpacity
+          style={{
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: COLORS.goldPale,
+            borderRadius: 12,
+            paddingVertical: 12,
+            borderWidth: 1,
+            borderColor: 'rgba(191, 154, 64, 0.25)',
+            gap: 8,
+          }}
+          disabled={ejecutandoCmd !== null}
+          onPress={() => confirmarAccionCritica('RESET')}
+        >
+          {ejecutandoCmd === 'RESET' ? (
+            <ActivityIndicator color={COLORS.gold} size="small" />
+          ) : (
+            <>
+              <Ionicons name="reload-outline" size={16} color={COLORS.gold} />
+              <Text style={{ color: COLORS.cacao, fontSize: 12, fontWeight: '800' }}>Reiniciar</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={{
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(220, 38, 38, 0.08)',
+            borderRadius: 12,
+            paddingVertical: 12,
+            borderWidth: 1,
+            borderColor: 'rgba(220, 38, 38, 0.2)',
+            gap: 8,
+          }}
+          disabled={ejecutandoCmd !== null}
+          onPress={() => confirmarAccionCritica('POWEROFF')}
+        >
+          {ejecutandoCmd === 'POWEROFF' ? (
+            <ActivityIndicator color="#DC2626" size="small" />
+          ) : (
+            <>
+              <Ionicons name="power-outline" size={16} color="#DC2626" />
+              <Text style={{ color: '#DC2626', fontSize: 12, fontWeight: '800' }}>Apagar</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Botón Cerrar Modal */}
+      <TouchableOpacity
+        style={{
+          backgroundColor: COLORS.cream,
+          paddingVertical: 12,
+          borderRadius: 12,
+          alignItems: 'center',
+          borderWidth: 1,
+          borderColor: COLORS.border,
+        }}
+        onPress={() => setModalConfigVisible(false)}
+      >
+        <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textDark }}>Cerrar</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
           {/* MODAL DE SOLICITUD */}
           <Modal visible={solicitudOpen} transparent animationType="slide">
             <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
@@ -1583,6 +1783,8 @@ useEffect(() => {
                 <Text style={{ fontSize: 11, color: COLORS.textLight, marginBottom: 16 }}>
                   Selecciona el equipo para {paciente?.nombre_completo?.split(' ')[0] ?? 'el paciente'}
                 </Text>
+
+                 
                 <ScrollView showsVerticalScrollIndicator={false}>
                   {[
                     { icon: '🛏️', label: 'Cama hospitalaria' },
@@ -1672,8 +1874,13 @@ useEffect(() => {
           </Modal>
         </>
       )}
+
+     
     </View>
+    
   );
+
+  
 }
 
 const styles = StyleSheet.create({

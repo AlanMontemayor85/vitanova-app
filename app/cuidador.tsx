@@ -17,6 +17,7 @@ import {
   agregarTareaManual, clearToken, completarActividad, completarMedicamento,
   consumirItemInventario,
   detectarCambiosTurno,
+  enviarComandoReloj,
   getAlertaPeso,
   getInventario,
   getNotasTurno,
@@ -32,6 +33,7 @@ import {
   verificarEscalas
 } from '../services/api';
 import { programarNotificacionTarea, registrarNotificaciones } from '../services/notifications';
+import { ControlRelojCard } from './components/ControlRelojCard';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
@@ -190,7 +192,8 @@ export default function CuidadorScreen({
   const [itemFallaSeleccionado, setItemFallaSeleccionado] = useState<any>(null);
   const [descripcionFalla, setDescripcionFalla] = useState('');
   const [enviandoFalla, setEnviandoFalla] = useState(false);
-  
+  const [modalConfigVisible, setModalConfigVisible] = useState(false);
+  const [ejecutandoCmd, setEjecutandoCmd] = useState<string | null>(null);
   const cambiarConsumoItem = (itemId: string, delta: number) => {
     setConsumosTurno((prev: Record<string, number>) => {
       const actual = prev[itemId] || 0;
@@ -266,7 +269,46 @@ const onHoraChange = (event: any, selectedDate?: Date) => {
   }
 };
 const lastFetchRef = useRef(0);
+const ejecutarComandoReloj = async (comando: 'FIND' | 'PEDO' | 'RESET' | 'POWEROFF', argumento: string = '') => {
+  if (!pacienteActivo?.id) return;
+  try {
+    setEjecutandoCmd(comando);
+    const res = await enviarComandoReloj(pacienteActivo.id, comando, argumento);
+    
+    if (res?.success) {
+      let msg = 'Comando enviado con éxito.';
+      if (comando === 'FIND') msg = 'El reloj está sonando (1 min).';
+      if (comando === 'PEDO') msg = 'Podómetro activado (conteo 24h).';
+      if (comando === 'RESET') msg = 'El reloj se está reiniciando.';
+      if (comando === 'POWEROFF') msg = 'El reloj se ha apagado.';
+      Alert.alert('Éxito', msg);
+    } else {
+      Alert.alert('Aviso', res?.detail || 'No se pudo comunicar con el dispositivo.');
+    }
+  } catch {
+    Alert.alert('Error', 'Error de conexión con el servidor.');
+  } finally {
+    setEjecutandoCmd(null);
+  }
+};
 
+const confirmarAccionCritica = (tipo: 'RESET' | 'POWEROFF') => {
+  const esReset = tipo === 'RESET';
+  Alert.alert(
+    esReset ? '¿Reiniciar Reloj?' : '¿Apagar Reloj?',
+    esReset
+      ? 'El reloj se reiniciará y tardará ~1 minuto en reconectarse.'
+      : '⚠️ ATENCIÓN: Si apagas el reloj remotamente, requerirá ser encendido de forma manual con el botón físico.',
+    [
+      { text: 'Cancelar', style: 'cancel' },
+      { 
+        text: esReset ? 'Reiniciar' : 'Apagar', 
+        style: 'destructive',
+        onPress: () => ejecutarComandoReloj(tipo)
+      }
+    ]
+  );
+};
 const refrescarPacientes = async (
   origen: string = 'lista',
   forzar: boolean = false
@@ -1648,7 +1690,13 @@ const guardarRegistroEspontaneo = async () => {
           </>
         )}
 
-
+       {/* 🎛️ CONTROL DE HARDWARE DEL RELOJ (MODO CUIDADOR) */}
+          {pacienteActivo?.id && (
+            <ControlRelojCard
+              pacienteId={pacienteActivo.id}
+              userRole="cuidador"
+            />
+          )}
 
         {/* 🎯 ACCESOS RÁPIDOS DE CONTROL (Condicionados por UX) */}
         <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Accesos rápidos de control</Text>
@@ -2104,8 +2152,10 @@ const guardarRegistroEspontaneo = async () => {
             setVista('cierre');
           }}><Text style={styles.cerrarBtnText}>Proceder a Cierre de Turno →</Text></TouchableOpacity>
           <View style={{ height: 60 }} />
-        </ScrollView>
 
+          
+        </ScrollView>
+         
         {/* MODAL TAREAS INCIDENTALES */}
         <Modal
   animationType="slide"
@@ -2333,7 +2383,7 @@ const guardarRegistroEspontaneo = async () => {
         </Modal>
       </View>
     );
-
+     
 
 }
 
@@ -2534,10 +2584,15 @@ const guardarRegistroEspontaneo = async () => {
             </TouchableOpacity>
           </View>
 
+          
+
           {/* 🎯 MARGEN DE RESGUARDO PARA BOTONES DE NAVEGACIÓN ANDROID */}
           <View style={{ height: 60 }} />
+
+         
         </ScrollView>
       </View>
+      
     );
   }
 // ── 4. VISTA CIERRE DE TURNO (DISEÑO PRO & DESPLEGABLE) ──

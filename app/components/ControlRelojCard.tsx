@@ -1,38 +1,40 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { enviarComandoReloj } from '../../services/api'; // Ajusta la ruta a tu archivo de API
+import { enviarComandoReloj } from '../../services/api';
 
+
+const COLORS = {
+  gold: '#BF9A40', goldPale: '#F5EDD8', cacao: '#4A4540', cream: '#FAFAF7',
+  white: '#FFFFFF', textDark: '#2C2820', textLight: '#8A8078', border: '#E0D8CC',
+  green: '#2E7D32', greenPale: '#EAF5E8', amber: '#D4860A', amberPale: '#FFF4E0',
+  red: '#D94F4F', redPale: '#FDEAEA'
+};
 interface Props {
   pacienteId: string;
-  userRole: 'admin' | 'familiar_principal' | 'familiar_co_admin' | 'familiar' | 'cuidador' | 'cuidador_contratado';
-  relojOnline?: boolean;
+  userRole: string;
 }
 
-export const ControlRelojCard: React.FC<Props> = ({ pacienteId, userRole, relojOnline = true }) => {
+export const ControlRelojCard: React.FC<Props> = ({ pacienteId, userRole }) => {
   const [ejecutando, setEjecutando] = useState<string | null>(null);
-
-  // Determinar permisos
-  const esAdminOFamiliar = ['admin', 'familiar_principal', 'familiar_co_admin', 'familiar'].includes(userRole);
+  const esAdminOFamiliar = ['admin', 'familiar_principal', 'familiar_co_admin'].includes(userRole);
 
   const ejecutarComando = async (comando: 'FIND' | 'PEDO' | 'RESET' | 'POWEROFF', argumento: string = '') => {
     try {
       setEjecutando(comando);
-      
       const data = await enviarComandoReloj(pacienteId, comando, argumento);
-
       if (data?.success) {
-        let msg = 'Comando enviado con éxito.';
-        if (comando === 'FIND') msg = 'El reloj está sonando (duración: 1 minuto).';
-        if (comando === 'PEDO') msg = 'Podómetro activado (conteo 24h).';
+        let msg = 'Comando enviado.';
+        if (comando === 'FIND') msg = 'El reloj está sonando (1 minuto).';
+        if (comando === 'PEDO') msg = 'Podómetro activado (24h).';
         if (comando === 'RESET') msg = 'El reloj se está reiniciando.';
-        if (comando === 'POWEROFF') msg = 'El reloj se ha apagado remotamente.';
+        if (comando === 'POWEROFF') msg = 'El reloj se apagó remotamente.';
         Alert.alert('Éxito', msg);
       } else {
         Alert.alert('Aviso', data?.detail || 'No se pudo comunicar con el reloj.');
       }
-    } catch (err: any) {
-      Alert.alert('Error', 'Error al conectar con el servidor.');
+    } catch {
+      Alert.alert('Error', 'Error de conexión con el servidor.');
     } finally {
       setEjecutando(null);
     }
@@ -43,188 +45,177 @@ export const ControlRelojCard: React.FC<Props> = ({ pacienteId, userRole, relojO
     Alert.alert(
       esReset ? '¿Reiniciar Reloj?' : '¿Apagar Reloj?',
       esReset
-        ? 'El reloj se reiniciará y tardará cerca de 1 minuto en reconectarse.'
-        : '⚠️ ATENCIÓN: Si apagas el reloj remotamente, alguien tendrá que presionar el botón físico en persona para volver a encenderlo.',
+        ? 'El reloj se reiniciará y tardará ~1 minuto en reconectar.'
+        : '⚠️ ATENCIÓN: Si apagas el reloj remotamente, requerirá encendido físico manual.',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: esReset ? 'Reiniciar' : 'Apagar', 
-          style: 'destructive',
-          onPress: () => ejecutarComando(tipo)
-        }
+        { text: esReset ? 'Reiniciar' : 'Apagar', style: 'destructive', onPress: () => ejecutarComando(tipo) }
       ]
     );
   };
 
   return (
-    <View style={styles.card}>
-      <View style={styles.header}>
-        <Ionicons name="watch-outline" size={20} color="#0E7490" />
-        <Text style={styles.title}>Control de Hardware del Reloj</Text>
-      </View>
-
-      {/* 🟢 SECCIÓN COMÚN: Cuidador y Familiares (Index) */}
-      <View style={styles.btnRow}>
-        <TouchableOpacity
-          style={[styles.btn, styles.btnPrimary]}
-          disabled={ejecutando !== null}
-          onPress={() => ejecutarComando('FIND')}
-        >
-          {ejecutando === 'FIND' ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <>
-              <Ionicons name="volume-high-outline" size={18} color="#fff" />
-              <Text style={styles.btnTextPrimary}>Hacer Sonar</Text>
-            </>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.btn, styles.btnSecondary]}
-          disabled={ejecutando !== null}
-          onPress={() => ejecutarComando('PEDO', '1')}
-        >
-          {ejecutando === 'PEDO' ? (
-            <ActivityIndicator color="#0E7490" size="small" />
-          ) : (
-            <>
-              <Ionicons name="footsteps-outline" size={18} color="#0E7490" />
-              <Text style={styles.btnTextSecondary}>Activar Pasos</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* 🔴 SECCIÓN EXCLUSIVA: Solo Familiares / Admins (Index) */}
-      {esAdminOFamiliar && (
-        <View style={styles.adminSection}>
-          <Text style={styles.adminLabel}>Acciones de Administración Remota</Text>
-          <View style={styles.btnRow}>
-            <TouchableOpacity
-              style={[styles.btn, styles.btnWarning]}
-              disabled={ejecutando !== null}
-              onPress={() => confirmarAccionCritica('RESET')}
-            >
-              {ejecutando === 'RESET' ? (
-                <ActivityIndicator color="#B45309" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="reload-outline" size={16} color="#B45309" />
-                  <Text style={styles.btnTextWarning}>Reiniciar</Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.btn, styles.btnDanger]}
-              disabled={ejecutando !== null}
-              onPress={() => confirmarAccionCritica('POWEROFF')}
-            >
-              {ejecutando === 'POWEROFF' ? (
-                <ActivityIndicator color="#B91C1C" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="power-outline" size={16} color="#B91C1C" />
-                  <Text style={styles.btnTextDanger}>Apagar</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+  <View style={styles.relojControlContainer}>
+    <View style={styles.relojControlHeader}>
+      <Ionicons name="watch-outline" size={16} color={COLORS.gold} />
+      <Text style={styles.relojControlTitle}>Control Remoto de Hardware</Text>
     </View>
-  );
+
+    {/* Botones Frecuentes */}
+    <View style={styles.relojControlGrid}>
+      <TouchableOpacity
+        style={styles.btnRelojPrimario}
+        disabled={ejecutando !== null}
+        onPress={() => ejecutarComando('FIND')}
+      >
+        {ejecutando === 'FIND' ? (
+          <ActivityIndicator color={COLORS.white} size="small" />
+        ) : (
+          <>
+            <Ionicons name="volume-high-outline" size={16} color={COLORS.gold} />
+            <Text style={styles.btnRelojPrimarioText}>Hacer Sonar</Text>
+          </>
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.btnRelojSecundario}
+        disabled={ejecutando !== null}
+        onPress={() => ejecutarComando('PEDO', '1')}
+      >
+        {ejecutando === 'PEDO' ? (
+          <ActivityIndicator color={COLORS.cacao} size="small" />
+        ) : (
+          <>
+            <Ionicons name="footsteps-outline" size={16} color={COLORS.cacao} />
+            <Text style={styles.btnRelojSecundarioText}>Activar Pasos</Text>
+          </>
+        )}
+      </TouchableOpacity>
+    </View>
+
+    {/* Zona de Mantenimiento Remoto */}
+    {esAdminOFamiliar && (
+      <View style={styles.relojAdminSection}>
+        <TouchableOpacity
+          style={styles.btnAdminAction}
+          disabled={ejecutando !== null}
+          onPress={() => confirmarAccionCritica('RESET')}
+        >
+          <Ionicons name="reload-outline" size={13} color={COLORS.textDark} />
+          <Text style={styles.btnAdminText}>Reiniciar</Text>
+        </TouchableOpacity>
+
+        <View style={styles.relojDividerVertical} />
+
+        <TouchableOpacity
+          style={styles.btnAdminAction}
+          disabled={ejecutando !== null}
+          onPress={() => confirmarAccionCritica('POWEROFF')}
+        >
+          <Ionicons name="power-outline" size={13} color="#DC2626" />
+          <Text style={styles.btnAdminTextDanger}>Apagar</Text>
+        </TouchableOpacity>
+      </View>
+    )}
+  </View>
+);
 };
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#FFFFFF',
+  relojControlContainer: {
+    backgroundColor: COLORS.white,
     borderRadius: 16,
     padding: 16,
-    marginVertical: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: COLORS.border,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  header: {
+  relojControlHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 14,
+    gap: 6,
+  },
+  relojControlTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.cacao,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  relojControlGrid: {
+    flexDirection: 'row',
     gap: 8,
   },
-  title: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  btnRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  btn: {
+  btnRelojPrimario: {
     flex: 1,
+    backgroundColor: COLORS.cacao,
+    borderRadius: 10,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 10,
     gap: 6,
   },
-  btnPrimary: {
-    backgroundColor: '#0891B2',
-  },
-  btnTextPrimary: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  btnSecondary: {
-    backgroundColor: '#ECFEFF',
-    borderWidth: 1,
-    borderColor: '#A5F3FC',
-  },
-  btnTextSecondary: {
-    color: '#0E7490',
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  adminSection: {
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
-  adminLabel: {
+  btnRelojPrimarioText: {
+    color: COLORS.white,
     fontSize: 11,
-    fontWeight: '600',
-    color: '#94A3B8',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
-  btnWarning: {
-    backgroundColor: '#FEF3C7',
+  btnRelojSecundario: {
+    flex: 1,
+    backgroundColor: COLORS.cream,
+    borderRadius: 10,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: COLORS.border,
   },
-  btnTextWarning: {
-    color: '#92400E',
-    fontWeight: '600',
-    fontSize: 12,
+  btnRelojSecundarioText: {
+    color: COLORS.cacao,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
-  btnDanger: {
-    backgroundColor: '#FEE2E2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
+  relojAdminSection: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
   },
-  btnTextDanger: {
-    color: '#991B1B',
-    fontWeight: '600',
-    fontSize: 12,
+  btnAdminAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+  },
+  btnAdminText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.textDark,
+  },
+  btnAdminTextDanger: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  relojDividerVertical: {
+    width: 1,
+    height: 14,
+    backgroundColor: COLORS.border,
   },
 });
