@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { Bell, Calendar, MapPin, Pill } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, DeviceEventEmitter, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, DeviceEventEmitter, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getHoyLocalISO, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUbicacion, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 import { BannerAlertasPreventivas } from './components/BannerAlertasPreventivas';
@@ -30,7 +30,11 @@ const COLORS = {
   redPale: '#FDEAEA',
   
 };
-
+const formatearHora = (isoStr: string | null) => {
+  if (!isoStr) return "";
+  const d = new Date(isoStr);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
 export default function HomeScreen() {
   const router = useRouter();
   const [paciente, setPaciente] = useState<any>(null);
@@ -64,7 +68,7 @@ export default function HomeScreen() {
   const esAdminRed = esPrincipal || esCoAdmin;
   const isFirstFocus = useRef(true);
   const [ubicacion, setUbicacion] = useState<any>(null);
-
+  const cargando = Boolean(signosDispositivo?.cargando);
 
   const formatearHorarioRango = (horarioRaw: string | null | undefined): string => {
   if (!horarioRaw) return 'Sin horario';
@@ -112,12 +116,16 @@ const cargarSignosDispositivo = async (idToLoad?: string) => {
     if (res && res.success) {
       console.log(`📥 [INDEX] Telemetría obtenida para el paciente: ${targetId}`);
 
-      // 🛡️ Evaluamos si el reloj está puesto o fuera de contacto
-      const puesto = res.dispositivoPuesto !== false && res.sin_contacto !== true;
+      // 🔌 Evaluamos si el reloj está en la base de carga
+      const estaEnCarga = Boolean(res.cargando);
 
-      // ⚡ Conservamos siempre los valores reales si existen en la respuesta
+      // 🛡️ Reloj puesto solo si no está desconectado y no está en la base de carga
+      const puesto = res.dispositivoPuesto !== false && res.sin_contacto !== true && !estaEnCarga;
+
+      // ⚡ Conservamos la telemetría normalizada
       const normalizado = {
         ...res,
+        cargando: estaEnCarga,
         spo2: res.spo2 ?? "—",
         presion: res.presion ?? "—",
         fc: res.fc ?? "—",
@@ -127,7 +135,9 @@ const cargarSignosDispositivo = async (idToLoad?: string) => {
         sin_contacto: !puesto,
       };
 
-      if (!puesto) {
+      if (estaEnCarga) {
+        console.log("🔌 [INDEX] Reloj detectado en base de carga magnética.");
+      } else if (!puesto) {
         console.log("⌚ [INDEX] Reloj fuera de muñeca o en reposo (conservando última telemetría).");
       }
 
@@ -154,7 +164,7 @@ const cargarSignosDispositivo = async (idToLoad?: string) => {
   }
 };
 
-// ⚡ 2. Función para disparar la ráfaga 'hrtstart' por Redis (Alineada para Index)
+
 // ⚡ 2. Función para disparar la ráfaga 'hrtstart' por Redis
 const ejecutarMedicionRemota = async () => {
   const idReal = paciente?.id || paciente?.paciente_id || pacienteId;
@@ -165,9 +175,13 @@ const ejecutarMedicionRemota = async () => {
   }
   
   setMidiendo(true);
+
+  // 🚀 ACTUALIZACIÓN OPTIMISTA: Quitamos el modo carga en la UI al instante
+  setSignosDispositivo((prev: any) => (prev ? { ...prev, cargando: false } : prev));
+
   try {
     await forzarMedicionSignos(idReal);
-    alert("📡 Solicitud enviada. El reloj comenzará la lectura en unos segundos...");
+    Alert.alert("📡 Solicitud enviada", "El reloj comenzará la lectura en unos segundos...");
     
     // ⏱️ Doble verificación táctica (a los 15s y confirmación a los 30s)
     setTimeout(async () => {
@@ -855,18 +869,40 @@ useEffect(() => {
                       },
                       midiendo 
                         ? { backgroundColor: '#E65100', opacity: 0.9 } 
-                        : (styles.btnMedirDesactivado && midiendo && styles.btnMedirDesactivado)
+                        : signosDispositivo?.cargando 
+                          ? { backgroundColor: '#455A64', opacity: 0.9 } 
+                          : null
                     ]} 
-                    onPress={ejecutarMedicionRemota}
+                    onPress={() => {
+                      if (signosDispositivo?.cargando) {
+                        Alert.alert(
+                          "🔌 Reloj en Modo Carga",
+                          "El sistema detectó que el reloj estaba cargando. ¿El paciente ya lo tiene colocado en la muñeca?",
+                          [
+                            { text: "Cancelar", style: "cancel" },
+                            { 
+                              text: "Sí, ya lo tiene puesto", 
+                              onPress: () => ejecutarMedicionRemota() 
+                            }
+                          ]
+                        );
+                        return;
+                      }
+                      ejecutarMedicionRemota();
+                    }}
                     disabled={midiendo}
                     activeOpacity={0.7}
                   >
                     <Text style={[
                       styles.btnMedirText,
                       { fontSize: 11, fontWeight: '800', textAlign: 'center' },
-                      midiendo && { color: '#FFFFFF' }
+                      (midiendo || signosDispositivo?.cargando) && { color: '#FFFFFF' }
                     ]}>
-                      {midiendo ? "⏳ Sensando..." : "⚡ Sensa Ahora"}
+                      {midiendo 
+                        ? "⏳ Sensando..." 
+                        : signosDispositivo?.cargando
+                          ? "🔌 En Carga " 
+                          : "⚡ Sensa Ahora"}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -892,16 +928,21 @@ useEffect(() => {
                     {/* TEMPERATURA CORPORAL */}
                     <View style={styles.vitalCard}>
                       <View style={styles.valueWithUnitRow}>
-                        <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.bphrt ? COLORS.green : COLORS.textDark }]}>
-                          {signosDispositivo?.frescura?.bphrt && signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
+                        <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.temperatura ? COLORS.green : COLORS.textDark }]}>
+                          {signosDispositivo?.frescura?.temperatura && signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
                             ? signosDispositivo.temperatura 
                             : '—'}
                         </Text>
-                        {signosDispositivo?.frescura?.bphrt && signosDispositivo?.temperatura !== "—" && (
+                        {signosDispositivo?.frescura?.temperatura && signosDispositivo?.temperatura !== "—" && (
                           <Text style={styles.vitalUnit}>°C</Text>
                         )}
                       </View>
                       <Text style={styles.vitalLabel}>Temp. Corp.</Text>
+                      {signosDispositivo?.temp_ts && (
+                        <Text style={styles.subtextoHora}>
+                          {formatearHora(signosDispositivo.temp_ts)}
+                        </Text>
+                      )}
                     </View>
 
                     {/* PESO */}
@@ -931,6 +972,11 @@ useEffect(() => {
                         <Text style={styles.vitalUnit}>%</Text>
                       </View>
                       <Text style={styles.vitalLabel}>SpO₂</Text>
+                      {signosDispositivo?.spo2_ts && (
+                        <Text style={styles.subtextoHora}>
+                          {formatearHora(signosDispositivo.spo2_ts)}
+                        </Text>
+                      )}
                     </View>
 
                     {/* PRESIÓN ARTERIAL */}
@@ -949,6 +995,11 @@ useEffect(() => {
                         <Text style={styles.vitalUnit}>mmHg</Text>
                       </View>
                       <Text style={styles.vitalLabel}>Presión</Text>
+                      {signosDispositivo?.bphrt_ts && (
+                        <Text style={styles.subtextoHora}>
+                          {formatearHora(signosDispositivo.bphrt_ts)}
+                        </Text>
+                      )}
                     </View>
 
                     {/* FRECUENCIA CARDÍACA */}
@@ -962,10 +1013,15 @@ useEffect(() => {
                         <Text style={styles.vitalUnit}>bpm</Text>
                       </View>
                       <Text style={styles.vitalLabel}>F. Cardíaca</Text>
+                      {signosDispositivo?.bphrt_ts && (
+                        <Text style={styles.subtextoHora}>
+                          {formatearHora(signosDispositivo.bphrt_ts)}
+                        </Text>
+                      )}
                     </View>
                   </View>
                 </View>
-
+                  
                 {/* TARJETA CONFIG RELOJ */}
                 {signosDispositivo?.reloj_config && (
                   <View
@@ -2084,5 +2140,25 @@ const styles = StyleSheet.create({
     fontWeight: '700', 
     color: COLORS.textLight,
   },
-  
+  bannerVerificando: {
+  backgroundColor: '#FFF3CD',
+  borderColor: '#FFEEBA',
+  borderWidth: 1,
+  paddingVertical: 8,
+  paddingHorizontal: 12,
+  borderRadius: 8,
+  marginBottom: 10,
+  alignItems: 'center',
+},
+textoBanner: {
+  color: '#856404',
+  fontSize: 12,
+  fontWeight: '600',
+},
+subtextoHora: {
+  fontSize: 10,
+  color: COLORS.textLight || '#6c757d',
+  marginTop: 2,
+  textAlign: 'center',
+},
 });
