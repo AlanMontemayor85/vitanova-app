@@ -6,6 +6,7 @@ import { ActivityIndicator, Alert, DeviceEventEmitter, Linking, Modal, Platform,
 import { calibrarAcelerometroReloj, clearToken, forzarMedicionSignos, getAlertaPeso, getHoyLocalISO, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUbicacion, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 import { BannerAlertasPreventivas } from './components/BannerAlertasPreventivas';
+import { ControlRelojCard } from './components/ControlRelojCard';
 import { TarjetaUltimoCierre } from './components/TarjetaUltimoCierre';
 import CuidadorScreen from './cuidador';
 
@@ -1021,7 +1022,13 @@ useEffect(() => {
                     </View>
                   </View>
                 </View>
-                  
+                  {/* 🎛️ Tarjeta de Control ReachFar (Sonar, Pasos, Reiniciar, Apagar) */}
+                  {paciente?.id && (
+                    <ControlRelojCard
+                      pacienteId={paciente.id}
+                      userRole="familiar_principal"
+                    />
+                  )}
                 {/* TARJETA CONFIG RELOJ */}
                 {signosDispositivo?.reloj_config && (
                   <View

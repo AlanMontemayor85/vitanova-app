@@ -336,7 +336,23 @@ export const getTareasRecurrentes = async (pacienteId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/tareas-recurrentes/${pacienteId}`);
   return res.json();
 };
-
+export const enviarComandoReloj = async (pacienteId: string, comando: string, argumento: string = '') => {
+  try {
+    const res = await fetchWithAuth(`${BASE_URL}/pacientes/${pacienteId}/configurar-reloj`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        comando,
+        argumento,
+      }),
+    });
+    return await res.json();
+  } catch (error) {
+    return { success: false, detail: String(error) };
+  }
+};
 export const crearTareaRecurrente = async (pacienteId: string, data: any) => {
   // 🎯 FIX: Estructura unificada y directa usando fetchWithAuth
   const res = await fetchWithAuth(`${BASE_URL}/tareas-recurrentes`, {
