@@ -42,7 +42,11 @@ const COLORS = {
   amberPale: '#FFF4E0', red: '#D94F4F', redPale: '#FDEAEA',
   blue: '#3A91FF', bluePale: '#EBF3FF', 
 };
-
+const formatearHora = (isoStr: string | null) => {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
 const BARTHEL_ITEMS = [
   { label: 'Comer', opciones: [{ val: 0, txt: 'Dependiente' }, { val: 5, txt: 'Necesita ayuda' }, { val: 10, txt: 'Independiente' }] },
   { label: 'Bañarse', opciones: [{ val: 0, txt: 'Dependiente' }, { val: 5, txt: 'Independiente' }] },
@@ -186,7 +190,7 @@ export default function CuidadorScreen({
   const [itemFallaSeleccionado, setItemFallaSeleccionado] = useState<any>(null);
   const [descripcionFalla, setDescripcionFalla] = useState('');
   const [enviandoFalla, setEnviandoFalla] = useState(false);
-
+  
   const cambiarConsumoItem = (itemId: string, delta: number) => {
     setConsumosTurno((prev: Record<string, number>) => {
       const actual = prev[itemId] || 0;
@@ -1491,23 +1495,31 @@ const guardarRegistroEspontaneo = async () => {
             </View>
 
             {/* LECTURA DE SIGNOS VITALES (MÉTRICAS DISTRIBUIDAS) */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingTop: 4, paddingBottom: 2 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-start', paddingTop: 4, paddingBottom: 2 }}>
               
               {/* 1. SpO2 */}
               <View style={{ alignItems: 'center', flex: 1 }}>
                 <Text style={{ fontSize: 19, fontWeight: '800', color: COLORS.cacao }}>
-                  {signosDispositivo?.spo2 ? `${signosDispositivo.spo2}%` : "—"}
+                  {signosDispositivo?.frescura?.spo2 && signosDispositivo?.spo2 && signosDispositivo?.spo2 !== "—" 
+                    ? `${signosDispositivo.spo2}%` 
+                    : "—"}
                 </Text>
                 <Text style={[styles.monitorSubTextLabel, { marginTop: 2 }]}>SpO₂</Text>
+                {signosDispositivo?.frescura?.spo2 && signosDispositivo?.spo2_ts && (
+                  <Text style={{ fontSize: 10, color: '#8E8E93', fontWeight: '500', marginTop: 1 }}>
+                    {formatearHora(signosDispositivo.spo2_ts)}
+                  </Text>
+                )}
               </View>
 
-              <View style={{ width: 1, height: 26, backgroundColor: COLORS.border }} />
+              <View style={{ width: 1, height: 26, backgroundColor: COLORS.border, alignSelf: 'center' }} />
 
               {/* 2. PRESIÓN */}
               <View style={{ alignItems: 'center', flex: 1 }}>
                 <Text style={{ fontSize: 19, fontWeight: '800', color: COLORS.cacao }}>
                   {(() => {
-                    if (signosDispositivo?.presion) return signosDispositivo.presion;
+                    if (!signosDispositivo?.frescura?.bphrt) return "—";
+                    if (signosDispositivo?.presion && signosDispositivo.presion !== "—") return signosDispositivo.presion;
                     if (signosDispositivo?.presion_sistolica && signosDispositivo?.presion_diastolica) {
                       return `${signosDispositivo.presion_sistolica}/${signosDispositivo.presion_diastolica}`;
                     }
@@ -1515,23 +1527,35 @@ const guardarRegistroEspontaneo = async () => {
                   })()}
                 </Text>
                 <Text style={[styles.monitorSubTextLabel, { marginTop: 2 }]}>Presión</Text>
+                {signosDispositivo?.frescura?.bphrt && signosDispositivo?.bphrt_ts && (
+                  <Text style={{ fontSize: 10, color: '#8E8E93', fontWeight: '500', marginTop: 1 }}>
+                    {formatearHora(signosDispositivo.bphrt_ts)}
+                  </Text>
+                )}
               </View>
 
-              <View style={{ width: 1, height: 26, backgroundColor: COLORS.border }} />
+              <View style={{ width: 1, height: 26, backgroundColor: COLORS.border, alignSelf: 'center' }} />
 
               {/* 3. PULSO */}
               <View style={{ alignItems: 'center', flex: 1 }}>
                 <Text style={{ fontSize: 19, fontWeight: '800', color: COLORS.red }}>
-                  {signosDispositivo?.fc ?? signosDispositivo?.frecuencia_cardiaca ?? "—"}
+                  {signosDispositivo?.frescura?.bphrt && (signosDispositivo?.fc ?? signosDispositivo?.frecuencia_cardiaca)
+                    ? (signosDispositivo?.fc ?? signosDispositivo?.frecuencia_cardiaca)
+                    : "—"}
                 </Text>
                 <Text style={[styles.monitorSubTextLabel, { marginTop: 2 }]}>Pulso (bpm)</Text>
+                {signosDispositivo?.frescura?.bphrt && signosDispositivo?.bphrt_ts && (
+                  <Text style={{ fontSize: 10, color: '#8E8E93', fontWeight: '500', marginTop: 1 }}>
+                    {formatearHora(signosDispositivo.bphrt_ts)}
+                  </Text>
+                )}
               </View>
 
-              <View style={{ width: 1, height: 26, backgroundColor: COLORS.border }} />
+              <View style={{ width: 1, height: 26, backgroundColor: COLORS.border, alignSelf: 'center' }} />
 
               {/* 4. T. CORPORAL */}
               <View style={{ alignItems: 'center', flex: 1 }}>
-                {signosDispositivo?.temperatura && signosDispositivo.temperatura !== "—" ? (
+                {signosDispositivo?.frescura?.temperatura && signosDispositivo?.temperatura && signosDispositivo.temperatura !== "—" ? (
                   <Text style={{ fontSize: 19, fontWeight: '800', color: COLORS.green }}>
                     {`${signosDispositivo.temperatura}°`}
                   </Text>
@@ -1541,6 +1565,11 @@ const guardarRegistroEspontaneo = async () => {
                   </Text>
                 )}
                 <Text style={[styles.monitorSubTextLabel, { marginTop: 2 }]}>T. Corporal</Text>
+                {signosDispositivo?.frescura?.temperatura && signosDispositivo?.temp_ts && (
+                  <Text style={{ fontSize: 10, color: COLORS.green, fontWeight: '600', marginTop: 1 }}>
+                    {formatearHora(signosDispositivo.temp_ts)}
+                  </Text>
+                )}
               </View>
 
             </View>
