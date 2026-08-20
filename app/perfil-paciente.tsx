@@ -233,7 +233,22 @@ const guardar = async () => {
 
     console.log("📦 Payload enviado a BD:", payloadPaciente);
 
-    const dataPac = await actualizarPaciente(paciente?.id || 'nuevo', payloadPaciente);
+    // 1. Guardar primero en Backend / Supabase
+    const idPacienteObjetivo = paciente?.id || 'nuevo';
+    const dataPac = await actualizarPaciente(idPacienteObjetivo, payloadPaciente);
+
+    // 2. ⚡ Inyectar comando al reloj SOLO al confirmar el guardado exitoso
+    const pacienteIdParaComando = paciente?.id || dataPac?.id;
+    if (tieneReloj && pacienteIdParaComando && sensibilidadCaidas) {
+      try {
+        await configurarReloj(pacienteIdParaComando, undefined, 'LSSET', `${sensibilidadCaidas}+6`);
+        console.log(`🎯 Sensibilidad enviada al reloj tras guardar: LSSET,${sensibilidadCaidas}+6`);
+      } catch (errReloj) {
+        // Log preventivo sin interrumpir el flujo del usuario si el reloj está offline
+        console.warn('⚠️ No se pudo enviar el comando LSSET en tiempo real al reloj:', errReloj);
+      }
+    }
+
     setExito(true);
 
     setTimeout(() => {
@@ -660,17 +675,9 @@ const guardar = async () => {
                     backgroundColor: seleccionado ? (COLORS.goldPale || '#FEF9C3') : '#FFFFFF',
                     alignItems: 'center',
                   }}
-                  onPress={async () => {
+                  onPress={() => {
+                    // ✅ Solo cambia el estado local visual, NO dispara comandos al reloj ni guarda
                     setSensibilidadCaidas(op.val);
-                    if (paciente?.id) {
-                      try {
-                        // ⚡ Inyectamos el comando oficial LSSET,nivel+6
-                        await configurarReloj(paciente.id, undefined, 'LSSET', `${op.val}+6`);
-                        console.log(`🎯 Sensibilidad enviada: LSSET,${op.val}+6`);
-                      } catch (err) {
-                        console.log('⚠️ Error enviando comando LSSET:', err);
-                      }
-                    }
                   }}
                 >
                   <Text
@@ -682,7 +689,7 @@ const guardar = async () => {
                   >
                     {op.label}
                   </Text>
-                  <Text style={{ fontSize: 9, color: COLORS.textLight, textAlign: 'center', marginTop: 2 }}>
+                  <Text style={{ fontSize: 9, color: COLORS.textLight || '#64748B', textAlign: 'center', marginTop: 2 }}>
                     {op.desc}
                   </Text>
                 </TouchableOpacity>

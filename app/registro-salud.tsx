@@ -56,24 +56,15 @@ useEffect(() => {
       console.log('📦 [DIAGNÓSTICO RELOJ] Respuesta RAW de getSignosRecientes:', JSON.stringify(res, null, 2));
 
       if (res && res.success) {
-        // Intentamos obtener la fecha de la ráfaga desde cualquier propiedad donde el backend la mande
-        const rawFecha = res.created_at || res.fecha || res.timestamp || res.updated_at;
-        const fechaRegistro = rawFecha ? new Date(rawFecha).getTime() : 0;
-        const ahora = new Date().getTime();
-        const minutosDiferencia = rawFecha ? Math.round((ahora - fechaRegistro) / (1000 * 60)) : 'N/A';
-
-        console.log(`⏱️ [DIAGNÓSTICO RELOJ] Fecha registro: ${rawFecha} | Minutos transcurridos: ${minutosDiferencia} min`);
-
-        // Si la ráfaga tiene más de 10 minutos (o no trae timestamp), consideramos que el reloj está inactivo/retirado
-        const diezMinutosEnMs = 10 * 60 * 1000;
-        const esDatoFresco = rawFecha ? (ahora - fechaRegistro) < diezMinutosEnMs : false;
-
-        console.log(`🧪 [DIAGNÓSTICO RELOJ] ¿Es dato fresco (<10 min)? -> ${esDatoFresco ? '✅ SÍ' : '❌ NO'}`);
+        // ✅ 1. Criterio de contacto: Usar la resolución del backend o presencia de signos frescos
+        const estaPuesto = res.dispositivoPuesto === true || 
+                           res.estado_contacto === 'puesto' || 
+                           Boolean(res.frescura?.bphrt || res.frescura?.spo2);
 
         const tieneFCValida = res.fc && res.fc !== '—' && Number(res.fc) > 30;
         const tieneSpO2Valida = res.spo2 && res.spo2 !== '—' && Number(res.spo2) > 50;
 
-        if (esDatoFresco && (tieneFCValida || tieneSpO2Valida)) {
+        if (estaPuesto && (tieneFCValida || tieneSpO2Valida)) {
           console.log('🟢 [DIAGNÓSTICO RELOJ] ACEPTADO -> Mostrando datos en pantalla');
           setRelojActivo(true);
           if (tieneSpO2Valida) setSpo2(Number(res.spo2));
@@ -85,7 +76,7 @@ useEffect(() => {
             setDiastolica(Number(dia));
           }
         } else {
-          console.warn('🔴 [DIAGNÓSTICO RELOJ] RECHAZADO -> Datos obsoletos o reloj no colocado. Limpiando interfaz.');
+          console.warn('🔴 [DIAGNÓSTICO RELOJ] RECHAZADO -> Reloj retirado, en carga o sin signos frescos.');
           setRelojActivo(false);
           setSpo2(null);
           setFc(null);
@@ -98,13 +89,14 @@ useEffect(() => {
         setRelojActivo(false);
       }
     } catch (e) {
-      console.error('❌ Error en diagnóctico de telemetría:', e);
+      console.error('❌ Error en diagnóstico de telemetría:', e);
       setRelojActivo(false);
     } finally {
       console.log('==========================================');
       setLoading(false);
     }
   };
+
   precargarSignosReloj();
 }, [paciente?.id]);
 

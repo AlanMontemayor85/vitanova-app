@@ -1576,7 +1576,7 @@ const guardarRegistroEspontaneo = async () => {
 
           </View>
 
-            {/* TARJETA 2: CONFIG RELOJ — Vista Cuidador (solo lectura) */}
+           {/* TARJETA 2: CONFIG RELOJ — Vista Cuidador (solo lectura) */}
             {signosDispositivo?.reloj_config && (
               <View style={{
                 backgroundColor: COLORS.white,
@@ -1594,25 +1594,52 @@ const guardarRegistroEspontaneo = async () => {
                 <Text style={{ fontSize: 24 }}>{'⚙️'}</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textDark }}>
-                    {'Configuración del reloj'}
+                    Configuración del reloj
                   </Text>
+                  
+                  {/* Estado del Detector de Caídas (Niveles 1 al 6) */}
                   <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
                     {(() => {
                       const config = signosDispositivo.reloj_config;
                       if (!config.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
-                      if (config.sensibilidad === 1) return 'Detector de caídas: 🔴 Alta';
-                      if (config.sensibilidad === 2) return 'Detector de caídas: 🟠 Media';
-                      if (config.sensibilidad === 3) return 'Detector de caídas: 🟡 Estándar';
-                      return 'Detector de caídas: 🟢 Baja (recomendada)';
+                      
+                      const sens = Number(config.sensibilidad ?? config.sensibilidad_caidas);
+                      switch (sens) {
+                        case 1:
+                          return 'Detector de caídas: 🔴 Muy Alta (1)';
+                        case 2:
+                          return 'Detector de caídas: 🟠 Alta (2)';
+                        case 3:
+                          return 'Detector de caídas: 🟡 Media (3)';
+                        case 4:
+                          return 'Detector de caídas: 🟢 Estándar (4)';
+                        case 5:
+                          return 'Detector de caídas: 🔵 Baja (5)';
+                        case 6:
+                          return 'Detector de caídas: ⚪ Mínima (6)';
+                        default:
+                          return 'Detector de caídas: 🟢 Estándar (4)';
+                      }
                     })()}
                   </Text>
+
+                  {/* Marca de Última Sincronización */}
                   <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 2 }}>
                     {(() => {
                       const uc = signosDispositivo.reloj_config.ultima_configuracion;
                       if (!uc) return 'Última sincronización: Sin registro aún';
-                      return `Última sincronización: ${new Date(uc).toLocaleDateString('es-MX', { 
-                        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
-                      })}`;
+                      try {
+                        const fecha = new Date(uc);
+                        if (isNaN(fecha.getTime())) return 'Última sincronización: Sin registro aún';
+                        return `Última sincronización: ${fecha.toLocaleDateString('es-MX', { 
+                          day: 'numeric', 
+                          month: 'short', 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}`;
+                      } catch {
+                        return 'Última sincronización: Sin registro aún';
+                      }
                     })()}
                   </Text>
                 </View>
