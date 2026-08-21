@@ -19,6 +19,7 @@ import {
   consumirItemInventario,
   detectarCambiosTurno,
   enviarComandoReloj,
+  forzarMedicionSignos,
   getAlertaPeso,
   getInventario,
   getNotasTurno,
@@ -322,64 +323,58 @@ const refrescarPacientes = async (
     console.error('❌ Error refrescando pacientes:', e);
   }
 };
-  const sincronizarSignosReloj = async (pacienteId: string, forzarComando: boolean = false) => {
-  if (!pacienteId) return;
-  setCargandoSignos(true);
+  // 1. Cargar y normalizar signos en Cuidador
+const sincronizarSignosReloj = async (pacienteIdTarget: string, forzarSensado: boolean = false) => {
+  if (!pacienteIdTarget) return;
+
   try {
-    if (forzarComando) {
-      const token = getToken();
-      await fetch(`${BASE_URL}/pacientes/${pacienteId}/forzar-medicion`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      await new Promise(resolve => setTimeout(resolve, 5000));
+    if (forzarSensado) {
+      setCargandoSignos(true);
+      // Optimista: apagamos temporalmente el modo carga visual si decide medir
+      setSignosDispositivo((prev: any) => (prev ? { ...prev, cargando: false } : prev));
+      await forzarMedicionSignos(pacienteIdTarget);
+      Alert.alert("📡 Solicitud enviada", "El reloj comenzará la lectura en unos segundos...");
     }
 
-    const res = await getSignosRecientes(pacienteId);
+    // Consulta de telemetría fresca
+    const res = await getSignosRecientes(pacienteIdTarget);
 
     if (res && res.success) {
-      // 🎯 Misma regla que Index: contacto del backend, no solo frescura
-      const puesto =
-        res.dispositivoPuesto !== false && res.sin_contacto !== true;
+      const estaEnCarga = Boolean(res.cargando || res.estado_contacto === 'cargando');
+      const puesto = res.dispositivoPuesto !== false && res.sin_contacto !== true && !estaEnCarga;
 
-      if (!puesto) {
-        setSignosDispositivo({
-          success: true,
-          spo2: '—',
-          presion: '—',
-          fc: '—',
-          temperatura: '—',
-          dispositivoPuesto: false,
-          sin_contacto: true,
-          reloj_config: res.reloj_config,
-        });
-        console.log('⌚ [FRONTEND CUIDADOR] Sin contacto → tablero en rayas.');
-      } else {
-        const tempFresca = res.frescura?.temperatura === true;
-        setSignosDispositivo({
-          ...res,
-          spo2: res.spo2 ?? '—',
-          presion: res.presion ?? '—',
-          fc: res.fc ?? '—',
-          // Temp: si quieres ocultarla cuando no es fresca, deja el ternario
-          temperatura: tempFresca ? (res.temperatura ?? '—') : (res.temperatura ?? '—'),
-          dispositivoPuesto: true,
-        });
-      }
+      const normalizado = {
+        ...res,
+        cargando: estaEnCarga,
+        spo2: res.spo2 ?? "—",
+        presion: res.presion ?? "—",
+        fc: res.fc ?? "—",
+        temperatura: res.temperatura ?? "—",
+        condicion_carita: res.condicion_carita ?? "—",
+        dispositivoPuesto: puesto,
+        sin_contacto: !puesto,
+      };
+
+      setSignosDispositivo(normalizado);
+    }
+
+    if (forzarSensado) {
+      // Re-verificación táctica a los 20s
+      setTimeout(async () => {
+        const resReintento = await getSignosRecientes(pacienteIdTarget);
+        if (resReintento?.success) {
+          const estaEnCargaRe = Boolean(resReintento.cargando || resReintento.estado_contacto === 'cargando');
+          setSignosDispositivo({
+            ...resReintento,
+            cargando: estaEnCargaRe,
+            dispositivoPuesto: resReintento.dispositivoPuesto !== false && !estaEnCargaRe,
+          });
+        }
+        setCargandoSignos(false);
+      }, 20000);
     }
   } catch (error) {
-    console.error('❌ Error sincronizando telemetría:', error);
-    setSignosDispositivo({
-      spo2: '—',
-      presion: '—',
-      fc: '—',
-      temperatura: '—',
-      dispositivoPuesto: false,
-    });
-  } finally {
+    console.log("⚠️ Error sincronizando signos en cuidador:", error);
     setCargandoSignos(false);
   }
 };
@@ -1496,36 +1491,59 @@ const guardarRegistroEspontaneo = async () => {
                 })()}
               </View>
 
-              {/* Botón Sensa Ahora */}
+              {/* ⚡ BOTÓN SENSA AHORA — VISTA CUIDADOR */}
               <TouchableOpacity 
-                onPress={() => pacienteActivo?.id && sincronizarSignosReloj(pacienteActivo.id, true)} 
-                disabled={cargandoSignos || !pacienteActivo?.id}
-                style={[
-                  styles.iniciarBtn, 
-                  { 
-                    paddingHorizontal: 10, 
-                    paddingVertical: 6, 
-                    borderRadius: 8,
-                    minWidth: 105, // 👈 1. Mantiene el ancho estable para que no brinquen los lados
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }, 
-                  // 👈 2. Cambio de color dinámico al cargar o estar deshabilitado
-                  cargandoSignos 
-                    ? { backgroundColor: '#E65100', opacity: 0.9 } // 🟠 Naranja/Ámbar de proceso
+              style={[
+                styles.iniciarBtn, 
+                { 
+                  paddingHorizontal: 10, 
+                  paddingVertical: 6, 
+                  borderRadius: 8, 
+                  minWidth: 105, 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                }, 
+                cargandoSignos 
+                  ? { backgroundColor: '#E65100', opacity: 0.9 } 
+                  : signosDispositivo?.cargando 
+                    ? { backgroundColor: '#455A64', opacity: 0.9 } 
                     : (!pacienteActivo?.id && { backgroundColor: COLORS.border, opacity: 0.6 })
-                ]}
-                activeOpacity={0.7}
-              >
-                <Text style={[
-                  styles.iniciarBtnText, 
-                  { fontSize: 11, fontWeight: '800', textAlign: 'center' },
-                  cargandoSignos && { color: '#FFFFFF' }
-                ]}>
-                  {/* 👈 3. Texto corto e impacto directo */}
-                  {cargandoSignos ? "⏳ Sensando..." : "⚡ Sensa Ahora"}
-                </Text>
-              </TouchableOpacity>
+              ]} 
+              onPress={() => {
+                if (!pacienteActivo?.id) return;
+
+                if (signosDispositivo?.cargando) {
+                  Alert.alert(
+                    "🔌 Reloj en Modo Carga",
+                    "El sistema detectó que el reloj está conectado a la corriente. ¿El paciente ya lo tiene colocado en la muñeca?",
+                    [
+                      { text: "Cancelar", style: "cancel" },
+                      { 
+                        text: "Sí, ya lo tiene puesto", 
+                        onPress: () => sincronizarSignosReloj(pacienteActivo.id, true) 
+                      }
+                    ]
+                  );
+                  return;
+                }
+
+                sincronizarSignosReloj(pacienteActivo.id, true);
+              }}
+              disabled={cargandoSignos || !pacienteActivo?.id}
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                styles.iniciarBtnText, 
+                { fontSize: 11, fontWeight: '800', textAlign: 'center' },
+                (cargandoSignos || signosDispositivo?.cargando) && { color: '#FFFFFF' }
+              ]}>
+                {cargandoSignos 
+                  ? "⏳ Sensando..." 
+                  : signosDispositivo?.cargando
+                    ? "🔌 En Carga" 
+                    : "⚡ Sensa Ahora"}
+              </Text>
+            </TouchableOpacity>
             </View>
 
             {/* LECTURA DE SIGNOS VITALES (MÉTRICAS DISTRIBUIDAS) */}
