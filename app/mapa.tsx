@@ -32,16 +32,12 @@ export default function MapaScreen() {
   const [geocercas, setGeocercas] = useState<any[]>([]);
   const [solicitandoGps, setSolicitandoGps] = useState<boolean>(false);
 // 1. Estado explícito para el rol detectado
+  const miRolParam = (params.miRol as string) || '';
   const [rolUsuario, setRolUsuario] = useState<string>('');
 
   // 2. Validación combinada (por estado local o por estructura del paciente si existiera)
-  const rolDetectado = 
-    rolUsuario || 
-    paciente?.mi_rol || 
-    paciente?.equipo?.find((m: any) => m.es_usuario_actual)?.rol || 
-    paciente?.rol || 
-    '';
-
+  const rolDetectado = miRolParam || paciente?.mi_rol || paciente?.equipo?.find((m: any) => m.es_usuario_actual)?.rol || '';
+  
   const esPrincipal = rolDetectado === 'familiar_principal';
   const esCoAdmin = rolDetectado === 'familiar_co_admin';
   const esFamiliarOAdmin = esPrincipal || esCoAdmin || rolDetectado === 'admin' || rolDetectado === 'familiar';
