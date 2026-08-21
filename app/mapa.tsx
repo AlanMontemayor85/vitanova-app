@@ -344,8 +344,9 @@ const solicitarUbicacionEnVivo = async () => {
               </View>
             ))
           )}
-          <View style={{ height: 24 }} />
+          <View style={{ height: 100 }} />
         </ScrollView>
+        
       )} 
     </View>
   );

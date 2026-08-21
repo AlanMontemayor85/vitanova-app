@@ -89,6 +89,7 @@ export default function RegistroScreen() {
           <Text style={styles.textoBoton}>Registrarme</Text>
         )}
       </TouchableOpacity>
+      
     </View>
   );
 }
