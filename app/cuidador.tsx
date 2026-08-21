@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -33,7 +34,6 @@ import {
   verificarEscalas
 } from '../services/api';
 import { programarNotificacionTarea, registrarNotificaciones } from '../services/notifications';
-import { ControlRelojCard } from './components/ControlRelojCard';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
@@ -194,6 +194,7 @@ export default function CuidadorScreen({
   const [enviandoFalla, setEnviandoFalla] = useState(false);
   const [modalConfigVisible, setModalConfigVisible] = useState(false);
   const [ejecutandoCmd, setEjecutandoCmd] = useState<string | null>(null);
+  const [modalConfigCuidadorVisible, setModalConfigCuidadorVisible] = useState(false);
   const cambiarConsumoItem = (itemId: string, delta: number) => {
     setConsumosTurno((prev: Record<string, number>) => {
       const actual = prev[itemId] || 0;
@@ -269,21 +270,19 @@ const onHoraChange = (event: any, selectedDate?: Date) => {
   }
 };
 const lastFetchRef = useRef(0);
-const ejecutarComandoReloj = async (comando: 'FIND' | 'PEDO' | 'RESET' | 'POWEROFF', argumento: string = '') => {
+const ejecutarComandoCuidador = async (comando: 'FIND' | 'PEDO' | 'RESET', argumento: string = '') => {
   if (!pacienteActivo?.id) return;
   try {
     setEjecutandoCmd(comando);
     const res = await enviarComandoReloj(pacienteActivo.id, comando, argumento);
-    
     if (res?.success) {
-      let msg = 'Comando enviado con éxito.';
+      let msg = 'Comando enviado.';
       if (comando === 'FIND') msg = 'El reloj está sonando (1 min).';
-      if (comando === 'PEDO') msg = 'Podómetro activado (conteo 24h).';
+      if (comando === 'PEDO') msg = 'Podómetro activado (24h).';
       if (comando === 'RESET') msg = 'El reloj se está reiniciando.';
-      if (comando === 'POWEROFF') msg = 'El reloj se ha apagado.';
       Alert.alert('Éxito', msg);
     } else {
-      Alert.alert('Aviso', res?.detail || 'No se pudo comunicar con el dispositivo.');
+      Alert.alert('Aviso', res?.detail || 'No se pudo comunicar con el reloj.');
     }
   } catch {
     Alert.alert('Error', 'Error de conexión con el servidor.');
@@ -292,20 +291,13 @@ const ejecutarComandoReloj = async (comando: 'FIND' | 'PEDO' | 'RESET' | 'POWERO
   }
 };
 
-const confirmarAccionCritica = (tipo: 'RESET' | 'POWEROFF') => {
-  const esReset = tipo === 'RESET';
+const confirmarReinicioCuidador = () => {
   Alert.alert(
-    esReset ? '¿Reiniciar Reloj?' : '¿Apagar Reloj?',
-    esReset
-      ? 'El reloj se reiniciará y tardará ~1 minuto en reconectarse.'
-      : '⚠️ ATENCIÓN: Si apagas el reloj remotamente, requerirá ser encendido de forma manual con el botón físico.',
+    '¿Reiniciar Reloj?',
+    'El reloj se reiniciará y tardará aproximadamente 1 minuto en reconectarse.',
     [
       { text: 'Cancelar', style: 'cancel' },
-      { 
-        text: esReset ? 'Reiniciar' : 'Apagar', 
-        style: 'destructive',
-        onPress: () => ejecutarComandoReloj(tipo)
-      }
+      { text: 'Reiniciar', style: 'destructive', onPress: () => ejecutarComandoCuidador('RESET') }
     ]
   );
 };
@@ -1618,85 +1610,93 @@ const guardarRegistroEspontaneo = async () => {
 
           </View>
 
-           {/* TARJETA 2: CONFIG RELOJ — Vista Cuidador (solo lectura) */}
-            {signosDispositivo?.reloj_config && (
-              <View style={{
+           {/* 🎛️ TARJETA CONFIG RELOJ — Vista Cuidador */}
+          {signosDispositivo?.reloj_config && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setModalConfigCuidadorVisible(true)}
+              style={{
                 backgroundColor: COLORS.white,
-                borderRadius: 12,
+                borderRadius: 14,
                 padding: 14,
                 marginTop: 8,
-                marginBottom: 4,
+                marginBottom: 12,
                 marginHorizontal: 16,
                 borderWidth: 1,
                 borderColor: COLORS.border,
                 flexDirection: 'row',
                 alignItems: 'center',
-                gap: 12
-              }}>
-                <Text style={{ fontSize: 24 }}>{'⚙️'}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textDark }}>
-                    Configuración del reloj
-                  </Text>
-                  
-                  {/* Estado del Detector de Caídas (Niveles 1 al 6) */}
-                  <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
-                    {(() => {
-                      const config = signosDispositivo.reloj_config;
-                      if (!config.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
-                      
-                      const sens = Number(config.sensibilidad ?? config.sensibilidad_caidas);
-                      switch (sens) {
-                        case 1:
-                          return 'Detector de caídas: 🔴 Muy Alta (1)';
-                        case 2:
-                          return 'Detector de caídas: 🟠 Alta (2)';
-                        case 3:
-                          return 'Detector de caídas: 🟡 Media (3)';
-                        case 4:
-                          return 'Detector de caídas: 🟢 Estándar (4)';
-                        case 5:
-                          return 'Detector de caídas: 🔵 Baja (5)';
-                        case 6:
-                          return 'Detector de caídas: ⚪ Mínima (6)';
-                        default:
-                          return 'Detector de caídas: 🟢 Estándar (4)';
-                      }
-                    })()}
-                  </Text>
+                gap: 12,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.04,
+                shadowRadius: 3,
+                elevation: 2,
+              }}
+            >
+              <Text style={{ fontSize: 22 }}>{'⚙️'}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textDark, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Configuración del reloj
+                </Text>
+                
+                {/* Estado del Detector de Caídas */}
+                <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
+                  {(() => {
+                    const config = signosDispositivo.reloj_config;
+                    if (!config.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
+                    
+                    const sens = Number(config.sensibilidad ?? config.sensibilidad_caidas);
+                    switch (sens) {
+                      case 1: return 'Detector de caídas: 🔴 Muy Alta (1)';
+                      case 2: return 'Detector de caídas: 🟠 Alta (2)';
+                      case 3: return 'Detector de caídas: 🟡 Media (3)';
+                      case 4: return 'Detector de caídas: 🟢 Estándar (4)';
+                      case 5: return 'Detector de caídas: 🔵 Baja (5)';
+                      case 6: return 'Detector de caídas: ⚪ Mínima (6)';
+                      default: return 'Detector de caídas: 🟢 Estándar (4)';
+                    }
+                  })()}
+                </Text>
 
-                  {/* Marca de Última Sincronización */}
-                  <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 2 }}>
-                    {(() => {
-                      const uc = signosDispositivo.reloj_config.ultima_configuracion;
-                      if (!uc) return 'Última sincronización: Sin registro aún';
-                      try {
-                        const fecha = new Date(uc);
-                        if (isNaN(fecha.getTime())) return 'Última sincronización: Sin registro aún';
-                        return `Última sincronización: ${fecha.toLocaleDateString('es-MX', { 
-                          day: 'numeric', 
-                          month: 'short', 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}`;
-                      } catch {
-                        return 'Última sincronización: Sin registro aún';
-                      }
-                    })()}
-                  </Text>
-                </View>
+                {/* Última Sincronización */}
+                <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 2 }}>
+                  {(() => {
+                    const uc = signosDispositivo.reloj_config.ultima_configuracion;
+                    if (!uc) return 'Última sincronización: Sin registro aún';
+                    try {
+                      const fecha = new Date(uc);
+                      if (isNaN(fecha.getTime())) return 'Última sincronización: Sin registro aún';
+                      return `Última sincronización: ${fecha.toLocaleDateString('es-MX', { 
+                        day: 'numeric', 
+                        month: 'short', 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}`;
+                    } catch {
+                      return 'Última sincronización: Sin registro aún';
+                    }
+                  })()}
+                </Text>
               </View>
-            )}
-          </>
-        )}
 
-       {/* 🎛️ CONTROL DE HARDWARE DEL RELOJ (MODO CUIDADOR) */}
-          {pacienteActivo?.id && (
-            <ControlRelojCard
-              pacienteId={pacienteActivo.id}
-              userRole="cuidador"
-            />
+              {/* Botón Ajustar */}
+              <View style={{
+                backgroundColor: COLORS.goldPale,
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: 'rgba(191, 154, 64, 0.3)',
+              }}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.gold }}>Ajustar</Text>
+              </View>
+            </TouchableOpacity>
           )}
+        </>
+      )}
+
+       
 
         {/* 🎯 ACCESOS RÁPIDOS DE CONTROL (Condicionados por UX) */}
         <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Accesos rápidos de control</Text>
@@ -1941,6 +1941,8 @@ const guardarRegistroEspontaneo = async () => {
               </TouchableOpacity>
             );
           })}
+
+          
           {/* MODAL INFORMATIVO COMPLETO */}
           <Modal 
             visible={!!itemSeleccionadoDetalle} 
@@ -2265,6 +2267,240 @@ const guardarRegistroEspontaneo = async () => {
     </View>
   </View>
 </Modal>
+{/* 🎛️ MODAL OPERATIVO DE HARDWARE (CUIDADOR) */}
+      <Modal
+        visible={modalConfigCuidadorVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setModalConfigCuidadorVisible(false)}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(43, 35, 29, 0.65)',
+          justifyContent: 'flex-end',
+        }}>
+          <View style={{
+            backgroundColor: COLORS.white,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            paddingHorizontal: 20,
+            paddingTop: 20,
+            paddingBottom: Platform.OS === 'android' ? 32 : 40,
+            maxHeight: '88%',
+          }}>
+            
+            {/* Header del Modal */}
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 16,
+              paddingBottom: 12,
+              borderBottomWidth: 1,
+              borderBottomColor: COLORS.border,
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 18 }}>⚙️</Text>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.cacao, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Ajustes Operativos: {pacienteActivo?.nombre_completo?.split(' ')[0] ?? 'Paciente'}
+                </Text>
+              </View>
+              <TouchableOpacity 
+                onPress={() => setModalConfigCuidadorVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close-circle" size={24} color={COLORS.textLight} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
+              
+              {/* 🟢 SECCIÓN 1: COMANDOS OPERATIVOS */}
+              <Text style={{ fontSize: 10, fontWeight: '800', color: COLORS.textLight, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10 }}>
+                Comandos de Soporte
+              </Text>
+
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                {/* Hacer Sonar */}
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: COLORS.cacao,
+                    borderRadius: 10,
+                    paddingVertical: 12,
+                    gap: 6,
+                  }}
+                  disabled={ejecutandoCmd !== null}
+                  onPress={() => ejecutarComandoCuidador('FIND')}
+                >
+                  {ejecutandoCmd === 'FIND' ? (
+                    <ActivityIndicator color={COLORS.white} size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="volume-high-outline" size={16} color={COLORS.gold} />
+                      <Text style={{ color: COLORS.white, fontSize: 11, fontWeight: '800' }}>Hacer Sonar</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                {/* Activar Pasos */}
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: COLORS.cream,
+                    borderRadius: 10,
+                    paddingVertical: 12,
+                    borderWidth: 1,
+                    borderColor: COLORS.border,
+                    gap: 6,
+                  }}
+                  disabled={ejecutandoCmd !== null}
+                  onPress={() => ejecutarComandoCuidador('PEDO', '1')}
+                >
+                  {ejecutandoCmd === 'PEDO' ? (
+                    <ActivityIndicator color={COLORS.cacao} size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="footsteps-outline" size={16} color={COLORS.cacao} />
+                      <Text style={{ color: COLORS.cacao, fontSize: 11, fontWeight: '800' }}>Activar Pasos</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {/* Reiniciar Reloj */}
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: COLORS.goldPale,
+                  borderRadius: 10,
+                  paddingVertical: 12,
+                  borderWidth: 1,
+                  borderColor: 'rgba(191, 154, 64, 0.25)',
+                  gap: 6,
+                  marginBottom: 20,
+                }}
+                disabled={ejecutandoCmd !== null}
+                onPress={confirmarReinicioCuidador}
+              >
+                {ejecutandoCmd === 'RESET' ? (
+                  <ActivityIndicator color={COLORS.gold} size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="reload-outline" size={16} color={COLORS.gold} />
+                    <Text style={{ color: COLORS.cacao, fontSize: 12, fontWeight: '800' }}>Reiniciar Dispositivo</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+
+              {/* 🛡️ SECCIÓN 2: NIVEL DE SENSIBILIDAD ACTIVO (SOLO LECTURA ULTRA-COMPACTA) */}
+              <View style={{
+                backgroundColor: COLORS.cream,
+                borderRadius: 14,
+                padding: 14,
+                borderWidth: 1,
+                borderColor: COLORS.border,
+                marginBottom: 20,
+              }}>
+                <Text style={{ fontSize: 10, fontWeight: '800', color: COLORS.textLight, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10 }}>
+                  Detector de Caídas
+                </Text>
+
+                {(() => {
+                  const config = signosDispositivo?.reloj_config;
+                  const activo = Boolean(config?.caida_activa);
+                  const sens = Number(config?.sensibilidad ?? config?.sensibilidad_caidas ?? 4);
+
+                  const niveles: Record<number, { dot: string; label: string; desc: string }> = {
+                    1: { dot: '🔴', label: 'Muy Alta (1)', desc: 'Mínimo movimiento' },
+                    2: { dot: '🟠', label: 'Alta (2)', desc: 'Para adulto mayor muy frágil' },
+                    3: { dot: '🟡', label: 'Media (3)', desc: 'Sensibilidad balanceada' },
+                    4: { dot: '🟢', label: 'Estándar (4)', desc: 'Uso diario regular' },
+                    5: { dot: '🔵', label: 'Baja (5)', desc: 'Requiere impacto moderado' },
+                    6: { dot: '⚪', label: 'Mínima (6)', desc: 'Solo impactos severos' },
+                  };
+
+                  const actual = niveles[sens] || niveles[4];
+
+                  return (
+                    <View style={{
+                      backgroundColor: COLORS.white,
+                      borderRadius: 12,
+                      padding: 12,
+                      borderWidth: 1,
+                      borderColor: COLORS.border,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                    }}>
+                      {/* Bolita de color del nivel */}
+                      <View style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: 19,
+                        backgroundColor: activo ? COLORS.cacao : COLORS.border,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderWidth: 1,
+                        borderColor: activo ? COLORS.gold : 'transparent',
+                      }}>
+                        <Text style={{ fontSize: 16 }}>{activo ? actual.dot : '⭕'}</Text>
+                      </View>
+
+                      {/* Información de estado */}
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={{ fontSize: 12, fontWeight: '800', color: COLORS.textDark }}>
+                            {activo ? `Sensibilidad: ${actual.label}` : 'Sensor Desactivado'}
+                          </Text>
+                          {activo && (
+                            <View style={{ backgroundColor: COLORS.goldPale, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                              <Text style={{ fontSize: 8, fontWeight: '900', color: COLORS.gold }}>FAMILIAR</Text>
+                            </View>
+                          )}
+                        </View>
+                        
+                        <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
+                          {activo ? actual.desc : 'Configurado desde la consola familiar'}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })()}
+              </View>
+
+              {/* Botón Cerrar */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: COLORS.cream,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  marginBottom: 10,
+                }}
+                onPress={() => setModalConfigCuidadorVisible(false)}
+              >
+                <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textDark }}>Cerrar</Text>
+              </TouchableOpacity>
+
+              <View style={{ height: 20 }} />
+
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
         {/* MODAL EMERGENCIA */}
 <Modal visible={incidenteOpen} animationType="slide" transparent={true}>
   <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 16 }}>

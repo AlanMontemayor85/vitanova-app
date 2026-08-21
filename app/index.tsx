@@ -72,6 +72,8 @@ export default function HomeScreen() {
   const cargando = Boolean(signosDispositivo?.cargando);
   const [modalConfigVisible, setModalConfigVisible] = useState(false);
   const [ejecutandoCmd, setEjecutandoCmd] = useState<string | null>(null);
+  const [sensibilidadLocal, setSensibilidadLocal] = useState<number>(4);
+  const [caidaActivaLocal, setCaidaActivaLocal] = useState<boolean>(true);
   const formatearHorarioRango = (horarioRaw: string | null | undefined): string => {
   if (!horarioRaw) return 'Sin horario';
 
@@ -279,23 +281,30 @@ const ejecutarComandoReloj = async (comando: 'FIND' | 'PEDO' | 'RESET' | 'POWERO
   };
 
 const confirmarAccionCritica = (tipo: 'RESET' | 'POWEROFF') => {
-  const esReset = tipo === 'RESET';
-  Alert.alert(
-    esReset ? '¿Reiniciar Reloj?' : '¿Apagar Reloj?',
-    esReset
-      ? 'El reloj se reiniciará y tardará ~1 minuto en reconectarse.'
-      : '⚠️ ATENCIÓN: Si apagas el reloj remotamente, requerirá ser encendido de forma manual con el botón físico.',
-    [
-      { text: 'Cancelar', style: 'cancel' },
-      { 
-        text: esReset ? 'Reiniciar' : 'Apagar', 
-        style: 'destructive',
-        onPress: () => ejecutarComandoReloj(tipo)
-      }
-    ]
-  );
-};
-
+    const esReset = tipo === 'RESET';
+    Alert.alert(
+      esReset ? '¿Reiniciar Reloj?' : '¿Apagar Reloj?',
+      esReset
+        ? 'El reloj se reiniciará y tardará ~1 minuto en reconectar.'
+        : '⚠️ ATENCIÓN: Si apagas el reloj remotamente, requerirá ser encendido físicamente con su botón.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: esReset ? 'Reiniciar' : 'Apagar', 
+          style: 'destructive',
+          onPress: () => ejecutarComandoReloj(tipo)
+        }
+      ]
+    );
+  };
+useEffect(() => {
+  if (signosDispositivo?.reloj_config) {
+    const config = signosDispositivo.reloj_config;
+    const sensBackend = Number(config.sensibilidad ?? config.sensibilidad_caidas ?? 4);
+    setSensibilidadLocal(sensBackend);
+    setCaidaActivaLocal(Boolean(config.caida_activa));
+  }
+}, [signosDispositivo]);
 // 🔄 Carga inicial y Enrutador Inteligente Relacional
 useEffect(() => {
 
@@ -1610,8 +1619,11 @@ useEffect(() => {
             backgroundColor: COLORS.white,
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
-            padding: 20,
-            maxHeight: '90%',
+            paddingHorizontal: 20,
+            paddingTop: 20,
+            // 🛡️ Padding de seguridad para librar la barra nativa de Android / Home Bar de iOS
+            paddingBottom: Platform.OS === 'android' ? 32 : 40,
+            maxHeight: '85%',
           }}>
             
             {/* Cabecera */}
@@ -1638,7 +1650,10 @@ useEffect(() => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 24 }} // 👈 Margen extra dentro del scroll
+            >
 
               {/* 🟢 1. ACCIONES RÁPIDAS */}
               <Text style={{ fontSize: 10, fontWeight: '800', color: COLORS.textLight, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10 }}>
@@ -1736,7 +1751,7 @@ useEffect(() => {
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                   <View style={{ flex: 1, marginRight: 10 }}>
                     <Text style={{ fontSize: 12, fontWeight: '800', color: COLORS.cacao }}>
-                      Detector de Caídas (LSSET)
+                      Detector de Caídas 
                     </Text>
                     <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 1 }}>
                       Dispara alerta SOS ante impactos
@@ -1756,38 +1771,78 @@ useEffect(() => {
                   Sensibilidad del Sensor
                 </Text>
                 
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
                   {[
                     { val: 1, label: '🔴 Muy Alta (1)', desc: 'Mínimo movimiento' },
                     { val: 2, label: '🟠 Alta (2)', desc: 'Adulto frágil' },
-                    { val: 3, label: '🟡 Media (3)', desc: 'Balanceada' },
-                    { val: 4, label: '🟢 Estándar (4)', desc: 'Uso diario' },
+                    { val: 3, label: '🟡 Media (3)', desc: 'Sensibilidad balanceada' },
+                    { val: 4, label: '🟢 Estándar (4)', desc: 'Uso diario normal' },
                     { val: 5, label: '🔵 Baja (5)', desc: 'Impacto moderado' },
                     { val: 6, label: '⚪ Mínima (6)', desc: 'Impactos severos' },
                   ].map((op) => {
-                    const actual = Number(signosDispositivo?.reloj_config?.sensibilidad ?? signosDispositivo?.reloj_config?.sensibilidad_caidas ?? 4);
-                    const activo = actual === op.val;
+                    const activo = Number(sensibilidadLocal) === op.val;
 
                     return (
                       <TouchableOpacity
                         key={op.val}
-                        activeOpacity={0.7}
+                        activeOpacity={0.8}
                         style={{
-                          width: '48.8%',
-                          paddingVertical: 8,
-                          paddingHorizontal: 6,
-                          borderRadius: 8,
+                          width: '48.5%',
+                          paddingVertical: 10,
+                          paddingHorizontal: 8,
+                          borderRadius: 10,
+                          // 🎨 CONTRASTE ALTO: Si está activo fondo Cacao + Borde Oro brillante
                           backgroundColor: activo ? COLORS.cacao : COLORS.white,
-                          borderWidth: 1,
-                          borderColor: activo ? COLORS.cacao : COLORS.border,
+                          borderWidth: activo ? 2 : 1,
+                          borderColor: activo ? COLORS.gold : COLORS.border,
                           alignItems: 'center',
+                          justifyContent: 'center',
+                          position: 'relative',
+                          // Sombra extra para la tarjeta activa
+                          shadowColor: activo ? '#000' : 'transparent',
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: activo ? 0.2 : 0,
+                          shadowRadius: 4,
+                          elevation: activo ? 4 : 0,
                         }}
-                        onPress={() => ejecutarComandoReloj('LSSET', `${op.val}+6`)}
+                        onPress={async () => {
+                          setSensibilidadLocal(op.val); // ⚡ Cambio de color instantáneo
+                          await ejecutarComandoReloj('LSSET', `${op.val}+6`);
+                        }}
                       >
-                        <Text style={{ fontSize: 10, fontWeight: '800', color: activo ? COLORS.white : COLORS.cacao }}>
+                        {/* 🎯 Badge / Check si está seleccionado */}
+                        {activo && (
+                          <View style={{
+                            position: 'absolute',
+                            top: 4,
+                            right: 6,
+                            backgroundColor: COLORS.gold,
+                            borderRadius: 10,
+                            paddingHorizontal: 4,
+                            paddingVertical: 1,
+                          }}>
+                            <Text style={{ fontSize: 8, fontWeight: '900', color: COLORS.cacao }}>✓ ACTIVO</Text>
+                          </View>
+                        )}
+
+                        {/* Título de la tarjeta */}
+                        <Text style={{
+                          fontSize: 11,
+                          fontWeight: '800',
+                          color: activo ? COLORS.white : COLORS.textDark,
+                          marginTop: activo ? 4 : 0,
+                        }}>
                           {op.label}
                         </Text>
-                        <Text style={{ fontSize: 8, color: activo ? COLORS.gold : COLORS.textLight, marginTop: 2, textAlign: 'center' }}>
+
+                        {/* Descripción */}
+                        <Text style={{
+                          fontSize: 8.5,
+                          fontWeight: '600',
+                          color: activo ? COLORS.gold : COLORS.textLight,
+                          marginTop: 3,
+                          textAlign: 'center',
+                        }}>
                           {op.desc}
                         </Text>
                       </TouchableOpacity>
@@ -1838,6 +1893,9 @@ useEffect(() => {
               >
                 <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textDark }}>Cerrar</Text>
               </TouchableOpacity>
+
+              {/* Espaciador final de seguridad */}
+              <View style={{ height: 20 }} />
 
             </ScrollView>
           </View>

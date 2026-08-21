@@ -157,11 +157,11 @@ const ejecutarSincronizacionReloj = async (targetId: string) => {
     // 1. 📞 Sincronizar Números SOS (CENTER, SOS1, SOS2, SOS3)
     const res = await configurarReloj(targetId);
 
-    // 2. 🎯 Enviar Sensibilidad de Caídas explícita (FALL, 1..4)
+   // 2. 🎯 Enviar Sensibilidad de Caídas oficial ReachFar (LSSET, 1..6)
     if (sensibilidadCaidas) {
-      await new Promise(r => setTimeout(r, 400)); // Breve respiro al bus
-      await configurarReloj(targetId, undefined, 'FALL', String(sensibilidadCaidas));
-      console.log(`🎯 [HARDWARE] Sensibilidad inyectada: FALL,${sensibilidadCaidas}`);
+      await new Promise(r => setTimeout(r, 400)); // Breve respiro al bus TCP
+      await configurarReloj(targetId, undefined, 'LSSET', `${sensibilidadCaidas}+6`);
+      console.log(`🎯 [HARDWARE] Sensibilidad inyectada: LSSET,${sensibilidadCaidas}+6`);
     }
 
     // 3. 🛡️ Enviar Activación / Desactivación del Sensor (FALLDOWN, 1,1 o 0,0)
