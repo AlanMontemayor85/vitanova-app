@@ -1814,12 +1814,13 @@ const guardarRegistroEspontaneo = async () => {
                   borderColor: COLORS.border 
                 }} 
                 onPress={() => router.push({
-                  pathname: '/mapa' as any,
-                  params: { 
-                    pacienteId: pacienteActivo?.id, 
-                    pacienteNombre: pacienteActivo?.nombre_completo 
-                  }
-                })}
+                pathname: '/mapa' as any,
+                params: {
+                  pacienteId: pacienteActivo?.id,
+                  pacienteNombre: pacienteActivo?.nombre_completo,
+                  miRol: 'cuidador',
+                } as any,
+              })}
               >
                 <Text style={{ fontSize: 20, marginBottom: 4 }}>📍</Text>
                 <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>

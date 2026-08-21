@@ -347,12 +347,7 @@ const solicitarUbicacionEnVivo = async () => {
               <Text style={styles.centrarBtnText}>📍 Centrar y actualizar GPS</Text>
             )}
           </TouchableOpacity>
-           {/* 🔍 BLOQUE DE DIAGNÓSTICO TEMPORAL */}
-            <View style={{ backgroundColor: '#FEE2E2', padding: 8, borderRadius: 6, marginBottom: 10 }}>
-              <Text style={{ color: '#991B1B', fontSize: 12, fontWeight: 'bold' }}>
-                DEBUG ROL: "{String(rolDetectado)}" | esFamiliar: {String(esFamiliarOAdmin)}
-              </Text>
-            </View>
+           
           <Text style={[styles.infoLabel, { marginTop: 16, marginBottom: 8 }]}>Zona segura</Text>
 
             {geocercas.length === 0 ? (
