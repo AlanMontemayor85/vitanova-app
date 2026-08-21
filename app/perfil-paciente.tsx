@@ -241,7 +241,10 @@ const guardar = async () => {
     const pacienteIdParaComando = paciente?.id || dataPac?.id;
     if (tieneReloj && pacienteIdParaComando && sensibilidadCaidas) {
       try {
-        await configurarReloj(pacienteIdParaComando, undefined, 'LSSET', `${sensibilidadCaidas}+6`);
+        await configurarReloj(pacienteIdParaComando, {
+          comando: 'LSSET',
+          argumento: `${sensibilidadCaidas}+6`
+        })
         console.log(`🎯 Sensibilidad enviada al reloj tras guardar: LSSET,${sensibilidadCaidas}+6`);
       } catch (errReloj) {
         // Log preventivo sin interrumpir el flujo del usuario si el reloj está offline
@@ -623,7 +626,7 @@ const guardar = async () => {
                 setCaidaActiva(nuevoEstado);
                 try {
                   const arg = nuevoEstado ? '1,1' : '0,0';
-                  await configurarReloj(paciente.id, undefined, 'FALLDOWN', arg);
+                  await configurarReloj(paciente.id, { comando: 'FALLDOWN', argumento: arg });
                 } catch {
                   console.log('⚠️ Toggle guardado localmente, se aplicará al sincronizar');
                 }

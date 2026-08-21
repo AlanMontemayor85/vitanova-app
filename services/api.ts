@@ -770,23 +770,51 @@ export const forzarMedicionSignos = async (patientId: string) => {
     return { status: "error", error: String(error) };
   }
 };
+interface ConfigurarRelojParams {
+  sensibilidad?: number | string;
+  comando?: string;
+  argumento?: string;
+}
+
+interface ConfigurarRelojParams {
+  sensibilidad?: number | string;
+  comando?: string;
+  argumento?: string;
+}
 
 export const configurarReloj = async (
-  patientId: string, 
-  sensibilidad?: string,
-  comando?: string,
-  argumento?: string
+  patientId: string,
+  paramsOrSensibilidad?: ConfigurarRelojParams | number | string,
+  comandoPosicional?: string,
+  argumentoPosicional?: string
 ) => {
-  const body = comando 
-    ? { comando, argumento }
-    : sensibilidad 
-      ? { comando: 'FALL', argumento: sensibilidad }
-      : {};
-      
+  let body: { comando?: string; argumento?: string } = {};
+
+  // Caso 1: Llamada con argumentos posicionales clásicos (ej. paciente.id, undefined, 'FALLDOWN', '1,1')
+  if (comandoPosicional) {
+    body = { comando: comandoPosicional, argumento: argumentoPosicional };
+  }
+  // Caso 2: Objeto de parámetros { comando: 'FALLDOWN', argumento: '1,1' } o { sensibilidad: 4 }
+  else if (typeof paramsOrSensibilidad === 'object' && paramsOrSensibilidad !== null) {
+    if (paramsOrSensibilidad.comando) {
+      body = { comando: paramsOrSensibilidad.comando, argumento: paramsOrSensibilidad.argumento };
+    } else if (paramsOrSensibilidad.sensibilidad !== undefined) {
+      body = { comando: 'LSSET', argumento: String(paramsOrSensibilidad.sensibilidad) };
+    }
+  }
+  // Caso 3: Sensibilidad directa como número o string
+  else if (typeof paramsOrSensibilidad === 'number' || typeof paramsOrSensibilidad === 'string') {
+    body = { comando: 'LSSET', argumento: String(paramsOrSensibilidad) };
+  }
+
   const res = await fetchWithAuth(`${BASE_URL}/pacientes/${patientId}/configurar-reloj`, {
     method: 'POST',
-    body: JSON.stringify(body)
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
   });
+
   return res.json();
 };
 export const actualizarMedicamento = async (medicamentoId: string, data: any) => {
