@@ -35,12 +35,19 @@ export default function MapaScreen() {
   const miRolParam = (params.miRol as string) || '';
   const [rolUsuario, setRolUsuario] = useState<string>('');
 
-  // 2. Validación combinada (por estado local o por estructura del paciente si existiera)
-  const rolDetectado = miRolParam || paciente?.mi_rol || paciente?.equipo?.find((m: any) => m.es_usuario_actual)?.rol || '';
-  
-  const esPrincipal = rolDetectado === 'familiar_principal';
-  const esCoAdmin = rolDetectado === 'familiar_co_admin';
-  const esFamiliarOAdmin = esPrincipal || esCoAdmin || rolDetectado === 'admin' || rolDetectado === 'familiar';
+  // 1. Tomamos el rol de todos los orígenes posibles
+  const rolDetectado = (
+    params.miRol ||
+    paciente?.mi_rol ||
+    paciente?.rol ||
+    paciente?.tipo_usuario ||
+    paciente?.parentesco ||
+    ''
+  ).toString().toLowerCase().trim();
+
+  // 2. Si NO viene marcado explícitamente como "cuidador", asumimos que es el familiar / admin titular
+  const esCuidador = rolDetectado === 'cuidador' || rolDetectado === 'enfermero';
+  const esFamiliarOAdmin = !esCuidador; // <-- Si no es cuidador, SIEMPRE muestra el botón de crear zona
   // 🛡️ HELPER DE SANITIZACIÓN ROBUSTO
   const parsearCoord = (val: any): number | null => {
     if (val === null || val === undefined || val === '') return null;
@@ -131,10 +138,17 @@ useEffect(() => {
 
   return () => clearInterval(interval);
 }, [paciente?.id]);
-
 // 3. CREACIÓN DE GEOCERCA PROTEGIDA POR ROL
 const crearYCargar = async (radio: number) => {
-  if (!tieneCoordenadasValidas) return;
+  if (!tieneCoordenadasValidas) {
+    Alert.alert('Ubicación requerida', 'Se necesita una coordenada válida del dispositivo para fijar el centro de la zona segura.');
+    return;
+  }
+
+  if (!paciente?.id) {
+    Alert.alert('Error', 'No se encontró el identificador del paciente.');
+    return;
+  }
 
   if (!esFamiliarOAdmin) {
     Alert.alert('Acceso Restringido', 'Solo el familiar titular puede configurar la zona segura.');
@@ -142,18 +156,24 @@ const crearYCargar = async (radio: number) => {
   }
   
   try {
-    await crearGeocerca({
+    const res = await crearGeocerca({
       paciente_id: paciente.id,
       nombre: 'Casa',
       lat: currentLat,
       lng: currentLng, 
       radio_metros: radio,
     });
+
+    // Refrescar geocercas activas tras guardar
     const data = await getGeocercas(paciente.id);
-    if (data.geocercas) setGeocercas(data.geocercas);
-  } catch (e) {
+    if (data?.geocercas) {
+      setGeocercas(data.geocercas);
+    }
+
+    Alert.alert('Zona segura activada', `Se delimitó el perímetro de ${radio}m para ${paciente.nombre_completo || 'el paciente'}.`);
+  } catch (e: any) {
     console.error("❌ Error al crear geocerca:", e);
-    Alert.alert('Error', 'No se pudo guardar la zona segura.');
+    Alert.alert('Error', e?.message || 'No se pudo guardar la zona segura en el servidor.');
   }
 };
 
@@ -327,7 +347,12 @@ const solicitarUbicacionEnVivo = async () => {
               <Text style={styles.centrarBtnText}>📍 Centrar y actualizar GPS</Text>
             )}
           </TouchableOpacity>
-
+           {/* 🔍 BLOQUE DE DIAGNÓSTICO TEMPORAL */}
+            <View style={{ backgroundColor: '#FEE2E2', padding: 8, borderRadius: 6, marginBottom: 10 }}>
+              <Text style={{ color: '#991B1B', fontSize: 12, fontWeight: 'bold' }}>
+                DEBUG ROL: "{String(rolDetectado)}" | esFamiliar: {String(esFamiliarOAdmin)}
+              </Text>
+            </View>
           <Text style={[styles.infoLabel, { marginTop: 16, marginBottom: 8 }]}>Zona segura</Text>
 
             {geocercas.length === 0 ? (
