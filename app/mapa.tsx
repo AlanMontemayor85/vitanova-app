@@ -34,7 +34,7 @@ export default function MapaScreen() {
 
   // 1. Estado para almacenar el rol del usuario conectado
   const [rolUsuario, setRolUsuario] = useState<string>('cuidador');
-  const esFamiliarOAdmin = rolUsuario === 'familiar' || rolUsuario === 'admin';
+  const esFamiliarOAdmin = rolUsuario === 'familiar_principal' || rolUsuario === 'familiar_co_admin';
   // 🛡️ HELPER DE SANITIZACIÓN ROBUSTO
   const parsearCoord = (val: any): number | null => {
     if (val === null || val === undefined || val === '') return null;
