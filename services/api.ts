@@ -834,6 +834,30 @@ export const actualizarTareaRecurrente = async (tareaId: string, data: any) => {
   });
   return res.json();
 };
+export async function registrarUsuario(
+  email: string, 
+  password: string, 
+  aceptaAviso: boolean = true
+) {
+  const response = await fetch(`${BASE_URL}/auth/registro`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      email,
+      password,
+      acepta_aviso: aceptaAviso,
+      version_aviso: 'v1.0'
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.detail || 'Error al registrar usuario');
+  }
+  return data;
+}
 export const crearLead = async (lead: object) => {
   const res = await fetchWithAuth(`${BASE_URL}/leads`, {
     method: 'POST',
