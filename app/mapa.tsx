@@ -31,12 +31,20 @@ export default function MapaScreen() {
   const [loading, setLoading] = useState(true);
   const [geocercas, setGeocercas] = useState<any[]>([]);
   const [solicitandoGps, setSolicitandoGps] = useState<boolean>(false);
+// 1. Estado explícito para el rol detectado
+  const [rolUsuario, setRolUsuario] = useState<string>('');
 
-  // 1. Estado para almacenar el rol del usuario conectado
- const miRol = paciente?.mi_rol || paciente?.equipo?.find((m: any) => m.es_usuario_actual)?.rol;
-  const esPrincipal = miRol === 'familiar_principal';
-  const esCoAdmin = miRol === 'familiar_co_admin';
-  const esFamiliarOAdmin = esPrincipal || esCoAdmin || miRol === 'admin';
+  // 2. Validación combinada (por estado local o por estructura del paciente si existiera)
+  const rolDetectado = 
+    rolUsuario || 
+    paciente?.mi_rol || 
+    paciente?.equipo?.find((m: any) => m.es_usuario_actual)?.rol || 
+    paciente?.rol || 
+    '';
+
+  const esPrincipal = rolDetectado === 'familiar_principal';
+  const esCoAdmin = rolDetectado === 'familiar_co_admin';
+  const esFamiliarOAdmin = esPrincipal || esCoAdmin || rolDetectado === 'admin' || rolDetectado === 'familiar';
   // 🛡️ HELPER DE SANITIZACIÓN ROBUSTO
   const parsearCoord = (val: any): number | null => {
     if (val === null || val === undefined || val === '') return null;
@@ -66,19 +74,31 @@ export default function MapaScreen() {
   const currentLat = tieneCoordenadasValidas ? parsearCoord(rawLat)! : DEFAULT_LAT;
   const currentLng = tieneCoordenadasValidas ? parsearCoord(rawLng)! : DEFAULT_LNG;
 
-  // 1. EFECTO INICIAL: Carga datos base y determina el rol del usuario conectado
-useEffect(() => {
+  // 3. EFECTO INICIAL: Carga datos y obtiene el rol de sesión
+  useEffect(() => {
     const cargarDatosIniciales = async () => {
       try {
-        await loadStoredToken();
+        const token = await loadStoredToken();
+        
+        // Si tienes una función en services/api como getUsuarioActual / getUserRole / getStoredUser:
         const data = await getPacientes('mapa-ubicacion');
+
+        // Capturar rol si viene en la respuesta o en el primer paciente
+        if (data?.rol_usuario) {
+          setRolUsuario(data.rol_usuario);
+        }
 
         if (data.patients && data.patients.length > 0) {
           const p = pacienteIdParam
             ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
             : data.patients[0];
           
-          setPaciente(p); // <-- Al setear el paciente completo, miRol se calcula automáticamente
+          setPaciente(p);
+
+          // Si el rol viene en el objeto paciente
+          if (p.mi_rol || p.rol || p.tipo_usuario) {
+            setRolUsuario(p.mi_rol || p.rol || p.tipo_usuario);
+          }
 
           const ubData = await getUbicacion(p.id);
           if (ubData.ubicacion) setUbicacion(ubData.ubicacion);
