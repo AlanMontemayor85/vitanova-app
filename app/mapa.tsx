@@ -33,8 +33,10 @@ export default function MapaScreen() {
   const [solicitandoGps, setSolicitandoGps] = useState<boolean>(false);
 
   // 1. Estado para almacenar el rol del usuario conectado
-  const [rolUsuario, setRolUsuario] = useState<string>('cuidador');
-  const esFamiliarOAdmin = rolUsuario === 'familiar_principal' || rolUsuario === 'familiar_co_admin';
+ const miRol = paciente?.mi_rol || paciente?.equipo?.find((m: any) => m.es_usuario_actual)?.rol;
+  const esPrincipal = miRol === 'familiar_principal';
+  const esCoAdmin = miRol === 'familiar_co_admin';
+  const esFamiliarOAdmin = esPrincipal || esCoAdmin || miRol === 'admin';
   // 🛡️ HELPER DE SANITIZACIÓN ROBUSTO
   const parsearCoord = (val: any): number | null => {
     if (val === null || val === undefined || val === '') return null;
@@ -66,43 +68,35 @@ export default function MapaScreen() {
 
   // 1. EFECTO INICIAL: Carga datos base y determina el rol del usuario conectado
 useEffect(() => {
-  const cargarDatosIniciales = async () => {
-    try {
-      await loadStoredToken();
-      const data = await getPacientes('mapa-ubicacion');
+    const cargarDatosIniciales = async () => {
+      try {
+        await loadStoredToken();
+        const data = await getPacientes('mapa-ubicacion');
 
-      // Extraer rol si viene a nivel raíz o en el payload del usuario
-      if (data?.rol_usuario) {
-        setRolUsuario(data.rol_usuario);
-      }
+        if (data.patients && data.patients.length > 0) {
+          const p = pacienteIdParam
+            ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
+            : data.patients[0];
+          
+          setPaciente(p); // <-- Al setear el paciente completo, miRol se calcula automáticamente
 
-      if (data.patients && data.patients.length > 0) {
-        const p = pacienteIdParam
-          ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
-          : data.patients[0];
-        
-        setPaciente(p);
-
-        // Si el rol viene anidado dentro de la relación con el paciente
-        if (p.rol_en_paciente || p.rol) {
-          setRolUsuario(p.rol_en_paciente || p.rol);
+          const ubData = await getUbicacion(p.id);
+          if (ubData.ubicacion) setUbicacion(ubData.ubicacion);
+          
+          const geocercaData = await getGeocercas(p.id);
+          if (geocercaData.geocercas) setGeocercas(geocercaData.geocercas);
         }
-        
-        const ubData = await getUbicacion(p.id);
-        if (ubData.ubicacion) setUbicacion(ubData.ubicacion);
-        
-        const geocercaData = await getGeocercas(p.id);
-        if (geocercaData.geocercas) setGeocercas(geocercaData.geocercas);
+      } catch (e) {
+        console.error("❌ Error en la carga inicial del mapa:", e);
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      console.error("❌ Error en la carga inicial del mapa:", e);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  cargarDatosIniciales();
-}, [pacienteIdParam]);
+    cargarDatosIniciales();
+  }, [pacienteIdParam]);
+
+ 
 
 // 2. EFECTO SECUNDARIO: Monitorea y actualiza la ubicación en tiempo real cada 30 segundos
 useEffect(() => {
