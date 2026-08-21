@@ -31,6 +31,10 @@ export default function MapaScreen() {
   const [loading, setLoading] = useState(true);
   const [geocercas, setGeocercas] = useState<any[]>([]);
   const [solicitandoGps, setSolicitandoGps] = useState<boolean>(false);
+
+  // 1. Estado para almacenar el rol del usuario conectado
+  const [rolUsuario, setRolUsuario] = useState<string>('cuidador');
+  const esFamiliarOAdmin = rolUsuario === 'familiar' || rolUsuario === 'admin';
   // 🛡️ HELPER DE SANITIZACIÓN ROBUSTO
   const parsearCoord = (val: any): number | null => {
     if (val === null || val === undefined || val === '') return null;
@@ -60,69 +64,90 @@ export default function MapaScreen() {
   const currentLat = tieneCoordenadasValidas ? parsearCoord(rawLat)! : DEFAULT_LAT;
   const currentLng = tieneCoordenadasValidas ? parsearCoord(rawLng)! : DEFAULT_LNG;
 
-  // 1. EFECTO INICIAL: Carga los datos base del paciente al montar la pantalla
-  useEffect(() => {
-    const cargarDatosIniciales = async () => {
-      try {
-        await loadStoredToken();
-        const data = await getPacientes('mapa-ubicacion');
-        if (data.patients && data.patients.length > 0) {
-          const p = pacienteIdParam
-            ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
-            : data.patients[0];
-          setPaciente(p);
-          
-          const ubData = await getUbicacion(p.id);
-          if (ubData.ubicacion) setUbicacion(ubData.ubicacion);
-          
-          const geocercaData = await getGeocercas(p.id);
-          if (geocercaData.geocercas) setGeocercas(geocercaData.geocercas);
-        }
-      } catch (e) {
-        console.error("❌ Error en la carga inicial del mapa:", e);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    cargarDatosIniciales();
-  }, [pacienteIdParam]);
-
-  // 2. EFECTO SECUNDARIO: Monitorea y actualiza la ubicación en tiempo real cada 30 segundos
-  useEffect(() => {
-    if (!paciente?.id) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const ubData = await getUbicacion(paciente.id);
-        if (ubData.ubicacion) {
-          setUbicacion(ubData.ubicacion);
-        }
-      } catch (e) {
-        console.error("❌ Error al actualizar ubicación en segundo plano:", e);
-      }
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [paciente?.id]);
-
-  const crearYCargar = async (radio: number) => {
-    if (!tieneCoordenadasValidas) return;
-    
+  // 1. EFECTO INICIAL: Carga datos base y determina el rol del usuario conectado
+useEffect(() => {
+  const cargarDatosIniciales = async () => {
     try {
-      await crearGeocerca({
-        paciente_id: paciente.id,
-        nombre: 'Casa',
-        lat: currentLat,
-        lng: currentLng, 
-        radio_metros: radio,
-      });
-      const data = await getGeocercas(paciente.id);
-      if (data.geocercas) setGeocercas(data.geocercas);
+      await loadStoredToken();
+      const data = await getPacientes('mapa-ubicacion');
+
+      // Extraer rol si viene a nivel raíz o en el payload del usuario
+      if (data?.rol_usuario) {
+        setRolUsuario(data.rol_usuario);
+      }
+
+      if (data.patients && data.patients.length > 0) {
+        const p = pacienteIdParam
+          ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
+          : data.patients[0];
+        
+        setPaciente(p);
+
+        // Si el rol viene anidado dentro de la relación con el paciente
+        if (p.rol_en_paciente || p.rol) {
+          setRolUsuario(p.rol_en_paciente || p.rol);
+        }
+        
+        const ubData = await getUbicacion(p.id);
+        if (ubData.ubicacion) setUbicacion(ubData.ubicacion);
+        
+        const geocercaData = await getGeocercas(p.id);
+        if (geocercaData.geocercas) setGeocercas(geocercaData.geocercas);
+      }
     } catch (e) {
-      console.error("❌ Error al crear geocerca:", e);
+      console.error("❌ Error en la carga inicial del mapa:", e);
+    } finally {
+      setLoading(false);
     }
   };
+
+  cargarDatosIniciales();
+}, [pacienteIdParam]);
+
+// 2. EFECTO SECUNDARIO: Monitorea y actualiza la ubicación en tiempo real cada 30 segundos
+useEffect(() => {
+  if (!paciente?.id) return;
+
+  const interval = setInterval(async () => {
+    try {
+      const ubData = await getUbicacion(paciente.id);
+      if (ubData.ubicacion) {
+        setUbicacion(ubData.ubicacion);
+      }
+    } catch (e) {
+      console.error("❌ Error al actualizar ubicación en segundo plano:", e);
+    }
+  }, 30000);
+
+  return () => clearInterval(interval);
+}, [paciente?.id]);
+
+// 3. CREACIÓN DE GEOCERCA PROTEGIDA POR ROL
+const crearYCargar = async (radio: number) => {
+  if (!tieneCoordenadasValidas) return;
+
+  if (!esFamiliarOAdmin) {
+    Alert.alert('Acceso Restringido', 'Solo el familiar titular puede configurar la zona segura.');
+    return;
+  }
+  
+  try {
+    await crearGeocerca({
+      paciente_id: paciente.id,
+      nombre: 'Casa',
+      lat: currentLat,
+      lng: currentLng, 
+      radio_metros: radio,
+    });
+    const data = await getGeocercas(paciente.id);
+    if (data.geocercas) setGeocercas(data.geocercas);
+  } catch (e) {
+    console.error("❌ Error al crear geocerca:", e);
+    Alert.alert('Error', 'No se pudo guardar la zona segura.');
+  }
+};
+
+// 4. SOLICITUD DE GPS EN VIVO
 const solicitarUbicacionEnVivo = async () => {
   const idPaciente = paciente?.id;
   if (!idPaciente || solicitandoGps) return;
@@ -131,19 +156,11 @@ const solicitarUbicacionEnVivo = async () => {
     setSolicitandoGps(true);
     await solicitarGpsVivo(idPaciente);
 
-    // Damos 5 segundos para que el chip GPS del reloj capture satélites y actualizamos
     setTimeout(async () => {
       try {
         const data = await getUbicacion(idPaciente);
         if (data?.ubicacion) {
-          // Si guardas el objeto completo:
           setUbicacion(data.ubicacion);
-
-          // O si guardas latitud y longitud por separado:
-          // if (data.ubicacion.lat && data.ubicacion.lng) {
-          //   setCurrentLat(data.ubicacion.lat);
-          //   setCurrentLng(data.ubicacion.lng);
-          // }
         }
       } catch (err) {
         console.error('Error refrescando mapa tras GPS en vivo:', err);
@@ -302,52 +319,80 @@ const solicitarUbicacionEnVivo = async () => {
           </TouchableOpacity>
 
           <Text style={[styles.infoLabel, { marginTop: 16, marginBottom: 8 }]}>Zona segura</Text>
-          {geocercas.length === 0 ? (
-            <TouchableOpacity
-              style={styles.centrarBtn}
-              onPress={() => {
-                Alert.alert(
-                  'Crear zona segura',
-                  '¿Qué radio quieres para la zona segura?',
-                  [
-                    { text: '24m (casa)', onPress: async () => await crearYCargar(24) },
-                    { text: '30m (jardín/patio)', onPress: async () => await crearYCargar(30) },
-                    { text: '40m (condominio)', onPress: async () => await crearYCargar(40) },
-                    { text: 'Cancelar', style: 'cancel' }
-                  ]
-                );
-              }}
-            >
-              <Text style={styles.centrarBtnText}>+ Crear zona segura</Text>
-            </TouchableOpacity>
-          ) : (
-            geocercas.map((g) => (
-              <View key={g.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, marginTop: 4 }}>
-                <Text style={styles.infoVal}>📍 {g.nombre} — {g.radio_metros}m {g.activa ? '(Activa)' : '(Apagada)'}</Text>
+
+            {geocercas.length === 0 ? (
+              esFamiliarOAdmin ? (
                 <TouchableOpacity
-                  style={{ backgroundColor: '#FDEAEA', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}
+                  style={styles.centrarBtn}
                   onPress={() => {
-                    Alert.alert('Eliminar zona', '¿Eliminar esta zona segura?', [
-                      { text: 'Cancelar', style: 'cancel' },
-                      {
-                        text: 'Eliminar', style: 'destructive', onPress: async () => {
-                          await eliminarGeocerca(g.id);
-                          const data = await getGeocercas(paciente.id);
-                          if (data.geocercas) setGeocercas(data.geocercas);
-                        }
-                      }
-                    ]);
+                    Alert.alert(
+                      'Crear zona segura',
+                      '¿Qué radio quieres para la zona segura?',
+                      [
+                        { text: '24m (casa)', onPress: async () => await crearYCargar(24) },
+                        { text: '30m (jardín/patio)', onPress: async () => await crearYCargar(30) },
+                        { text: '40m (condominio)', onPress: async () => await crearYCargar(40) },
+                        { text: 'Cancelar', style: 'cancel' }
+                      ]
+                    );
                   }}
                 >
-                  <Text style={{ color: '#D94F4F', fontSize: 12, fontWeight: '700' }}>✕ Eliminar</Text>
+                  <Text style={styles.centrarBtnText}>+ Crear zona segura</Text>
                 </TouchableOpacity>
+              ) : (
+                <Text style={{ color: '#6B7280', fontSize: 13, fontStyle: 'italic', paddingVertical: 4 }}>
+                  Sin zona segura configurada por el familiar.
+                </Text>
+              )
+          ) : (
+            geocercas.map((g) => (
+              <View 
+                key={g.id} 
+                style={{ 
+                  flexDirection: 'row', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  marginBottom: 8, 
+                  marginTop: 4 
+                }}
+              >
+                <Text style={styles.infoVal}>
+                  📍 {g.nombre} — {g.radio_metros}m {g.activa ? '(Activa)' : '(Apagada)'}
+                </Text>
+                
+                {esFamiliarOAdmin && (
+                  <TouchableOpacity
+                    style={{ backgroundColor: '#FDEAEA', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}
+                    onPress={() => {
+                      Alert.alert('Eliminar zona', '¿Eliminar esta zona segura?', [
+                        { text: 'Cancelar', style: 'cancel' },
+                        {
+                          text: 'Eliminar', 
+                          style: 'destructive', 
+                          onPress: async () => {
+                            try {
+                              await eliminarGeocerca(g.id);
+                              const data = await getGeocercas(paciente.id);
+                              if (data.geocercas) setGeocercas(data.geocercas);
+                            } catch (err) {
+                              console.error('Error al eliminar geocerca:', err);
+                            }
+                          }
+                        }
+                      ]);
+                    }}
+                  >
+                    <Text style={{ color: '#D94F4F', fontSize: 12, fontWeight: '700' }}>✕ Eliminar</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ))
           )}
-          <View style={{ height: 100 }} />
+
+          {/* Espaciador final para librar la barra de gestos */}
+          <View style={{ height: 40 }} />
         </ScrollView>
-        
-      )} 
+      )}
     </View>
   );
 }
