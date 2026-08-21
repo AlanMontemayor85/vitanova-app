@@ -7,7 +7,6 @@ import { ActivityIndicator, Alert, DeviceEventEmitter, Linking, Modal, Platform,
 import { calibrarAcelerometroReloj, clearToken, enviarComandoReloj, forzarMedicionSignos, getAlertaPeso, getHoyLocalISO, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUbicacion, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 import { BannerAlertasPreventivas } from './components/BannerAlertasPreventivas';
-import { ControlRelojCard } from './components/ControlRelojCard';
 import { TarjetaUltimoCierre } from './components/TarjetaUltimoCierre';
 import CuidadorScreen from './cuidador';
 const COLORS = {
@@ -1518,13 +1517,7 @@ useEffect(() => {
                 </View>
               </View>
             )}
-             {/* 🎛️ Tarjeta de Control ReachFar (Sonar, Pasos, Reiniciar, Apagar) */}
-                  {paciente?.id && (
-                    <ControlRelojCard
-                      pacienteId={paciente.id}
-                      userRole="familiar_principal"
-                    />
-                  )}
+             
             {/* Espaciador final correcto al fondo del ScrollView */}
             <View style={{ height: 60 }} />
           </ScrollView>
