@@ -354,7 +354,7 @@ const handleCancelarYSalir = () => {
 
               <Text style={styles.legalSub}>4. Derechos ARCO</Text>
               <Text style={styles.legalParrafo}>
-                Puedes revocar el consentimiento o ejercer tus derechos ARCO escribiendo a soporte@vitanova.com.
+                Puedes revocar el consentimiento o ejercer tus derechos ARCO escribiendo a contacto@vitanovaintegralis.com.
               </Text>
             </ScrollView>
 
