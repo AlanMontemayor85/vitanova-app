@@ -4,10 +4,9 @@ import { useFocusEffect, useLocalSearchParams, usePathname, useRouter } from 'ex
 import { Bell, Calendar, MapPin, Pill } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, DeviceEventEmitter, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { calibrarAcelerometroReloj, clearToken, enviarComandoReloj, forzarMedicionSignos, getAlertaPeso, getEquipoPaciente, getHoyLocalISO, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUbicacion, getUltimoCierre, getUserNombre, loadStoredToken, MiembroEquipo } from '../services/api';
+import { calibrarAcelerometroReloj, clearToken, enviarComandoReloj, forzarMedicionSignos, getAlertaPeso, getHoyLocalISO, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUbicacion, getUltimoCierre, getUserNombre, loadStoredToken, MiembroEquipo } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 import { BannerAlertasPreventivas } from './components/BannerAlertasPreventivas';
-import { CuidadorPermisosCard } from './components/CuidadorPermisosCard';
 import { TarjetaUltimoCierre } from './components/TarjetaUltimoCierre';
 import CuidadorScreen from './cuidador';
 const COLORS = {
@@ -75,8 +74,7 @@ export default function HomeScreen() {
   const [sensibilidadLocal, setSensibilidadLocal] = useState<number>(4);
   const [caidaActivaLocal, setCaidaActivaLocal] = useState<boolean>(true);
   const [equipo, setEquipo] = useState<MiembroEquipo[]>([]);
-  const [cargandoEquipo, setCargandoEquipo] = useState<boolean>(true);
-  const [equipoCuidadores, setEquipoCuidadores] = useState<any[]>([]);
+  
   
   const formatearHorarioRango = (horarioRaw: string | null | undefined): string => {
   if (!horarioRaw) return 'Sin horario';
@@ -529,39 +527,7 @@ useEffect(() => {
   modoCuidadorFamiliar,
   refreshKey
 ]);
-useEffect(() => {
-  console.log("🔍 [PERMISOS EFFECT] Evaluando paciente:", paciente?.id);
-  if (!paciente?.id) return;
 
-  let montado = true;
-  (async () => {
-    try {
-      setCargandoEquipo(true);
-      console.log("📡 [PERMISOS EFFECT] Consultando endpoint getEquipoPaciente...");
-      const data = await getEquipoPaciente(paciente.id);
-      console.log("📦 [PERMISOS EFFECT] Respuesta Backend (Raw):", JSON.stringify(data));
-
-      if (!montado) return;
-
-      const soloCuidadores = (data || []).filter((m: any) => {
-        const rol = (m.rol || '').toLowerCase();
-        console.log(`🔎 Evaluando miembro: ${m.nombre_completo} | Rol: "${rol}"`);
-        return rol.includes('cuidador') || (rol !== 'familiar' && rol !== 'admin' && rol !== 'familiar_principal');
-      });
-
-      console.log("✅ [PERMISOS EFFECT] Cuidadores válidos tras filtro:", soloCuidadores.length);
-      setEquipoCuidadores(soloCuidadores);
-    } catch (err) {
-      console.log('❌ [PERMISOS EFFECT] Error capturado:', err);
-    } finally {
-      if (montado) setCargandoEquipo(false);
-    }
-  })();
-
-  return () => {
-    montado = false;
-  };
-}, [paciente?.id]);
 useEffect(() => {
   const subTareas = DeviceEventEmitter.addListener('RECARGAR_TAREAS', () => {
     console.log("⚡ [INDEX] Recibida orden de recargar tareas...");
@@ -1189,36 +1155,7 @@ useEffect(() => {
                 )}
               </>
             )}
-            {/* Sección de Gestión de Permisos del Equipo */}
-          <View style={{ marginTop: 24, paddingHorizontal: 16 }}>
-          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#111827', marginBottom: 4 }}>
-            Permisos del Equipo
-          </Text>
-          <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>
-            Controla qué cuidadores pueden exportar expedientes y bitácoras clínicas.
-          </Text>
-
-          {cargandoEquipo ? (
-            <ActivityIndicator size="small" color="#0066CC" />
-          ) : (
-            equipo.map((cuidador) => (
-              <CuidadorPermisosCard
-                key={cuidador.usuario_id}
-                pacienteId={pacienteId}
-                cuidador={cuidador}
-                onPermisoActualizado={(nuevoValor) => {
-                  setEquipo((prev) =>
-                    prev.map((c) =>
-                      c.usuario_id === cuidador.usuario_id
-                        ? { ...c, puede_exportar_datos: nuevoValor }
-                        : c
-                    )
-                  );
-                }}
-              />
-            ))
-          )}
-        </View>
+            
            {/* ======================================================== */}
             {/* ⚡ SECCIÓN 1: TURNOS ACTIVOS DE CUIDADO                  */}
             {/* ======================================================== */}
