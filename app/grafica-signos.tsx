@@ -148,46 +148,61 @@ export default function GraficaSignosScreen() {
   const [periodoFiltro, setPeriodoFiltro] = useState<'todos' | 'hoy' | 'semana'>('todos');
   
   const handleExportarCSV = async () => {
-    try {
-      const url = `${BASE_URL}/pacientes/${pacienteId}/exportar-bitacora-analitica`;
-      
-      // Ahora se leen de la API de legado de Expo v54 de forma transparente
-      const targetPath = `${documentDirectory}auditoria_clinica_${pacienteNombre || pacienteId}.csv`;
-      const token = await loadStoredToken(); 
-      
-      if (!token) {
-        Alert.alert("Sesión Expirada", "No se encontró un token válido. Por favor, inicia sesión nuevamente.");
-        return;
-      }
+  try {
+    const url = `${BASE_URL}/pacientes/${pacienteId}/exportar-bitacora-analitica`;
+    const nombreLimpio = (pacienteNombre || pacienteId).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const targetPath = `${documentDirectory}auditoria_clinica_${nombreLimpio}.csv`;
+    
+    const token = await loadStoredToken(); 
+    if (!token) {
+      Alert.alert("Sesión Expirada", "Inicia sesión nuevamente.");
+      return;
+    }
 
-      console.log("📥 Descargando bitácora cifrada a:", targetPath);
+    const downloadResult = await downloadAsync(url, targetPath, {
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'text/csv'
+      },
+    });
 
-      const downloadResult = await downloadAsync(url, targetPath, {
-        headers: { 
-          'Authorization': `Bearer ${token}` 
-        },
-      });
+    // 🛑 GESTIÓN CONTROLADA DE RESPUESTAS DEL SERVIDOR
+    if (downloadResult.status === 403) {
+      Alert.alert(
+        "🔒 Exportación Restringida",
+        "No cuentas con autorización activa del Administrador Familiar para exportar o descargar este expediente clínico."
+      );
+      return;
+    }
 
-      if (downloadResult.status !== 200) {
-        throw new Error(`Error en servidor. Código: ${downloadResult.status}`);
-      }
+    if (downloadResult.status === 404) {
+      Alert.alert("Sin Registros", "No hay muestras suficientes para generar la bitácora.");
+      return;
+    }
 
-      const puedeCompartir = await Sharing.isAvailableAsync();
-      if (!puedeCompartir) {
-        Alert.alert("Error", "Compartir archivos no está habilitado en este dispositivo.");
-        return;
-      }
+    if (downloadResult.status !== 200) {
+      Alert.alert("Aviso", `El servidor no pudo procesar la solicitud (Código ${downloadResult.status}).`);
+      return;
+    }
 
+    // ✅ DESCARGA EXITOSA
+    const puedeCompartir = await Sharing.isAvailableAsync();
+    if (puedeCompartir) {
       await Sharing.shareAsync(downloadResult.uri, { 
         mimeType: 'text/csv', 
-        dialogTitle: 'Reporte de Auditoría Analítica — Vitanova' 
+        dialogTitle: 'Reporte de Auditoría Analítica — Vitanova',
+        UTI: 'public.comma-separated-values-text'
       });
-
-    } catch (error) {
-      console.error("❌ Error en el proceso de exportación:", error);
-      Alert.alert("Falla de Descarga", "Hubo un problema al intentar conectarse al servidor de Railway.");
+    } else {
+      Alert.alert("Descarga Completa", "El archivo se guardó en el dispositivo.");
     }
-  };
+
+  } catch (error: any) {
+    // Solo captura fallos reales de red o IO del dispositivo
+    console.log("⚠️ Excepción no HTTP al exportar:", error);
+    Alert.alert("Error de Conexión", "No se pudo establecer comunicación con el servidor.");
+  }
+};
   useEffect(() => {
     const cargar = async () => {
       try {
