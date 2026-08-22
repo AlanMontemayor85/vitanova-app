@@ -3,7 +3,9 @@ import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import {
-  ActivityIndicator, Image, KeyboardAvoidingView, Platform,
+  ActivityIndicator, Image, KeyboardAvoidingView,
+  Modal,
+  Platform,
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native';
 import { login, register, setToken } from '../services/api';
@@ -28,6 +30,8 @@ export default function LoginScreen() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
+ const [modalAvisoVisible, setModalAvisoVisible] = useState(false);
 
   const intentarRegistroPush = async () => {
     try {
@@ -268,6 +272,55 @@ export default function LoginScreen() {
 
         
       </ScrollView>
+      {/* MODAL DE AVISO DE PRIVACIDAD SIMPLIFICADO */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalAvisoVisible}
+        onRequestClose={() => setModalAvisoVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '80%', paddingBottom: 16 }]}>
+            <Text style={styles.modalTitle}>📄 Aviso de Privacidad y Consentimiento</Text>
+            
+            <ScrollView style={{ marginVertical: 12 }} showsVerticalScrollIndicator={true}>
+              <Text style={styles.legalParrafo}>
+                <Text style={{ fontWeight: 'bold' }}>Vitanova Integralis</Text>, con domicilio en Monterrey, N.L., es responsable del tratamiento de sus datos conforme a la LFPDPPP.
+              </Text>
+
+              <Text style={styles.legalSub}>1. Datos Sensibles que Recabamos</Text>
+              <Text style={styles.legalParrafo}>
+                Para prestar nuestros servicios de asistencia y cuidado, recabamos datos de salud (frecuencia cardíaca, SpO2, presión arterial, registro de caídas) y coordenadas GPS en tiempo real provenientes de los dispositivos vinculados.
+              </Text>
+
+              <Text style={styles.legalSub}>2. Finalidad del Tratamiento</Text>
+              <Text style={styles.legalParrafo}>
+                Los datos serán utilizados exclusivamente para:
+                {'\n'}• Monitoreo de bienestar y asistencia en emergencias.
+                {'\n'}• Delimitación y alertas de zonas seguras (geocercas).
+                {'\n'}• Coordinación entre familiares, cuidadores y personal de salud autorizados.
+              </Text>
+
+              <Text style={styles.legalSub}>3. Transferencia y Seguridad</Text>
+              <Text style={styles.legalParrafo}>
+                Sus datos de salud no serán compartidos ni comercializados con terceros ajenos a la red de cuidado autorizada por el titular. Se almacenan bajo cifrado y estrictos protocolos de control de acceso.
+              </Text>
+
+              <Text style={styles.legalSub}>4. Derechos ARCO</Text>
+              <Text style={styles.legalParrafo}>
+                Usted o su representante legal pueden revocar el consentimiento o ejercer sus derechos de Acceso, Rectificación, Cancelación y Oposición escribiendo a soporte@vitanova.com.
+              </Text>
+            </ScrollView>
+
+            <TouchableOpacity
+                    style={[styles.modalBtnConfirm, { width: '100%' }]}
+                    onPress={() => setModalAvisoVisible(false)}
+                  >
+                    <Text style={styles.modalBtnConfirmText}>Entendido y Acepto</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -296,4 +349,52 @@ const styles = StyleSheet.create({
   btnGoogleText: { fontSize: 14, fontWeight: '700', color: COLORS.textDark },
   invitacionBtn: { paddingVertical: 16, alignItems: 'center', marginTop: 8 },
   invitacionBtnText: { color: COLORS.textLight, fontSize: 13, fontWeight: '600' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 360,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.cacao,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  modalBtnConfirm: {
+    backgroundColor: COLORS.cacao,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalBtnConfirmText: {
+    color: COLORS.white,
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  legalSub: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.cacao,
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  legalParrafo: {
+    fontSize: 12,
+    color: COLORS.textDark,
+    lineHeight: 17,
+    marginBottom: 8,
+  },
 });

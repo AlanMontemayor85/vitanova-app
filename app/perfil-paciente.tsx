@@ -77,76 +77,88 @@ export default function PerfilPacienteScreen() {
   };
 
   // ⚖️ Sincronizador Maestro de la Ficha Clínica
+  // ⚖️ Sincronizador Maestro de la Ficha Clínica + Candado de Auditoría
   useEffect(() => {
-  const refrescarDatosAlEntrar = async () => {
-    if (!paciente?.id) return;
-    
-    try { 
-      console.log("🔍 Rompiendo caché de navegación. Solicitando datos frescos al servidor...");
-      
-      // 1. Carga desde listado general de pacientes
-      const data = await getPacientes('perfil-paciente');
-      if (data && data.patients) {
-        const pFresco = data.patients.find((x: any) => x.id === paciente.id);
-        if (pFresco) {
-          if (pFresco.peso_kg) {
-            setPesoInput(pFresco.peso_kg.toString());
-          }
-          if (pFresco.telefono_medico !== undefined) {
-            setTelefonoMedico(pFresco.telefono_medico ?? '');
-          }
+    const refrescarDatosAlEntrar = async () => {
+      try { 
+        // 🛑 0. CANDADO DE AUDITORÍA: Validar que el usuario tenga perfil completado
+        const dataUsuario = await getPacientes('perfil-paciente-check');
+        
+        if (
+          !dataUsuario?.usuario_tipo || 
+          !dataUsuario?.usuario_nombre || 
+          dataUsuario.usuario_nombre.trim() === ''
+        ) {
+          console.log("⚠️ Intento de acceso sin perfil completado. Rebotando a /completar-perfil");
+          router.replace('/completar-perfil' as any);
+          return;
+        }
 
-          const imeiFresco = (pFresco.reloj_imei || '').trim();
-          if (imeiFresco) {
-            setTieneReloj(true);
-            setImei(imeiFresco);
-            setSos1(pFresco.reloj_sos1 ?? '');
-            setSos2(pFresco.reloj_sos2 ?? '');
-            setSos3(pFresco.reloj_sos3 ?? '');
-          } else {
-            setTieneReloj(false);
-            setImei('');
-            setSos1('');
-            setSos2('');
-            setSos3('');
-          }
+        // Si es un paciente nuevo (creación desde cero), terminamos la validación aquí
+        if (!paciente?.id) return;
+        
+        console.log("🔍 Rompiendo caché de navegación. Solicitando datos frescos al servidor...");
+        
+        // 1. Carga desde listado general de pacientes
+        if (dataUsuario && dataUsuario.patients) {
+          const pFresco = dataUsuario.patients.find((x: any) => x.id === paciente.id);
+          if (pFresco) {
+            if (pFresco.peso_kg) {
+              setPesoInput(pFresco.peso_kg.toString());
+            }
+            if (pFresco.telefono_medico !== undefined) {
+              setTelefonoMedico(pFresco.telefono_medico ?? '');
+            }
 
-          // 🕐 Asignación de Zona Horaria desde Pacientes
-          if (pFresco.zona_horaria !== undefined && pFresco.zona_horaria !== null) {
-            setZonaHoraria(Number(pFresco.zona_horaria));
+            const imeiFresco = (pFresco.reloj_imei || '').trim();
+            if (imeiFresco) {
+              setTieneReloj(true);
+              setImei(imeiFresco);
+              setSos1(pFresco.reloj_sos1 ?? '');
+              setSos2(pFresco.reloj_sos2 ?? '');
+              setSos3(pFresco.reloj_sos3 ?? '');
+            } else {
+              setTieneReloj(false);
+              setImei('');
+              setSos1('');
+              setSos2('');
+              setSos3('');
+            }
+
+            // 🕐 Asignación de Zona Horaria desde Pacientes
+            if (pFresco.zona_horaria !== undefined && pFresco.zona_horaria !== null) {
+              setZonaHoraria(Number(pFresco.zona_horaria));
+            }
           }
         }
+       
+        // 2. Carga específica de hardware desde config-reloj (Doble garantía)
+        const token = await getToken(); 
+        const resDisp = await fetch(
+          `${BASE_URL}/pacientes/${paciente.id}/config-reloj`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const dataDisp = await resDisp.json();
+        
+        if (dataDisp) {
+          if (dataDisp.sensibilidad_caidas !== undefined && dataDisp.sensibilidad_caidas !== null) {
+            setSensibilidadCaidas(dataDisp.sensibilidad_caidas.toString());
+          }
+          if ('caida_activa' in dataDisp) {
+            setCaidaActiva(Boolean(dataDisp.caida_activa));
+          }
+          if (dataDisp.zona_horaria !== undefined && dataDisp.zona_horaria !== null) {
+            setZonaHoraria(Number(dataDisp.zona_horaria));
+          }
+        }
+
+      } catch (err) {
+        console.log("⚠️ Error sincronizando datos en segundo plano:", err);
       }
-     
-      // 2. Carga específica de hardware desde config-reloj (Doble garantía)
-      const token = await getToken(); 
-      const resDisp = await fetch(
-        `${BASE_URL}/pacientes/${paciente.id}/config-reloj`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const dataDisp = await resDisp.json();
-      
-      if (dataDisp) {
-        // ✅ Mejor así:
-        if (dataDisp.sensibilidad_caidas !== undefined && dataDisp.sensibilidad_caidas !== null) {
-          setSensibilidadCaidas(dataDisp.sensibilidad_caidas.toString());
-        }
-        if ('caida_activa' in dataDisp) {
-          setCaidaActiva(Boolean(dataDisp.caida_activa));
-        }
-        // ⚡ Si el endpoint de config-reloj devuelve zona_horaria, la sobreescribe con el valor más fresco de BD
-        if (dataDisp.zona_horaria !== undefined && dataDisp.zona_horaria !== null) {
-          setZonaHoraria(Number(dataDisp.zona_horaria));
-        }
-      }
+    };
 
-    } catch (err) {
-      console.log("⚠️ Error sincronizando datos en segundo plano:", err);
-    }
-  };
-
-  refrescarDatosAlEntrar();
-}, [paciente?.id, params?.refresh]);
+    refrescarDatosAlEntrar();
+  }, [paciente?.id, params?.refresh]);
 
   // 📡 Disparador del Bus de Comandos por Redis
 const ejecutarSincronizacionReloj = async (targetId: string) => {
@@ -241,10 +253,7 @@ const guardar = async () => {
     const pacienteIdParaComando = paciente?.id || dataPac?.id;
     if (tieneReloj && pacienteIdParaComando && sensibilidadCaidas) {
       try {
-        await configurarReloj(pacienteIdParaComando, {
-          comando: 'LSSET',
-          argumento: `${sensibilidadCaidas}+6`
-        })
+        await configurarReloj(pacienteIdParaComando, undefined, 'LSSET', `${sensibilidadCaidas}+6`);
         console.log(`🎯 Sensibilidad enviada al reloj tras guardar: LSSET,${sensibilidadCaidas}+6`);
       } catch (errReloj) {
         // Log preventivo sin interrumpir el flujo del usuario si el reloj está offline
@@ -626,7 +635,7 @@ const guardar = async () => {
                 setCaidaActiva(nuevoEstado);
                 try {
                   const arg = nuevoEstado ? '1,1' : '0,0';
-                  await configurarReloj(paciente.id, { comando: 'FALLDOWN', argumento: arg });
+                  await configurarReloj(paciente.id, undefined, 'FALLDOWN', arg);
                 } catch {
                   console.log('⚠️ Toggle guardado localmente, se aplicará al sincronizar');
                 }

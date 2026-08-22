@@ -45,20 +45,29 @@ export default function CompletarPerfilScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
+ const [modalAvisoVisible, setModalAvisoVisible] = useState(false);
+  
   const [modalVisible, setModalVisible] = useState(false);
 
   const preGuardarValidacion = () => {
-    if (!nombre.trim()) {
-      setError('El nombre es obligatorio');
-      return;
-    }
-    if (rol === 'medico' && !cedula.trim()) {
-      setError('La cédula profesional es obligatoria para médicos');
-      return;
-    }
-    setError('');
-    setModalVisible(true);
-  };
+  if (!nombre.trim()) {
+    setError('El nombre es obligatorio');
+    return;
+  }
+  if (rol === 'medico' && !cedula.trim()) {
+    setError('La cédula profesional es obligatoria para médicos');
+    return;
+  }
+  setError('');
+  // 👈 Abre el modal unificado de confirmación y aviso legal
+  setModalAvisoVisible(true);
+};
+
+const handleCancelarYSalir = () => {
+  setModalAvisoVisible(false);
+  router.replace('/login' as any);
+};
+
 
   const handleGuardarDefinitivo = async () => {
     setModalVisible(false);
@@ -269,10 +278,16 @@ export default function CompletarPerfilScreen() {
           {/* Consentimiento */}
           <View style={styles.consentBox}>
             <Text style={styles.consentText}>
-              Al continuar aceptas los <Text style={styles.consentLink}>Términos de Uso</Text> y el <Text style={styles.consentLink}>Aviso de Privacidad</Text> de Vitanova Integralis, incluyendo el tratamiento de datos de salud conforme a la LFPDPPP.
+              Al continuar confirmas que aceptas los{' '}
+              <Text 
+                style={styles.consentLink} 
+                onPress={() => setModalAvisoVisible(true)}
+              >
+                Términos de Uso y Aviso de Privacidad
+              </Text>{' '}
+              de Vitanova Integralis, incluyendo el tratamiento de datos de salud conforme a la LFPDPPP.
             </Text>
           </View>
-
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <TouchableOpacity
@@ -289,34 +304,77 @@ export default function CompletarPerfilScreen() {
         </View>
       </ScrollView>
 
-      {/* MODAL DE CONFIRMACIÓN CRÍTICA */}
+     {/* MODAL UNIFICADO: CONFIRMACIÓN DE ROL + AVISO DE PRIVACIDAD LFPDPPP */}
       <Modal
-        animationType="fade"
+        animationType="slide"
         transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+        visible={modalAvisoVisible}
+        onRequestClose={handleCancelarYSalir}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>⚠️ Confirmación de Rol Obligatoria</Text>
-            <Text style={styles.modalBody}>
-              Has seleccionado registrarte como:{'\n'}
-              <Text style={styles.modalRolText}>{getRolTextoMensaje()}</Text>
-              {'\n'}{' \n'}
-              Para mantener la integridad y seguridad médica del ecosistema Vitanova, este rol define los accesos de privacidad de datos de salud. Una vez guardado, no podrás cambiarlo desde este panel sin contactar soporte.
-            </Text>
+          <View style={[styles.modalContent, { maxHeight: '85%', paddingBottom: 16 }]}>
+            <Text style={styles.modalTitle}>📄 Términos y Confirmación de Cuenta</Text>
+            
+            <ScrollView style={{ marginVertical: 10 }} showsVerticalScrollIndicator={true}>
+              {/* Confirmación Crítica de Rol */}
+              <View style={{ backgroundColor: COLORS.goldPale, padding: 12, borderRadius: 10, marginBottom: 12, borderWidth: 1, borderColor: COLORS.gold }}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.cacao, textTransform: 'uppercase' }}>
+                  Rol Seleccionado:
+                </Text>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.gold, marginTop: 2 }}>
+                  {getRolTextoMensaje()}
+                </Text>
+                <Text style={{ fontSize: 11, color: COLORS.textDark, marginTop: 4, lineHeight: 15 }}>
+                  Este rol define tus permisos clínicos y de visualización. No podrá cambiarse desde este panel sin soporte.
+                </Text>
+              </View>
+
+              {/* Texto Legal LFPDPPP */}
+              <Text style={styles.legalParrafo}>
+                <Text style={{ fontWeight: 'bold' }}>Productos para la Salud y Confort Vitanova Integralis</Text>, con domicilio en Monterrey, N.L., es responsable del tratamiento de sus datos conforme a la LFPDPPP.
+              </Text>
+
+              <Text style={styles.legalSub}>1. Datos Sensibles que Recabamos</Text>
+              <Text style={styles.legalParrafo}>
+                Para prestar nuestros servicios de asistencia y cuidado, recabamos datos de salud (frecuencia cardíaca, SpO2, presión arterial, registro de caídas) y coordenadas GPS en tiempo real de los dispositivos vinculados.
+              </Text>
+
+              <Text style={styles.legalSub}>2. Finalidad del Tratamiento</Text>
+              <Text style={styles.legalParrafo}>
+                Los datos serán utilizados exclusivamente para:
+                {'\n'}• Monitoreo de bienestar y asistencia en emergencias.
+                {'\n'}• Delimitación y alertas de zonas seguras (geocercas).
+                {'\n'}• Coordinación con la red de cuidado autorizada.
+              </Text>
+
+              <Text style={styles.legalSub}>3. Confidencialidad y Seguridad</Text>
+              <Text style={styles.legalParrafo}>
+                Sus datos están cifrados y jamás serán vendidos a terceros.
+              </Text>
+
+              <Text style={styles.legalSub}>4. Derechos ARCO</Text>
+              <Text style={styles.legalParrafo}>
+                Puedes revocar el consentimiento o ejercer tus derechos ARCO escribiendo a soporte@vitanova.com.
+              </Text>
+            </ScrollView>
+
+            {/* BOTONES DE DECISIÓN */}
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.modalBtnCancel}
-                onPress={() => setModalVisible(false)}
+                onPress={handleCancelarYSalir}
               >
-                <Text style={styles.modalBtnCancelText}>Revisar de nuevo</Text>
+                <Text style={styles.modalBtnCancelText}>Rechazar y Salir</Text>
               </TouchableOpacity>
+
               <TouchableOpacity
                 style={styles.modalBtnConfirm}
-                onPress={handleGuardarDefinitivo}
+                onPress={() => {
+                  setModalAvisoVisible(false);
+                  handleGuardarDefinitivo();
+                }}
               >
-                <Text style={styles.modalBtnConfirmText}>Estoy seguro</Text>
+                <Text style={styles.modalBtnConfirmText}>Acepto y Continuar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -527,5 +585,19 @@ const styles = StyleSheet.create({
     color: COLORS.white, 
     fontWeight: '800', 
     fontSize: 12 
+  },
+  
+  legalSub: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.cacao,
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  legalParrafo: {
+    fontSize: 12,
+    color: COLORS.textDark,
+    lineHeight: 17,
+    marginBottom: 8,
   },
 });
