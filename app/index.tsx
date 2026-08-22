@@ -597,9 +597,8 @@ useEffect(() => {
   // ⏱️ Cronómetro silencioso en segundo plano cada 30 segundos
   const intervalo = setInterval(() => {
     console.log(`🔄 [POLLING] Solicitando signos frescos para: ${p.id}`);
-    console.log('🔋 CONTENIDO DE SIGNOS DISPOSITIVO:', JSON.stringify(signosDispositivo, null, 2));
-    cargarSignosDispositivo(p.id);
-  }, 30000);
+       cargarSignosDispositivo(p.id);
+  }, 60000);
 
   // 🧼 Limpieza obligatoria al cambiar de pestaña o paciente
   return () => clearInterval(intervalo);
