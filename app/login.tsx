@@ -83,25 +83,33 @@ export default function LoginScreen() {
     if (!email || !password) { setError('Ingresa tu email y contraseña'); return; }
     if (password !== confirmPassword) { setError('Las contraseñas no coinciden'); return; }
     if (password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return; }
-    setLoading(true); setError('');
+    
+    setLoading(true); 
+    setError('');
+    
     try {
-      const data = await register(email.trim(), password);
+      // Pasamos la bandera de consentimiento legal requerida por Pydantic
+      const data = await register(email.trim(), password, {
+        acepta_aviso: true,
+        version_aviso: 'v1.0'
+      });
+      
       if (data.access_token) {
         await setToken(data.access_token);
         await intentarRegistroPush();
         
-        // Cuentas de nuevo registro se canalizan a completar el perfil
+        // Canaliza a completar perfil para capturar nombre, teléfono y rol
         router.replace('/completar-perfil' as any);
       } else {
         setError(data.error ?? 'Error al crear cuenta');
       }
     } catch (e) {
-      setError('Error de conexión');
+      setError('Error de conexión con el servidor');
     } finally {
       setLoading(false);
     }
   };
-
+   
   const handleGoogle = async () => {
     setLoadingGoogle(true);
     setError('');
@@ -137,7 +145,8 @@ export default function LoginScreen() {
       setLoadingGoogle(false);
     }
   };
-
+  
+  
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -183,20 +192,31 @@ export default function LoginScreen() {
         </View>
 
         {modo === 'registro' && (
-          <>
-            <Text style={styles.label}>Confirmar contraseña</Text>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={[styles.input, { flex: 1, marginBottom: 0, borderWidth: 0 }]}
-                placeholder="••••••••"
-                placeholderTextColor={COLORS.textLight}
-                secureTextEntry={!showPassword}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-              />
-            </View>
-          </>
-        )}
+        <>
+          <Text style={styles.label}>Confirmar contraseña</Text>
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginBottom: 0, borderWidth: 0 }]}
+              placeholder="••••••••"
+              placeholderTextColor={COLORS.textLight}
+              secureTextEntry={!showPassword}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
+          </View>
+
+          {/* AVISO LEGAL LFPDPPP */}
+          <View style={{ marginVertical: 10, paddingHorizontal: 4 }}>
+            <Text style={{ fontSize: 11, color: COLORS.textLight, lineHeight: 16 }}>
+              Al registrarte, confirmas que aceptas el{' '}
+              <Text style={{ color: COLORS.gold, fontWeight: '700' }}>
+                Aviso de Privacidad y Tratamiento de Datos de Salud
+              </Text>{' '}
+              conforme a la LFPDPPP.
+            </Text>
+          </View>
+        </>
+      )}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 

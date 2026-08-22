@@ -700,12 +700,21 @@ export const crearInvitacion = async (datos: object) => {
   return res.json();
 };
 
-export const register = async (email: string, password: string) => {
+export const register = async (
+  email: string, 
+  password: string, 
+  extra?: { acepta_aviso?: boolean; version_aviso?: string }
+) => {
   try {
     const res = await fetch(`${BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ 
+        email, 
+        password,
+        acepta_aviso: extra?.acepta_aviso ?? true,
+        version_aviso: extra?.version_aviso ?? 'v1.0',
+      }),
     });
     return await res.json();
   } catch (e) {
