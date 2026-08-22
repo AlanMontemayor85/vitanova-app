@@ -4,9 +4,10 @@ import { useFocusEffect, useLocalSearchParams, usePathname, useRouter } from 'ex
 import { Bell, Calendar, MapPin, Pill } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, DeviceEventEmitter, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { calibrarAcelerometroReloj, clearToken, enviarComandoReloj, forzarMedicionSignos, getAlertaPeso, getHoyLocalISO, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUbicacion, getUltimoCierre, getUserNombre, loadStoredToken } from '../services/api';
+import { calibrarAcelerometroReloj, clearToken, enviarComandoReloj, forzarMedicionSignos, getAlertaPeso, getEquipoPaciente, getHoyLocalISO, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUbicacion, getUltimoCierre, getUserNombre, loadStoredToken, MiembroEquipo } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 import { BannerAlertasPreventivas } from './components/BannerAlertasPreventivas';
+import { CuidadorPermisosCard } from './components/CuidadorPermisosCard';
 import { TarjetaUltimoCierre } from './components/TarjetaUltimoCierre';
 import CuidadorScreen from './cuidador';
 const COLORS = {
@@ -73,6 +74,10 @@ export default function HomeScreen() {
   const [ejecutandoCmd, setEjecutandoCmd] = useState<string | null>(null);
   const [sensibilidadLocal, setSensibilidadLocal] = useState<number>(4);
   const [caidaActivaLocal, setCaidaActivaLocal] = useState<boolean>(true);
+  const [equipo, setEquipo] = useState<MiembroEquipo[]>([]);
+  const [cargandoEquipo, setCargandoEquipo] = useState<boolean>(true);
+  const [equipoCuidadores, setEquipoCuidadores] = useState<any[]>([]);
+  
   const formatearHorarioRango = (horarioRaw: string | null | undefined): string => {
   if (!horarioRaw) return 'Sin horario';
 
@@ -518,7 +523,29 @@ useEffect(() => {
   modoCuidadorFamiliar,
   refreshKey
 ]);
+useEffect(() => {
+  if (paciente?.id || pacienteId) {
+    cargarListaEquipo();
+  }
+}, [paciente?.id, pacienteId]);
 
+const cargarListaEquipo = async () => {
+  try {
+    setCargandoEquipo(true);
+    const pId = paciente?.id || pacienteId;
+    if (!pId) return;
+
+    const data: MiembroEquipo[] = await getEquipoPaciente(pId);
+    
+    // Filtrar cuidadores
+    const soloCuidadores = data.filter((m: MiembroEquipo) => (m.rol || '').toLowerCase() === 'cuidador');
+    setEquipoCuidadores(soloCuidadores);
+  } catch (err) {
+    console.log('⚠️ Error cargando equipo:', err);
+  } finally {
+    setCargandoEquipo(false);
+  }
+};
 useEffect(() => {
   const subTareas = DeviceEventEmitter.addListener('RECARGAR_TAREAS', () => {
     console.log("⚡ [INDEX] Recibida orden de recargar tareas...");
@@ -1144,6 +1171,36 @@ useEffect(() => {
                 )}
               </>
             )}
+            {/* Sección de Gestión de Permisos del Equipo */}
+          <View style={{ marginTop: 24, paddingHorizontal: 16 }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#111827', marginBottom: 4 }}>
+            Permisos del Equipo
+          </Text>
+          <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>
+            Controla qué cuidadores pueden exportar expedientes y bitácoras clínicas.
+          </Text>
+
+          {cargandoEquipo ? (
+            <ActivityIndicator size="small" color="#0066CC" />
+          ) : (
+            equipo.map((cuidador) => (
+              <CuidadorPermisosCard
+                key={cuidador.usuario_id}
+                pacienteId={pacienteId}
+                cuidador={cuidador}
+                onPermisoActualizado={(nuevoValor) => {
+                  setEquipo((prev) =>
+                    prev.map((c) =>
+                      c.usuario_id === cuidador.usuario_id
+                        ? { ...c, puede_exportar_datos: nuevoValor }
+                        : c
+                    )
+                  );
+                }}
+              />
+            ))
+          )}
+        </View>
            {/* ======================================================== */}
             {/* ⚡ SECCIÓN 1: TURNOS ACTIVOS DE CUIDADO                  */}
             {/* ======================================================== */}
@@ -1266,6 +1323,7 @@ useEffect(() => {
                 </View>
               );
             })()}
+            
             {/* 📊 Estado del último cierre registrado */}
             {pacienteId && <TarjetaUltimoCierre pacienteId={pacienteId} />}
 

@@ -208,10 +208,6 @@ export const getHistorialCierres = async (pacienteId: string) => {
   }
 };
 
-export const getEquipoPaciente = async (pacienteId: string) => {
-  const res = await fetchWithAuth(`${BASE_URL}/pacientes/${pacienteId}/equipo`);
-  return res.json();
-};
 
 export const getTurnoActivo = async (pacienteId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/turnos/activo/${pacienteId}`);
@@ -747,7 +743,47 @@ export const getTurnoActivoResumen = async (pacienteId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/pacientes/${pacienteId}/turno-activo-resumen`);
   return res.json();
 };
+export interface MiembroEquipo {
+  id: string;
+  usuario_id: string;
+  nombre_completo: string;
+  email: string;
+  rol: string;
+  puede_exportar_datos: boolean;
+  activo: boolean;
+}
 
+// 📋 Obtener el listado de miembros del equipo y sus permisos
+export const getEquipoPaciente = async (pacienteId: string): Promise<MiembroEquipo[]> => {
+  const res = await fetchWithAuth(`${BASE_URL}/pacientes/${pacienteId}/equipo`);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || 'Error al obtener equipo del paciente');
+  }
+  return res.json();
+};
+
+// 🔘 Alternar (Toggle) permiso de exportación/descarga de datos clínicos
+export const togglePermisoExportar = async (
+  pacienteId: string,
+  cuidadorUsuarioId: string,
+  puedeExportar: boolean
+) => {
+  const res = await fetchWithAuth(
+    `${BASE_URL}/pacientes/${pacienteId}/cuidadores/${cuidadorUsuarioId}/permiso-exportar`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ puede_exportar: puedeExportar }),
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || 'Error al actualizar permiso de exportación');
+  }
+  return res.json();
+};
 export const getAlertaPeso = async (pacienteId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/pacientes/${pacienteId}/alerta-peso`);
   return res.json();
