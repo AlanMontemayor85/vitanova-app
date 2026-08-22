@@ -6,10 +6,22 @@ import {
   Alert,
   DeviceEventEmitter,
   Platform,
-  ScrollView, StatusBar, StyleSheet, Text,
-  TextInput, TouchableOpacity, View
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { actualizarHorarioCuidador, crearInvitacion, getEquipoPaciente, removerDelEquipo } from '../services/api';
+import {
+  actualizarHorarioCuidador,
+  crearInvitacion,
+  getEquipoPaciente,
+  removerDelEquipo,
+  togglePermisoExportar
+} from '../services/api';
 
 const COLORS = {
   gold: '#BF9A40', goldPale: '#F5EDD8', cacao: '#4A4540', cream: '#FAFAF7',
@@ -42,7 +54,6 @@ const ROL_COLOR: Record<string, { bg: string; text: string; border: string }> = 
   medico: { bg: '#FFF0F0', text: COLORS.red, border: '#FFB0B0' },
 };
 
-// 🎯 Helper 12 Horas Limpia
 const formatearHoraBonita = (horaRaw: string | null | undefined): string => {
   if (!horaRaw || horaRaw === 'Incidental') return 'Sin hora';
   let soloHora = horaRaw.includes('T') ? horaRaw.split('T')[1] : horaRaw;
@@ -63,7 +74,6 @@ const formatearHoraBonita = (horaRaw: string | null | undefined): string => {
   return `${horas}:${minutos} ${ampm}`;
 };
 
-// 🎯 Formateador de Horarios para la Tarjeta de la Red
 function formatHorario(inicio?: string, fin?: string) {
   if (!inicio || !fin) return null;
   return `${formatearHoraBonita(inicio)} — ${formatearHoraBonita(fin)}`;
@@ -79,17 +89,16 @@ export default function RedCuidadoresScreen() {
   const [equipo, setEquipo] = useState<any[]>([]);
   const [createdById, setCreatedById] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [actualizandoPermisoId, setActualizandoPermisoId] = useState<string | null>(null);
 
   const esCuidador = params.usuarioRol === 'cuidador_contratado' || params.isCuidador === 'true';
 
-  // Editar horario en tarjeta existente
   const [editando, setEditando] = useState<any>(null);
   const [horaInicio, setHoraInicio] = useState('');
   const [horaFin, setHoraFin] = useState('');
   const [diasSeleccionados, setDiasSeleccionados] = useState<string[]>([]);
   const [guardandoHorario, setGuardandoHorario] = useState(false);
 
-  // Estados para Invitar Integrante
   const [invitandoOpen, setInvitandoOpen] = useState(false);
   const [invEmail, setInvEmail] = useState('');
   const [invRol, setInvRol] = useState<'cuidador_contratado' | 'medico' | 'familiar' | 'familiar_co_admin'>('cuidador_contratado');
@@ -97,12 +106,10 @@ export default function RedCuidadoresScreen() {
   const [enviandoInv, setEnviandoInv] = useState(false);
   const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null);
 
-  // Horarios para la NUEVA invitación (Cuidador)
   const [invHoraInicio, setInvHoraInicio] = useState('08:00');
   const [invHoraFin, setInvHoraFin] = useState('18:00');
   const [invDiasSeleccionados, setInvDiasSeleccionados] = useState<string[]>(['L', 'M', 'X', 'J', 'V']);
 
-  // Modales TimePicker
   const [showInicioTimePicker, setShowInicioTimePicker] = useState(false);
   const [showFinTimePicker, setShowFinTimePicker] = useState(false);
   const [showInvInicioTimePicker, setShowInvInicioTimePicker] = useState(false);
@@ -116,8 +123,9 @@ export default function RedCuidadoresScreen() {
     try {
       setLoading(true);
       const data = await getEquipoPaciente(pacienteId);
-      if (data.equipo) setEquipo(data.equipo);
-      if (data.created_by) setCreatedById(data.created_by);
+      const lista = Array.isArray(data) ? data : ((data as any)?.equipo || []);
+      setEquipo(lista);
+      if ((data as any)?.created_by) setCreatedById((data as any).created_by);
     } catch (e) {
       console.error(e);
     } finally {
@@ -132,6 +140,21 @@ export default function RedCuidadoresScreen() {
   const DIAS_MAPA: Record<string, string> = {
     lunes: 'L', martes: 'M', miercoles: 'X', jueves: 'J',
     viernes: 'V', sabado: 'S', domingo: 'D',
+  };
+
+  const handleTogglePermiso = async (usuarioId: string, nuevoValor: boolean) => {
+    try {
+      setActualizandoPermisoId(usuarioId);
+      await togglePermisoExportar(pacienteId, usuarioId, nuevoValor);
+      
+      setEquipo(prev => prev.map(m => 
+        m.usuario_id === usuarioId ? { ...m, puede_exportar_datos: nuevoValor } : m
+      ));
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'No se pudo actualizar el permiso de exportación.');
+    } finally {
+      setActualizandoPermisoId(null);
+    }
   };
 
   const guardarHorario = async () => {
@@ -150,7 +173,6 @@ export default function RedCuidadoresScreen() {
       DeviceEventEmitter.emit('RECARGAR_CUIDADORES');
 
       await cargarEquipo();
-
       setEditando(null);
     } catch (e) {
       console.error(e);
@@ -216,6 +238,9 @@ export default function RedCuidadoresScreen() {
 
     const esCreador = m.rol === 'familiar_principal' || m.usuario_id === createdById;
     const soyYo = m.usuario_id === usuarioActualId;
+    const esCuidadorItem = m.rol === 'cuidador_contratado' || m.tipo === 'cuidador';
+    const tienePermisoExportar = Boolean(m.puede_exportar_datos);
+    const estaCambiandoPermiso = actualizandoPermisoId === m.usuario_id;
 
     return (
       <View key={m.usuario_id} style={styles.miembroCard}>
@@ -255,6 +280,31 @@ export default function RedCuidadoresScreen() {
             </Text>
           </View>
         </View>
+
+        {/* 🛡️ TOGGLE DE PERMISO PARA CUIDADORES */}
+        {esCuidadorItem && !esCuidador && (
+          <View style={styles.permisoBox}>
+            <View style={{ flex: 1, paddingRight: 10 }}>
+              <Text style={styles.permisoTitle}>Descarga de Auditoría / CSV</Text>
+              <Text style={styles.permisoSub}>
+                {tienePermisoExportar
+                  ? 'Autorizado para exportar expedientes'
+                  : 'Bloqueado para exportar datos clínicos'}
+              </Text>
+            </View>
+            {estaCambiandoPermiso ? (
+              <ActivityIndicator size="small" color={COLORS.gold} />
+            ) : (
+              <Switch
+                trackColor={{ false: '#E0D8CC', true: COLORS.goldPale }}
+                thumbColor={tienePermisoExportar ? COLORS.gold : '#FFFFFF'}
+                ios_backgroundColor="#E0D8CC"
+                value={tienePermisoExportar}
+                onValueChange={(nuevoValor) => handleTogglePermiso(m.usuario_id, nuevoValor)}
+              />
+            )}
+          </View>
+        )}
 
         {(m.rol === 'cuidador_contratado' || soyYo || !esCuidador) && !esCuidador && (
           <TouchableOpacity
@@ -383,7 +433,7 @@ export default function RedCuidadoresScreen() {
         <View style={{ height: 60 }} />
       </ScrollView>
 
-      {/* MODAL EDITAR HORARIO TARJETA */}
+      {/* MODAL EDITAR HORARIO */}
       {editando && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -391,7 +441,6 @@ export default function RedCuidadoresScreen() {
 
             <Text style={styles.modalLabel}>Hora inicio</Text>
             <TouchableOpacity style={styles.modalInput} onPress={() => setShowInicioTimePicker(true)}>
-              {/* 🎯 MUESTRA HORA FORMATO 12 HRS */}
               <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.cacao }}>
                 🕐 {formatearHoraBonita(horaInicio || '08:00')}
               </Text>
@@ -417,7 +466,6 @@ export default function RedCuidadoresScreen() {
 
             <Text style={styles.modalLabel}>Hora fin</Text>
             <TouchableOpacity style={styles.modalInput} onPress={() => setShowFinTimePicker(true)}>
-              {/* 🎯 MUESTRA HORA FORMATO 12 HRS */}
               <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.cacao }}>
                 🕐 {formatearHoraBonita(horaFin || '20:00')}
               </Text>
@@ -469,7 +517,7 @@ export default function RedCuidadoresScreen() {
         </View>
       )}
 
-      {/* MODAL INVITAR CON DÍAS Y HORARIOS */}
+      {/* MODAL INVITAR */}
       {invitandoOpen && (
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { maxHeight: '85%' }]}>
@@ -528,22 +576,18 @@ export default function RedCuidadoresScreen() {
                     <Text style={[styles.modalLabel, { marginTop: 0, color: COLORS.gold }]}>⏰ Asignación de Turno Inicial</Text>
                     
                     <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
-                      {/* HORA INICIO INVITACIÓN */}
                       <View style={{ flex: 1 }}>
                         <Text style={{ fontSize: 10, color: COLORS.textLight, marginBottom: 4 }}>ENTRADA</Text>
                         <TouchableOpacity style={styles.modalInput} onPress={() => setShowInvInicioTimePicker(true)}>
-                          {/* 🎯 MUESTRA HORA FORMATO 12 HRS */}
                           <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao }}>
                             {formatearHoraBonita(invHoraInicio)}
                           </Text>
                         </TouchableOpacity>
                       </View>
 
-                      {/* HORA FIN INVITACIÓN */}
                       <View style={{ flex: 1 }}>
                         <Text style={{ fontSize: 10, color: COLORS.textLight, marginBottom: 4 }}>SALIDA</Text>
                         <TouchableOpacity style={styles.modalInput} onPress={() => setShowInvFinTimePicker(true)}>
-                          {/* 🎯 MUESTRA HORA FORMATO 12 HRS */}
                           <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao }}>
                             {formatearHoraBonita(invHoraFin)}
                           </Text>
@@ -551,7 +595,6 @@ export default function RedCuidadoresScreen() {
                       </View>
                     </View>
 
-                    {/* TIMEPICKERS INVITACION */}
                     {showInvInicioTimePicker && (
                       <DateTimePicker
                         value={(() => {
@@ -588,7 +631,6 @@ export default function RedCuidadoresScreen() {
                       />
                     )}
 
-                    {/* DÍAS INVITACIÓN */}
                     <Text style={[styles.modalLabel, { marginTop: 10 }]}>Días de Trabajo</Text>
                     <View style={styles.diasModalRow}>
                       {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => {
@@ -639,7 +681,6 @@ export default function RedCuidadoresScreen() {
 }
 
 const styles = StyleSheet.create({
-  // ── 1. ESTRUCTURA Y CONTENEDORES BASE ──
   container: { 
     flex: 1, 
     backgroundColor: COLORS.cream 
@@ -649,8 +690,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, 
     paddingTop: 16 
   },
-
-  // ── 2. ENCABEZADO ESTANDARIZADO (CACAO + DORADOS) ──
   header: {
     backgroundColor: COLORS.cacao,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52,
@@ -712,8 +751,6 @@ const styles = StyleSheet.create({
     fontWeight: '800', 
     color: COLORS.cacao 
   },
-
-  // ── 3. SECCIONES Y TARJETAS DE MIEMBROS ──
   sectionTitle: { 
     fontSize: 11, 
     fontWeight: '800', 
@@ -773,8 +810,6 @@ const styles = StyleSheet.create({
     color: COLORS.textLight, 
     marginTop: 2 
   },
-
-  // ── 4. HORARIOS, DÍAS Y ROLES ──
   horarioRow: { 
     flexDirection: 'row', 
     alignItems: 'center', 
@@ -829,6 +864,27 @@ const styles = StyleSheet.create({
     fontSize: 10, 
     fontWeight: '800' 
   },
+  permisoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.cream,
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  permisoTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.cacao,
+  },
+  permisoSub: {
+    fontSize: 10,
+    color: COLORS.textLight,
+    marginTop: 2,
+  },
   editarBtn: { 
     marginTop: 10, 
     paddingVertical: 8, 
@@ -843,8 +899,6 @@ const styles = StyleSheet.create({
     fontWeight: '800', 
     color: COLORS.gold 
   },
-
-  // ── 5. MODALES, INVITACIONES Y TOKENS ──
   modalOverlay: { 
     position: 'absolute', 
     top: 0, 

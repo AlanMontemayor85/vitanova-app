@@ -309,6 +309,12 @@ useEffect(() => {
     setCaidaActivaLocal(Boolean(config.caida_activa));
   }
 }, [signosDispositivo]);
+
+
+
+
+
+
 // 🔄 Carga inicial y Enrutador Inteligente Relacional
 useEffect(() => {
 
@@ -524,28 +530,38 @@ useEffect(() => {
   refreshKey
 ]);
 useEffect(() => {
-  if (paciente?.id || pacienteId) {
-    cargarListaEquipo();
-  }
-}, [paciente?.id, pacienteId]);
+  console.log("🔍 [PERMISOS EFFECT] Evaluando paciente:", paciente?.id);
+  if (!paciente?.id) return;
 
-const cargarListaEquipo = async () => {
-  try {
-    setCargandoEquipo(true);
-    const pId = paciente?.id || pacienteId;
-    if (!pId) return;
+  let montado = true;
+  (async () => {
+    try {
+      setCargandoEquipo(true);
+      console.log("📡 [PERMISOS EFFECT] Consultando endpoint getEquipoPaciente...");
+      const data = await getEquipoPaciente(paciente.id);
+      console.log("📦 [PERMISOS EFFECT] Respuesta Backend (Raw):", JSON.stringify(data));
 
-    const data: MiembroEquipo[] = await getEquipoPaciente(pId);
-    
-    // Filtrar cuidadores
-    const soloCuidadores = data.filter((m: MiembroEquipo) => (m.rol || '').toLowerCase() === 'cuidador');
-    setEquipoCuidadores(soloCuidadores);
-  } catch (err) {
-    console.log('⚠️ Error cargando equipo:', err);
-  } finally {
-    setCargandoEquipo(false);
-  }
-};
+      if (!montado) return;
+
+      const soloCuidadores = (data || []).filter((m: any) => {
+        const rol = (m.rol || '').toLowerCase();
+        console.log(`🔎 Evaluando miembro: ${m.nombre_completo} | Rol: "${rol}"`);
+        return rol.includes('cuidador') || (rol !== 'familiar' && rol !== 'admin' && rol !== 'familiar_principal');
+      });
+
+      console.log("✅ [PERMISOS EFFECT] Cuidadores válidos tras filtro:", soloCuidadores.length);
+      setEquipoCuidadores(soloCuidadores);
+    } catch (err) {
+      console.log('❌ [PERMISOS EFFECT] Error capturado:', err);
+    } finally {
+      if (montado) setCargandoEquipo(false);
+    }
+  })();
+
+  return () => {
+    montado = false;
+  };
+}, [paciente?.id]);
 useEffect(() => {
   const subTareas = DeviceEventEmitter.addListener('RECARGAR_TAREAS', () => {
     console.log("⚡ [INDEX] Recibida orden de recargar tareas...");
@@ -602,6 +618,8 @@ useFocusEffect(
 
         const p = pacientesEstables[idx] || pacientesEstables[0];
         setPaciente(p);
+
+        
       } catch (e) {
         console.log('focus-refresh omitido:', e);
       }

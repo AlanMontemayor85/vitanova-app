@@ -6,7 +6,8 @@ interface CuidadorProps {
   pacienteId: string;
   cuidador: {
     usuario_id: string;
-    nombre_completo: string;
+    nombre_completo?: string;
+    nombre?: string;
     rol: string;
     puede_exportar_datos: boolean;
   };
@@ -22,6 +23,8 @@ export const CuidadorPermisosCard: React.FC<CuidadorProps> = ({
     cuidador.puede_exportar_datos ?? false
   );
   const [cargando, setCargando] = useState<boolean>(false);
+
+  const nombreMostrar = cuidador.nombre_completo || cuidador.nombre || 'Cuidador';
 
   const handleToggle = async (nuevoValor: boolean) => {
     setPuedeExportar(nuevoValor);
@@ -43,7 +46,7 @@ export const CuidadorPermisosCard: React.FC<CuidadorProps> = ({
   return (
     <View style={styles.card}>
       <View style={styles.infoContainer}>
-        <Text style={styles.nombre}>{cuidador.nombre_completo}</Text>
+        <Text style={styles.nombre}>{nombreMostrar}</Text>
         <Text style={styles.rol}>Rol: {cuidador.rol}</Text>
       </View>
 
@@ -78,19 +81,56 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
-    marginVertical: 8,
-    marginHorizontal: 16,
+    marginVertical: 6,
     elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  infoContainer: { marginBottom: 12 },
-  nombre: { fontSize: 16, fontWeight: '700', color: '#111827' },
-  rol: { fontSize: 13, color: '#6B7280', textTransform: 'capitalize', marginTop: 2 },
-  divider: { height: 1, backgroundColor: '#F3F4F6', marginBottom: 12 },
-  toggleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  textGroup: { flex: 1, paddingRight: 12 },
-  toggleLabel: { fontSize: 14, fontWeight: '600', color: '#374151' },
-  toggleSubtext: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
-  switchLoader: { paddingHorizontal: 10 },
+  infoContainer: {
+    marginBottom: 10,
+  },
+  nombre: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  rol: {
+    fontSize: 12,
+    color: '#6B7280',
+    textTransform: 'capitalize',
+    marginTop: 2,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginBottom: 10,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  textGroup: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  toggleLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  toggleSubtext: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
+  switchLoader: {
+    paddingHorizontal: 10,
+  },
 });
+
+export default CuidadorPermisosCard;
