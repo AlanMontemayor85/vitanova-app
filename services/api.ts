@@ -820,6 +820,45 @@ export const verifyOtp = async (email: string, token: string) => {
     throw new Error(e.message || 'Error de conexión con el servidor');
   }
 };
+export const forgotPassword = async (email: string) => {
+  try {
+    const res = await fetch(`${BASE_URL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || 'Error al solicitar recuperación');
+    }
+    return data;
+  } catch (e: any) {
+    throw new Error(e.message || 'Error de conexión');
+  }
+};
+
+export const resetPassword = async (email: string, token: string, nuevaPassword: string) => {
+  try {
+    const res = await fetch(`${BASE_URL}/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+        token: token.trim(),
+        nueva_password: nuevaPassword,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || 'Código inválido o expirado');
+    }
+    return data;
+  } catch (e: any) {
+    throw new Error(e.message || 'Error de conexión');
+  }
+};
 // 🔘 Alternar (Toggle) permiso de exportación/descarga de datos clínicos
 export const togglePermisoExportar = async (
   pacienteId: string,
@@ -845,7 +884,23 @@ export const getAlertaPeso = async (pacienteId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/pacientes/${pacienteId}/alerta-peso`);
   return res.json();
 };
+export const resendConfirmation = async (email: string) => {
+  try {
+    const res = await fetch(`${BASE_URL}/auth/resend-confirmation`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
+    });
 
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || 'Error al reenviar correo');
+    }
+    return data;
+  } catch (e: any) {
+    throw new Error(e.message || 'Error de conexión');
+  }
+};
 export const getTareasDia = async (pacienteId: string, fecha?: string) => {
   const hoy = fecha || new Date().toLocaleDateString('en-CA');
   const offsetMinutos = new Date().getTimezoneOffset();
