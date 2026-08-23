@@ -920,18 +920,30 @@ export const getSignosRecientes = async (patientId: string) => {
 
 export const forzarMedicionSignos = async (patientId: string) => {
   try {
-    const res = await fetchWithAuth(`${BASE_URL}/pacientes/${patientId}/forzar-medicion`, { method: 'POST' });
-    return await res.json();
-  } catch (error) {
+    const res = await fetchWithAuth(`${BASE_URL}/pacientes/${patientId}/forzar-medicion`, {
+      method: 'POST',
+    });
+
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { detail: text };
+    }
+
+    if (!res.ok) {
+      const errorMsg = data?.detail || data?.mensaje || data?.message || data?.error || text || `Error HTTP ${res.status}`;
+      throw new Error(typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg);
+    }
+
+    return data;
+  } catch (error: any) {
     console.error("❌ Error en servicio forzarMedicionSignos:", error);
-    return { status: "error", error: String(error) };
+    return { status: "error", error: error.message || String(error) };
   }
 };
-interface ConfigurarRelojParams {
-  sensibilidad?: number | string;
-  comando?: string;
-  argumento?: string;
-}
+
 
 interface ConfigurarRelojParams {
   sensibilidad?: number | string;
