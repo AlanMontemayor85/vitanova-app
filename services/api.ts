@@ -1,5 +1,4 @@
 
-import { router } from 'expo-router'; // 🎯 Importación clave para expulsión táctica
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
@@ -16,11 +15,18 @@ try {
 } catch (e) {
   console.warn("⚠️ Advertencia: Error cargando módulos de almacenamiento persistente:", e);
 }
+// ──────────────────────────────────────────────────────────────
+// GESTIÓN DE SESIÓN Y TOKENS
+// ──────────────────────────────────────────────────────────────
 
 export const setToken = async (token: string) => {
   authToken = token;
-  if (SecureStore) {
-    await SecureStore.setItemAsync('vitanova_token', token);
+  try {
+    if (SecureStore) {
+      await SecureStore.setItemAsync('vitanova_token', token);
+    }
+  } catch (err) {
+    console.warn('Error guardando token en SecureStore:', err);
   }
 };
 
@@ -63,8 +69,8 @@ const headers = () => ({
   ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
 });
 
-// 🚀 INTERCEPTOR BLINDADO: Asegura token antes de enviar y evita falsos 401
-const fetchWithAuth = async (url: string, options: RequestInit = {}, reintentado: boolean = false): Promise<Response> => {
+// 🚀 INTERCEPTOR BLINDADO: Asegura token antes de enviar y maneja reintentos
+export const fetchWithAuth = async (url: string, options: RequestInit = {}, reintentado: boolean = false): Promise<Response> => {
   try {
     // 🛡️ 1. Si authToken en memoria está vacío, intentamos cargarlo de SecureStore primero
     if (!authToken) {
@@ -80,7 +86,7 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}, reintentado
       },
     });
 
-    // 🔄 2. Si da 401, reintentamos recargando el token almacenado antes de expulsar
+    // 🔄 2. Si da 401, reintentamos recargando el token almacenado antes de fallar
     if (res.status === 401 && !reintentado) {
       console.log("🔄 [AUTH] 401 recibido. Reintentando con token de disco...");
       const tokenDisco = await loadStoredToken();
@@ -89,34 +95,82 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}, reintentado
       }
     }
 
-    // 🥾 3. Expulsión solo si realmente no hay credenciales válidas
-    if (res.status === 401 || res.status === 403) {
-      console.warn("🚨 [SESIÓN CAÍDA] Token inválido o expirado. Purgando acceso local...");
+    // 🥾 3. Si persiste el 401, purgamos la sesión inválida
+    if (res.status === 401) {
+      console.warn("🚨 [SESIÓN CAÍDA] Token no autorizado o expirado. Purgando credenciales...");
       await clearToken();
-      router.replace('/login'); 
     }
 
     return res;
   } catch (error) {
-    console.error("❌ Fallo crítico de red o servidor inalcanzable:", error);
+    console.error("❌ Fallo de red o servidor inalcanzable:", error);
     throw error;
   }
 };
+
+// ──────────────────────────────────────────────────────────────
+// ENDPOINTS DE AUTENTICACIÓN
+// ──────────────────────────────────────────────────────────────
+
 export const login = async (email: string, password: string) => {
-  const res = await fetch(`${BASE_URL}/auth/login`, {
-    method: 'POST',
-    headers: headers(),
-    body: JSON.stringify({ email, password }),
-  });
-  const data = await res.json();
-  if (data.access_token) {
-    await setToken(data.access_token);
-    userNombre = data.nombre ?? null;
-    userTipo = data.tipo ?? null;
+  try {
+    const res = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        email: email.trim().toLowerCase(), 
+        password 
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.detail || 'Email o contraseña incorrectos');
+    }
+
+    if (data.access_token) {
+      await setToken(data.access_token);
+      userNombre = data.nombre ?? null;
+      userTipo = data.tipo ?? null;
+    }
+
+    return data;
+  } catch (e: any) {
+    console.log('Error fetch login:', e);
+    throw new Error(e.message || 'Error de conexión con el servidor');
   }
-  return data;
 };
 
+export const register = async (
+  email: string, 
+  password: string, 
+  extra?: { acepta_aviso?: boolean; version_aviso?: string }
+) => {
+  try {
+    const res = await fetch(`${BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        email: email.trim().toLowerCase(), 
+        password,
+        acepta_aviso: extra?.acepta_aviso ?? true,
+        version_aviso: extra?.version_aviso ?? 'v1.0',
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.detail || data.message || 'Error al registrar usuario');
+    }
+
+    return data;
+  } catch (e: any) {
+    console.log('Error fetch registro:', e);
+    throw new Error(e.message || 'Error de conexión con el servidor');
+  }
+};
 // ==============================================================================
 // 🪐 RUTAS CONVERTIDAS AL GUARDIÁN DE AUTENTICACIÓN CENTRAL (fetchWithAuth)
 // ==============================================================================
@@ -694,29 +748,6 @@ export const crearInvitacion = async (datos: object) => {
     body: JSON.stringify(datos),
   });
   return res.json();
-};
-
-export const register = async (
-  email: string, 
-  password: string, 
-  extra?: { acepta_aviso?: boolean; version_aviso?: string }
-) => {
-  try {
-    const res = await fetch(`${BASE_URL}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        email, 
-        password,
-        acepta_aviso: extra?.acepta_aviso ?? true,
-        version_aviso: extra?.version_aviso ?? 'v1.0',
-      }),
-    });
-    return await res.json();
-  } catch (e) {
-    console.log('Error fetch registro:', e);
-    throw e;
-  }
 };
 
 export const buscarInvitacion = async (codigo: string) => {
