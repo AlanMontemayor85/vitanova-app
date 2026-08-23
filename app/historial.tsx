@@ -32,49 +32,17 @@ const COLORS = {
 // ── HELPERS Y MOLDES DE FORMATO ──
 const formatFecha = (iso: string) => {
   if (!iso) return '—';
-  
-  // Si la cadena solo tiene fecha (YYYY-MM-DD) o la hora viene en ceros (00:00:00):
-  const esMedianocheOCorta = iso.length === 10 || iso.includes('T00:00:00') || iso.includes(' 00:00:00');
-  
-  if (esMedianocheOCorta) {
-    const fechaLimpiada = iso.slice(0, 10) + 'T12:00:00';
-    return new Date(fechaLimpiada).toLocaleDateString('es-MX', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    }); // Salida: "22 de agosto de 2026" (sin las 12:00 a.m.)
-  }
-
   return new Date(iso).toLocaleDateString('es-MX', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
+    day: 'numeric', month: 'long', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
   });
 };
 
-const formatFechaPildora = (cierre: any) => {
-  const rawDate = cierre?.created_at || cierre?.fecha;
-  if (!rawDate) return 'Filtrar Fecha';
-
-  const esMedianocheOCorta = String(rawDate).length === 10 || String(rawDate).includes('T00:00:00') || String(rawDate).includes(' 00:00:00');
-
-  if (esMedianocheOCorta) {
-    const fechaLimpiada = String(rawDate).slice(0, 10) + 'T12:00:00';
-    return new Date(fechaLimpiada).toLocaleDateString('es-MX', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short'
-    }); // Salida: "sáb 22 de ago"
-  }
-
-  return new Date(rawDate).toLocaleString('es-MX', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit'
+const formatHora = (iso: string) => {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleTimeString('es-MX', { 
+    hour: '2-digit', 
+    minute: '2-digit' 
   });
 };
 
