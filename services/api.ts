@@ -793,7 +793,33 @@ export const getEquipoPaciente = async (pacienteId: string): Promise<MiembroEqui
   }
   return res.json();
 };
+export const verifyOtp = async (email: string, token: string) => {
+  try {
+    const res = await fetch(`${BASE_URL}/auth/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+        token: token.trim(),
+      }),
+    });
 
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.detail || 'Código inválido o expirado');
+    }
+
+    if (data.access_token) {
+      await setToken(data.access_token);
+    }
+
+    return data;
+  } catch (e: any) {
+    console.log('Error fetch verifyOtp:', e);
+    throw new Error(e.message || 'Error de conexión con el servidor');
+  }
+};
 // 🔘 Alternar (Toggle) permiso de exportación/descarga de datos clínicos
 export const togglePermisoExportar = async (
   pacienteId: string,
