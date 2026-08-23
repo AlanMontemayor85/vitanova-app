@@ -70,6 +70,7 @@ const handleCancelarYSalir = () => {
 
 
   const handleGuardarDefinitivo = async () => {
+    setModalAvisoVisible(false);
     setModalVisible(false);
     setLoading(true);
     setError('');
@@ -91,14 +92,20 @@ const handleCancelarYSalir = () => {
       // Mapeo de perfil genérico para backend auth ('familiar')
       const tipoPerfilBackend = (rol === 'familiar_co_admin' || rol === 'familiar') ? 'familiar' : rol;
 
-      // 1. Guardar Perfil de Usuario en Supabase / Backend
       const res = await fetch(`${BASE_URL}/auth/completar-perfil`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ nombre, telefono, cedula, tipo: tipoPerfilBackend }),
+        body: JSON.stringify({
+          nombre: nombre.trim(),
+          telefono: telefono.trim(),
+          cedula: cedula ? cedula.trim() : null,
+          tipo: tipoPerfilBackend,
+          acepta_aviso: true,
+          version_aviso: 'v1.0'
+        }),
       });
 
       if (!res.ok) {
