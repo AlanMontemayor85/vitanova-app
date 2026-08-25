@@ -257,30 +257,68 @@ const corregirResumenTurno = (turnoOriginal: any, listadoMedicamentos: any[], li
   };
 };
 
-const ejecutarComandoReloj = async (comando: 'FIND' | 'PEDO' | 'RESET' | 'POWEROFF' | 'FALLDOWN' | 'LSSET', argumento: string = '') => {
-    if (!paciente?.id) return;
-    try {
-      setEjecutandoCmd(comando);
-      const res = await enviarComandoReloj(paciente.id, comando, argumento);
-      
-      if (res?.success) {
-        let msg = 'Comando enviado con éxito.';
-        if (comando === 'FIND') msg = 'El reloj está sonando (1 min).';
-        if (comando === 'PEDO') msg = 'Podómetro activado (24h).';
-        if (comando === 'RESET') msg = 'El reloj se está reiniciando.';
-        if (comando === 'POWEROFF') msg = 'El reloj se ha apagado remotamente.';
-        if (comando === 'FALLDOWN') msg = `Detector de caídas ${argumento === '1,1' ? 'activado' : 'desactivado'}.`;
-        if (comando === 'LSSET') msg = `Sensibilidad ajustada correctamente.`;
-        Alert.alert('Éxito', msg);
-      } else {
-        Alert.alert('Aviso', res?.detail || 'No se pudo comunicar con el dispositivo.');
-      }
-    } catch {
-      Alert.alert('Error', 'Error de conexión con el servidor.');
-    } finally {
-      setEjecutandoCmd(null);
+const ejecutarComandoReloj = async (
+  comando: 'FIND' | 'PEDO' | 'RESET' | 'POWEROFF' | 'FALLDOWN' | 'LSSET',
+  argumento: string = ''
+) => {
+  if (!paciente?.id) return;
+  try {
+    setEjecutandoCmd(comando);
+
+    // ⚡ 1. ACTUALIZACIÓN OPTIMISTA INMEDIATA (Para que el Switch responda al instante)
+    if (comando === 'FALLDOWN') {
+      const nuevoEstado = argumento === '1,1' || argumento === '1';
+      setSignosDispositivo((prev: any) => ({
+        ...prev,
+        reloj_config: {
+          ...prev?.reloj_config,
+          caida_activa: nuevoEstado,
+        },
+      }));
     }
-  };
+
+    const res = await enviarComandoReloj(paciente.id, comando, argumento);
+
+    if (res?.success) {
+      let msg = 'Comando enviado con éxito.';
+      if (comando === 'FIND') msg = 'El reloj está sonando (1 min).';
+      if (comando === 'PEDO') msg = 'Podómetro activado (24h).';
+      if (comando === 'RESET') msg = 'El reloj se está reiniciando.';
+      if (comando === 'POWEROFF') msg = 'El reloj se ha apagado remotamente.';
+      if (comando === 'FALLDOWN') msg = `Detector de caídas ${argumento.startsWith('1') ? 'activado' : 'desactivado'}.`;
+      if (comando === 'LSSET') msg = `Sensibilidad ajustada correctamente.`;
+      Alert.alert('Éxito', msg);
+    } else {
+      // 🔄 Revertir si el servidor falló
+      if (comando === 'FALLDOWN') {
+        const revertirEstado = !(argumento === '1,1' || argumento === '1');
+        setSignosDispositivo((prev: any) => ({
+          ...prev,
+          reloj_config: {
+            ...prev?.reloj_config,
+            caida_activa: revertirEstado,
+          },
+        }));
+      }
+      Alert.alert('Aviso', res?.detail || 'No se pudo comunicar con el dispositivo.');
+    }
+  } catch {
+    // 🔄 Revertir en error de red
+    if (comando === 'FALLDOWN') {
+      const revertirEstado = !(argumento === '1,1' || argumento === '1');
+      setSignosDispositivo((prev: any) => ({
+        ...prev,
+        reloj_config: {
+          ...prev?.reloj_config,
+          caida_activa: revertirEstado,
+        },
+      }));
+    }
+    Alert.alert('Error', 'Error de conexión con el servidor.');
+  } finally {
+    setEjecutandoCmd(null);
+  }
+};
 
 const confirmarAccionCritica = (tipo: 'RESET' | 'POWEROFF') => {
     const esReset = tipo === 'RESET';
@@ -1746,32 +1784,39 @@ useEffect(() => {
 
               {/* 🛡️ 2. DETECTOR DE CAÍDAS & SENSIBILIDAD */}
               <View style={{
-                backgroundColor: COLORS.cream,
-                borderRadius: 14,
-                padding: 14,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                marginBottom: 20,
-              }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <View style={{ flex: 1, marginRight: 10 }}>
-                    <Text style={{ fontSize: 12, fontWeight: '800', color: COLORS.cacao }}>
-                      Detector de Caídas 
-                    </Text>
-                    <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 1 }}>
-                      Dispara alerta SOS ante impactos
-                    </Text>
-                  </View>
-                  <Switch
-                    value={Boolean(signosDispositivo?.reloj_config?.caida_activa)}
-                    onValueChange={async (activo) => {
-                      await ejecutarComandoReloj('FALLDOWN', activo ? '1,1' : '0,0');
-                    }}
-                    trackColor={{ false: '#D1D5DB', true: COLORS.gold }}
-                    thumbColor={COLORS.white}
-                  />
+              backgroundColor: COLORS.cream,
+              borderRadius: 14,
+              padding: 14,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              marginBottom: 20,
+            }}>
+              {/* Encabezado con Switch Optimista */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <View style={{ flex: 1, marginRight: 10 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: COLORS.cacao }}>
+                    Detector de Caídas
+                  </Text>
+                  <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 1 }}>
+                    {Boolean(signosDispositivo?.reloj_config?.caida_activa) 
+                      ? '🟢 Activo: Dispara alerta SOS ante impactos' 
+                      : '⚪ Desactivado: El sensor no emitirá alertas'}
+                  </Text>
                 </View>
+                
+                <Switch
+                  value={Boolean(signosDispositivo?.reloj_config?.caida_activa)}
+                  disabled={ejecutandoCmd === 'FALLDOWN'}
+                  onValueChange={async (activo) => {
+                    await ejecutarComandoReloj('FALLDOWN', activo ? '1,1' : '0,0');
+                  }}
+                  trackColor={{ false: '#D1D5DB', true: COLORS.gold }}
+                  thumbColor={COLORS.white}
+                />
+              </View>
 
+              {/* Selector de Sensibilidad (Atenuado si está apagado) */}
+              <View style={{ opacity: Boolean(signosDispositivo?.reloj_config?.caida_activa) ? 1 : 0.45 }}>
                 <Text style={{ fontSize: 10, fontWeight: '700', color: COLORS.textLight, marginBottom: 8, textTransform: 'uppercase' }}>
                   Sensibilidad del Sensor
                 </Text>
@@ -1786,24 +1831,24 @@ useEffect(() => {
                     { val: 6, label: '⚪ Mínima (6)', desc: 'Impactos severos' },
                   ].map((op) => {
                     const activo = Number(sensibilidadLocal) === op.val;
+                    const caidaHabilitada = Boolean(signosDispositivo?.reloj_config?.caida_activa);
 
                     return (
                       <TouchableOpacity
                         key={op.val}
                         activeOpacity={0.8}
+                        disabled={!caidaHabilitada || ejecutandoCmd === 'LSSET'}
                         style={{
                           width: '48.5%',
                           paddingVertical: 10,
                           paddingHorizontal: 8,
                           borderRadius: 10,
-                          // 🎨 CONTRASTE ALTO: Si está activo fondo Cacao + Borde Oro brillante
                           backgroundColor: activo ? COLORS.cacao : COLORS.white,
                           borderWidth: activo ? 2 : 1,
                           borderColor: activo ? COLORS.gold : COLORS.border,
                           alignItems: 'center',
                           justifyContent: 'center',
                           position: 'relative',
-                          // Sombra extra para la tarjeta activa
                           shadowColor: activo ? '#000' : 'transparent',
                           shadowOffset: { width: 0, height: 2 },
                           shadowOpacity: activo ? 0.2 : 0,
@@ -1811,11 +1856,10 @@ useEffect(() => {
                           elevation: activo ? 4 : 0,
                         }}
                         onPress={async () => {
-                          setSensibilidadLocal(op.val); // ⚡ Cambio de color instantáneo
+                          setSensibilidadLocal(op.val);
                           await ejecutarComandoReloj('LSSET', `${op.val}+6`);
                         }}
                       >
-                        {/* 🎯 Badge / Check si está seleccionado */}
                         {activo && (
                           <View style={{
                             position: 'absolute',
@@ -1830,7 +1874,6 @@ useEffect(() => {
                           </View>
                         )}
 
-                        {/* Título de la tarjeta */}
                         <Text style={{
                           fontSize: 11,
                           fontWeight: '800',
@@ -1840,7 +1883,6 @@ useEffect(() => {
                           {op.label}
                         </Text>
 
-                        {/* Descripción */}
                         <Text style={{
                           fontSize: 8.5,
                           fontWeight: '600',
@@ -1855,6 +1897,7 @@ useEffect(() => {
                   })}
                 </View>
               </View>
+            </View>
 
               {/* 🛑 3. APAGADO REMOTO */}
               <TouchableOpacity
