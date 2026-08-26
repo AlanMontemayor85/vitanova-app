@@ -6,7 +6,7 @@ const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 let authToken: string | null = null;
 let userNombre: string | null = null;
 let userTipo: string | null = null;
-
+let onSessionExpiredCallback: (() => void) | null = null;
 let SecureStore: any;
 let AsyncStorage: any;
 try {
@@ -46,7 +46,9 @@ export const loadStoredToken = async () => {
     return null;
   }
 };
-
+export const registerOnSessionExpired = (callback: () => void) => {
+  onSessionExpiredCallback = callback;
+};
 export const clearToken = async () => {
   authToken = null;
   userNombre = null;
@@ -70,9 +72,12 @@ const headers = () => ({
 });
 
 // 🚀 INTERCEPTOR BLINDADO: Asegura token antes de enviar y maneja reintentos
-export const fetchWithAuth = async (url: string, options: RequestInit = {}, reintentado: boolean = false): Promise<Response> => {
+export const fetchWithAuth = async (
+  url: string, 
+  options: RequestInit = {}, 
+  reintentado: boolean = false
+): Promise<Response> => {
   try {
-    // 🛡️ 1. Si authToken en memoria está vacío, intentamos cargarlo de SecureStore primero
     if (!authToken) {
       await loadStoredToken();
     }
@@ -86,23 +91,30 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}, rein
       },
     });
 
-    // 🔄 2. Si da 401, reintentamos recargando el token almacenado antes de fallar
+    // Reintento con disco si el token en memoria falló
     if (res.status === 401 && !reintentado) {
       console.log("🔄 [AUTH] 401 recibido. Reintentando con token de disco...");
       const tokenDisco = await loadStoredToken();
-      if (tokenDisco) {
+      if (tokenDisco && tokenDisco !== authToken) {
         return await fetchWithAuth(url, options, true);
       }
     }
 
-    // 🥾 3. Si persiste el 401, purgamos la sesión inválida
+    // 🥾 Expulsión inmediata ante token inválido/expirado
     if (res.status === 401) {
-      console.warn("🚨 [SESIÓN CAÍDA] Token no autorizado o expirado. Purgando credenciales...");
+      console.warn("🚨 [SESIÓN CAÍDA] 401 confirmado. Redirigiendo a login...");
       await clearToken();
+      if (onSessionExpiredCallback) {
+        onSessionExpiredCallback();
+      }
+      throw new Error('UNAUTHORIZED');
     }
 
     return res;
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === 'UNAUTHORIZED') {
+      throw error;
+    }
     console.error("❌ Fallo de red o servidor inalcanzable:", error);
     throw error;
   }
@@ -171,6 +183,9 @@ export const register = async (
     throw new Error(e.message || 'Error de conexión con el servidor');
   }
 };
+
+
+
 // ==============================================================================
 // 🪐 RUTAS CONVERTIDAS AL GUARDIÁN DE AUTENTICACIÓN CENTRAL (fetchWithAuth)
 // ==============================================================================

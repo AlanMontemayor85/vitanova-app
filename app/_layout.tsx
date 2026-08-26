@@ -1,15 +1,24 @@
+import { registerOnSessionExpired } from '@/services/api'; // 👈 Ajusta la ruta a tu archivo de API
 import * as Notifications from 'expo-notifications';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
+import { useEffect } from 'react';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
-  } as any), // ⚡ Forzamos a TypeScript a aceptar el objeto de retorno
+  } as any),
 });
 
 export default function RootLayout() {
+  useEffect(() => {
+    // 🛡️ Guardián: cuando el API reciba un 401 definitivo, redirige a login
+    registerOnSessionExpired(() => {
+      router.replace('/login');
+    });
+  }, []);
+
   return (
     <Stack>
       <Stack.Screen name="index" options={{ headerShown: false }} />
