@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getSignosRecientes, getToken, iniciarTurno } from '../services/api';
+import { encolarPeticionOffline } from '../services/offlineQueue';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
@@ -103,44 +104,60 @@ useEffect(() => {
   const guardar = async () => {
   setGuardando(true);
   try {
-    // 🛑 SI EL RELOJ NO ESTÁ PUESTO/ACTIVO: avanzamos sin validar
-    if (!relojActivo) {
-      console.log("⌚ Reloj inactivo o quitado. Omitiendo evaluación de alertas biométricas...");
-      await avanzarAlTurno();
-      return;
-    }
+    const payload = {
+      paciente_id: paciente.id,
+      momento,
+      estado_animo: 'bien',
+      alimentacion: 'bien',
+      dolor_eva: 0,
+      spo2: null,
+      presion_sistolica: null,
+      presion_diastolica: null,
+      frecuencia_cardiaca: null,
+      temperatura: null,
+    };
 
     const token = getToken();
+
+    // Intentamos el envío normal por HTTP
     const res = await fetch(`${BASE_URL}/registros/salud`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        paciente_id: paciente.id,
-        momento,
-        estado_animo: 'bien',
-        alimentacion: 'bien',
-        dolor_eva: 0,
-        // 🎯 Enviamos null en los signos para no duplicar ni fingir una toma manual:
-        // El reloj ya los reporta por su propio socket TCP.
-        spo2: null, 
-        presion_sistolica: null, 
-        presion_diastolica: null,
-        frecuencia_cardiaca: null, 
-        temperatura: null,
-      }),
+      body: JSON.stringify(payload),
     });
-    
+
     const data = await res.json();
     if (data.alertas?.length > 0) {
       setAlertas(data.alertas);
     } else {
       await avanzarAlTurno();
     }
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    // 🎯 FALLO DE RED: Encolamos de forma transparente sin trabar al cuidador
+    console.log('⚠️ Sin red al registrar inicio de turno. Guardando en cola local...');
+    
+    await encolarPeticionOffline(
+      `${BASE_URL}/registros/salud`,
+      'POST',
+      {
+        paciente_id: paciente.id,
+        momento,
+        estado_animo: 'bien',
+        alimentacion: 'bien',
+        dolor_eva: 0,
+        spo2: null,
+        presion_sistolica: null,
+        presion_diastolica: null,
+        frecuencia_cardiaca: null,
+        temperatura: null,
+      },
+      `Inicio de turno - ${paciente.nombre_completo}`
+    );
+
+    // El cuidador entra a la agenda de inmediato
     await avanzarAlTurno();
   } finally {
     setGuardando(false);

@@ -35,6 +35,7 @@ import {
   verificarEscalas
 } from '../services/api';
 import { programarNotificacionTarea, registrarNotificaciones } from '../services/notifications';
+import { encolarPeticionOffline } from '../services/offlineQueue';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
@@ -766,12 +767,41 @@ const irARegistroSalud = (p: any) => {
 };
 const guardarRegistroEspontaneo = async () => {
   setGuardandoEspontaneo(true);
+  
+  // 🧹 Función auxiliar para resetear inputs y volver a la vista del turno
+  const limpiarInputsYVolver = () => {
+    setPresionSist('');
+    setPresionDiast('');
+    setFrecCard('');
+    setSpo2Manual('');
+    setTempManual('');
+    setGlucosa('');
+    setObservaciones('');
+    setVista('turno');
+  };
+
+  const pesoFinal = peso && Number(peso) > 0 ? Number(peso) : null;
+
+  const payload = {
+    paciente_id: pacienteActivo.id,
+    momento: 'espontaneo',
+    dolor_eva: dolorEva,
+    hidratacion_vasos: hidratacion,
+    estado_animo: estadoAnimo,
+    alimentacion: alimentacion,
+    spo2: spo2Manual ? Number(spo2Manual) : (signosDispositivo?.spo2 !== '—' ? Number(signosDispositivo?.spo2) : null),
+    frecuencia_cardiaca: frecCard ? Number(frecCard) : (signosDispositivo?.fc !== '—' ? Number(signosDispositivo?.fc) : null),
+    presion_sistolica: presionSist ? Number(presionSist) : null,
+    presion_diastolica: presionDiast ? Number(presionDiast) : null,
+    temperatura: tempManual ? Number(tempManual) : null,
+    glucosa: glucosa ? Number(glucosa) : null,
+    peso_kg: pesoFinal,
+    observaciones: observaciones.trim() || null,
+  };
+
   try {
     const token = await loadStoredToken();
-    if (!token) return;
-
-    // 🎯 Parseo del peso
-    const pesoFinal = peso && Number(peso) > 0 ? Number(peso) : null;
+    if (!token) throw new Error('No hay sesión activa');
 
     const res = await fetch(`${BASE_URL}/registros/salud`, {
       method: 'POST',
@@ -779,112 +809,124 @@ const guardarRegistroEspontaneo = async () => {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        paciente_id: pacienteActivo.id,
-        momento: 'espontaneo',
-        dolor_eva: dolorEva,
-        hidratacion_vasos: hidratacion,
-        estado_animo: estadoAnimo,
-        alimentacion: alimentacion,
-        spo2: spo2Manual ? Number(spo2Manual) : (signosDispositivo?.spo2 !== '—' ? Number(signosDispositivo?.spo2) : null),
-        frecuencia_cardiaca: frecCard ? Number(frecCard) : (signosDispositivo?.fc !== '—' ? Number(signosDispositivo?.fc) : null),
-        presion_sistolica: presionSist ? Number(presionSist) : null,
-        presion_diastolica: presionDiast ? Number(presionDiast) : null,
-        temperatura: tempManual ? Number(tempManual) : null,
-        glucosa: glucosa ? Number(glucosa) : null,
-        peso_kg: pesoFinal,
-        observaciones: observaciones.trim() || null,
-      }),
+      body: JSON.stringify(payload),
     });
+
+    if (!res.ok) {
+      throw new Error(`Servidor respondió con status ${res.status}`);
+    }
 
     const data = await res.json();
 
-    if (res.ok) {
-      // 🧼 Limpiamos los inputs
-      setPresionSist('');
-      setPresionDiast('');
-      setFrecCard('');
-      setSpo2Manual('');
-      setTempManual('');
-      setGlucosa('');
-      setObservaciones('');
-      
-      // 🔄 REFRESCADO INTELIGENTE: Recargamos las notas desde el servidor
-      // Así la nueva toma manual aparecerá en la sección de "Notas del Cuidador" inmediatamente
-      try {
-        const notasData = await getNotasTurno(pacienteActivo.id);
-        if (notasData && Array.isArray(notasData.notas)) {
-          setNotas(notasData.notas.slice(0, 5)); // Mantenemos el límite de 5 para la UI
-        }
-      } catch (err) {
-        console.error("Error al refrescar las notas tras registro espontáneo:", err);
+    // 🔄 Recargamos notas si hay conexión
+    try {
+      const notasData = await getNotasTurno(pacienteActivo.id);
+      if (notasData && Array.isArray(notasData.notas)) {
+        setNotas(notasData.notas.slice(0, 5));
       }
-      
-      setVista('turno');
-      Alert.alert('✅ Registro Guardado', 'La toma manual se registró correctamente en la bitácora.');
-    } else {
-      Alert.alert('⚠️ Error', data.mensaje || 'No se pudo guardar el registro.');
+    } catch (err) {
+      console.log("No se pudieron refrescar notas de fondo:", err);
     }
 
-  } catch (e) {
-    console.error('❌ Error guardando registro espontáneo:', e);
-    Alert.alert('Error de Conexión', 'Ocurrió un problema al enviar la información.');
+    limpiarInputsYVolver();
+    Alert.alert('✅ Registro Guardado', 'La toma manual se registró correctamente en la bitácora.');
+
+  } catch (e: any) {
+    console.warn('⚠️ Sin red al registrar salud espontánea. Guardando en cola local...', e);
+    
+    // 🎯 ENCOLAMIENTO OFFLINE
+    try {
+      await encolarPeticionOffline(
+        `${BASE_URL}/registros/salud`,
+        'POST',
+        payload,
+        `Toma manual/confort - ${pacienteActivo?.nombre_completo || 'Paciente'}`
+      );
+
+      limpiarInputsYVolver();
+      Alert.alert(
+        '💾 Guardado Localmente',
+        'La toma se registró en este dispositivo y se enviará automáticamente cuando recuperes conexión a internet.'
+      );
+    } catch (queueErr) {
+      console.error('❌ Error guardando en cola offline:', queueErr);
+      Alert.alert('⚠️ Error', 'No se pudo registrar la toma ni guardar localmente.');
+    }
   } finally {
     setGuardandoEspontaneo(false);
   }
 };
   const guardarNota = async () => {
-    if (!notaTexto.trim()) return;
-    setGuardandoNota(true);
-    const idTurnoActivo = turnoActivoRef.current?.id || turnoActivo?.id || null;
-    const textoCapturado = notaTexto.trim();
+  if (!notaTexto.trim()) return;
+  setGuardandoNota(true);
+  
+  const idTurnoActivo = turnoActivoRef.current?.id || turnoActivo?.id || null;
+  const textoCapturado = notaTexto.trim();
 
-    try {
-      const response = await fetch(`${BASE_URL}/notas`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          Authorization: `Bearer ${getToken()}` 
-        },
-        body: JSON.stringify({ 
-          paciente_id: pacienteActivo.id, 
-          turno_id: idTurnoActivo, 
-          texto: textoCapturado
-        })
-      });
-
-      if (!response.ok) throw new Error('Error en el servidor al guardar nota');
-
-      const nuevaNotaSimulada = {
-        descripcion: `📝 ${textoCapturado}`,
-        hora_completada: new Date().toISOString(),
-        usuarios: { nombre_completo: 'Personal Vitanova' }
-      };
-
-      setNotaTexto(''); 
-      setNotaOpen(false);
-      
-      setNotas((prevNotas) => {
-        const notasPrevias = Array.isArray(prevNotas) ? prevNotas : [];
-        return [nuevaNotaSimulada, ...notasPrevias].slice(0, 5);
-      });
-
-      try {
-        const notasData = await getNotasTurno(pacienteActivo.id);
-        if (notasData && Array.isArray(notasData.notas) && notasData.notas.length > 0) {
-          setNotas(notasData.notas.slice(0, 5));
-        }
-      } catch (fetchErr) {
-        console.log("Refresco de fondo ignorado:", fetchErr);
-      }
-    } catch (e) { 
-      console.error("❌ Error en guardarNota:", e); 
-      alert("⚠️ No se pudo guardar la nota. Verifica la conexión.");
-    } finally { 
-      setGuardandoNota(false); 
-    }
+  const payload = { 
+    paciente_id: pacienteActivo.id, 
+    turno_id: idTurnoActivo, 
+    texto: textoCapturado 
   };
 
+  // 🎯 1. UI OPTIMISTA INMEDIATA: La nota aparece en pantalla y el modal se cierra
+  const nuevaNotaSimulada = {
+    descripcion: `📝 ${textoCapturado}`,
+    texto: textoCapturado,
+    hora_completada: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    usuarios: { nombre_completo: nombreUsuario || 'Personal Vitanova' }
+  };
+
+  setNotaTexto(''); 
+  setNotaOpen(false);
+  setNotas((prevNotas) => {
+    const notasPrevias = Array.isArray(prevNotas) ? prevNotas : [];
+    return [nuevaNotaSimulada, ...notasPrevias].slice(0, 5);
+  });
+
+  // 🎯 2. INTENTO DE ENVÍO POR RED
+  try {
+    const token = await getToken();
+    const response = await fetch(`${BASE_URL}/notas`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json', 
+        Authorization: `Bearer ${token}` 
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) throw new Error(`Status ${response.status}`);
+
+    // Refresco pasivo de fondo si hay red
+    try {
+      const notasData = await getNotasTurno(pacienteActivo.id);
+      if (notasData && Array.isArray(notasData.notas) && notasData.notas.length > 0) {
+        setNotas(notasData.notas.slice(0, 5));
+      }
+    } catch (fetchErr) {
+      console.log("Refresco de fondo ignorado:", fetchErr);
+    }
+
+  } catch (e) { 
+    console.warn("⚠️ Sin red al registrar nota. Encolando offline...", e);
+    
+    // 🎯 3. ENCOLAMIENTO OFFLINE TRANSPARENTE
+    try {
+      await encolarPeticionOffline(
+        `${BASE_URL}/notas`,
+        'POST',
+        payload,
+        `Nota de turno - ${textoCapturado.slice(0, 30)}...`
+      );
+    } catch (queueErr) {
+      console.error("❌ Error guardando nota en cola offline:", queueErr);
+    }
+  } finally { 
+    setGuardandoNota(false); 
+  }
+};
  const guardarTareaManual = async () => {
   if (!nuevaTareaDesc.trim() && !tareaDesc.trim()) return;
   setGuardandoTarea(true);
@@ -897,59 +939,79 @@ const guardarRegistroEspontaneo = async () => {
   const hoyISO = new Date().toISOString().split('T')[0];
   const horaProgramadaFormatted = horaActual ? `${horaActual}:00` : null;
 
-  try {
-    const res = await agregarTareaManual({ 
-      turno_id: turnoActivoRef.current?.id || null, 
-      paciente_id: pacienteActivo.id, 
+  const payload = { 
+    turno_id: turnoActivoRef.current?.id || null, 
+    paciente_id: pacienteActivo.id, 
+    tipo: tipoActual, 
+    descripcion: descripcionLimpia, 
+    hora_programada: horaProgramadaFormatted, 
+    es_incidental: true,
+    fecha_inicio: hoyISO,
+    fecha_fin: hoyISO
+  };
+
+  // 🎯 1. UI OPTIMISTA: Insertar la tarea en la lista del turno de inmediato
+  setTareas(prev => [
+    ...prev, 
+    { 
+      id: idTemporal, 
       tipo: tipoActual, 
       descripcion: descripcionLimpia, 
       hora_programada: horaProgramadaFormatted, 
+      hora: horaActual || null,
+      completada: false, 
       es_incidental: true,
       fecha_inicio: hoyISO,
       fecha_fin: hoyISO
-    });
-    
-    const idFinal = res?.tarea_id || res?.id || idTemporal;
+    }
+  ]);
 
-    // Directo al estado de hoy
-    setTareas(prev => [
-      ...prev, 
-      { 
-        id: idFinal, 
-        tipo: tipoActual, 
-        descripcion: descripcionLimpia, 
-        hora_programada: horaProgramadaFormatted, 
-        hora: horaActual || null,
-        completada: false, 
-        es_incidental: true,
-        fecha_inicio: hoyISO,
-        fecha_fin: hoyISO
-      }
-    ]);
-
-    // 🔔 SI SE ESPECIFICÓ UNA HORA, PROGRAMAMOS LA NOTIFICACIÓN PUSH LOCAL
-    if (horaActual) {
+  // 🔔 2. Notificación local en el teléfono (funciona 100% offline)
+  if (horaActual) {
+    try {
       const tituloNotif = tipoActual.toUpperCase();
       const nombrePaciente = pacienteActivo?.nombre || pacienteActivo?.nombre_completo || '';
-
       await programarNotificacionTarea(
         tituloNotif, 
         descripcionLimpia, 
         horaActual, 
         nombrePaciente
       );
+    } catch (notifErr) {
+      console.log("No se pudo agendar notificación local:", notifErr);
     }
+  }
 
-    // Limpiar formulario y cerrar modal
-    setNuevaTareaDesc(''); 
-    setTareaDesc('');
-    setNuevaTareaHora(''); 
-    setTareaHora('');
-    setTareaOpen(false);
+  // 🧹 3. Limpiar formulario y cerrar modal sin trabar al cuidador
+  setNuevaTareaDesc(''); 
+  setTareaDesc('');
+  setNuevaTareaHora(''); 
+  setTareaHora('');
+  setTareaOpen(false);
 
+  // 🎯 4. INTENTO DE ENVÍO AL SERVIDOR CON FALLBACK OFFLINE
+  try {
+    const res = await agregarTareaManual(payload);
+    
+    // Si el backend responde con el ID real de Supabase, actualizamos el ID temporal
+    const idReal = res?.tarea_id || res?.id;
+    if (idReal) {
+      setTareas(prev => prev.map(t => t.id === idTemporal ? { ...t, id: idReal } : t));
+    }
   } catch (e) { 
-    console.error("❌ Error en guardarTareaManual:", e); 
-    Alert.alert("Error", "No se pudo guardar la tarea.");
+    console.warn("⚠️ Sin conexión al guardar tarea incidental. Encolando offline...", e);
+    
+    // 🎯 5. ENCOLAMIENTO OFFLINE
+    try {
+      await encolarPeticionOffline(
+        `${BASE_URL}/tareas/manual`,
+        'POST',
+        payload,
+        `Tarea incidental: ${descripcionLimpia}`
+      );
+    } catch (queueErr) {
+      console.error("❌ Error guardando tarea en cola offline:", queueErr);
+    }
   } finally { 
     setGuardandoTarea(false); 
   }
@@ -1062,77 +1124,114 @@ const guardarRegistroEspontaneo = async () => {
   };
 
   const ejecutarCierre = async () => {
+  // 🧹 Función auxiliar para limpiar la UI y redirigir
+  const limpiarYSalir = (mensajeTitulo: string, mensajeCuerpo: string) => {
+    setPresionSist('');
+    setPresionDiast('');
+    setFrecCard('');
+    setSpo2Manual('');
+    setTempManual('');
+    setGlucosa('');
+    setObservaciones('');
+    setDolorEva(0);
+    setEstadoAnimo('');
+    setHidratacion(0);
+    setAlimentacion('');
+    setConsumosTurno({});
+
+    resetEstados(); 
+    setVista('lista');
+
+    Alert.alert(mensajeTitulo, mensajeCuerpo);
+    router.replace({
+      pathname: '/' as any,
+      params: { 
+        refresh: String(Date.now()),
+        modoSwitch: undefined,
+        usuarioRol: undefined
+      }
+    });
+  };
+
   try {
-    // 📦 1. PROCESAR CONSUMOS DE INVENTARIO DEL TURNO
+    // 📦 1. PROCESAR CONSUMOS DE INVENTARIO DEL TURNO (Con protección offline)
     for (const [itemId, cantidadUsada] of Object.entries(consumosTurno)) {
       if (cantidadUsada > 0) {
         try {
           await consumirItemInventario(itemId, cantidadUsada);
         } catch (invErr) {
-          console.error(`❌ Error al consumir item ${itemId} en cierre:`, invErr);
+          console.warn(`⚠️ Sin red para consumir item ${itemId}. Encolando offline...`, invErr);
+          await encolarPeticionOffline(
+            `${BASE_URL}/inventario/${itemId}/consumo`,
+            'POST',
+            { cantidad: cantidadUsada },
+            `Consumo inventario: ${itemId} (${cantidadUsada} uds)`
+          );
         }
       }
     }
 
-    // 2. CONSOLIDACIÓN DE NOTAS
-    const notasRes = await fetch(`${BASE_URL}/notas?paciente_id=${pacienteActivo.id}`, {
-      headers: { Authorization: `Bearer ${getToken()}` }
-    });
-    const datasetNotas = await notasRes.json();
-    const arrayParaFiltrar = Array.isArray(datasetNotas?.notas) 
-      ? datasetNotas.notas 
-      : (Array.isArray(datasetNotas?.registros) ? datasetNotas.registros : null);
-
+    // 2. CONSOLIDACIÓN DE NOTAS (Con fallback a memoria local si no hay red)
     let notasConsolidadas = "Sin notas incidentales en el turno.";
-    if (arrayParaFiltrar) {
-      const idTurnoActual = turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId;
-      const notasDelTurno = arrayParaFiltrar.filter((n: any) => n.turno_id === idTurnoActual || n.turno_id === null);
+    try {
+      const token = await getToken();
+      const notasRes = await fetch(`${BASE_URL}/notas?paciente_id=${pacienteActivo.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const datasetNotas = await notasRes.json();
+      const arrayParaFiltrar = Array.isArray(datasetNotas?.notas) 
+        ? datasetNotas.notas 
+        : (Array.isArray(datasetNotas?.registros) ? datasetNotas.registros : null);
 
-      if (notasDelTurno.length > 0) {
-        notasConsolidadas = notasDelTurno
-          .reverse() 
-          .map((n: any) => {
-            const textoNota = n.texto || n.descripcion || "Nota sin texto";
-            const hora = n.created_at ? new Date(n.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : "";
-            return hora ? `[${hora}] ${textoNota}` : `- ${textoNota}`;
-          })
-          .join('\n');
+      if (arrayParaFiltrar) {
+        const idTurnoActual = turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId;
+        const notasDelTurno = arrayParaFiltrar.filter((n: any) => n.turno_id === idTurnoActual || n.turno_id === null);
+
+        if (notasDelTurno.length > 0) {
+          notasConsolidadas = notasDelTurno
+            .reverse() 
+            .map((n: any) => {
+              const textoNota = n.texto || n.descripcion || "Nota sin texto";
+              const hora = n.created_at ? new Date(n.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : "";
+              return hora ? `[${hora}] ${textoNota}` : `- ${textoNota}`;
+            })
+            .join('\n');
+        }
+      }
+    } catch (errNotas) {
+      console.warn("⚠️ No se pudieron consultar notas del servidor. Usando buffer local...", errNotas);
+      if (notas && notas.length > 0) {
+        notasConsolidadas = notas.map((n: any) => n.descripcion || n.texto || "Nota local").join('\n');
       }
     }
 
     // 🎯 3. RESOLUCIÓN DE JERARQUÍA: MANUAL PREVALECE SOBRE RELOJ
-    // Presión Arterial
     let finalSistolica = presionSist ? parseInt(presionSist, 10) : null;
     let finalDiastolica = presionDiast ? parseInt(presionDiast, 10) : null;
     
-    // Fallback al reloj solo si no se escribió nada manual
     if (!finalSistolica && signosDispositivo?.presion && String(signosDispositivo.presion).includes('/')) {
       const partes = String(signosDispositivo.presion).split('/');
       finalSistolica = parseInt(partes[0], 10) || null;
       finalDiastolica = parseInt(partes[1], 10) || null;
     }
 
-    // SpO2 (Oxígeno)
     const finalSpo2 = spo2Manual 
       ? parseInt(spo2Manual, 10) 
       : (signosDispositivo?.spo2 ? parseInt(String(signosDispositivo.spo2), 10) : null);
 
-    // Pulso (Frecuencia Cardíaca)
     const finalFc = frecCard 
       ? parseInt(frecCard, 10) 
       : (signosDispositivo?.fc ? parseInt(String(signosDispositivo.fc), 10) : null);
 
-    // Temperatura
     const finalTemp = tempManual 
       ? parseFloat(tempManual) 
       : (signosDispositivo?.temperatura ? parseFloat(String(signosDispositivo.temperatura)) : null);
 
-    // Peso
     const finalPeso = peso && String(peso).trim() !== '' && Number(peso) > 0 
       ? parseFloat(String(peso)) 
       : null;
+
     // 📦 Transformar consumosTurno a arreglo para persistirlo en el Cierre de Turno
-   
     const insumosConsumidosArray = Object.entries(consumosTurno)
       .filter(([_, cant]) => (cant as number) > 0)
       .map(([itemId, cant]) => {
@@ -1144,24 +1243,21 @@ const guardarRegistroEspontaneo = async () => {
           usado_hoy: cant,
           cantidad: cant,
           unidad: itemInfo?.unidad || 'piezas',
-          // 🎯 NUEVO: Identifica quién ejecutó el consumo
           registrado_por: typeof nombreUsuario !== 'undefined' ? nombreUsuario : 'Personal Vitanova'
         };
       });
-    // 4. REGISTRO FINAL DE CIERRE EN BACKEND
+
+    // 4. PAYLOAD FINAL DE CIERRE
     const bodyPayload = {
       turno_id: turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId, 
       paciente_id: pacienteActivo.id, 
       estado_paciente: estadoPaciente, 
-      
-      // 🛡️ Signos con jerarquía clínica (Manual primero, Reloj segundo)
       peso_kg: finalPeso,
       spo2: finalSpo2,
       frecuencia_cardiaca: finalFc,
       presion_sistolica: finalSistolica,
       presion_diastolica: finalDiastolica,
       temperatura: finalTemp,
-      
       notas: notasConsolidadas, 
       barthel_scores: barthelTocado ? barthelScores : null, 
       barthel_total: barthelTocado ? barthelTotal : null, 
@@ -1175,54 +1271,82 @@ const guardarRegistroEspontaneo = async () => {
       insumos: insumosConsumidosArray,
     };
 
-    // 🔍 LOG 1: Muestra exactamente los datos que van a salir hacia FastAPI/Supabase
     console.log('🚀 [CIERRE] Payload enviado a /turnos/cerrar:', JSON.stringify(bodyPayload, null, 2));
 
+    // 5. INTENTO DE ENVÍO DIRECTO AL BACKEND
+    const token = await getToken();
     const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(bodyPayload),
     });
 
-    // 🔍 LOG 2: Muestra el status HTTP de la respuesta del servidor (ej. 200 OK)
     console.log('📡 [CIERRE] Status HTTP recibido:', res.status);
 
+    if (!res.ok) {
+      throw new Error(`Servidor respondió con status HTTP ${res.status}`);
+    }
 
     const data = await res.json();
     if (data.status === 'ok') {
-      const pData = await getPacientes('cierre');
-      if (pData.patients) setPacientes(pData.patients);
+      try {
+        const pData = await getPacientes('cierre');
+        if (pData?.patients) setPacientes(pData.patients);
+      } catch (errRefresh) {
+        console.log("No se pudo refrescar lista tras cierre:", errRefresh);
+      }
       
-      // Reset de campos
-      setPresionSist('');
-      setPresionDiast('');
-      setFrecCard('');
-      setSpo2Manual('');
-      setTempManual('');
-      setGlucosa('');
-      setObservaciones('');
-      setDolorEva(0);
-      setEstadoAnimo('');
-      setHidratacion(0);
-      setAlimentacion('');
-      setConsumosTurno({});
-      
-      resetEstados(); 
-      setVista('lista');
-      
-      Alert.alert('✅ Turno Cerrado', 'La bitácora del día se ha consolidado y los signos clínicos fueron registrados.');
-      router.replace({
-        pathname: '/' as any,
-        params: { 
-          refresh: String(Date.now()),
-          modoSwitch: undefined,
-          usuarioRol: undefined
-        }
-      });
+      limpiarYSalir(
+        '✅ Turno Cerrado',
+        'La bitácora del día se ha consolidado y los signos clínicos fueron registrados.'
+      );
+    } else {
+      throw new Error(data.mensaje || 'Respuesta no exitosa al cerrar turno');
     }
-  } catch (e) { 
-    console.error("❌ Error en ejecutarCierre:", e); 
-    Alert.alert('⚠️ Error', 'Ocurrió un problema al procesar el cierre del turno.');
+
+  } catch (e: any) { 
+    console.warn("⚠️ Sin conexión o fallo de red al ejecutar cierre. Guardando en cola local...", e);
+    
+    // 6. 🎯 ENCOLAMIENTO OFFLINE: El cuidador no se queda bloqueado en la casa
+    try {
+      const payloadOffline = {
+        turno_id: turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId, 
+        paciente_id: pacienteActivo.id, 
+        estado_paciente: estadoPaciente, 
+        peso_kg: peso && Number(peso) > 0 ? Number(peso) : null,
+        spo2: spo2Manual ? Number(spo2Manual) : (signosDispositivo?.spo2 ? Number(signosDispositivo.spo2) : null),
+        frecuencia_cardiaca: frecCard ? Number(frecCard) : (signosDispositivo?.fc ? Number(signosDispositivo.fc) : null),
+        presion_sistolica: presionSist ? Number(presionSist) : null,
+        presion_diastolica: presionDiast ? Number(presionDiast) : null,
+        temperatura: tempManual ? Number(tempManual) : null,
+        notas: "Cierre consolidado en modo offline.", 
+        barthel_scores: barthelTocado ? barthelScores : null, 
+        barthel_total: barthelTocado ? barthelTotal : null, 
+        barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
+        dolor_eva: typeof dolorEva === 'number' ? dolorEva : 0,
+        estado_animo: estadoAnimo || 'tranquilo',
+        hidratacion_vasos: typeof hidratacion === 'number' ? hidratacion : 0,
+        alimentacion: alimentacion || 'completa',
+        observaciones: observaciones ? observaciones.trim() : null,
+        inventario_usado: [],
+        insumos: []
+      };
+
+      await encolarPeticionOffline(
+        `${BASE_URL}/turnos/cerrar`,
+        'POST',
+        payloadOffline,
+        `Cierre de turno - ${pacienteActivo?.nombre_completo || 'Paciente'}`
+      );
+
+      limpiarYSalir(
+        '💾 Guardado Localmente',
+        'El turno se cerró en el dispositivo. La información se sincronizará automáticamente al recuperar conexión a internet.'
+      );
+    } catch (queueErr) {
+      console.error("❌ Fallo crítico al guardar en cola offline:", queueErr);
+      Alert.alert('⚠️ Error', 'No se pudo registrar el cierre ni guardar localmente.');
+    }
   }
 };
   if (loading) {
@@ -1903,63 +2027,126 @@ const guardarRegistroEspontaneo = async () => {
 
             return (
               <TouchableOpacity 
-                key={t.id} 
-                style={styles.tareaCard} 
-                onPress={() => {
-                  Alert.alert('Confirmar actividad', `¿Confirmas la ejecución de: ${t.descripcion}?`, [
+              key={t.id} 
+              style={styles.tareaCard} 
+              onPress={() => {
+                Alert.alert(
+                  'Confirmar actividad', 
+                  `¿Confirmas la ejecución de: ${t.descripcion}?`, 
+                  [
                     { text: 'Cancelar', style: 'cancel' },
-                    { text: '✓ Ejecutada', onPress: async () => {
-                      if (t.med_id) await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora);
-                      else if (t.actividad_id) await completarActividad(t.actividad_id, pacienteActivo.id);
-                      else if (t.es_incidental && t.id) {
-                        await fetch(`${BASE_URL}/tareas/${t.id}/completar`, {
-                          method: 'PATCH',
-                          headers: { Authorization: `Bearer ${getToken()}` }
-                        });
-                      }
-                      setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: true } : item));
-                    }}
-                  ]);
-                }}
-              >
-                <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
+                    { 
+                      text: '✓ Ejecutada', 
+                      onPress: async () => {
+                        // 🎯 1. UI OPTIMISTA INMEDIATA: La tarea se marca completada en la pantalla
+                        setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: true } : item));
 
-                <View style={styles.tareaInfo}>
-                  <Text style={styles.tareaTexto}>{t.descripcion}</Text>
+                        // 🎯 2. EJECUCIÓN SEGÚN TIPO CON PROTECCIÓN OFFLINE
+                        try {
+                          // 💊 CASO A: Medicamento
+                          if (t.med_id) {
+                            try {
+                              await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora);
+                            } catch (medErr) {
+                              console.warn(`⚠️ Sin red para med ${t.med_id}. Encolando offline...`, medErr);
+                              await encolarPeticionOffline(
+                                `${BASE_URL}/medicamentos/tomas`,
+                                'POST',
+                                {
+                                  paciente_id: pacienteActivo.id,
+                                  medicamento_id: t.med_id,
+                                  dosis_administrada: t.descripcion,
+                                  fecha_hora: new Date().toISOString(),
+                                  hora_programada: t.hora || null,
+                                  estatus: 'administrado'
+                                },
+                                `Suministro med: ${t.descripcion}`
+                              );
+                            }
+                          } 
+                          // 📋 CASO B: Actividad de Rutina
+                          else if (t.actividad_id) {
+                            try {
+                              await completarActividad(t.actividad_id, pacienteActivo.id);
+                            } catch (actErr) {
+                              console.warn(`⚠️ Sin red para actividad ${t.actividad_id}. Encolando offline...`, actErr);
+                              await encolarPeticionOffline(
+                                `${BASE_URL}/actividades/${t.actividad_id}/completar`,
+                                'POST',
+                                {
+                                  paciente_id: pacienteActivo.id,
+                                  completada_en: new Date().toISOString()
+                                },
+                                `Actividad completada: ${t.descripcion}`
+                              );
+                            }
+                          } 
+                          // ⚡ CASO C: Tarea Incidental Manual
+                          else if (t.es_incidental && t.id) {
+                            try {
+                              const token = await getToken();
+                              const res = await fetch(`${BASE_URL}/tareas/${t.id}/completar`, {
+                                method: 'PATCH',
+                                headers: { Authorization: `Bearer ${token}` }
+                              });
+                              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                            } catch (incErr) {
+                              console.warn(`⚠️ Sin red para tarea incidental ${t.id}. Encolando offline...`, incErr);
+                              await encolarPeticionOffline(
+                                `${BASE_URL}/tareas/${t.id}/completar`,
+                                'PATCH',
+                                { completada: true, hora_completada: new Date().toISOString() },
+                                `Tarea incidental completada: ${t.descripcion}`
+                              );
+                            }
+                          }
+                        } catch (errGlobal) {
+                          console.error("❌ Error en despacho de tarea:", errGlobal);
+                        }
+                      } 
+                    }
+                  ]
+                );
+              }}
+            >
+              <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
 
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                    <Text style={styles.tareaHora}>{horaTexto}</Text>
-                    <Text style={{ fontSize: 10, color: '#CCC' }}>·</Text>
-                    <View style={{ backgroundColor: '#F0F0F0', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, borderWidth: 1, borderColor: '#EAEAEA' }}>
-                      {renderTemporalidadTarea()}
-                    </View>
+              <View style={styles.tareaInfo}>
+                <Text style={styles.tareaTexto}>{t.descripcion}</Text>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                  <Text style={styles.tareaHora}>{horaTexto}</Text>
+                  <Text style={{ fontSize: 10, color: '#CCC' }}>·</Text>
+                  <View style={{ backgroundColor: '#F0F0F0', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, borderWidth: 1, borderColor: '#EAEAEA' }}>
+                    {renderTemporalidadTarea()}
                   </View>
                 </View>
+              </View>
 
-                {/* ℹ️ BOTÓN INFORMATIVO INTELIGENTE (Dentro de la tarjeta) */}
-                <TouchableOpacity 
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    setItemSeleccionadoDetalle(t);
-                  }}
-                  style={{
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    backgroundColor: '#F1F5F9',
-                    borderRadius: 6,
-                    borderWidth: 1,
-                    borderColor: '#CBD5E1',
-                    marginRight: 8
-                  }}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#475569' }}>ℹ️</Text>
-                </TouchableOpacity>
-
-                <View style={styles.tareaCheck} />
+              {/* ℹ️ BOTÓN INFORMATIVO INTELIGENTE */}
+              <TouchableOpacity 
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setItemSeleccionadoDetalle(t);
+                }}
+                style={{
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  backgroundColor: '#F1F5F9',
+                  borderRadius: 6,
+                  borderWidth: 1,
+                  borderColor: '#CBD5E1',
+                  marginRight: 8
+                }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#475569' }}>ℹ️</Text>
               </TouchableOpacity>
-            );
-          })}
+
+              <View style={styles.tareaCheck} />
+            </TouchableOpacity>
+                        );
+                      })}
 
           
           {/* MODAL INFORMATIVO COMPLETO */}

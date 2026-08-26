@@ -17,6 +17,7 @@ import {
   View
 } from 'react-native';
 import * as XLSX from 'xlsx';
+import { encolarPeticionOffline } from '../services/offlineQueue';
 
 import {
   actualizarItemInventario,
@@ -314,7 +315,7 @@ const resetFormularioMedicamento = () => {
     setGuardando(true);
 
     const payload = {
-      paciente_id: paciente.id, // 👈 CRÍTICO: FastAPI exige este campo en MedicamentoCreate
+      paciente_id: paciente.id,
       nombre: nombre.trim(),
       dosis: dosis.trim(),
       frecuencia,
@@ -324,35 +325,32 @@ const resetFormularioMedicamento = () => {
       fecha_inicio: fechaInicio,
       fecha_fin: esPermanente ? null : (fechaFin || null),
       dias_semana: diasSemana.length === 0 ? null : diasSemana,
-      // 🔑 CRÍTICO ANTI-DUPLICADOS: Si viene de una sugerencia (inventarioId existe), 
-      // enviamos 0 para que el backend REUTILICE el lote existente y NO cree un duplicado en despensa.
       cantidad_inicial: inventarioId ? 0 : (Number(cantidadInicial) || 0),
       unidad_medida: unidadMedida || 'piezas',
-      inventario_id: inventarioId, // 🔑 Vínculo directo con el producto en la despensa
+      inventario_id: inventarioId,
     };
 
-    try {
+    // 🎯 1. UI OPTIMISTA: Reflejar en la lista local de inmediato
+    const medIdTemporal = medicamentoEditando?.id || `med-local-${Date.now()}`;
+    const medOptimista = {
+      id: medIdTemporal,
+      ...payload,
+      activo: true,
+    };
+
+    setMedicamentos((prev) => {
       if (medicamentoEditando) {
-        await actualizarMedicamento(medicamentoEditando.id, payload);
-      } else {
-        await crearMedicamento(paciente.id, payload);
+        return prev.map((m) => (m.id === medicamentoEditando.id ? { ...m, ...medOptimista } : m));
       }
-      
-      // Refrescamos Medicamentos e Inventario simultáneamente
-      const [meds, inv] = await Promise.all([
-        getMedicamentos(paciente.id),
-        getInventario(paciente.id)
-      ]);
-      
-      if (meds.medicamentos) setMedicamentos(meds.medicamentos);
-      if (inv.items) setInventario(inv.items);
+      return [medOptimista, ...prev];
+    });
 
+    // 🧹 Limpieza y cierre del modal
+    const limpiarYCerrarModal = () => {
       DeviceEventEmitter.emit('RECARGAR_TAREAS');
-
-      // Limpieza y cierre de modal
       setModalOpen(false);
       setMedicamentoEditando(null);
-      setInventarioId(null); // 👈 Limpiamos la vinculación al guardar
+      setInventarioId(null);
       setNombre('');
       setDosis('');
       setFrecuencia('cada 12 horas');
@@ -363,15 +361,51 @@ const resetFormularioMedicamento = () => {
       setUnidadMedida('piezas');
       setSugerencias([]);
       resetControlesTiempo();
+    };
+
+    // 🎯 2. INTENTO DE RED
+    try {
+      if (medicamentoEditando) {
+        await actualizarMedicamento(medicamentoEditando.id, payload);
+      } else {
+        await crearMedicamento(paciente.id, payload);
+      }
+      
+      const [meds, inv] = await Promise.all([
+        getMedicamentos(paciente.id),
+        getInventario(paciente.id)
+      ]);
+      
+      if (meds.medicamentos) setMedicamentos(meds.medicamentos);
+      if (inv.items) setInventario(inv.items);
+
     } catch (e) {
-      console.error('Error al guardar medicamento:', e);
+      console.warn('⚠️ Sin conexión al guardar medicamento. Encolando offline...', e);
+
+      // 🎯 3. ENCOLAR OFFLINE (Usando ruta relativa/estándar)
+      try {
+        const endpoint = medicamentoEditando 
+          ? `/medicamentos/${medicamentoEditando.id}`
+          : `/pacientes/${paciente.id}/medicamentos`;
+        const method = medicamentoEditando ? 'PUT' : 'POST';
+
+        await encolarPeticionOffline(
+          endpoint,
+          method,
+          payload,
+          `${medicamentoEditando ? 'Editar' : 'Crear'} medicamento: ${payload.nombre}`
+        );
+      } catch (queueErr) {
+        console.error('❌ Error al encolar medicamento:', queueErr);
+      }
     } finally {
+      limpiarYCerrarModal();
       setGuardando(false);
     }
   };
 
   const guardarRutina = async () => {
-    if (!rutinaDesc.trim()) return;
+    if (!rutinaDesc.trim() || !paciente?.id) return;
     setGuardandoRutina(true);
 
     const payload = {
@@ -385,16 +419,24 @@ const resetFormularioMedicamento = () => {
       notas: rutinaNotas.trim() || null,
     };
 
-    try {
-      if (rutinaEditando) {
-        await actualizarTareaRecurrente(rutinaEditando.id, payload);
-      } else {
-        await crearTareaRecurrente(paciente.id, payload);
-      }
-      const rutinas = await getTareasRecurrentes(paciente.id);
-      if (rutinas.tareas) setTareasRec(rutinas.tareas);
-      DeviceEventEmitter.emit('RECARGAR_TAREAS');
+    // 🎯 1. UI OPTIMISTA: Agregar o actualizar en la lista visual al instante
+    const rutinaIdTemporal = rutinaEditando?.id || `rutina-local-${Date.now()}`;
+    const rutinaOptimista = {
+      id: rutinaIdTemporal,
+      ...payload,
+      activo: true,
+    };
 
+    setTareasRec((prev) => {
+      if (rutinaEditando) {
+        return prev.map((r) => (r.id === rutinaEditando.id ? { ...r, ...rutinaOptimista } : r));
+      }
+      return [rutinaOptimista, ...prev];
+    });
+
+    // 🧹 Limpieza y cierre del modal
+    const limpiarYCerrarModal = () => {
+      DeviceEventEmitter.emit('RECARGAR_TAREAS');
       setModalRutinaOpen(false);
       setRutinaEditando(null);
       setRutinaDesc('');
@@ -402,9 +444,40 @@ const resetFormularioMedicamento = () => {
       setRutinaHora('09:00');
       setRutinaNotas('');
       resetControlesTiempo();
+    };
+
+    // 🎯 2. INTENTO DE RED
+    try {
+      if (rutinaEditando) {
+        await actualizarTareaRecurrente(rutinaEditando.id, payload);
+      } else {
+        await crearTareaRecurrente(paciente.id, payload);
+      }
+
+      const rutinas = await getTareasRecurrentes(paciente.id);
+      if (rutinas.tareas) setTareasRec(rutinas.tareas);
+
     } catch (e) {
-      console.error('Error al guardar rutina:', e);
+      console.warn('⚠️ Sin conexión al guardar rutina. Encolando offline...', e);
+
+      // 🎯 3. ENCOLAMIENTO OFFLINE
+      try {
+        const endpoint = rutinaEditando 
+          ? `/tareas-recurrentes/${rutinaEditando.id}`
+          : `/pacientes/${paciente.id}/tareas-recurrentes`;
+        const method = rutinaEditando ? 'PUT' : 'POST';
+
+        await encolarPeticionOffline(
+          endpoint,
+          method,
+          payload,
+          `${rutinaEditando ? 'Editar' : 'Crear'} rutina: ${payload.descripcion}`
+        );
+      } catch (queueErr) {
+        console.error('❌ Error al encolar rutina:', queueErr);
+      }
     } finally {
+      limpiarYCerrarModal();
       setGuardandoRutina(false);
     }
   };
@@ -450,24 +523,23 @@ const resetFormularioMedicamento = () => {
   }
 };
   const guardarInventario = async () => {
-  // 1. Obtener ID del paciente de forma segura
-  const idPacienteActual = paciente?.id;
+    // 1. Obtener ID del paciente de forma segura
+    const idPacienteActual = paciente?.id;
 
-  if (!idPacienteActual) {
-    Alert.alert('Error', 'No se detectó un paciente seleccionado.');
-    return;
-  }
+    if (!idPacienteActual) {
+      Alert.alert('Error', 'No se detectó un paciente seleccionado.');
+      return;
+    }
 
-  // 2. Validación básica
-  if (!invNombre.trim()) {
-    Alert.alert('Campo requerido', 'Por favor ingresa el nombre del ítem.');
-    return;
-  }
+    // 2. Validación básica
+    if (!invNombre.trim()) {
+      Alert.alert('Campo requerido', 'Por favor ingresa el nombre del ítem.');
+      return;
+    }
 
-  setGuardandoInv(true);
+    setGuardandoInv(true);
 
-  try {
-    // 3. Payload listo para el backend
+    // 3. Payload estructurado
     const payload = {
       paciente_id: idPacienteActual,
       nombre: invNombre.trim(),
@@ -481,44 +553,81 @@ const resetFormularioMedicamento = () => {
       notas: invNotas.trim() || null,
     };
 
-    console.log("📦 [GUARDANDO INVENTARIO] Payload:", payload);
+    // 🎯 4. UI OPTIMISTA: Agregar o actualizar en la lista visual de inmediato
+    const itemIdTemporal = invEditando?.id || `inv-local-${Date.now()}`;
+    const itemOptimista = {
+      id: itemIdTemporal,
+      ...payload,
+      activo: true,
+    };
 
-    let res;
-    if (invEditando) {
-      res = await actualizarItemInventario(invEditando.id, payload);
-    } else {
-      res = await crearItemInventario(idPacienteActual, payload);
+    setInventario((prev) => {
+      if (invEditando) {
+        return prev.map((i) => (i.id === invEditando.id ? { ...i, ...itemOptimista } : i));
+      }
+      return [itemOptimista, ...prev];
+    });
+
+    // 🧹 Función para resetear formulario y cerrar modal
+    const cerrarYLimpiarModalInv = () => {
+      setModalInvOpen(false);
+      resetFormularioInventario();
+    };
+
+    // 🎯 5. INTENTO DE ENVÍO POR RED CON FALLBACK OFFLINE
+    try {
+      if (invEditando) {
+        await actualizarItemInventario(invEditando.id, payload);
+      } else {
+        await crearItemInventario(idPacienteActual, payload);
+      }
+
+      // Refresco pasivo si hay red
+      try {
+        const invFrescor = await getInventario(idPacienteActual);
+        const listaActualizada = invFrescor?.items || (Array.isArray(invFrescor) ? invFrescor : []);
+        setInventario(listaActualizada);
+      } catch (refErr) {
+        console.log("Refresco de inventario ignorado:", refErr);
+      }
+
+      Alert.alert(
+        '✅ Éxito',
+        invEditando ? 'Artículo actualizado correctamente.' : 'Artículo agregado al inventario.'
+      );
+
+    } catch (error: any) {
+      console.warn("⚠️ Sin conexión al guardar inventario. Encolando offline...", error);
+
+      // 🎯 6. ENCOLAMIENTO OFFLINE
+      try {
+        const endpoint = invEditando 
+          ? `/inventario/${invEditando.id}`
+          : `/pacientes/${idPacienteActual}/inventario`;
+        const method = invEditando ? 'PUT' : 'POST';
+
+        await encolarPeticionOffline(
+          endpoint,
+          method,
+          payload,
+          `${invEditando ? 'Editar' : 'Crear'} insumo: ${payload.nombre}`
+        );
+
+        Alert.alert(
+          '💾 Guardado Localmente',
+          'El artículo se guardó en el dispositivo y se sincronizará al volver la conexión a internet.'
+        );
+      } catch (queueErr) {
+        console.error("❌ Error guardando inventario en cola offline:", queueErr);
+      }
+    } finally {
+      cerrarYLimpiarModalInv();
+      setGuardandoInv(false);
     }
-
-    console.log("✅ [INVENTARIO GUARDADO] Respuesta:", res);
-
-    // 4. Refrescar lista de inventario
-    const invFrescor = await getInventario(idPacienteActual);
-    const listaActualizada = invFrescor?.items || (Array.isArray(invFrescor) ? invFrescor : []);
-    setInventario(listaActualizada);
-
-    // 5. Cerrar y resetear
-    setModalInvOpen(false);
-    resetFormularioInventario();
-
-    Alert.alert(
-      '✅ Éxito', 
-      invEditando ? 'Artículo actualizado correctamente.' : 'Artículo agregado al inventario.'
-    );
-
-  } catch (error: any) {
-    console.error("❌ Error al guardar inventario:", error);
-    Alert.alert('Error', `No se pudo guardar el ítem: ${error.message || 'Error de conexión'}`);
-  } finally {
-    setGuardandoInv(false);
-  }
   };
 
   const handleConsumirRapido = async (itemId: string, cantidad: number = 1) => {
-  try {
-    await consumirItemInventario(itemId, cantidad);
-    
-    // Actualizamos el estado local para reflejar el cambio en pantalla inmediatamente
+    // 🎯 1. UI OPTIMISTA: Descuento visual instantáneo
     setInventario(prev =>
       prev.map(item =>
         item.id === itemId
@@ -526,10 +635,25 @@ const resetFormularioMedicamento = () => {
           : item
       )
     );
-  } catch (error) {
-    console.error('Error al consumir del inventario:', error);
-  }
- };
+
+    // 🎯 2. INTENTO DE RED CON FALLBACK OFFLINE
+    try {
+      await consumirItemInventario(itemId, cantidad);
+    } catch (error) {
+      console.warn(`⚠️ Sin red para consumir item ${itemId}. Encolando offline...`, error);
+      
+      try {
+        await encolarPeticionOffline(
+          `/inventario/${itemId}/consumo`,
+          'POST',
+          { cantidad },
+          `Consumo rápido: ${itemId} (-${cantidad})`
+        );
+      } catch (queueErr) {
+        console.error("❌ Error encolando consumo rápido:", queueErr);
+      }
+    }
+  };
   
 
   const importarDesdeExcel = async () => {

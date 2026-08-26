@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { Stack, router } from 'expo-router';
 import { useEffect } from 'react';
 
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -18,6 +19,13 @@ export default function RootLayout() {
       router.replace('/login');
     });
   }, []);
+  useEffect(() => {
+    // 🛡️ Guardián: cuando el API reciba un 401 definitivo, redirige a login
+    registerOnSessionExpired(() => {
+      router.replace('/login');
+    });
+  }, []);
+  
 
   return (
     <Stack>
