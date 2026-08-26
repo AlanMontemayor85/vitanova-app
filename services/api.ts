@@ -115,7 +115,9 @@ export const fetchWithAuth = async (
     if (error.message === 'UNAUTHORIZED') {
       throw error;
     }
-    console.error("❌ Fallo de red o servidor inalcanzable:", error);
+
+    // 🛑 Silenciamos LogBox en desarrollo cambiando console.error por log limpio
+    console.log("⚠️ [OFFLINE / RED] Servidor inalcanzable temporalmente:", error?.message || error);
     throw error;
   }
 };

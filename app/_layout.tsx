@@ -1,9 +1,15 @@
 import * as Notifications from 'expo-notifications';
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, LogBox } from 'react-native';
 import { vaciarColaOffline } from '../services/offlineQueue';
 
+if (__DEV__) {
+  LogBox.ignoreLogs([
+    'Network request failed',
+    'Fallo de red o servidor inalcanzable'
+  ]);
+}
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -15,20 +21,19 @@ Notifications.setNotificationHandler({
 
 export default function RootLayout() {
   useEffect(() => {
-    // 1. Al montar la app
-    vaciarColaOffline();
+  // Ejecutar con catch silencioso
+  vaciarColaOffline().catch(() => {});
 
-    // 2. Al regresar a la app o cambiar de estado
-    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      if (nextAppState === 'active') {
-        vaciarColaOffline();
-      }
-    });
+  const subscription = AppState.addEventListener('change', (nextAppState) => {
+    if (nextAppState === 'active') {
+      vaciarColaOffline().catch(() => {});
+    }
+  });
 
-    return () => {
-      subscription.remove();
-    };
-  }, []);
+  return () => {
+    subscription.remove();
+  };
+}, []);
   
 
   return (
