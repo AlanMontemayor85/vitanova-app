@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from '@react-native-community/netinfo';
+import * as Network from 'expo-network';
 import { loadStoredToken } from './api';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
@@ -14,9 +14,6 @@ export interface PeticionOffline {
   createdAt: string;
 }
 
-/**
- * Guarda una petición pendiente en el disco del dispositivo cuando no hay internet o falla la red.
- */
 export async function encolarPeticionOffline(
   url: string,
   method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
@@ -38,27 +35,21 @@ export async function encolarPeticionOffline(
 
     cola.push(nuevoItem);
     await AsyncStorage.setItem(COLA_KEY, JSON.stringify(cola));
-    console.log(`📦 [OFFLINE QUEUE] Petición encolada con éxito: "${descripcion}" (Total en cola: ${cola.length})`);
+    console.log(`📦 [OFFLINE QUEUE] Petición encolada: "${descripcion}" (Total: ${cola.length})`);
   } catch (err) {
-    console.error('❌ Error al guardar petición offline en AsyncStorage:', err);
+    console.error('❌ Error al guardar en AsyncStorage:', err);
   }
 }
 
-/**
- * Vacía la cola enviando en ráfaga las peticiones pendientes cuando vuelve el internet.
- */
 export async function vaciarColaOffline(): Promise<{ exitosos: number; pendientes: number }> {
   try {
-    const netState = await NetInfo.fetch();
-    if (!netState.isConnected) {
+    const netState = await Network.getNetworkStateAsync();
+    if (!netState.isConnected || !netState.isInternetReachable) {
       return { exitosos: 0, pendientes: 0 };
     }
 
     const token = await loadStoredToken();
-    if (!token) {
-      console.log('⚠️ [OFFLINE QUEUE] No hay sesión activa para procesar la cola.');
-      return { exitosos: 0, pendientes: 0 };
-    }
+    if (!token) return { exitosos: 0, pendientes: 0 };
 
     const raw = await AsyncStorage.getItem(COLA_KEY);
     const cola: PeticionOffline[] = raw ? JSON.parse(raw) : [];
@@ -70,7 +61,6 @@ export async function vaciarColaOffline(): Promise<{ exitosos: number; pendiente
     let exitosos = 0;
 
     for (const item of cola) {
-      // 🎯 Resuelve automáticamente URLs relativas o absolutas
       const urlCompleta = item.url.startsWith('http')
         ? item.url
         : `${BASE_URL}${item.url.startsWith('/') ? '' : '/'}${item.url}`;
@@ -89,25 +79,21 @@ export async function vaciarColaOffline(): Promise<{ exitosos: number; pendiente
           exitosos++;
           console.log(`✅ [OFFLINE SYNC] Sincronizado: ${item.descripcion}`);
         } else {
-          // Si el backend arrojó 5xx o timeout (408), conservamos en cola
           if (response.status >= 500 || response.status === 408) {
             noEnviados.push(item);
           } else {
-            // Errores de validación 400/422 se descartan para no generar bucles infinitos
-            console.warn(`⚠️ [OFFLINE SYNC] Descartado por status ${response.status}: ${item.descripcion}`);
+            console.warn(`⚠️ [OFFLINE SYNC] Descartado status ${response.status}: ${item.descripcion}`);
           }
         }
-      } catch (reqErr) {
-        // Fallo físico de conexión durante el intento
+      } catch {
         noEnviados.push(item);
       }
     }
 
     await AsyncStorage.setItem(COLA_KEY, JSON.stringify(noEnviados));
-    console.log(`🏁 [OFFLINE SYNC] Fin del proceso: ${exitosos} sincronizados, ${noEnviados.length} restantes.`);
     return { exitosos, pendientes: noEnviados.length };
   } catch (err) {
-    console.error('❌ Error vaciando la cola offline:', err);
+    console.error('❌ Error vaciando cola offline:', err);
     return { exitosos: 0, pendientes: 0 };
   }
 }

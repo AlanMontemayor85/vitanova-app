@@ -1,7 +1,8 @@
-import { registerOnSessionExpired } from '@/services/api'; // 👈 Ajusta la ruta a tu archivo de API
 import * as Notifications from 'expo-notifications';
-import { Stack, router } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useEffect } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
+import { vaciarColaOffline } from '../services/offlineQueue';
 
 
 Notifications.setNotificationHandler({
@@ -14,16 +15,19 @@ Notifications.setNotificationHandler({
 
 export default function RootLayout() {
   useEffect(() => {
-    // 🛡️ Guardián: cuando el API reciba un 401 definitivo, redirige a login
-    registerOnSessionExpired(() => {
-      router.replace('/login');
+    // 1. Al montar la app
+    vaciarColaOffline();
+
+    // 2. Al regresar a la app o cambiar de estado
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        vaciarColaOffline();
+      }
     });
-  }, []);
-  useEffect(() => {
-    // 🛡️ Guardián: cuando el API reciba un 401 definitivo, redirige a login
-    registerOnSessionExpired(() => {
-      router.replace('/login');
-    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
   
 
