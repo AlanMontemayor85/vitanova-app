@@ -15,10 +15,11 @@ import {
   TouchableOpacity, View,
 } from 'react-native';
 import {
-  agregarTareaManual, clearToken, completarActividad, completarMedicamento,
+  agregarTareaManual, clearToken,
   consumirItemInventario,
   detectarCambiosTurno,
   enviarComandoReloj,
+  fetchWithAuth,
   forzarMedicionSignos,
   getAlertaPeso,
   getInventario,
@@ -2028,8 +2029,16 @@ const guardarRegistroEspontaneo = async () => {
             return (
               <TouchableOpacity 
               key={t.id} 
-              style={styles.tareaCard} 
+              style={[
+                styles.tareaCard,
+                t.completada && { opacity: 0.6, backgroundColor: '#F8FAFC' }
+              ]} 
               onPress={() => {
+                if (t.completada) {
+                  Alert.alert('Actividad Completada', `"${t.descripcion}" ya fue registrada en este turno.`);
+                  return;
+                }
+
                 Alert.alert(
                   'Confirmar actividad', 
                   `¿Confirmas la ejecución de: ${t.descripcion}?`, 
@@ -2038,70 +2047,76 @@ const guardarRegistroEspontaneo = async () => {
                     { 
                       text: '✓ Ejecutada', 
                       onPress: async () => {
-                        // 🎯 1. UI OPTIMISTA INMEDIATA: La tarea se marca completada en la pantalla
-                        setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: true } : item));
+                        const fechaHoraActual = new Date().toISOString();
 
-                        // 🎯 2. EJECUCIÓN SEGÚN TIPO CON PROTECCIÓN OFFLINE
+                        // 🎯 1. UI OPTIMISTA: La marcamos completada de inmediato en pantalla
+                        setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: true, hora_completada: fechaHoraActual } : item));
+
+                        // 🎯 2. Payload unificado para sincronización
+                        const payloadMed = {
+                          paciente_id: pacienteActivo.id,
+                          medicamento_id: t.med_id || t.id,
+                          dosis_administrada: t.descripcion,
+                          fecha_hora: fechaHoraActual,
+                          hora_programada: t.hora || null,
+                          estatus: 'administrado'
+                        };
+
+                        const payloadActividad = {
+                          paciente_id: pacienteActivo.id,
+                          actividad_id: t.actividad_id || t.id,
+                          completada_en: fechaHoraActual
+                        };
+
+                        const payloadIncidental = {
+                          completada: true,
+                          hora_completada: fechaHoraActual,
+                          paciente_id: pacienteActivo.id
+                        };
+
                         try {
-                          // 💊 CASO A: Medicamento
+                          // 💊 A: MEDICAMENTO
                           if (t.med_id) {
-                            try {
-                              await completarMedicamento(t.med_id, pacienteActivo.id, t.descripcion, t.hora);
-                            } catch (medErr) {
-                              console.warn(`⚠️ Sin red para med ${t.med_id}. Encolando offline...`, medErr);
-                              await encolarPeticionOffline(
-                                `${BASE_URL}/medicamentos/tomas`,
-                                'POST',
-                                {
-                                  paciente_id: pacienteActivo.id,
-                                  medicamento_id: t.med_id,
-                                  dosis_administrada: t.descripcion,
-                                  fecha_hora: new Date().toISOString(),
-                                  hora_programada: t.hora || null,
-                                  estatus: 'administrado'
-                                },
-                                `Suministro med: ${t.descripcion}`
-                              );
-                            }
+                            await fetchWithAuth(`${BASE_URL}/medicamentos/tomas`, {
+                              method: 'POST',
+                              body: JSON.stringify(payloadMed)
+                            });
+                            console.log(`✅ [MEDICAMENTO REGISTRADO] ${t.descripcion}`);
                           } 
-                          // 📋 CASO B: Actividad de Rutina
+                          // 📋 B: ACTIVIDAD DE RUTINA
                           else if (t.actividad_id) {
-                            try {
-                              await completarActividad(t.actividad_id, pacienteActivo.id);
-                            } catch (actErr) {
-                              console.warn(`⚠️ Sin red para actividad ${t.actividad_id}. Encolando offline...`, actErr);
-                              await encolarPeticionOffline(
-                                `${BASE_URL}/actividades/${t.actividad_id}/completar`,
-                                'POST',
-                                {
-                                  paciente_id: pacienteActivo.id,
-                                  completada_en: new Date().toISOString()
-                                },
-                                `Actividad completada: ${t.descripcion}`
-                              );
-                            }
+                            await fetchWithAuth(`${BASE_URL}/actividades/${t.actividad_id}/completar`, {
+                              method: 'POST',
+                              body: JSON.stringify(payloadActividad)
+                            });
+                            console.log(`✅ [ACTIVIDAD REGISTRADA] ${t.descripcion}`);
                           } 
-                          // ⚡ CASO C: Tarea Incidental Manual
+                          // ⚡ C: TAREA INCIDENTAL
                           else if (t.es_incidental && t.id) {
-                            try {
-                              const token = await getToken();
-                              const res = await fetch(`${BASE_URL}/tareas/${t.id}/completar`, {
-                                method: 'PATCH',
-                                headers: { Authorization: `Bearer ${token}` }
-                              });
-                              if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                            } catch (incErr) {
-                              console.warn(`⚠️ Sin red para tarea incidental ${t.id}. Encolando offline...`, incErr);
-                              await encolarPeticionOffline(
-                                `${BASE_URL}/tareas/${t.id}/completar`,
-                                'PATCH',
-                                { completada: true, hora_completada: new Date().toISOString() },
-                                `Tarea incidental completada: ${t.descripcion}`
-                              );
-                            }
+                            await fetchWithAuth(`${BASE_URL}/tareas/${t.id}/completar`, {
+                              method: 'PATCH',
+                              body: JSON.stringify(payloadIncidental)
+                            });
+                            console.log(`✅ [TAREA INCIDENTAL REGISTRADA] ${t.descripcion}`);
                           }
-                        } catch (errGlobal) {
-                          console.error("❌ Error en despacho de tarea:", errGlobal);
+                        } catch (err) {
+                          console.warn(`⚠️ Sin red al registrar ${t.descripcion}. Guardando en cola offline...`);
+
+                          const endpoint = t.med_id 
+                            ? `${BASE_URL}/medicamentos/tomas`
+                            : t.actividad_id 
+                              ? `${BASE_URL}/actividades/${t.actividad_id}/completar`
+                              : `${BASE_URL}/tareas/${t.id}/completar`;
+
+                          const method = (t.med_id || t.actividad_id) ? 'POST' : 'PATCH';
+                          const body = t.med_id ? payloadMed : (t.actividad_id ? payloadActividad : payloadIncidental);
+
+                          await encolarPeticionOffline(
+                            endpoint,
+                            method,
+                            body,
+                            `Actividad completada: ${t.descripcion}`
+                          );
                         }
                       } 
                     }
@@ -2112,7 +2127,12 @@ const guardarRegistroEspontaneo = async () => {
               <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
 
               <View style={styles.tareaInfo}>
-                <Text style={styles.tareaTexto}>{t.descripcion}</Text>
+                <Text style={[
+                  styles.tareaTexto,
+                  t.completada && { textDecorationLine: 'line-through', color: '#94A3B8' }
+                ]}>
+                  {t.descripcion}
+                </Text>
 
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
                   <Text style={styles.tareaHora}>{horaTexto}</Text>
@@ -2143,7 +2163,13 @@ const guardarRegistroEspontaneo = async () => {
                 <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#475569' }}>ℹ️</Text>
               </TouchableOpacity>
 
-              <View style={styles.tareaCheck} />
+              {/* 🎯 CHECK INTERACTIVO: Muestra fondo verde y palomita cuando t.completada es true */}
+              <View style={[
+                styles.tareaCheck,
+                t.completada && { backgroundColor: '#10B981', borderColor: '#059669', justifyContent: 'center', alignItems: 'center' }
+              ]}>
+                {t.completada && <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>✓</Text>}
+              </View>
             </TouchableOpacity>
                         );
                       })}
