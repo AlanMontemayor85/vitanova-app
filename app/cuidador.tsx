@@ -564,23 +564,37 @@ useEffect(() => {
   useEffect(() => {
   yaTransicionadoRef.current = false;
 }, [pacienteActivo?.id]);
-
 useFocusEffect(
   useCallback(() => {
-    // Usuario eligió ver la lista → no forzar consola
     if (vistaRef.current === 'lista') return;
-
     if (yaTransicionadoRef.current) return;
 
     if (pacienteActivo?.id && vistaRef.current !== 'turno') {
-      console.log(
-        '🔍 [FOCUS CHECK] Validando estatus de turno para:',
-        pacienteActivo.nombre_completo
-      );
+      console.log('🔍 [FOCUS CHECK] Validando estatus de turno para:', pacienteActivo.nombre_completo);
 
+      // 👑 CASO FAMILIAR: No espera respuesta del servidor, entra directo
+      if (esSwitchFamiliar) {
+        console.log('👑 [FOCUS] Familiar Principal detectado → Forzando consola de inmediato');
+        yaTransicionadoRef.current = true;
+        setVista('turno');
+        
+        const turnoLocal = turnoActivoRef.current || {
+          id: `turno-familiar-${Date.now()}`,
+          paciente_id: pacienteActivo.id,
+          modo: 'monitoreo_familiar',
+          hora_inicio: new Date().toISOString(),
+          es_local: true
+        };
+        
+        setTurnoActivo(turnoLocal);
+        turnoActivoRef.current = turnoLocal;
+        cargarTurno(pacienteActivo.id).catch(() => {});
+        return;
+      }
+
+      // 🩺 CASO CUIDADOR: Valida con el servidor de forma segura
       getTurnoActivo(pacienteActivo.id)
         .then((turnoData) => {
-          // Por si cambió de vista mientras respondía el API
           if (vistaRef.current === 'lista') return;
 
           if (turnoData?.turno && vistaRef.current !== 'turno') {
@@ -590,21 +604,24 @@ useFocusEffect(
             setTurnoActivo(turnoData.turno);
             turnoActivoRef.current = turnoData.turno;
             cargarTurno(pacienteActivo.id).catch((err) =>
-              console.log('⚠️ Carga de telemetría secundaria interrumpida:', err)
+              console.log('⚠️ Carga secundaria de turno interrumpida:', err)
             );
           }
         })
         .catch((err) => console.log('Error pasivo en focus check:', err));
     }
-  }, [pacienteActivo?.id])
+  }, [pacienteActivo?.id, esSwitchFamiliar])
 );
-  const cargarTurno = async (pacienteId: string) => {
+
+const cargarTurno = async (pacienteId: string) => {
+  try {
+    // ⚡ PROMISE.ALL EN PARALELO (Resiliente a fallos de red)
     const [turnoData, tareasData, notasData, cierreData, alertaPesoData] = await Promise.all([
-      getTurnoActivo(pacienteId),
-      getTareasDia(pacienteId),
-      getNotasTurno(pacienteId),
-      getUltimoCierre(pacienteId),
-      getAlertaPeso(pacienteId)
+      getTurnoActivo(pacienteId).catch(() => ({ turno: null })),
+      getTareasDia(pacienteId).catch(() => ({ tareas: [] })),
+      getNotasTurno(pacienteId).catch(() => ({ notas: [] })),
+      getUltimoCierre(pacienteId).catch(() => ({ cierre: null })),
+      getAlertaPeso(pacienteId).catch(() => ({ alerta: null }))
     ]);
 
     if (tareasData?.sin_horario) {
@@ -619,42 +636,70 @@ useFocusEffect(
         console.log("👑 Familiar Principal en Modo Monitoreo → acceso permitido (sin restricción de horario)");
       }
     }
-    if (turnoData.turno) {
+
+    // 1. Turno
+    if (turnoData?.turno) {
       setTurnoActivo(turnoData.turno);
       turnoActivoRef.current = turnoData.turno;
+    } else if (esSwitchFamiliar && !turnoActivoRef.current) {
+      // Si estamos offline y es familiar, mantenemos/creamos el turno local
+      const turnoFamiliarOffline = {
+        id: `turno-familiar-${Date.now()}`,
+        paciente_id: pacienteId,
+        modo: 'monitoreo_familiar',
+        hora_inicio: new Date().toISOString()
+      };
+      setTurnoActivo(turnoFamiliarOffline);
+      turnoActivoRef.current = turnoFamiliarOffline;
     }
-    if (tareasData.tareas) setTareas(tareasData.tareas);
-    
-    if (notasData && notasData.notas) {
+
+    // 2. Tareas del día (Solo sobreescribe si el backend devolvió datos)
+    if (tareasData?.tareas && tareasData.tareas.length > 0) {
+      setTareas(tareasData.tareas);
+    }
+
+    // 3. Notas
+    if (notasData?.notas && Array.isArray(notasData.notas)) {
       setNotas(notasData.notas.slice(0, 5));
-    } else {
-      setNotas([]);
     }
 
-    if (cierreData.cierre) setUltimoCierre(cierreData.cierre);
-    if (alertaPesoData.alerta) setAlertaPeso(alertaPesoData);
-  };
+    // 4. Último cierre y peso
+    if (cierreData?.cierre) setUltimoCierre(cierreData.cierre);
+    if (alertaPesoData?.alerta) setAlertaPeso(alertaPesoData);
 
-  const resetEstados = () => {
-    yaTransicionadoRef.current = false;
-    setPacienteActivo(null);
-    setTurnoActivo(null);
-    turnoActivoRef.current = null;
-    setTareas([]);
-    setNotas([]);
-    setUltimoCierre(null);
-    setAlertaPeso(null);
-    setEstadoPaciente('bien');
-    setPeso(70.0);
-    setDolorEva(0); setHidratacion(0); setEstadoAnimo('bien'); setAlimentacion('bien');
-    setBarthelScores(new Array(10).fill(0));
-    setMorseScores(new Array(6).fill(0));
-    setMnaScores(new Array(6).fill(0));
-    setBarthelOpen(false); setMorseOpen(false); setMnaOpen(false);
-    setBarthelTocado(false); setMorseTocado(false); setMnaTocado(false);
-    setEscalaRequerida(false); setEscalasLista([]);
-    setSensibilidadCaidas('');
-  };
+  } catch (err) {
+    console.warn("⚠️ Error general en cargarTurno:", err);
+  }
+};
+
+const resetEstados = () => {
+  yaTransicionadoRef.current = false;
+  setPacienteActivo(null);
+  setTurnoActivo(null);
+  turnoActivoRef.current = null;
+  setTareas([]);
+  setNotas([]);
+  setUltimoCierre(null);
+  setAlertaPeso(null);
+  setEstadoPaciente('bien');
+  setPeso(70.0);
+  setDolorEva(0);
+  setHidratacion(0);
+  setEstadoAnimo('bien');
+  setAlimentacion('bien');
+  setBarthelScores(new Array(10).fill(0));
+  setMorseScores(new Array(6).fill(0));
+  setMnaScores(new Array(6).fill(0));
+  setBarthelOpen(false);
+  setMorseOpen(false);
+  setMnaOpen(false);
+  setBarthelTocado(false);
+  setMorseTocado(false);
+  setMnaTocado(false);
+  setEscalaRequerida(false);
+  setEscalasLista([]);
+  setSensibilidadCaidas('');
+};
     
   const manejarInicioTurno = async (p: any) => {
   if (esSwitchFamiliar) {
