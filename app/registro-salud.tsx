@@ -41,7 +41,7 @@ export default function RegistroSaludScreen() {
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [alertas, setAlertas] = useState<string[]>([]);
-
+  
   // 📡 Sincronización Automática con las últimas ráfagas del Reloj en Supabase
   // 📡 Sincronización Automática con Diagnóstico Profundo
 useEffect(() => {
@@ -101,50 +101,51 @@ useEffect(() => {
 }, [paciente?.id]);
 
   const guardar = async () => {
-    setGuardando(true);
-    try {
-      // 🛑 SI EL RELOJ NO ESTÁ PUESTO/ACTIVO: No enviamos ceros ni enviamos ráfaga al backend para evitar falsas alertas
-      if (!relojActivo) {
-        console.log("⌚ Reloj inactivo o quitado. Omitiendo evaluación de alertas biométricas...");
-        await avanzarAlTurno();
-        return;
-      }
-
-      const token = getToken();
-      const res = await fetch(`${BASE_URL}/registros/salud`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          paciente_id: paciente.id,
-          momento,
-          spo2, 
-          presion_sistolica: sistolica, 
-          presion_diastolica: diastolica,
-          frecuencia_cardiaca: fc, 
-          temperatura,
-          estado_animo: 'bien',
-          alimentacion: 'bien',
-          dolor_eva: 0,
-        }),
-      });
-      
-      const data = await res.json();
-      if (data.alertas?.length > 0) {
-        setAlertas(data.alertas);
-      } else {
-        await avanzarAlTurno();
-      }
-    } catch (e) {
-      console.error(e);
-      // Ante un fallo de red o servidor, dejamos avanzar el turno sin congelar al cuidador
+  setGuardando(true);
+  try {
+    // 🛑 SI EL RELOJ NO ESTÁ PUESTO/ACTIVO: avanzamos sin validar
+    if (!relojActivo) {
+      console.log("⌚ Reloj inactivo o quitado. Omitiendo evaluación de alertas biométricas...");
       await avanzarAlTurno();
-    } finally {
-      setGuardando(false);
+      return;
     }
-  };
+
+    const token = getToken();
+    const res = await fetch(`${BASE_URL}/registros/salud`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        paciente_id: paciente.id,
+        momento,
+        estado_animo: 'bien',
+        alimentacion: 'bien',
+        dolor_eva: 0,
+        // 🎯 Enviamos null en los signos para no duplicar ni fingir una toma manual:
+        // El reloj ya los reporta por su propio socket TCP.
+        spo2: null, 
+        presion_sistolica: null, 
+        presion_diastolica: null,
+        frecuencia_cardiaca: null, 
+        temperatura: null,
+      }),
+    });
+    
+    const data = await res.json();
+    if (data.alertas?.length > 0) {
+      setAlertas(data.alertas);
+    } else {
+      await avanzarAlTurno();
+    }
+  } catch (e) {
+    console.error(e);
+    await avanzarAlTurno();
+  } finally {
+    setGuardando(false);
+  }
+};
 
   // 💡 Asegúrate de incluir 'Alert' en tus imports de React Native:
 // import { Alert, ActivityIndicator, ScrollView, ... } from 'react-native';
@@ -204,7 +205,10 @@ const avanzarAlTurno = async () => {
     espontaneo: 'Registro espontáneo',
   };
 
-  // 🚨 UI: Interceptación y Pantalla de Alertas Críticas (Solo si el reloj estaba activo)
+ // 🎯 1. Identificar si el paciente tiene hardware contratado/vinculado
+  const tieneHardware = Boolean(paciente?.reloj_imei || paciente?.dispositivo_id || paciente?.imei);
+
+  // 🚨 UI: Interceptación de Alertas Críticas (Solo si el reloj reportó signos alterados)
   if (alertas.length > 0) {
     return (
       <View style={styles.container}>
@@ -238,7 +242,9 @@ const avanzarAlTurno = async () => {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
         <ActivityIndicator size="large" color={COLORS.gold} />
-        <Text style={{ marginTop: 12, fontSize: 12, color: COLORS.textLight, fontWeight: '600' }}>Sincronizando con Reloj Vitanova...</Text>
+        <Text style={{ marginTop: 12, fontSize: 12, color: COLORS.textLight, fontWeight: '600' }}>
+          {tieneHardware ? 'Sincronizando con Reloj Vitanova...' : 'Preparando agenda de cuidados...'}
+        </Text>
       </View>
     );
   }
@@ -253,78 +259,107 @@ const avanzarAlTurno = async () => {
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.greeting}>{momentoLabel[momento] || 'Telemetría Automática'}</Text>
+          <Text style={styles.greeting}>{momentoLabel[momento] || 'Verificación de Turno'}</Text>
           <Text style={styles.userName}>{paciente?.nombre_completo}</Text>
         </View>
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>Estatus Actual del Dispositivo</Text>
         
-        {/* 🏥 MONITOR EN TIEMPO REAL AUTOMÁTICO */}
-        <View style={[styles.monitorCard, esCritico && { borderColor: COLORS.red, backgroundColor: '#FFF5F5' }]}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <Text style={styles.monitorCardTitle}>📡 DATOS DE HARDWARE TRANSMITIDOS POR TCP</Text>
-            {!relojActivo ? (
-              <Text style={[styles.badgeAlertaCritica, { backgroundColor: COLORS.border, color: COLORS.cacao }]}>⚠️ DESCONECTADO / RETIRADO</Text>
-            ) : esCritico ? (
-              <Text style={styles.badgeAlertaCritica}>🚨 DESCOMPENSADO</Text>
-            ) : null}
-          </View>
-
-          {!relojActivo ? (
-            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-              <Text style={{ fontSize: 16, fontWeight: 'bold', color: COLORS.cacao, marginBottom: 4 }}>Reloj Sin Colocar o Inactivo</Text>
-              <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
-                No se detectan pulsaciones ópticas activas. Los signos vitales permanecerán en pausa hasta colocar el dispositivo.
+        {/* ── CASO A: PACIENTE SIN HARDWARE CONTRATADO (Plan Cuidados / Sin Reloj) ── */}
+        {!tieneHardware ? (
+          <View style={{ marginTop: 12, marginBottom: 20 }}>
+            <View style={[styles.monitorCard, { paddingVertical: 28, alignItems: 'center' }]}>
+              <Text style={{ fontSize: 36, marginBottom: 12 }}>📋</Text>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.cacao, marginBottom: 6 }}>
+                Plan de Acompañamiento Activo
+              </Text>
+              <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center', paddingHorizontal: 16, lineHeight: 18 }}>
+                Al confirmar el inicio del turno se activará la bitácora de actividades, control de medicamentos y registro de signos vitales manuales.
               </Text>
             </View>
-          ) : (
-            <>
-              {/* Fila 1: SpO2 y Pulso */}
-              <View style={styles.monitorGrid}>
-                <View style={styles.monitorItem}>
-                  <Text style={styles.monitorLabel}>Saturación Oxígeno</Text>
-                  <Text style={[styles.monitorVal, spo2 !== null && spo2 < 92 && { color: COLORS.red }]}>{spo2 !== null ? `${spo2}%` : '—'}</Text>
-                  <Text style={styles.monitorSubText}>Normal: 95% - 100%</Text>
-                </View>
-
-                <View style={styles.monitorItem}>
-                  <Text style={styles.monitorLabel}>Frec. Cardíaca</Text>
-                  <Text style={[styles.monitorVal, fc !== null && (fc > 100 || fc < 60) && { color: COLORS.amber }]}>
-                    {fc !== null ? fc : '—'} <Text style={{ fontSize: 11, fontWeight: '500' }}>bpm</Text>
+          </View>
+        ) : (
+          /* ── CASO B: PACIENTE CON TELEMETRÍA Y RELOJ ── */
+          <>
+            <Text style={styles.sectionTitle}>Estatus Actual del Dispositivo</Text>
+            
+            <View style={[styles.monitorCard, esCritico && { borderColor: COLORS.red, backgroundColor: '#FFF5F5' }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <Text style={styles.monitorCardTitle}>📡 DATOS TRANSMITIDOS POR HARDWARE</Text>
+                {!relojActivo ? (
+                  <Text style={[styles.badgeAlertaCritica, { backgroundColor: COLORS.border, color: COLORS.cacao }]}>
+                    ⚪ EN ESPERA DE COLOCACIÓN
                   </Text>
-                  <Text style={styles.monitorSubText}>Normal: 60 - 100</Text>
+                ) : esCritico ? (
+                  <Text style={styles.badgeAlertaCritica}>🚨 DESCOMPENSADO</Text>
+                ) : (
+                  <Text style={[styles.badgeAlertaCritica, { backgroundColor: COLORS.greenPale, color: COLORS.green }]}>
+                    🟢 EN LÍNEA
+                  </Text>
+                )}
+              </View>
+
+              {!relojActivo ? (
+                <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 15, fontWeight: 'bold', color: COLORS.cacao, marginBottom: 4 }}>
+                    Reloj en Reposo o Sin Colocar
+                  </Text>
+                  <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
+                    No se detectan pulsaciones ópticas activas en este momento. La telemetría continuará registrándose automáticamente al colocarse el dispositivo.
+                  </Text>
                 </View>
-              </View>
+              ) : (
+                <>
+                  {/* Fila 1: SpO2 y Pulso */}
+                  <View style={styles.monitorGrid}>
+                    <View style={styles.monitorItem}>
+                      <Text style={styles.monitorLabel}>Saturación Oxígeno</Text>
+                      <Text style={[styles.monitorVal, spo2 !== null && spo2 < 92 && { color: COLORS.red }]}>
+                        {spo2 !== null ? `${spo2}%` : '—'}
+                      </Text>
+                      <Text style={styles.monitorSubText}>Normal: 95% - 100%</Text>
+                    </View>
 
-              {/* Fila 2: Presión Arterial Combinada */}
-              <View style={[styles.monitorItem, { marginTop: 12 }]}>
-                <Text style={styles.monitorLabel}>Presión Arterial</Text>
-                <Text style={styles.monitorVal}>
-                  {sistolica !== null && diastolica !== null ? `${sistolica} / ${diastolica}` : '—'} <Text style={{ fontSize: 12, fontWeight: '500' }}>mmHg</Text>
-                </Text>
-                <Text style={styles.monitorSubText}>Normal: 120 / 80 mmHg</Text>
-              </View>
+                    <View style={styles.monitorItem}>
+                      <Text style={styles.monitorLabel}>Frec. Cardíaca</Text>
+                      <Text style={[styles.monitorVal, fc !== null && (fc > 100 || fc < 60) && { color: COLORS.amber }]}>
+                        {fc !== null ? fc : '—'} <Text style={{ fontSize: 11, fontWeight: '500' }}>bpm</Text>
+                      </Text>
+                      <Text style={styles.monitorSubText}>Normal: 60 - 100</Text>
+                    </View>
+                  </View>
 
-              {/* Fila 3: Temperatura Corporal (Sensor Real) */}
-              <View style={[styles.monitorItem, { marginTop: 12 }]}>
-                <Text style={styles.monitorLabel}>Temperatura Corporal (Muñeca)</Text>
-                <Text style={[styles.monitorVal, temperatura !== null && temperatura > 37.5 && { color: COLORS.red }]}>
-                  {temperatura !== null ? `${temperatura} °C` : '—'}
-                </Text>
-                <Text style={styles.monitorSubText}>Normal: 36.0 °C - 37.3 °C</Text>
-              </View>
-            </>
-          )}
-        </View>
+                  {/* Fila 2: Presión Arterial Combinada */}
+                  <View style={[styles.monitorItem, { marginTop: 12 }]}>
+                    <Text style={styles.monitorLabel}>Presión Arterial</Text>
+                    <Text style={styles.monitorVal}>
+                      {sistolica !== null && diastolica !== null ? `${sistolica} / ${diastolica}` : '—'} <Text style={{ fontSize: 12, fontWeight: '500' }}>mmHg</Text>
+                    </Text>
+                    <Text style={styles.monitorSubText}>Normal: 120 / 80 mmHg</Text>
+                  </View>
 
-        <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center', marginHorizontal: 16, marginTop: 4, lineHeight: 18 }}>
-          {relojActivo 
-            ? 'Los datos superiores fueron recolectados de forma pasiva por los sensores ópticos y térmicos del reloj.'
-            : 'Puedes iniciar el turno con normalidad. El sistema comenzará a registrar signos en cuanto el usuario se coloque el reloj.'}
-        </Text>
+                  {/* Fila 3: Temperatura Corporal */}
+                  <View style={[styles.monitorItem, { marginTop: 12 }]}>
+                    <Text style={styles.monitorLabel}>Temperatura Corporal (Muñeca)</Text>
+                    <Text style={[styles.monitorVal, temperatura !== null && temperatura > 37.5 && { color: COLORS.red }]}>
+                      {temperatura !== null ? `${temperatura} °C` : '—'}
+                    </Text>
+                    <Text style={styles.monitorSubText}>Normal: 36.0 °C - 37.3 °C</Text>
+                  </View>
+                </>
+              )}
+            </View>
 
+            <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center', marginHorizontal: 16, marginTop: 4, marginBottom: 16, lineHeight: 18 }}>
+              {relojActivo 
+                ? 'Los signos fueron recolectados de forma continua por los sensores ópticos y térmicos del reloj.'
+                : 'Puedes iniciar el turno con normalidad. El monitoreo biométrico se actualizará en cuanto el usuario se coloque el reloj.'}
+            </Text>
+          </>
+        )}
+
+        {/* 🔘 BOTÓN PRINCIPAL */}
         <TouchableOpacity 
           style={[styles.confirmarBtn, guardando && { opacity: 0.7 }]} 
           onPress={guardar} 
