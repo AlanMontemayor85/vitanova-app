@@ -74,7 +74,26 @@ export default function HomeScreen() {
   const [sensibilidadLocal, setSensibilidadLocal] = useState<number>(4);
   const [caidaActivaLocal, setCaidaActivaLocal] = useState<boolean>(true);
   const [equipo, setEquipo] = useState<MiembroEquipo[]>([]);
-  
+  const solicitarConfirmacion = (
+  titulo: string, 
+  mensaje: string, 
+  onConfirmar: () => Promise<void> | void,
+  esDestructivo: boolean = false
+) => {
+  Alert.alert(
+    titulo,
+    mensaje,
+    [
+      { text: "Cancelar", style: "cancel" },
+      { 
+        text: "Confirmar", 
+        style: esDestructivo ? "destructive" : "default",
+        onPress: onConfirmar 
+      }
+    ],
+    { cancelable: true }
+  );
+};
   
   const formatearHorarioRango = (horarioRaw: string | null | undefined): string => {
   if (!horarioRaw) return 'Sin horario';
@@ -1680,7 +1699,7 @@ useEffect(() => {
             );
           })}
         </View>
-          {/* 🎛️ MODAL DE CONTROL Y CONFIGURACIÓN DEL RELOJ */}
+          {/* 🎛️ MODAL DE CONTROL Y CONFIGURACIÓN DEL RELOJ CON CONFIRMACIONES */}
           <Modal
             visible={modalConfigVisible}
             transparent={true}
@@ -1731,12 +1750,14 @@ useEffect(() => {
                   contentContainerStyle={{ paddingBottom: 24 }}
                 >
 
-                  {/* 🟢 1. ACCIONES RÁPIDAS */}
+                  {/* 🟢 1. ACCIONES OPERATIVAS */}
                   <Text style={{ fontSize: 10, fontWeight: '800', color: COLORS.textLight, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10 }}>
                     Acciones Operativas
                   </Text>
 
                   <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                    
+                    {/* Hacer Sonar */}
                     <TouchableOpacity
                       style={{
                         flex: 1,
@@ -1749,7 +1770,13 @@ useEffect(() => {
                         gap: 6,
                       }}
                       disabled={ejecutandoCmd !== null}
-                      onPress={() => ejecutarComandoReloj('FIND')}
+                      onPress={() => {
+                        solicitarConfirmacion(
+                          "🔊 Hacer Sonar Dispositivo",
+                          `¿Deseas enviar una señal acústica continua al reloj de ${nombre} para localizarlo?`,
+                          () => ejecutarComandoReloj('FIND')
+                        );
+                      }}
                     >
                       {ejecutandoCmd === 'FIND' ? (
                         <ActivityIndicator color={COLORS.white} size="small" />
@@ -1761,6 +1788,7 @@ useEffect(() => {
                       )}
                     </TouchableOpacity>
 
+                    {/* Activar Pasos */}
                     <TouchableOpacity
                       style={{
                         flex: 1,
@@ -1775,7 +1803,13 @@ useEffect(() => {
                         gap: 6,
                       }}
                       disabled={ejecutandoCmd !== null}
-                      onPress={() => ejecutarComandoReloj('PEDO', '1')}
+                      onPress={() => {
+                        solicitarConfirmacion(
+                          "🚶 Activar Sensor de Pasos",
+                          "¿Deseas encender y sincronizar el podómetro continuo 24h en el reloj?",
+                          () => ejecutarComandoReloj('PEDO', '1')
+                        );
+                      }}
                     >
                       {ejecutandoCmd === 'PEDO' ? (
                         <ActivityIndicator color={COLORS.cacao} size="small" />
@@ -1803,7 +1837,14 @@ useEffect(() => {
                       marginBottom: 20,
                     }}
                     disabled={ejecutandoCmd !== null}
-                    onPress={() => confirmarAccionCritica('RESET')}
+                    onPress={() => {
+                      solicitarConfirmacion(
+                        "🔄 Reiniciar Reloj Remotamente",
+                        "El dispositivo se reiniciará y tardará aproximadamente 60 segundos en reconectarse a la red celular.",
+                        () => confirmarAccionCritica('RESET'),
+                        true
+                      );
+                    }}
                   >
                     {ejecutandoCmd === 'RESET' ? (
                       <ActivityIndicator color={COLORS.gold} size="small" />
@@ -1824,7 +1865,7 @@ useEffect(() => {
                     borderColor: COLORS.border,
                     marginBottom: 20,
                   }}>
-                    {/* Encabezado con Switch Optimista */}
+                    {/* Encabezado Switch con Confirmación */}
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                       <View style={{ flex: 1, marginRight: 10 }}>
                         <Text style={{ fontSize: 12, fontWeight: '800', color: COLORS.cacao }}>
@@ -1840,15 +1881,24 @@ useEffect(() => {
                       <Switch
                         value={Boolean(signosDispositivo?.reloj_config?.caida_activa)}
                         disabled={ejecutandoCmd === 'FALLDOWN'}
-                        onValueChange={async (activo) => {
-                          await ejecutarComandoReloj('FALLDOWN', activo ? '1,1' : '0,0');
+                        onValueChange={(nuevoEstado) => {
+                          solicitarConfirmacion(
+                            nuevoEstado ? "🛡️ Activar Detección de Caídas" : "⚠️ Desactivar Detección",
+                            nuevoEstado 
+                              ? "¿Deseas habilitar el monitoreo de caídas e impactos para este paciente?"
+                              : "¿Estás seguro de apagar el sensor de caídas? El sistema no podrá notificar emergencias por caídas.",
+                            async () => {
+                              await ejecutarComandoReloj('FALLDOWN', nuevoEstado ? '1,1' : '0,0');
+                            },
+                            !nuevoEstado
+                          );
                         }}
                         trackColor={{ false: '#D1D5DB', true: COLORS.gold }}
                         thumbColor={COLORS.white}
                       />
                     </View>
 
-                    {/* Selector de Sensibilidad (Atenuado si está apagado) */}
+                    {/* Selector de Sensibilidad con Confirmación */}
                     <View style={{ opacity: Boolean(signosDispositivo?.reloj_config?.caida_activa) ? 1 : 0.45 }}>
                       <Text style={{ fontSize: 10, fontWeight: '700', color: COLORS.textLight, marginBottom: 8, textTransform: 'uppercase' }}>
                         Sensibilidad del Sensor
@@ -1888,10 +1938,17 @@ useEffect(() => {
                                 shadowRadius: 4,
                                 elevation: activo ? 4 : 0,
                               }}
-                              onPress={async () => {
-                                setSensibilidadLocal(op.val);
-                                // ⚡ Corrección clave: Enviar par simétrico (ej. 4+4)
-                                await ejecutarComandoReloj('LSSET', `${op.val}+${op.val}`);
+                              onPress={() => {
+                                if (activo) return; // Si ya está seleccionado, no hacer nada
+
+                                solicitarConfirmacion(
+                                  "🎯 Ajustar Sensibilidad de Caída",
+                                  `¿Cambiar nivel a "${op.label}" (${op.desc})?`,
+                                  async () => {
+                                    setSensibilidadLocal(op.val);
+                                    await ejecutarComandoReloj('LSSET', `${op.val}+${op.val}`);
+                                  }
+                                );
                               }}
                             >
                               {activo && (
@@ -1948,7 +2005,14 @@ useEffect(() => {
                       marginBottom: 16,
                     }}
                     disabled={ejecutandoCmd !== null}
-                    onPress={() => confirmarAccionCritica('POWEROFF')}
+                    onPress={() => {
+                      solicitarConfirmacion(
+                        "🛑 Apagar Reloj Remotamente",
+                        "⚠️ ATENCIÓN: El reloj se apagará por completo y NO podrá encenderse a distancia (requerirá presionar el botón físico en el dispositivo). ¿Confirmas el apagado?",
+                        () => confirmarAccionCritica('POWEROFF'),
+                        true
+                      );
+                    }}
                   >
                     {ejecutandoCmd === 'POWEROFF' ? (
                       <ActivityIndicator color="#DC2626" size="small" />
@@ -1960,7 +2024,7 @@ useEffect(() => {
                     )}
                   </TouchableOpacity>
 
-                  {/* Cerrar */}
+                  {/* Cerrar Modal */}
                   <TouchableOpacity
                     style={{
                       backgroundColor: COLORS.cream,
@@ -1976,7 +2040,6 @@ useEffect(() => {
                     <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textDark }}>Cerrar</Text>
                   </TouchableOpacity>
 
-                  {/* Espaciador final de seguridad */}
                   <View style={{ height: 20 }} />
 
                 </ScrollView>
