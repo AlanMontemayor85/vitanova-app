@@ -18,21 +18,18 @@ const COLORS = {
   amberPale: '#FFF4E0'
 };
 
-// 🟢 Helper ultra robusto para leer la temperatura de cualquier origen de datos (Cierres o Registros de Salud)
+function TensorParseFloat(val: any): number | null {
+  if (typeof val === 'number') return Number.isFinite(val) ? val : null;
+  const num = parseFloat(String(val).replace('°C', '').replace('°', '').trim());
+  return Number.isFinite(num) ? num : null;
+}
+
 function leerTemperatura(r: any): number | null {
-  // Evaluamos todas las llaves posibles que el backend de FastAPI o Supabase puedan escupir
   const raw = r?.temperatura ?? r?.temperatura_corporal ?? r?.temp;
   if (raw === null || raw === undefined || raw === '—') return null;
   
   const num = TensorParseFloat(raw);
   return num !== null && num >= 30 && num <= 45 ? num : null;
-}
-
-// Auxiliar para limpiar y parsear strings con caracteres médicos (°C, °)
-function TensorParseFloat(val: any): number | null {
-  if (typeof val === 'number') return Number.isFinite(val) ? val : null;
-  const num = parseFloat(String(val).replace('°C', '').replace('°', '').trim());
-  return Number.isFinite(num) ? num : null;
 }
 
 function MiniChart({
@@ -59,7 +56,7 @@ function MiniChart({
   const enAlerta = alerta ? (unidad === "%" ? ultimo < alerta : ultimo > alerta) : false;
 
   const fechaInicialStr = fechas && fechas[0]
-    ? new Date(fechas[0]).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+    ? new Date(fechas[0]).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
     : 'Inicio';
 
   return (
@@ -72,7 +69,6 @@ function MiniChart({
       </View>
       
       <View style={{ height: CHART_HEIGHT, position: 'relative', backgroundColor: 'rgba(0,0,0,0.01)', borderRadius: 6, overflow: 'hidden' }}>
-        {/* Línea de Alerta Médica */}
         {alerta && (
           <View style={{
             position: 'absolute',
@@ -87,7 +83,6 @@ function MiniChart({
 
         {puntos.map((p, i) => (
           <View key={i}>
-            {/* Renderizado de Línea Conectora */}
             {i > 0 && (() => {
               const prev = puntos[i - 1];
               const dx = p.x - prev.x;
@@ -100,7 +95,7 @@ function MiniChart({
                   left: prev.x,
                   top: prev.y,
                   width: len,
-                  height: 1.5, // 👑 Línea más delgada y estilizada de grado ejecutivo
+                  height: 1.5,
                   backgroundColor: color,
                   opacity: 0.8,
                   transform: [{ rotate: `${angle}deg` }],
@@ -109,7 +104,6 @@ function MiniChart({
               );
             })()}
 
-            {/* 👑 NODOS MINIMALISTAS: Puntos ultra pequeños (4x4) para evitar plastas gruesas */}
             <View style={{
               position: 'absolute',
               left: p.x - 2,
@@ -148,61 +142,59 @@ export default function GraficaSignosScreen() {
   const [periodoFiltro, setPeriodoFiltro] = useState<'todos' | 'hoy' | 'semana'>('todos');
   
   const handleExportarCSV = async () => {
-  try {
-    const url = `${BASE_URL}/pacientes/${pacienteId}/exportar-bitacora-analitica`;
-    const nombreLimpio = (pacienteNombre || pacienteId).replace(/[^a-zA-Z0-9_-]/g, '_');
-    const targetPath = `${documentDirectory}auditoria_clinica_${nombreLimpio}.csv`;
-    
-    const token = await loadStoredToken(); 
-    if (!token) {
-      Alert.alert("Sesión Expirada", "Inicia sesión nuevamente.");
-      return;
-    }
+    try {
+      const url = `${BASE_URL}/pacientes/${pacienteId}/exportar-bitacora-analitica`;
+      const nombreLimpio = (pacienteNombre || pacienteId).replace(/[^a-zA-Z0-9_-]/g, '_');
+      const targetPath = `${documentDirectory}auditoria_clinica_${nombreLimpio}.csv`;
+      
+      const token = await loadStoredToken(); 
+      if (!token) {
+        Alert.alert("Sesión Expirada", "Inicia sesión nuevamente.");
+        return;
+      }
 
-    const downloadResult = await downloadAsync(url, targetPath, {
-      headers: { 
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'text/csv'
-      },
-    });
-
-    // 🛑 GESTIÓN CONTROLADA DE RESPUESTAS DEL SERVIDOR
-    if (downloadResult.status === 403) {
-      Alert.alert(
-        "🔒 Exportación Restringida",
-        "No cuentas con autorización activa del Administrador Familiar para exportar o descargar este expediente clínico."
-      );
-      return;
-    }
-
-    if (downloadResult.status === 404) {
-      Alert.alert("Sin Registros", "No hay muestras suficientes para generar la bitácora.");
-      return;
-    }
-
-    if (downloadResult.status !== 200) {
-      Alert.alert("Aviso", `El servidor no pudo procesar la solicitud (Código ${downloadResult.status}).`);
-      return;
-    }
-
-    // ✅ DESCARGA EXITOSA
-    const puedeCompartir = await Sharing.isAvailableAsync();
-    if (puedeCompartir) {
-      await Sharing.shareAsync(downloadResult.uri, { 
-        mimeType: 'text/csv', 
-        dialogTitle: 'Reporte de Auditoría Analítica — Vitanova',
-        UTI: 'public.comma-separated-values-text'
+      const downloadResult = await downloadAsync(url, targetPath, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'text/csv'
+        },
       });
-    } else {
-      Alert.alert("Descarga Completa", "El archivo se guardó en el dispositivo.");
-    }
 
-  } catch (error: any) {
-    // Solo captura fallos reales de red o IO del dispositivo
-    console.log("⚠️ Excepción no HTTP al exportar:", error);
-    Alert.alert("Error de Conexión", "No se pudo establecer comunicación con el servidor.");
-  }
-};
+      if (downloadResult.status === 403) {
+        Alert.alert(
+          "🔒 Exportación Restringida",
+          "No cuentas con autorización activa del Administrador Familiar para exportar este expediente clínico."
+        );
+        return;
+      }
+
+      if (downloadResult.status === 404) {
+        Alert.alert("Sin Registros", "No hay muestras suficientes para generar la bitácora.");
+        return;
+      }
+
+      if (downloadResult.status !== 200) {
+        Alert.alert("Aviso", `El servidor no pudo procesar la solicitud (Código ${downloadResult.status}).`);
+        return;
+      }
+
+      const puedeCompartir = await Sharing.isAvailableAsync();
+      if (puedeCompartir) {
+        await Sharing.shareAsync(downloadResult.uri, { 
+          mimeType: 'text/csv', 
+          dialogTitle: 'Reporte de Auditoría Analítica — Vitanova',
+          UTI: 'public.comma-separated-values-text'
+        });
+      } else {
+        Alert.alert("Descarga Completa", "El archivo se guardó en el dispositivo.");
+      }
+
+    } catch (error: any) {
+      console.log("⚠️ Excepción al exportar:", error);
+      Alert.alert("Error de Conexión", "No se pudo establecer comunicación con el servidor.");
+    }
+  };
+
   useEffect(() => {
     const cargar = async () => {
       try {
@@ -222,24 +214,7 @@ export default function GraficaSignosScreen() {
     cargar();
   }, [pacienteId]);
 
-  const registrosFiltrados = [...registros].reverse();
-
-  const registrosSpo2 = registrosFiltrados.filter(r => r.spo2 !== null && r.spo2 !== undefined);
-  const spo2Data = registrosSpo2.map(r => r.spo2);
-  const spo2Fechas = registrosSpo2.map(r => r.created_at);
-
-  const registrosPresion = registrosFiltrados.filter(r => r.presion_sistolica !== null && r.presion_diastolica !== null);
-  const sstolicaData = registrosPresion.map(r => r.presion_sistolica);
-  const dstolicaData = registrosPresion.map(r => r.presion_diastolica ?? 0);
-  const presionFechas = registrosPresion.map(r => r.created_at);
-
-  const registrosFc = registrosFiltrados.filter(r => r.frecuencia_cardiaca !== null && r.frecuencia_cardiaca !== undefined);
-  const fcData = registrosFc.map(r => r.frecuencia_cardiaca);
-  const fcFechas = registrosFc.map(r => r.created_at);
-
-  const temperaturaData = registrosTemp.map(r => r.temperatura) as number[];
-  const tempFechas = registrosTemp.map(r => r.created_at);
-
+  // 1. Filtrado para la BITÁCORA (Más reciente arriba)
   const registrosBitacoraFiltrados = registros.filter(r => {
     if (periodoFiltro === 'todos') return true;
     const fechaRegistro = new Date(r.created_at);
@@ -252,7 +227,31 @@ export default function GraficaSignosScreen() {
     }
     return true;
   });
-  
+
+  // 2. Inversión Cronológica para las GRÁFICAS (Pasado ➔ Presente)
+  const registrosGraficas = [...registrosBitacoraFiltrados].reverse();
+
+  // SpO2
+  const registrosSpo2 = registrosGraficas.filter(r => r.spo2 !== null && r.spo2 > 0);
+  const spo2Data = registrosSpo2.map(r => r.spo2);
+  const spo2Fechas = registrosSpo2.map(r => r.created_at);
+
+  // Presión Arterial
+  const registrosPresion = registrosGraficas.filter(r => r.presion_sistolica && r.presion_diastolica);
+  const sstolicaData = registrosPresion.map(r => Math.round(r.presion_sistolica));
+  const dstolicaData = registrosPresion.map(r => Math.round(r.presion_diastolica));
+  const presionFechas = registrosPresion.map(r => r.created_at);
+
+  // Frecuencia Cardíaca
+  const registrosFc = registrosGraficas.filter(r => r.frecuencia_cardiaca !== null && r.frecuencia_cardiaca > 0);
+  const fcData = registrosFc.map(r => r.frecuencia_cardiaca);
+  const fcFechas = registrosFc.map(r => r.created_at);
+
+  // Temperatura (usando leerTemperatura robusto y cronológico)
+  const registrosTempValidos = [...registrosTemp].reverse().filter(r => leerTemperatura(r) !== null);
+  const temperaturaData = registrosTempValidos.map(r => leerTemperatura(r) as number);
+  const tempFechas = registrosTempValidos.map(r => r.created_at);
+
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
@@ -273,7 +272,7 @@ export default function GraficaSignosScreen() {
           <Text style={styles.userName}>{pacienteNombre}</Text>
         </View>
         <View style={styles.periodoPill}>
-          <Text style={styles.periodoText}>Últimos 14 registros</Text>
+          <Text style={styles.periodoText}>Tendencias 24h</Text>
         </View>
       </View>
 
@@ -287,7 +286,7 @@ export default function GraficaSignosScreen() {
           </View>
         ) : (
           <>
-            {/* GRÁFICA SPO2 (ZOOM PARA DETECTAR CAÍDAS SUTILES) */}
+            {/* GRÁFICA SPO2 */}
             {spo2Data.length > 0 && (
               <View style={styles.chartCard}>
                 <View style={styles.chartHeader}>
@@ -308,7 +307,7 @@ export default function GraficaSignosScreen() {
                 {spo2Data[spo2Data.length - 1] < 92 && (
                   <View style={[styles.alertaBanner, { backgroundColor: COLORS.redPale }]}>
                     <Text style={{ fontSize: 11, color: COLORS.red, fontWeight: '700' }}>
-                      ⚠️ SpO₂ bajo detectado en el último informe.
+                      ⚠️ SpO₂ bajo detectado en la última consolidación.
                     </Text>
                   </View>
                 )}
@@ -374,7 +373,7 @@ export default function GraficaSignosScreen() {
               </View>
             )}
 
-            {/* 👑 GRÁFICA TEMPERATURA CORPORAL RE-CALIBRADA DE GRADO CLÍNICO */}
+            {/* GRÁFICA TEMPERATURA CORPORAL */}
             {temperaturaData.length > 0 && (
               <View style={styles.chartCard}>
                 <View style={styles.chartHeader}>
@@ -387,14 +386,13 @@ export default function GraficaSignosScreen() {
                   datos={temperaturaData}
                   fechas={tempFechas}
                   color={COLORS.amber}
-                  // 🎯 EL TRUCO DEL ZOOM: El eje Y se estira dinámicamente según las décimas reales del paciente
                   min={Math.min(...temperaturaData) - 0.3}
                   max={Math.max(...temperaturaData) + 0.3 > 38.5 ? Math.max(...temperaturaData) + 0.3 : 38.5}
                   unidad="°C"
                   alerta={37.8}
                 />
                 <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 8, fontStyle: 'italic' }}>
-                  ⏱️ Temperatura medida bajo demanda cada ~30 min. Los valores intermedios no son interpolados.
+                  ⏱️ Medición de grado clínico sincronizada por eventos.
                 </Text>
               </View>
             )}
@@ -416,12 +414,11 @@ export default function GraficaSignosScreen() {
               </View>
             )}
 
-            {/* TABLA HISTÓRICA COMPLETA DE REGISTROS (CON FILTROS DINÁMICOS) */}
+            {/* TABLA HISTÓRICA COMPLETA DE REGISTROS */}
             <View style={styles.chartCard}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
                 <Text style={styles.chartTitle}>Bitácora de Monitoreo General</Text>
                 
-                {/* Selector de Periodo Estilizado (Pills) */}
                 <View style={{ flexDirection: 'row', backgroundColor: COLORS.cream, borderRadius: 8, padding: 2, borderWidth: 1, borderColor: COLORS.border }}>
                   {[
                     { id: 'todos', label: 'Todos' },
@@ -444,7 +441,6 @@ export default function GraficaSignosScreen() {
                 </View>
               </View>
 
-              {/* Botón de Exportación Analítica */}
               <TouchableOpacity 
                 onPress={handleExportarCSV}
                 style={{
@@ -468,7 +464,7 @@ export default function GraficaSignosScreen() {
                 </Text>
               </TouchableOpacity>
 
-              {/* 👑 ENCABEZADOS DE COLUMNA (PROPORCIONES UNIFICADAS) */}
+              {/* ENCABEZADOS DE COLUMNA */}
               <View style={{ 
                 flexDirection: 'row', 
                 alignItems: 'center',
@@ -485,7 +481,7 @@ export default function GraficaSignosScreen() {
                 <Text style={{ flex: 1.1, fontSize: 10, fontWeight: '700', color: COLORS.textLight, textAlign: 'center' }}>Peso</Text>
               </View>
 
-              {/* Cuerpo de la Tabla Dinámica */}
+              {/* CUERPO DE LA TABLA */}
               <View style={{ marginTop: 4 }}>
                 {registrosBitacoraFiltrados.length === 0 ? (
                   <View style={{ paddingVertical: 20, alignItems: 'center' }}>
@@ -495,19 +491,10 @@ export default function GraficaSignosScreen() {
                   </View>
                 ) : (
                   registrosBitacoraFiltrados.map((r, i) => {
-                    const temp = r.temperatura !== null && r.temperatura !== undefined ? r.temperatura : null;
-                    
+                    const temp = leerTemperatura(r);
                     const esReloj = r.fuente === 'reloj';
                     const esManual = r.fuente === 'manual';
                     const esCuidador = r.fuente === 'cuidador';
-
-                    // Flags de trazabilidad clínica
-                    const spo2Heredado = esReloj && r.spo2_heredado;
-                    const presionHeredada = esReloj && r.presion_heredado;
-                    const fcHeredado = esReloj && r.fc_heredado;
-                    const tempHeredada = esReloj && r.temp_heredado;
-
-                    // 🎯 Extracción limpia del nombre del cuidador/familiar
                     const nombreOperador = (r.nombre_cuidador || r.usuarios?.nombre_completo || 'Personal').split(' ')[0];
 
                     return (
@@ -521,44 +508,43 @@ export default function GraficaSignosScreen() {
                           borderBottomColor: COLORS.cream || '#F5F4F0'
                         }}
                       >
-                        {/* 1. Fecha y Operador (flex: 3.2) */}
+                        {/* 1. Fecha y Operador */}
                         <View style={{ flex: 3.2, paddingRight: 4 }}>
                           <Text style={styles.historialFecha}>
                             {new Date(r.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                           </Text>
-
                           <Text style={[styles.historialCuidador, !esReloj && { color: esManual ? COLORS.amber : COLORS.green, fontWeight: '700' }]}>
                             {esCuidador 
                               ? `👤 ${nombreOperador}`
                               : esManual
                                 ? `🩺 ${nombreOperador} (Toma manual)`
-                                : '⌚ Reloj'}
+                                : '⌚ Reloj (Tendencia)'}
                           </Text>
                         </View>
 
-                        {/* 2. SpO2 (flex: 1.1) */}
+                        {/* 2. SpO2 */}
                         <Text style={[styles.historialVal, { flex: 1.1, textAlign: 'center' }]}>
-                          {r.spo2 ? `${r.spo2}%${spo2Heredado ? '*' : ''}` : '—'}
+                          {r.spo2 ? `${r.spo2}%` : '—'}
                         </Text>
 
-                        {/* 3. Presión Arterial (flex: 1.8) */}
+                        {/* 3. Presión Arterial */}
                         <Text style={[styles.historialVal, { flex: 1.8, textAlign: 'center' }]}>
                           {r.presion_sistolica && r.presion_diastolica 
-                            ? `${Math.round(r.presion_sistolica)}/${Math.round(r.presion_diastolica)}${presionHeredada ? '*' : ''}` 
+                            ? `${Math.round(r.presion_sistolica)}/${Math.round(r.presion_diastolica)}` 
                             : '—'}
                         </Text>
 
-                        {/* 4. Frecuencia Cardíaca (flex: 1.1) */}
+                        {/* 4. FC */}
                         <Text style={[styles.historialVal, { flex: 1.1, textAlign: 'center' }]}>
-                          {r.frecuencia_cardiaca ? `${r.frecuencia_cardiaca}${fcHeredado ? '*' : ''}` : '—'}
+                          {r.frecuencia_cardiaca ? `${r.frecuencia_cardiaca}` : '—'}
                         </Text>
 
-                        {/* 5. Temperatura (flex: 1.2) */}
+                        {/* 5. Temperatura */}
                         <Text style={[styles.historialVal, { flex: 1.2, textAlign: 'center' }]}>
-                          {temp !== null ? `${temp.toFixed(1)}°${tempHeredada ? '*' : ''}` : '—'}
+                          {temp !== null ? `${temp.toFixed(1)}°` : '—'}
                         </Text>
 
-                        {/* 6. Peso (flex: 1.1) */}
+                        {/* 6. Peso */}
                         <Text style={[styles.historialVal, { flex: 1.1, textAlign: 'center' }]}>
                           {r.peso_kg ? `${r.peso_kg}k` : '—'}
                         </Text>
@@ -568,9 +554,8 @@ export default function GraficaSignosScreen() {
                 )}
               </View>
 
-              {/* Nota de Deslinde Regulativo y Metodología */}
               <Text style={{ fontSize: 9, color: COLORS.textLight, fontStyle: 'italic', marginTop: 12, paddingHorizontal: 4, lineHeight: 12 }}>
-                * Los valores con asterisco (*) denotan arrastre del Último Valor Conocido (LOCF) para fines de continuidad hemodinámica.
+                * Mediciones continuas consolidadas por periodos de reposo para análisis de tendencia clínica.
               </Text>
             </View>
           </>
@@ -582,10 +567,7 @@ export default function GraficaSignosScreen() {
   );
 }
 
-// ── EL MAPA DE ESTILOS (styles = StyleSheet.create) SIGUE ABAJO EXACTAMENTE IGUAL...
-
 const styles = StyleSheet.create({
-  // ── 1. ESTRUCTURA Y CONTENEDORES BASE ──
   container: { 
     flex: 1, 
     backgroundColor: COLORS.cream 
@@ -595,8 +577,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, 
     paddingTop: 16 
   },
-
-  // ── 2. ENCABEZADO ESTANDARIZADO (CACAO + DORADOS) ──
   header: { 
     backgroundColor: COLORS.cacao, 
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52, 
@@ -632,7 +612,7 @@ const styles = StyleSheet.create({
   },
   backIcon: { 
     fontSize: 18, 
-    color: COLORS.white,
+    color: COLORS.white, 
     fontWeight: 'bold' 
   },
   periodoPill: { 
@@ -647,8 +627,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5 
   },
-
-  // ── 3. TARJETAS DE GRÁFICA Y CONTENEDORES ──
   emptyCard: { 
     backgroundColor: COLORS.white, 
     borderRadius: 14, 
@@ -705,31 +683,6 @@ const styles = StyleSheet.create({
     padding: 10, 
     marginTop: 10 
   },
-
-  // ── 4. HISTORIAL TIPO TABLA CLÍNICA ──
-  historialHeaders: { 
-    flexDirection: 'row', 
-    borderBottomWidth: 1, 
-    borderBottomColor: COLORS.border, 
-    paddingBottom: 6, 
-    marginTop: 8 
-  },
-  historialHeaderText: { 
-    fontSize: 9, 
-    color: COLORS.textLight, 
-    width: 45, 
-    textAlign: 'right', 
-    fontWeight: '800', 
-    textTransform: 'uppercase',
-    letterSpacing: 0.5 
-  },
-  historialRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingVertical: 8, 
-    borderBottomWidth: 1, 
-    borderBottomColor: COLORS.border 
-  },
   historialFecha: { 
     fontSize: 11, 
     fontWeight: '700', 
@@ -744,8 +697,6 @@ const styles = StyleSheet.create({
   historialVal: { 
     fontSize: 11, 
     fontWeight: '800', 
-    color: COLORS.gold, 
-    width: 45, 
-    textAlign: 'right' 
+    color: COLORS.gold 
   },
 });
