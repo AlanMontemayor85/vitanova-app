@@ -37,7 +37,7 @@ import {
   verificarEscalas
 } from '../services/api';
 import { programarNotificacionTarea, registrarNotificaciones } from '../services/notifications';
-import { encolarPeticionOffline } from '../services/offlineQueue';
+import { encolarPeticionOffline, vaciarColaOffline } from '../services/offlineQueue';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
@@ -508,6 +508,7 @@ useEffect(() => {
     const cargar = async () => {
       try {
         await loadStoredToken();
+        vaciarColaOffline();
         const data = await getPacientes('cuidador-mount');
         if (data?.usuario_nombre) {
           setNombreUsuario(data.usuario_nombre);
@@ -570,6 +571,7 @@ useEffect(() => {
   // ── EFECTO: DETECTAR REGRESO DE REGISTRO-SALUD Y LEVANTAR CONSOLA ──
     useEffect(() => {
     if (vista !== 'lista') return;
+    vaciarColaOffline();
     refrescarPacientes('lista', true); // forzar al entrar a lista
   }, [vista]);
 

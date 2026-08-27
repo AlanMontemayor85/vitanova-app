@@ -128,3 +128,14 @@ export async function vaciarColaOffline(): Promise<{ exitosos: number; pendiente
     return { exitosos: 0, pendientes: 0 };
   }
 }
+/**
+ * Retorna la lista de peticiones pendientes actualmente en cola.
+ */
+export async function obtenerColaOffline(): Promise<PeticionOffline[]> {
+  try {
+    const raw = await AsyncStorage.getItem(COLA_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
