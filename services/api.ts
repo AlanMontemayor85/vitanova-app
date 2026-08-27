@@ -1,4 +1,4 @@
-
+import { encolarPeticionOffline } from './offlineQueue';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
@@ -217,14 +217,50 @@ export const getUltimoCierre = async (pacienteId: string) => {
   }
 };
 
-export const getNotasTurno = async (pacienteId: string) => {
+export const crearNotaTurno = async (
+  pacienteId: string, 
+  textoNota: string, 
+  tipo: string = 'general'
+) => {
+  const url = `${BASE_URL}/pacientes/${pacienteId}/notas-turno`;
+  const payload = {
+    paciente_id: pacienteId,
+    nota: textoNota,
+    tipo,
+    created_at: new Date().toISOString(),
+  };
+
   try {
-    const res = await fetchWithAuth(`${BASE_URL}/pacientes/${pacienteId}/notas-turno`);
-    if (!res.ok) return { notas: [] };
-    const data = await res.json();
-    return Array.isArray(data?.notas) ? data : { notas: [] };
-  } catch {
-    return { notas: [] };
+    const res = await fetchWithAuth(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res || !res.ok) {
+      throw new Error(`HTTP ${res?.status || 0}`);
+    }
+
+    return await res.json();
+  } catch (err) {
+    // 🛡️ Si no hay red, guardar en cola local y responder positivamente a la vista
+    await encolarPeticionOffline(
+      url,
+      'POST',
+      payload,
+      `Nota de turno (${tipo}): ${textoNota.substring(0, 30)}...`
+    );
+
+    return {
+      success: true,
+      offline: true,
+      nota: {
+        id: `temp_nota_${Date.now()}`,
+        ...payload,
+        offline_pendiente: true,
+      },
+      message: 'Nota guardada localmente. Se sincronizará al recuperar conexión.',
+    };
   }
 };
 
@@ -245,8 +281,8 @@ export interface DatosCierreTurno {
   insumos?: any[];
 }
 
-// 🎯 Función que realiza el POST al endpoint de FastAPI
 export const enviarCierreTurno = async (datos: DatosCierreTurno) => {
+  const url = `${BASE_URL}/turnos/cerrar`;
   const payload = {
     paciente_id: datos.pacienteId,
     estado_paciente: datos.estadoPaciente || 'bien',
@@ -254,7 +290,7 @@ export const enviarCierreTurno = async (datos: DatosCierreTurno) => {
     // 🎯 MAPEADO DIRECTO A FastAPI Y SUPABASE:
     dolor_eva: datos.dolorEva,
     estado_animo: datos.estadoAnimo,
-    hidratacion_vasos: datos.hidratacion, // ⚠️ Mapeo clave para tu backend Pydantic
+    hidratacion_vasos: datos.hidratacion,
     alimentacion: datos.alimentacion,
 
     // Signos vitales opcionales
@@ -268,23 +304,47 @@ export const enviarCierreTurno = async (datos: DatosCierreTurno) => {
     inventario_usado: datos.insumos || []
   };
 
-  const res = await fetchWithAuth(`${BASE_URL}/turnos/cerrar`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
+  try {
+    const res = await fetchWithAuth(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
 
-  return res.json();
+    if (!res || !res.ok) {
+      throw new Error(`HTTP ${res?.status || 0}`);
+    }
+
+    return await res.json();
+  } catch (err) {
+    // 🛡️ Si falla la red o el servidor, se encola en AsyncStorage
+    await encolarPeticionOffline(
+      url, 
+      'POST', 
+      payload, 
+      `Cierre de turno paciente ${datos.pacienteId}`
+    );
+    return { 
+      success: true, 
+      offline: true, 
+      message: 'Cierre de turno guardado localmente. Se sincronizará al recuperar conexión.' 
+    };
+  }
 };
 export const getHistorialCierres = async (pacienteId: string) => {
   try {
     const res = await fetchWithAuth(`${BASE_URL}/pacientes/${pacienteId}/historial-cierres`);
-    if (!res.ok) return { cierres: [] };
+    if (!res || !res.ok) {
+      return [];
+    }
     const data = await res.json();
-    return Array.isArray(data) ? data : (data?.cierres || []);
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.cierres)) return data.cierres;
+    return [];
   } catch (error) {
-    console.error('Error al obtener historial de cierres:', error);
-    return { cierres: [] };
+    // 🛡️ Silencioso para evitar pantallas rojas en Hermes si no hay conexión
+    console.log(`ℹ️ [HISTORIAL CIERRES] No disponible para ${pacienteId} o sin red`);
+    return [];
   }
 };
 
@@ -302,12 +362,24 @@ export const completarTarea = async (data: {
   hora?: string;
   notas?: string;
 }) => {
-  console.log("📤 completarTarea payload:", JSON.stringify(data));
-  const res = await fetchWithAuth(`${BASE_URL}/autocuidador/completar-tarea`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-  return res.json();
+  const url = `${BASE_URL}/autocuidador/completar-tarea`;
+  try {
+    const res = await fetchWithAuth(url, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    // 🛡️ Encolar localmente y responder exitoso a la UI
+    await encolarPeticionOffline(
+      url,
+      'POST',
+      data,
+      `Completar ${data.tipo}: ${data.medicamento_id || data.tarea_id || ''}`
+    );
+    return { success: true, offline: true, message: 'Guardado localmente' };
+  }
 };
 export const descompletarTarea = async (data: {
   paciente_id: string;
@@ -316,40 +388,91 @@ export const descompletarTarea = async (data: {
   tipo: 'rutina' | 'medicamento';
   hora?: string;
 }) => {
-  const res = await fetchWithAuth(`${BASE_URL}/autocuidador/descompletar-tarea`, {
-    method: 'DELETE',
-    body: JSON.stringify(data),
-  });
-  return res.json();
+  const url = `${BASE_URL}/autocuidador/descompletar-tarea`;
+  try {
+    const res = await fetchWithAuth(url, {
+      method: 'DELETE',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    await encolarPeticionOffline(
+      url,
+      'DELETE',
+      data,
+      `Desmarcar ${data.tipo}: ${data.medicamento_id || data.tarea_id || ''}`
+    );
+    return { success: true, offline: true, message: 'Desmarcado localmente' };
+  }
 };
 export const getMedicamentos = async (pacienteId: string) => {
-  const res = await fetchWithAuth(`${BASE_URL}/medicamentos/${pacienteId}`);
-  return res.json();
+  try {
+    const res = await fetchWithAuth(`${BASE_URL}/medicamentos/${pacienteId}`);
+    if (!res || !res.ok) {
+      return [];
+    }
+    const data = await res.json();
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.medicamentos)) return data.medicamentos;
+    return [];
+  } catch (error) {
+    // 🛡️ Silencioso para evitar pantallas rojas en Hermes
+    console.log(`ℹ️ [MEDICAMENTOS] No disponibles temporalmente para ${pacienteId}`);
+    return [];
+  }
 };
 
 export const crearMedicamento = async (pacienteId: string, data: any) => {
-  // 🎯 FIX: Se propaga el objeto completo (data) e incluimos el Content-Type para FastAPI
-  const response = await fetchWithAuth(`${BASE_URL}/medicamentos`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      paciente_id: pacienteId,
-      ...data,
-      activo: true,
-    }),
-  });
+  const url = `${BASE_URL}/medicamentos`;
+  const payload = {
+    paciente_id: pacienteId,
+    ...data,
+    activo: true,
+  };
 
-  // 🛡️ Lectura defensiva para evitar crash de JSON.parse
-  const textResponse = await response.text();
+  try {
+    const response = await fetchWithAuth(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
 
-  if (!response.ok) {
-    console.error(`❌ [ERROR ${response.status} CREAR MEDICAMENTO]:`, textResponse);
-    throw new Error(`Error ${response.status}: ${textResponse}`);
+    const textResponse = await response.text();
+
+    if (!response.ok) {
+      console.log(`⚠️ [ERROR ${response.status} CREAR MEDICAMENTO]:`, textResponse);
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    try {
+      return JSON.parse(textResponse);
+    } catch {
+      return { success: true, detail: textResponse };
+    }
+  } catch (err: any) {
+    if (err?.message === 'UNAUTHORIZED') {
+      throw err;
+    }
+
+    // 🛡️ Modo Offline: Encolar creación del medicamento
+    await encolarPeticionOffline(
+      url,
+      'POST',
+      payload,
+      `Crear medicamento: ${data?.nombre || data?.medicamento || 'Nuevo fármaco'}`
+    );
+
+    return {
+      success: true,
+      offline: true,
+      id: `temp_med_${Date.now()}`,
+      ...payload,
+      message: 'Medicamento guardado localmente. Se sincronizará al recuperar conexión.',
+    };
   }
-
-  return JSON.parse(textResponse);
 };
 
 export const desactivarMedicamento = async (medId: string) => {
@@ -674,17 +797,65 @@ export const getGeocercas = async (pacienteId: string) => {
   return res.json();
 };
 export const iniciarTurno = async (pacienteId: string) => {
-  const res = await fetchWithAuth(`${BASE_URL}/turnos/iniciar`, {
-    method: 'POST',
-    body: JSON.stringify({ paciente_id: pacienteId }),
-  });
-  const data = await res.json();
-  
-  // 💡 Si 'error' existe en el JSON devuelto por la API (sea cual sea la cadena de error)
-  if (data.error) {
-    return { sin_horario: true, mensaje: data.mensaje || "Acceso denegado por horario." };
+  const url = `${BASE_URL}/turnos/iniciar`;
+  const payload = { paciente_id: pacienteId };
+
+  try {
+    const res = await fetchWithAuth(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    // Manejo defensivo si el backend responde con error HTTP
+    if (!res || !res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      if (res.status === 403 || errorData?.error) {
+        return {
+          sin_horario: true,
+          mensaje: errorData?.mensaje || errorData?.detail || 'Acceso denegado por horario.',
+        };
+      }
+      throw new Error(`HTTP ${res?.status || 0}`);
+    }
+
+    const data = await res.json();
+
+    // 💡 Validación de respuesta con error lógico
+    if (data.error) {
+      return {
+        sin_horario: true,
+        mensaje: data.mensaje || data.detail || 'Acceso denegado por horario.',
+      };
+    }
+
+    return data;
+  } catch (err: any) {
+    // Si la sesión expiró formalmente, propagar error
+    if (err?.message === 'UNAUTHORIZED') {
+      throw err;
+    }
+
+    // 🛡️ Modo Offline: Encolar apertura de turno para sincronizar al volver la red
+    await encolarPeticionOffline(
+      url,
+      'POST',
+      payload,
+      `Inicio de turno paciente ${pacienteId}`
+    );
+
+    return {
+      success: true,
+      offline: true,
+      turno: {
+        id: `temp_turno_${Date.now()}`,
+        paciente_id: pacienteId,
+        fecha_inicio: new Date().toISOString(),
+        offline_pendiente: true,
+      },
+      mensaje: 'Turno iniciado en modo local (sin conexión). Se sincronizará automáticamente.',
+    };
   }
-  return data;
 };
 export const eliminarGeocerca = async (geocercaId: string) => {
   const res = await fetchWithAuth(`${BASE_URL}/geocercas/${geocercaId}`, { method: 'DELETE' });
@@ -714,17 +885,41 @@ export const reiniciarRegistroServidor = async () => {
   }
 };
 
-export const agregarTareaManual = async (tarea: object) => {
-  const res = await fetchWithAuth(`${BASE_URL}/tareas`, {
-    method: 'POST',
-    body: JSON.stringify(tarea),
-  });
-  return res.json();
+export const agregarTareaManual = async (tarea: any) => {
+  const url = `${BASE_URL}/tareas`;
+  try {
+    const res = await fetchWithAuth(url, {
+      method: 'POST',
+      body: JSON.stringify(tarea),
+    });
+
+    if (!res || !res.ok) {
+      throw new Error(`HTTP ${res?.status || 0}`);
+    }
+
+    return await res.json();
+  } catch (err) {
+    // 🛡️ Si no hay conexión o falla el backend, se encola localmente
+    await encolarPeticionOffline(
+      url,
+      'POST',
+      tarea,
+      `Tarea manual: ${tarea?.titulo || tarea?.descripcion || 'Nueva tarea'}`
+    );
+    return {
+      success: true,
+      offline: true,
+      tarea: {
+        id: `temp_${Date.now()}`,
+        ...tarea,
+        offline_pendiente: true,
+      },
+      message: 'Tarea guardada localmente. Se sincronizará al recuperar conexión.',
+    };
+  }
 };
 
 export const getTareasHoy = async (pacienteId: string, fecha?: string) => {
-  const token = getToken();
-  
   // 🇲🇽 Si le pasas fecha usa esa, si no, usa la fecha local de hoy
   let fechaConsulta = fecha;
   if (!fechaConsulta) {
@@ -735,10 +930,21 @@ export const getTareasHoy = async (pacienteId: string, fecha?: string) => {
     fechaConsulta = `${year}-${month}-${day}`;
   }
 
-  const res = await fetch(`${BASE_URL}/pacientes/${pacienteId}/tareas-dia?fecha=${fechaConsulta}&offset=360`, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
-  return res.json();
+  try {
+    const res = await fetchWithAuth(
+      `${BASE_URL}/pacientes/${pacienteId}/tareas-dia?fecha=${fechaConsulta}&offset=360`
+    );
+
+    if (!res || !res.ok) {
+      return [];
+    }
+
+    const data = await res.json();
+    return Array.isArray(data) ? data : (data?.tareas || []);
+  } catch (error) {
+    console.log(`ℹ️ [TAREAS HOY] Sin conexión o no disponibles para ${pacienteId}`);
+    return [];
+  }
 };
 // Antes se llamaba getTareasHoy (era de autocuidador)
 export const getTareasHoyAutocuidador = async (pacienteId: string) => {
@@ -758,11 +964,25 @@ export const getHoyLocalISO = (): string => {
 };
 
 export const completarActividad = async (actividadId: string, pacienteId: string) => {
-  const res = await fetchWithAuth(`${BASE_URL}/actividades/completar`, {
-    method: 'POST',
-    body: JSON.stringify({ actividad_id: actividadId, paciente_id: pacienteId }),
-  });
-  return res.json();
+  const url = `${BASE_URL}/actividades/completar`;
+  const payload = { actividad_id: actividadId, paciente_id: pacienteId };
+
+  try {
+    const res = await fetchWithAuth(url, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    await encolarPeticionOffline(
+      url,
+      'POST',
+      payload,
+      `Completar actividad: ${actividadId}`
+    );
+    return { success: true, offline: true, message: 'Guardado localmente' };
+  }
 };
 
 export const calibrarAcelerometroReloj = async (pacienteId: string, sensibilidad: string = "2") => {
@@ -781,12 +1001,36 @@ export const actualizarHorarioCuidador = async (pacienteId: string, usuarioId: s
   return res.json();
 };
 
-export const completarMedicamento = async (medId: string, pacienteId: string, descripcion: string, horaProgramada: string) => {
-  const res = await fetchWithAuth(`${BASE_URL}/medicamentos/completar`, {
-    method: 'POST',
-    body: JSON.stringify({ med_id: medId, paciente_id: pacienteId, descripcion, hora_programada: horaProgramada }),
-  });
-  return res.json();
+export const completarMedicamento = async (
+  medId: string, 
+  pacienteId: string, 
+  descripcion: string, 
+  horaProgramada: string
+) => {
+  const url = `${BASE_URL}/medicamentos/completar`;
+  const payload = { 
+    med_id: medId, 
+    paciente_id: pacienteId, 
+    descripcion, 
+    hora_programada: horaProgramada 
+  };
+
+  try {
+    const res = await fetchWithAuth(url, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    await encolarPeticionOffline(
+      url,
+      'POST',
+      payload,
+      `Completar medicamento: ${descripcion}`
+    );
+    return { success: true, offline: true, message: 'Guardado localmente' };
+  }
 };
 
 export const crearInvitacion = async (datos: object) => {
