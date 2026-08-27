@@ -17,7 +17,6 @@ const COLORS = {
   greenPale: 'rgba(61, 170, 106, 0.15)',
 };
 
-// 📍 Coordenadas de Respaldo Seguro (Monterrey / Default)
 const DEFAULT_LAT = 25.6866;
 const DEFAULT_LNG = -100.3161;
 
@@ -31,11 +30,8 @@ export default function MapaScreen() {
   const [loading, setLoading] = useState(true);
   const [geocercas, setGeocercas] = useState<any[]>([]);
   const [solicitandoGps, setSolicitandoGps] = useState<boolean>(false);
-// 1. Estado explícito para el rol detectado
-  const miRolParam = (params.miRol as string) || '';
   const [rolUsuario, setRolUsuario] = useState<string>('');
 
-  // 1. Tomamos el rol de todos los orígenes posibles
   const rolDetectado = (
     params.miRol ||
     paciente?.mi_rol ||
@@ -45,10 +41,9 @@ export default function MapaScreen() {
     ''
   ).toString().toLowerCase().trim();
 
-  // 2. Si NO viene marcado explícitamente como "cuidador", asumimos que es el familiar / admin titular
   const esCuidador = rolDetectado === 'cuidador' || rolDetectado === 'enfermero';
-  const esFamiliarOAdmin = !esCuidador; // <-- Si no es cuidador, SIEMPRE muestra el botón de crear zona
-  // 🛡️ HELPER DE SANITIZACIÓN ROBUSTO
+  const esFamiliarOAdmin = !esCuidador;
+
   const parsearCoord = (val: any): number | null => {
     if (val === null || val === undefined || val === '') return null;
     const num = typeof val === 'number' ? val : parseFloat(String(val));
@@ -69,7 +64,6 @@ export default function MapaScreen() {
     );
   };
 
-  // Extraemos las coordenadas dinámicas soportando cualquier nomenclatura de tu API
   const rawLat = ubicacion?.lat ?? ubicacion?.latitud;
   const rawLng = ubicacion?.lng ?? ubicacion?.longitud;
 
@@ -77,16 +71,12 @@ export default function MapaScreen() {
   const currentLat = tieneCoordenadasValidas ? parsearCoord(rawLat)! : DEFAULT_LAT;
   const currentLng = tieneCoordenadasValidas ? parsearCoord(rawLng)! : DEFAULT_LNG;
 
-  // 3. EFECTO INICIAL: Carga datos y obtiene el rol de sesión
   useEffect(() => {
     const cargarDatosIniciales = async () => {
       try {
-        const token = await loadStoredToken();
-        
-        // Si tienes una función en services/api como getUsuarioActual / getUserRole / getStoredUser:
+        await loadStoredToken();
         const data = await getPacientes('mapa-ubicacion');
 
-        // Capturar rol si viene en la respuesta o en el primer paciente
         if (data?.rol_usuario) {
           setRolUsuario(data.rol_usuario);
         }
@@ -98,7 +88,6 @@ export default function MapaScreen() {
           
           setPaciente(p);
 
-          // Si el rol viene en el objeto paciente
           if (p.mi_rol || p.rol || p.tipo_usuario) {
             setRolUsuario(p.mi_rol || p.rol || p.tipo_usuario);
           }
@@ -119,92 +108,110 @@ export default function MapaScreen() {
     cargarDatosIniciales();
   }, [pacienteIdParam]);
 
- 
+  useEffect(() => {
+    if (!paciente?.id) return;
 
-// 2. EFECTO SECUNDARIO: Monitorea y actualiza la ubicación en tiempo real cada 30 segundos
-useEffect(() => {
-  if (!paciente?.id) return;
-
-  const interval = setInterval(async () => {
-    try {
-      const ubData = await getUbicacion(paciente.id);
-      if (ubData.ubicacion) {
-        setUbicacion(ubData.ubicacion);
-      }
-    } catch (e) {
-      console.error("❌ Error al actualizar ubicación en segundo plano:", e);
-    }
-  }, 30000);
-
-  return () => clearInterval(interval);
-}, [paciente?.id]);
-// 3. CREACIÓN DE GEOCERCA PROTEGIDA POR ROL
-const crearYCargar = async (radio: number) => {
-  if (!tieneCoordenadasValidas) {
-    Alert.alert('Ubicación requerida', 'Se necesita una coordenada válida del dispositivo para fijar el centro de la zona segura.');
-    return;
-  }
-
-  if (!paciente?.id) {
-    Alert.alert('Error', 'No se encontró el identificador del paciente.');
-    return;
-  }
-
-  if (!esFamiliarOAdmin) {
-    Alert.alert('Acceso Restringido', 'Solo el familiar titular puede configurar la zona segura.');
-    return;
-  }
-  
-  try {
-    const res = await crearGeocerca({
-      paciente_id: paciente.id,
-      nombre: 'Casa',
-      lat: currentLat,
-      lng: currentLng, 
-      radio_metros: radio,
-    });
-
-    // Refrescar geocercas activas tras guardar
-    const data = await getGeocercas(paciente.id);
-    if (data?.geocercas) {
-      setGeocercas(data.geocercas);
-    }
-
-    Alert.alert('Zona segura activada', `Se delimitó el perímetro de ${radio}m para ${paciente.nombre_completo || 'el paciente'}.`);
-  } catch (e: any) {
-    console.error("❌ Error al crear geocerca:", e);
-    Alert.alert('Error', e?.message || 'No se pudo guardar la zona segura en el servidor.');
-  }
-};
-
-// 4. SOLICITUD DE GPS EN VIVO
-const solicitarUbicacionEnVivo = async () => {
-  const idPaciente = paciente?.id;
-  if (!idPaciente || solicitandoGps) return;
-
-  try {
-    setSolicitandoGps(true);
-    await solicitarGpsVivo(idPaciente);
-
-    setTimeout(async () => {
+    const interval = setInterval(async () => {
       try {
-        const data = await getUbicacion(idPaciente);
-        if (data?.ubicacion) {
-          setUbicacion(data.ubicacion);
+        const ubData = await getUbicacion(paciente.id);
+        if (ubData.ubicacion) {
+          setUbicacion(ubData.ubicacion);
         }
-      } catch (err) {
-        console.error('Error refrescando mapa tras GPS en vivo:', err);
-      } finally {
-        setSolicitandoGps(false);
+      } catch (e) {
+        console.error("❌ Error al actualizar ubicación en segundo plano:", e);
       }
-    }, 5000);
+    }, 30000);
 
-  } catch (error) {
-    console.error('❌ Error solicitando GPS en vivo:', error);
-    Alert.alert('Aviso', 'No se pudo forzar la señal GPS en este momento.');
-    setSolicitandoGps(false);
-  }
-};
+    return () => clearInterval(interval);
+  }, [paciente?.id]);
+
+  const crearYCargar = async (radio: number) => {
+    if (!tieneCoordenadasValidas) {
+      Alert.alert('Ubicación requerida', 'Se necesita una coordenada válida del dispositivo para fijar el centro de la zona segura.');
+      return;
+    }
+
+    if (!paciente?.id) {
+      Alert.alert('Error', 'No se encontró el identificador del paciente.');
+      return;
+    }
+
+    if (!esFamiliarOAdmin) {
+      Alert.alert('Acceso Restringido', 'Solo el familiar titular puede configurar la zona segura.');
+      return;
+    }
+    
+    try {
+      await crearGeocerca({
+        paciente_id: paciente.id,
+        nombre: 'Casa',
+        lat: currentLat,
+        lng: currentLng, 
+        radio_metros: radio,
+      });
+
+      const data = await getGeocercas(paciente.id);
+      if (data?.geocercas) {
+        setGeocercas(data.geocercas);
+      }
+
+      Alert.alert('Zona segura activada', `Se delimitó el perímetro de ${radio}m para ${paciente.nombre_completo || 'el paciente'}.`);
+    } catch (e: any) {
+      console.error("❌ Error al crear geocerca:", e);
+      Alert.alert('Error', e?.message || 'No se pudo guardar la zona segura en el servidor.');
+    }
+  };
+
+  const solicitarUbicacionEnVivo = async () => {
+    const idPaciente = paciente?.id;
+    if (!idPaciente || solicitandoGps) return;
+
+    Alert.alert(
+      '🛰️ Búsqueda Activa en Vivo',
+      'El reloj reportará su ubicación en tiempo real cada 30 segundos durante los próximos 15 minutos.\n\n⚠️ Este modo consume más batería de lo habitual.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Rastrear Ahora',
+          onPress: async () => {
+            try {
+              setSolicitandoGps(true);
+              await solicitarGpsVivo(idPaciente);
+
+              setTimeout(async () => {
+                try {
+                  const data = await getUbicacion(idPaciente);
+                  if (data?.ubicacion) {
+                    setUbicacion(data.ubicacion);
+                    const freshLat = parsearCoord(data.ubicacion.lat ?? data.ubicacion.latitud);
+                    const freshLng = parsearCoord(data.ubicacion.lng ?? data.ubicacion.longitud);
+                    if (freshLat && freshLng) {
+                      mapRef.current?.animateToRegion({
+                        latitude: freshLat,
+                        longitude: freshLng,
+                        latitudeDelta: 0.008,
+                        longitudeDelta: 0.008,
+                      });
+                    }
+                  }
+                } catch (err) {
+                  console.error('Error refrescando mapa tras GPS en vivo:', err);
+                } finally {
+                  setSolicitandoGps(false);
+                }
+              }, 5000);
+
+            } catch (error) {
+              console.error('❌ Error solicitando GPS en vivo:', error);
+              Alert.alert('Aviso', 'No se pudo activar el modo de búsqueda en este momento.');
+              setSolicitandoGps(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
@@ -234,7 +241,7 @@ const solicitarUbicacionEnVivo = async () => {
         )}
       </View>
 
-      {/* CUADRANTE DEL MAPA SANITIZADO */}
+      {/* CUADRANTE DEL MAPA */}
       {tieneCoordenadasValidas ? (
         <View style={styles.mapContainer}>
           <MapView
@@ -248,7 +255,6 @@ const solicitarUbicacionEnVivo = async () => {
               longitudeDelta: 0.0121,
             }}
           >
-            {/* Marcador del Paciente */}
             <Marker
               coordinate={{ 
                 latitude: currentLat, 
@@ -258,7 +264,6 @@ const solicitarUbicacionEnVivo = async () => {
               description={`Batería: ${ubicacion?.bateria_pct ?? 0}%`}
             />
 
-            {/* Mapeo de Geocercas Sanitizado */}
             {Array.isArray(geocercas) && geocercas.map((g, idx) => {
               if (!g || !g.activa) return null;
               
@@ -291,9 +296,14 @@ const solicitarUbicacionEnVivo = async () => {
         </View>
       )}
 
-      {/* INFO CARD */}
+      {/* INFO CARD CON COMPENSACIÓN DE PANTALLA INFERIOR */}
       {tieneCoordenadasValidas && (
-        <ScrollView style={styles.infoCard} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          style={styles.infoCard} 
+          contentContainerStyle={styles.infoCardContent}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Dispositivo</Text>
             <Text style={styles.infoVal}>{ubicacion?.modelo ?? ubicacion?.device_id ?? 'ReachFar GPS'}</Text>
@@ -318,7 +328,7 @@ const solicitarUbicacionEnVivo = async () => {
             </View>
           )}
           
-          {/* 📍 BOTÓN DUAL: CENTRAR Y ACTUALIZAR GPS EN VIVO */}
+          {/* BOTÓN RASTREO Y CENTRADO */}
           <TouchableOpacity
             style={[
               styles.centrarBtn, 
@@ -326,15 +336,12 @@ const solicitarUbicacionEnVivo = async () => {
             ]}
             disabled={solicitandoGps}
             onPress={async () => {
-              // 1. Centramos la cámara del mapa de inmediato en la posición actual
               mapRef.current?.animateToRegion({
                 latitude: currentLat,
                 longitude: currentLng,
                 latitudeDelta: 0.0122,
                 longitudeDelta: 0.0121,
               });
-
-              // 2. Disparamos la solicitud satelital al reloj
               await solicitarUbicacionEnVivo();
             }}
           >
@@ -344,36 +351,36 @@ const solicitarUbicacionEnVivo = async () => {
                 <Text style={styles.centrarBtnText}>Triangulando satélites...</Text>
               </View>
             ) : (
-              <Text style={styles.centrarBtnText}>📍 Centrar y actualizar GPS</Text>
+              <Text style={styles.centrarBtnText}>📍 Centrar y rastrear en vivo</Text>
             )}
           </TouchableOpacity>
            
           <Text style={[styles.infoLabel, { marginTop: 16, marginBottom: 8 }]}>Zona segura</Text>
 
-            {geocercas.length === 0 ? (
-              esFamiliarOAdmin ? (
-                <TouchableOpacity
-                  style={styles.centrarBtn}
-                  onPress={() => {
-                    Alert.alert(
-                      'Crear zona segura',
-                      '¿Qué radio quieres para la zona segura?',
-                      [
-                        { text: '24m (casa)', onPress: async () => await crearYCargar(24) },
-                        { text: '30m (jardín/patio)', onPress: async () => await crearYCargar(30) },
-                        { text: '40m (condominio)', onPress: async () => await crearYCargar(40) },
-                        { text: 'Cancelar', style: 'cancel' }
-                      ]
-                    );
-                  }}
-                >
-                  <Text style={styles.centrarBtnText}>+ Crear zona segura</Text>
-                </TouchableOpacity>
-              ) : (
-                <Text style={{ color: '#6B7280', fontSize: 13, fontStyle: 'italic', paddingVertical: 4 }}>
-                  Sin zona segura configurada por el familiar.
-                </Text>
-              )
+          {geocercas.length === 0 ? (
+            esFamiliarOAdmin ? (
+              <TouchableOpacity
+                style={styles.zonaSeguraBtn}
+                onPress={() => {
+                  Alert.alert(
+                    'Crear zona segura',
+                    '¿Qué radio quieres para la zona segura?',
+                    [
+                      { text: '24m (casa)', onPress: async () => await crearYCargar(24) },
+                      { text: '30m (jardín/patio)', onPress: async () => await crearYCargar(30) },
+                      { text: '40m (condominio)', onPress: async () => await crearYCargar(40) },
+                      { text: 'Cancelar', style: 'cancel' }
+                    ]
+                  );
+                }}
+              >
+                <Text style={styles.centrarBtnText}>+ Crear zona segura</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={{ color: '#6B7280', fontSize: 13, fontStyle: 'italic', paddingVertical: 4 }}>
+                Sin zona segura configurada por el familiar.
+              </Text>
+            )
           ) : (
             geocercas.map((g) => (
               <View 
@@ -419,8 +426,8 @@ const solicitarUbicacionEnVivo = async () => {
             ))
           )}
 
-          {/* Espaciador final para librar la barra de gestos */}
-          <View style={{ height: 40 }} />
+          {/* Espaciador de seguridad para librar botones de navegación y barra de gestos */}
+          <View style={{ height: Platform.OS === 'android' ? 60 : 40 }} />
         </ScrollView>
       )}
     </View>
@@ -428,7 +435,6 @@ const solicitarUbicacionEnVivo = async () => {
 }
 
 const styles = StyleSheet.create({
-  // ── 1. ESTRUCTURA Y CONTENEDOR DEL MAPA ──
   container: { 
     flex: 1, 
     backgroundColor: COLORS.cream 
@@ -441,8 +447,6 @@ const styles = StyleSheet.create({
   mapa: { 
     ...StyleSheet.absoluteFillObject 
   },
-
-  // ── 2. ENCABEZADO ESTANDARIZADO (CACAO + DORADOS) ──
   header: {
     backgroundColor: COLORS.cacao,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 38) : 52,
@@ -481,8 +485,6 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontWeight: 'bold' 
   },
-
-  // ── 3. PILL DE ESTADO GPS ACTIVO ──
   activoPill: {
     flexDirection: 'row', 
     alignItems: 'center', 
@@ -506,8 +508,6 @@ const styles = StyleSheet.create({
     color: COLORS.green,
     letterSpacing: 0.5 
   },
-
-  // ── 4. ESTADO SIN UBICACIÓN / SIN SEÑAL ──
   sinUbicacion: { 
     flex: 1, 
     justifyContent: 'center', 
@@ -531,12 +531,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18 
   },
-
-  // ── 5. PANEL INFORMATIVO INFERIOR (INFO CARD FLOTANTE) ──
   infoCard: {
     backgroundColor: COLORS.white, 
-    padding: 16,
-    maxHeight: 280,
+    maxHeight: 320,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     borderTopWidth: 1, 
@@ -545,7 +542,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.1,
     shadowRadius: 6,
-    elevation: 4,
+    elevation: 6,
+  },
+  infoCardContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'android' ? 40 : 20,
   },
   infoRow: { 
     flexDirection: 'row', 
@@ -575,6 +577,18 @@ const styles = StyleSheet.create({
     shadowColor: COLORS.cacao,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  zonaSeguraBtn: {
+    backgroundColor: COLORS.gold, 
+    borderRadius: 12, 
+    paddingVertical: 14,
+    alignItems: 'center', 
+    marginTop: 8,
+    shadowColor: COLORS.gold,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 2,
   },
