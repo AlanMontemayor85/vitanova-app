@@ -22,6 +22,7 @@ import {
   fetchWithAuth,
   forzarMedicionSignos,
   getAlertaPeso,
+  getBateriaPaciente,
   getInventario,
   getNotasTurno,
   getPacientes,
@@ -197,6 +198,7 @@ export default function CuidadorScreen({
   const [enviandoFalla, setEnviandoFalla] = useState(false);
   const [modalConfigVisible, setModalConfigVisible] = useState(false);
   const [ejecutandoCmd, setEjecutandoCmd] = useState<string | null>(null);
+  const [bateria, setBateria] = useState<number | null>(null);
   const [modalConfigCuidadorVisible, setModalConfigCuidadorVisible] = useState(false);
   const cambiarConsumoItem = (itemId: string, delta: number) => {
     setConsumosTurno((prev: Record<string, number>) => {
@@ -272,6 +274,7 @@ const onHoraChange = (event: any, selectedDate?: Date) => {
     setNuevaTareaHora(`${hrs}:${mins}`);
   }
 };
+
 const lastFetchRef = useRef(0);
 const ejecutarComandoCuidador = async (comando: 'FIND' | 'PEDO' | 'RESET', argumento: string = '') => {
   if (!pacienteActivo?.id) return;
@@ -293,7 +296,18 @@ const ejecutarComandoCuidador = async (comando: 'FIND' | 'PEDO' | 'RESET', argum
     setEjecutandoCmd(null);
   }
 };
-
+const cargarNivelBateria = async (pacienteId: string) => {
+  try {
+    const data = await getBateriaPaciente(pacienteId);
+    if (data?.bateria_pct !== undefined) {
+      // Si tienes el estado declarado:
+      setBateria?.(data.bateria_pct);
+    }
+  } catch (err: any) {
+    // 🛡️ Log silencioso con tipado seguro para evitar la advertencia de TS y LogBox
+    console.log('⚠️ [BATERÍA] No disponible para este rol o sesión:', err?.message || String(err));
+  }
+};
 const confirmarReinicioCuidador = () => {
   Alert.alert(
     '¿Reiniciar Reloj?',

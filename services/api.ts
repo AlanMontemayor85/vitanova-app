@@ -507,7 +507,28 @@ export const getInventario = async (pacienteId: string) => {
     return { items: [], total: 0, error: String(error) };
   }
 };
+export const getBateriaPaciente = async (pacienteId: string) => {
+  try {
+    const token = await getToken(); // Asegúrate de tener getToken() importado/definido
+    const response = await fetch(`${BASE_URL}/pacientes/${pacienteId}/bateria`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`, // 🔑 Crítico para evitar el 401 UNAUTHORIZED
+      },
+    });
 
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    // Retornamos null en lugar de lanzar error para no romper la UI
+    console.log(`⚠️ Batería no disponible para ${pacienteId}:`, error);
+    return null;
+  }
+};
 export const crearItemInventario = async (
   pacienteId: string,
   data: {
