@@ -16,10 +16,10 @@ import {
 } from 'react-native';
 import {
   agregarTareaManual, clearToken,
+  completarMedicamento, completarTarea,
   consumirItemInventario,
   detectarCambiosTurno,
   enviarComandoReloj,
-  fetchWithAuth,
   forzarMedicionSignos,
   getAlertaPeso,
   getBateriaPaciente,
@@ -2093,89 +2093,58 @@ const guardarRegistroEspontaneo = async () => {
                 t.completada && { opacity: 0.6, backgroundColor: '#F8FAFC' }
               ]} 
               onPress={() => {
-                if (t.completada) {
-                  Alert.alert('Actividad Completada', `"${t.descripcion}" ya fue registrada en este turno.`);
-                  return;
-                }
+              if (t.completada) {
+                Alert.alert('Actividad Completada', `"${t.descripcion}" ya fue registrada en este turno.`);
+                return;
+              }
 
-                Alert.alert(
-                  'Confirmar actividad', 
-                  `¿Confirmas la ejecución de: ${t.descripcion}?`, 
-                  [
-                    { text: 'Cancelar', style: 'cancel' },
-                    { 
-                      text: '✓ Ejecutada', 
-                      onPress: async () => {
-                        const fechaHoraActual = new Date().toISOString();
+              Alert.alert(
+                'Confirmar actividad', 
+                `¿Confirmas la ejecución de: ${t.descripcion}?`, 
+                [
+                  { text: 'Cancelar', style: 'cancel' },
+                  { 
+                    text: '✓ Ejecutada', 
+                    onPress: async () => {
+                      const fechaHoraActual = new Date().toISOString();
 
-                        // 1. UI Optimista inmediata
-                        setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: true, hora_completada: fechaHoraActual } : item));
+                      // 1. UI Optimista inmediata
+                      setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: true, hora_completada: fechaHoraActual } : item));
 
-                        // 2. Extraer IDs limpios
-                        const esMedicamento = t.tipo === 'medicamento' || Boolean(t.med_id);
-                        
-                        // Limpia 'med_de864f07-5a06-4376-ac57-36c6bec179a5_08:00' -> 'de864f07-5a06-4376-ac57-36c6bec179a5'
-                        const uuidLimpio = t.med_id 
-                          ? String(t.med_id).replace(/^med_/, '').split('_')[0]
-                          : String(t.id).replace(/^med_/, '').split('_')[0];
+                      try {
+                        // 💊 A: MEDICAMENTO -> Usa el endpoint oficial /medicamentos/completar
+                        if (t.med_id || t.tipo === 'medicamento') {
+                          const medUuid = t.med_id || String(t.id).replace(/^med_/, '').split('_')[0];
+                          const horaProg = t.hora_programada || t.hora || '08:00';
 
-                        const horaProg = t.hora_programada || t.hora || null;
-
-                        try {
-                          // 💊 A: MEDICAMENTO EN TURNO ACTIVO
-                          if (esMedicamento) {
-                            const payloadMed = {
-                              paciente_id: pacienteActivo.id,
-                              medicamento_id: uuidLimpio,
-                              dosis_administrada: t.descripcion,
-                              fecha_hora: fechaHoraActual,
-                              hora_programada: horaProg,
-                              estatus: 'administrado'
-                            };
-
-                            await fetchWithAuth(`${BASE_URL}/medicamentos/tomas`, {
-                              method: 'POST',
-                              body: JSON.stringify(payloadMed)
-                            });
-                            console.log(`✅ [MEDICAMENTO PERSISTIDO] ${t.descripcion}`);
-                          } 
-                          // 📋 B: ACTIVIDAD / RUTINA
-                          else if (t.actividad_id) {
-                            const actId = t.actividad_id || uuidLimpio;
-                            const payloadActividad = {
-                              paciente_id: pacienteActivo.id,
-                              actividad_id: actId,
-                              completada_en: fechaHoraActual
-                            };
-
-                            await fetchWithAuth(`${BASE_URL}/actividades/${actId}/completar`, {
-                              method: 'POST',
-                              body: JSON.stringify(payloadActividad)
-                            });
-                            console.log(`✅ [ACTIVIDAD PERSISTIDA] ${t.descripcion}`);
-                          }
-                          // ⚡ C: TAREA INCIDENTAL
-                          else if (t.es_incidental && t.id) {
-                            const payloadIncidental = {
-                              completada: true,
-                              hora_completada: fechaHoraActual,
-                              paciente_id: pacienteActivo.id
-                            };
-
-                            await fetchWithAuth(`${BASE_URL}/tareas/${t.id}/completar`, {
-                              method: 'PATCH',
-                              body: JSON.stringify(payloadIncidental)
-                            });
-                            console.log(`✅ [TAREA INCIDENTAL PERSISTIDA] ${t.descripcion}`);
-                          }
-                        } catch (err) {
-                          console.warn(`⚠️ Error al registrar ${t.descripcion}:`, err);
+                          await completarMedicamento(
+                            medUuid,
+                            pacienteActivo.id,
+                            t.descripcion,
+                            horaProg
+                          );
+                          console.log(`✅ [MEDICAMENTO PERSISTIDO] ${t.descripcion}`);
+                        } 
+                        // 📋 B: RUTINA / ACTIVIDAD / INCIDENTAL
+                        else {
+                          const actId = t.actividad_id || t.id;
+                          await completarTarea({
+                            paciente_id: pacienteActivo.id,
+                            tarea_id: actId,
+                            tipo: 'rutina',
+                            hora: t.hora,
+                            notas: t.notas || ''
+                          });
+                          console.log(`✅ [ACTIVIDAD PERSISTIDA] ${t.descripcion}`);
                         }
-                      } 
-                    }
-                  ]
-                );
-              }}
+                      } catch (err) {
+                        console.warn(`⚠️ Error al registrar ${t.descripcion}:`, err);
+                      }
+                    } 
+                  }
+                ]
+              );
+            }}
             >
               <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
 
