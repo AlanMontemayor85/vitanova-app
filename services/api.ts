@@ -203,9 +203,18 @@ export const getPacientes = async (origen: string = 'desconocido') => {
 };
 
 export const getUltimoCierre = async (pacienteId: string) => {
-  const res = await fetchWithAuth(`${BASE_URL}/pacientes/${pacienteId}/ultimo-cierre`);
-  const data = await res.json();
-  return data;
+  try {
+    const res = await fetchWithAuth(`${BASE_URL}/pacientes/${pacienteId}/ultimo-cierre`);
+    if (!res || !res.ok) {
+      return { cierre: null };
+    }
+    const data = await res.json();
+    return data && data.cierre !== undefined ? data : { cierre: null };
+  } catch (error) {
+    // 🛡️ Silencioso para evitar pantalla roja en Hermes
+    console.log('ℹ️ [RELEVO] No se pudo cargar el último cierre o sesión expirada');
+    return { cierre: null };
+  }
 };
 
 export const getNotasTurno = async (pacienteId: string) => {
