@@ -1293,22 +1293,46 @@ const guardarRegistroEspontaneo = async () => {
       ? parseFloat(String(peso)) 
       : null;
 
-    // 📦 Transformar consumosTurno a arreglo para persistirlo en el Cierre de Turno
-    const insumosConsumidosArray = Object.entries(consumosTurno)
-      .filter(([_, cant]) => (cant as number) > 0)
-      .map(([itemId, cant]) => {
-        const itemInfo = (inventarioHogar || []).find((inv: any) => inv.id === itemId);
-        return {
-          id: itemId,
-          inventario_id: itemId,
-          nombre: itemInfo?.nombre || 'Insumo',
-          usado_hoy: cant,
-          cantidad: cant,
-          unidad: itemInfo?.unidad || 'piezas',
-          registrado_por: typeof nombreUsuario !== 'undefined' ? nombreUsuario : 'Personal Vitanova'
-        };
-      });
+  // 📦 1. Transformar consumosTurno (Insumos manuales como gasas, pañales, etc.)
+  const insumosConsumidosArray = Object.entries(consumosTurno)
+    .filter(([_, cant]) => (cant as number) > 0)
+    .map(([itemId, cant]) => {
+      const itemInfo = (inventarioHogar || []).find((inv: any) => inv.id === itemId);
+      return {
+        id: itemId,
+        inventario_id: itemId,
+        nombre: itemInfo?.nombre || 'Insumo',
+        usado_hoy: cant,
+        cantidad: cant,
+        unidad: itemInfo?.unidad || 'piezas',
+        tipo: 'insumo',
+        registrado_por: typeof nombreUsuario !== 'undefined' ? nombreUsuario : 'Personal Vitanova'
+      };
+    });
 
+  // 💊 2. Extraer los medicamentos administrados (completados) en este turno
+  const medicamentosConsumidosArray = (tareas || [])
+    .filter((t: any) => (t.tipo === 'medicamento' || t.med_id) && t.completada)
+    .map((m: any) => {
+      const cleanId = m.med_id || String(m.id).replace(/^med_/, '').split('_')[0];
+      return {
+        id: cleanId,
+        inventario_id: cleanId,
+        medicamento_id: cleanId,
+        nombre: m.descripcion || m.nombre || 'Medicamento',
+        usado_hoy: 1,
+        cantidad: 1,
+        unidad: 'piezas',
+        tipo: 'medicamento',
+        registrado_por: typeof nombreUsuario !== 'undefined' ? nombreUsuario : 'Personal Vitanova'
+      };
+    });
+
+  // 📦 3. Unir insumos libres + medicamentos administrados para el payload
+  const inventarioConsolidadoFinal = [
+    ...insumosConsumidosArray,
+    ...medicamentosConsumidosArray
+  ];
     // 4. PAYLOAD FINAL DE CIERRE
     const bodyPayload = {
       turno_id: turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId, 
