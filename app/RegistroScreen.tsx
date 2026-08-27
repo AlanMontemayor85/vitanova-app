@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { registrarUsuario } from '../services/api';
 
+
+
 export default function RegistroScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
