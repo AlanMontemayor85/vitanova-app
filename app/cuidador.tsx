@@ -16,10 +16,10 @@ import {
 } from 'react-native';
 import {
   agregarTareaManual, clearToken,
+  completarMedicamento, completarTarea,
   consumirItemInventario,
   detectarCambiosTurno,
   enviarComandoReloj,
-  fetchWithAuth,
   forzarMedicionSignos,
   getAlertaPeso,
   getBateriaPaciente,
@@ -1476,52 +1476,50 @@ const guardarRegistroEspontaneo = async () => {
                   {estadoTurno === 'activo' && <View style={styles.badgeActivo}><View style={styles.activoDot} /><Text style={styles.badgeActivoText}>En Turno</Text></View>}
                 </View>
 
-                {/* 1. BOTÓN CUANDO EL TURNO NO ESTÁ ACTIVO */}
-                {estadoTurno !== 'activo' && (
-                  <TouchableOpacity 
-                    style={[styles.iniciarBtn, { marginTop: 10 }]} 
-                    onPress={async () => {
-                      if (iniciando) return;
-                      setIniciando(true);
-                      
-                      try {
-                        console.log("🩺 Iniciando verificación de turno para:", p.nombre_completo);
+              {/* 1. BOTÓN CUANDO EL TURNO NO ESTÁ ACTIVO */}
+              {estadoTurno !== 'activo' && (
+                <TouchableOpacity 
+                  style={[styles.iniciarBtn, { marginTop: 10 }]} 
+                  onPress={async () => {
+                    if (iniciando) return;
+                    setIniciando(true);
+                    
+                    try {
+                      console.log("🩺 Iniciando verificación de turno para:", p.nombre_completo);
 
-                        // 🛡️ Chequeo de horario SOLO para cuidadores reales
-                        if (!esSwitchFamiliar) {
-                          const tareasCheck = await getTareasHoy(p.id); // cambia a getTareasDia si se llama así
-                          if (tareasCheck?.sin_horario) {
-                            Alert.alert(
-                              'Sin horario asignado',
-                              'Pídele al familiar principal que configure tu horario y los días en que puedes ingresar.'
-                            );
-                            return;
-                          }
+                      // 🛡️ Chequeo de horario SOLO para cuidadores reales usando getTareasDia
+                      if (!esSwitchFamiliar) {
+                        const tareasCheck = await getTareasDia(p.id);
+                        if (tareasCheck?.sin_horario) {
+                          Alert.alert(
+                            'Sin horario asignado',
+                            'Pídele al familiar principal que configure tu horario y los días en que puedes ingresar.'
+                          );
+                          return;
                         }
-
-                        // Le pasamos el paciente con el rol correcto
-                        await manejarInicioTurno({
-                          ...p,
-                          rol_en_equipo: esSwitchFamiliar ? 'familiar_principal' : (p.rol_en_equipo || 'cuidador_contratado'),
-                          usuarioRol: esSwitchFamiliar ? 'familiar_principal' : 'cuidador_contratado'
-                        });
-
-                        // Nota: Ya NO forzamos setVista('turno') aquí.
-                        // Dejamos que manejarInicioTurno o avanzarAlTurno se encarguen de la navegación.
-                        
-                      } catch (error) {
-                        console.error("❌ Error al transicionar el turno:", error);
-                      } finally {
-                        setIniciando(false);
                       }
-                    }} 
-                    disabled={iniciando}
-                  >
-                    <Text style={styles.iniciarBtnText}>
-                      {iniciando ? 'Sincronizando...' : 'Proceder a Verificación →'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
+
+                      // Le pasamos el paciente con el rol correcto
+                      await manejarInicioTurno({
+                        ...p,
+                        rol_en_equipo: esSwitchFamiliar ? 'familiar_principal' : (p.rol_en_equipo || 'cuidador_contratado'),
+                        usuarioRol: esSwitchFamiliar ? 'familiar_principal' : 'cuidador_contratado'
+                      });
+
+                    } catch (error) {
+                      console.error("❌ Error al transicionar el turno:", error);
+                    } finally {
+                      setIniciando(false);
+                    }
+                  }} 
+                  disabled={iniciando}
+                >
+                  <Text style={styles.iniciarBtnText}>
+                    {iniciando ? 'Sincronizando...' : 'Proceder a Verificación →'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              
                 
                 {/* 2. BOTÓN CUANDO EL TURNO YA ESTÁ ACTIVO */}
                 {estadoTurno === 'activo' && (
@@ -2095,95 +2093,58 @@ const guardarRegistroEspontaneo = async () => {
                 t.completada && { opacity: 0.6, backgroundColor: '#F8FAFC' }
               ]} 
               onPress={() => {
-                if (t.completada) {
-                  Alert.alert('Actividad Completada', `"${t.descripcion}" ya fue registrada en este turno.`);
-                  return;
-                }
+              if (t.completada) {
+                Alert.alert('Actividad Completada', `"${t.descripcion}" ya fue registrada en este turno.`);
+                return;
+              }
 
-                Alert.alert(
-                  'Confirmar actividad', 
-                  `¿Confirmas la ejecución de: ${t.descripcion}?`, 
-                  [
-                    { text: 'Cancelar', style: 'cancel' },
-                    { 
-                      text: '✓ Ejecutada', 
-                      onPress: async () => {
-                        const fechaHoraActual = new Date().toISOString();
+              Alert.alert(
+                'Confirmar actividad', 
+                `¿Confirmas la ejecución de: ${t.descripcion}?`, 
+                [
+                  { text: 'Cancelar', style: 'cancel' },
+                  { 
+                    text: '✓ Ejecutada', 
+                    onPress: async () => {
+                      const fechaHoraActual = new Date().toISOString();
 
-                        // 🎯 1. UI OPTIMISTA: La marcamos completada de inmediato en pantalla
-                        setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: true, hora_completada: fechaHoraActual } : item));
+                      // 1. UI Optimista inmediata
+                      setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: true, hora_completada: fechaHoraActual } : item));
 
-                        // 🎯 2. Payload unificado para sincronización
-                        const payloadMed = {
-                          paciente_id: pacienteActivo.id,
-                          medicamento_id: t.med_id || t.id,
-                          dosis_administrada: t.descripcion,
-                          fecha_hora: fechaHoraActual,
-                          hora_programada: t.hora || null,
-                          estatus: 'administrado'
-                        };
+                      try {
+                        // 💊 A: MEDICAMENTO -> Usa el endpoint oficial /medicamentos/completar
+                        if (t.med_id || t.tipo === 'medicamento') {
+                          const medUuid = t.med_id || String(t.id).replace(/^med_/, '').split('_')[0];
+                          const horaProg = t.hora_programada || t.hora || '08:00';
 
-                        const payloadActividad = {
-                          paciente_id: pacienteActivo.id,
-                          actividad_id: t.actividad_id || t.id,
-                          completada_en: fechaHoraActual
-                        };
-
-                        const payloadIncidental = {
-                          completada: true,
-                          hora_completada: fechaHoraActual,
-                          paciente_id: pacienteActivo.id
-                        };
-
-                        try {
-                          // 💊 A: MEDICAMENTO
-                          if (t.med_id) {
-                            await fetchWithAuth(`${BASE_URL}/medicamentos/tomas`, {
-                              method: 'POST',
-                              body: JSON.stringify(payloadMed)
-                            });
-                            console.log(`✅ [MEDICAMENTO REGISTRADO] ${t.descripcion}`);
-                          } 
-                          // 📋 B: ACTIVIDAD DE RUTINA
-                          else if (t.actividad_id) {
-                            await fetchWithAuth(`${BASE_URL}/actividades/${t.actividad_id}/completar`, {
-                              method: 'POST',
-                              body: JSON.stringify(payloadActividad)
-                            });
-                            console.log(`✅ [ACTIVIDAD REGISTRADA] ${t.descripcion}`);
-                          } 
-                          // ⚡ C: TAREA INCIDENTAL
-                          else if (t.es_incidental && t.id) {
-                            await fetchWithAuth(`${BASE_URL}/tareas/${t.id}/completar`, {
-                              method: 'PATCH',
-                              body: JSON.stringify(payloadIncidental)
-                            });
-                            console.log(`✅ [TAREA INCIDENTAL REGISTRADA] ${t.descripcion}`);
-                          }
-                        } catch (err) {
-                          console.warn(`⚠️ Sin red al registrar ${t.descripcion}. Guardando en cola offline...`);
-
-                          const endpoint = t.med_id 
-                            ? `${BASE_URL}/medicamentos/tomas`
-                            : t.actividad_id 
-                              ? `${BASE_URL}/actividades/${t.actividad_id}/completar`
-                              : `${BASE_URL}/tareas/${t.id}/completar`;
-
-                          const method = (t.med_id || t.actividad_id) ? 'POST' : 'PATCH';
-                          const body = t.med_id ? payloadMed : (t.actividad_id ? payloadActividad : payloadIncidental);
-
-                          await encolarPeticionOffline(
-                            endpoint,
-                            method,
-                            body,
-                            `Actividad completada: ${t.descripcion}`
+                          await completarMedicamento(
+                            medUuid,
+                            pacienteActivo.id,
+                            t.descripcion,
+                            horaProg
                           );
+                          console.log(`✅ [MEDICAMENTO PERSISTIDO] ${t.descripcion}`);
+                        } 
+                        // 📋 B: RUTINA / ACTIVIDAD / INCIDENTAL
+                        else {
+                          const actId = t.actividad_id || t.id;
+                          await completarTarea({
+                            paciente_id: pacienteActivo.id,
+                            tarea_id: actId,
+                            tipo: 'rutina',
+                            hora: t.hora,
+                            notas: t.notas || ''
+                          });
+                          console.log(`✅ [ACTIVIDAD PERSISTIDA] ${t.descripcion}`);
                         }
-                      } 
-                    }
-                  ]
-                );
-              }}
+                      } catch (err) {
+                        console.warn(`⚠️ Error al registrar ${t.descripcion}:`, err);
+                      }
+                    } 
+                  }
+                ]
+              );
+            }}
             >
               <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
 

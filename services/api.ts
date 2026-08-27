@@ -75,7 +75,8 @@ const headers = () => ({
 export const fetchWithAuth = async (
   url: string, 
   options: RequestInit = {}, 
-  reintentado: boolean = false
+  reintentado: boolean = false,
+  reintentosRed: number = 2
 ): Promise<Response> => {
   try {
     if (!authToken) {
@@ -96,7 +97,7 @@ export const fetchWithAuth = async (
       console.log("🔄 [AUTH] 401 recibido. Reintentando con token de disco...");
       const tokenDisco = await loadStoredToken();
       if (tokenDisco && tokenDisco !== authToken) {
-        return await fetchWithAuth(url, options, true);
+        return await fetchWithAuth(url, options, true, reintentosRed);
       }
     }
 
@@ -116,7 +117,13 @@ export const fetchWithAuth = async (
       throw error;
     }
 
-    // 🛑 Silenciamos LogBox en desarrollo cambiando console.error por log limpio
+    // ⚡ Filtro de saturación por ráfaga: reintenta tras 250ms antes de declarar offline
+    if (reintentosRed > 0 && error?.message?.includes('Network request failed')) {
+      await new Promise(resolve => setTimeout(resolve, 250));
+      return await fetchWithAuth(url, options, reintentado, reintentosRed - 1);
+    }
+
+    // 🛑 Si tras los reintentos persiste el fallo de red, se lanza a la cola offline
     console.log("⚠️ [OFFLINE / RED] Servidor inalcanzable temporalmente:", error?.message || error);
     throw error;
   }
@@ -1797,20 +1804,27 @@ export const getTareasDia = async (pacienteId: string, fecha?: string) => {
     const res = await fetchWithAuth(url);
 
     if (!res || !res.ok) {
-      return [];
+      return { tareas: [], sin_horario: false };
     }
 
     const data = await res.json();
-    if (Array.isArray(data)) return data;
-    if (Array.isArray(data?.tareas)) return data.tareas;
-    return [];
+
+    // Si el backend responde con un arreglo plano
+    if (Array.isArray(data)) {
+      return { tareas: data, sin_horario: false };
+    }
+
+    // Si el backend responde con el objeto completo { tareas: [...], sin_horario: ... }
+    return {
+      sin_horario: Boolean(data?.sin_horario),
+      tareas: Array.isArray(data?.tareas) ? data.tareas : [],
+      ...data,
+    };
   } catch (error) {
-    // 🛡️ Silencioso para evitar pantallas rojas en Hermes si no hay red
     console.log(`ℹ️ [TAREAS DÍA] No disponibles temporalmente para ${pacienteId} (${hoy})`);
-    return [];
+    return { tareas: [], sin_horario: false };
   }
 };
-
 export const getSignosRecientes = async (patientId: string) => {
   try {
     const res = await fetchWithAuth(`${BASE_URL}/pacientes/${patientId}/signos-recientes`);
