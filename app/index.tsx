@@ -74,6 +74,8 @@ export default function HomeScreen() {
   const [sensibilidadLocal, setSensibilidadLocal] = useState<number>(4);
   const [caidaActivaLocal, setCaidaActivaLocal] = useState<boolean>(true);
   const [equipo, setEquipo] = useState<MiembroEquipo[]>([]);
+  const [totalTareasHoy, setTotalTareasHoy] = useState<number>(0);
+  const [completadasTareasHoy, setCompletadasTareasHoy] = useState<number>(0);
   const solicitarConfirmacion = (
   titulo: string, 
   mensaje: string, 
@@ -533,7 +535,7 @@ useEffect(() => {
         const listaTareas = Array.isArray(tareasHoyData)
           ? tareasHoyData
           : (tareasHoyData?.tareas || []);
-
+        
         // 🔍 LOG DE DEPURACIÓN DETALLADO
         console.log("==========================================");
         console.log("🔍 DIAGNÓSTICO EN FRONTEND (Index.tsx):");
@@ -563,7 +565,8 @@ useEffect(() => {
 
         console.log(`📊 RESULTADO FINAL EVALUADO: ${completadasCalculadas} / ${totalCalculado}`);
         console.log("==========================================");
-
+        setTotalTareasHoy(totalCalculado);
+        setCompletadasTareasHoy(completadasCalculadas);
         // 🎯 SETEAR EN EL ESTADO
         // 🎯 SETEAR EN EL ESTADO (Soporte para múltiples turnos simultáneos)
         const turnosRecibidos = Array.isArray(turnoRes?.turnos)
@@ -1275,10 +1278,9 @@ useEffect(() => {
                 return !esFamiliar;
               });
 
-              // 🎯 3. CONTADOR ÚNICO GLOBAL DE ACTIVIDADES DEL DÍA
-              const primerTurno = turnosBrutos[0] || {};
-              const totalTareas = Number(primerTurno?.total || 0);
-              const completadasTareas = Number(primerTurno?.completadas || 0);
+              // 🟢 Asignación directa desde los estados actualizados
+              const totalTareas = totalTareasHoy;
+              const completadasTareas = completadasTareasHoy;
               const hayCuidadores = listaCuidadores.length > 0;
 
               return (
@@ -1290,24 +1292,24 @@ useEffect(() => {
                     </Text>
 
                     {/* 📊 BADGE ÚNICO GLOBAL DE TAREAS DEL PACIENTE */}
-                    <View style={{
-                      backgroundColor: '#F5EFE6',
-                      paddingHorizontal: 10,
-                      paddingVertical: 4,
-                      borderRadius: 12,
-                      borderWidth: 1,
-                      borderColor: '#E8DFD1',
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 4
-                    }}>
-                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#8C6D23' }}>
-                        {`${completadasTareas}/${totalTareas}`}
-                      </Text>
-                      <Text style={{ fontSize: 10, fontWeight: '600', color: '#8C8275' }}>
-                        tareas
-                      </Text>
-                    </View>
+                  <View style={{
+                    backgroundColor: '#F5EFE6',
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: '#E8DFD1',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4
+                  }}>
+                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#8C6D23' }}>
+                      {`${completadasTareas}/${totalTareas}`}
+                    </Text>
+                    <Text style={{ fontSize: 10, fontWeight: '600', color: '#8C8275' }}>
+                      tareas
+                    </Text>
+                  </View>
                   </View>
 
                   {/* 📋 LISTA DE CUIDADORES EN TURNO */}
