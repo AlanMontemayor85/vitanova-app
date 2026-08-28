@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3.5,
   },
   botonInactivo: {
-    backgroundColor: '#0284C7',
+    backgroundColor: '#BF9A40',
   },
   botonActivo: {
     backgroundColor: '#DC2626',
