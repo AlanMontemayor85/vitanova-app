@@ -16,10 +16,10 @@ import {
 } from 'react-native';
 import {
   agregarTareaManual, clearToken,
-  completarMedicamento, completarTarea,
   consumirItemInventario,
   detectarCambiosTurno,
   enviarComandoReloj,
+  fetchWithAuth,
   forzarMedicionSignos,
   getAlertaPeso,
   getBateriaPaciente,
@@ -2118,54 +2118,69 @@ const guardarRegistroEspontaneo = async () => {
               ]} 
               onPress={() => {
               if (t.completada) {
-                Alert.alert('Actividad Completada', `"${t.descripcion}" ya fue registrada en este turno.`);
+                Alert.alert('Completada', `"${t.descripcion}" ya fue registrada.`);
                 return;
               }
 
               Alert.alert(
-                'Confirmar actividad', 
-                `¿Confirmas la ejecución de: ${t.descripcion}?`, 
+                'Confirmar ejecución',
+                `¿Confirmas la realización de: ${t.descripcion}?`,
                 [
                   { text: 'Cancelar', style: 'cancel' },
-                  { 
-                    text: '✓ Ejecutada', 
+                  {
+                    text: '✓ Confirmar',
                     onPress: async () => {
-                      const fechaHoraActual = new Date().toISOString();
-
-                      // 1. UI Optimista inmediata
-                      setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: true, hora_completada: fechaHoraActual } : item));
+                      // 1. Optimismo visual inmediato
+                      setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: true } : item));
 
                       try {
-                        // 💊 A: MEDICAMENTO -> Usa el endpoint oficial /medicamentos/completar
-                        if (t.med_id || t.tipo === 'medicamento') {
+                        // 💊 1. MEDICAMENTO
+                        if (t.tipo === 'medicamento' || t.med_id) {
                           const medUuid = t.med_id || String(t.id).replace(/^med_/, '').split('_')[0];
                           const horaProg = t.hora_programada || t.hora || '08:00';
+                          const horaFormateada = horaProg.length === 5 ? `${horaProg}:00` : horaProg;
 
-                          await completarMedicamento(
-                            medUuid,
-                            pacienteActivo.id,
-                            t.descripcion,
-                            horaProg
-                          );
-                          console.log(`✅ [MEDICAMENTO PERSISTIDO] ${t.descripcion}`);
-                        } 
-                        // 📋 B: RUTINA / ACTIVIDAD / INCIDENTAL
-                        else {
-                          const actId = t.actividad_id || t.id;
-                          await completarTarea({
-                            paciente_id: pacienteActivo.id,
-                            tarea_id: actId,
-                            tipo: 'rutina',
-                            hora: t.hora,
-                            notas: t.notas || ''
+                          await fetchWithAuth(`${BASE_URL}/medicamentos/completar`, {
+                            method: 'POST',
+                            body: JSON.stringify({
+                              med_id: medUuid,
+                              paciente_id: pacienteActivo.id,
+                              descripcion: t.descripcion,
+                              hora_programada: horaFormateada,
+                            }),
                           });
-                          console.log(`✅ [ACTIVIDAD PERSISTIDA] ${t.descripcion}`);
+                          console.log(`✅ [MEDICAMENTO COMPLETADO] ${t.descripcion}`);
+                        }
+                        // ⚡ 2. TAREA INCIDENTAL
+                        else if (t.es_incidental) {
+                          await fetchWithAuth(`${BASE_URL}/tareas/${t.id}/completar`, {
+                            method: 'PATCH',
+                            body: JSON.stringify({
+                              paciente_id: pacienteActivo.id,
+                              completada: true,
+                            }),
+                          });
+                          console.log(`✅ [INCIDENTAL COMPLETADA] ${t.descripcion}`);
+                        }
+                        // 📋 3. RUTINA RECURRENTE (Ejercicio, Cena, Higiene, etc.)
+                        else {
+                          const idRutina = t.actividad_id || t.id;
+                          await fetchWithAuth(`${BASE_URL}/actividades/completar`, {
+                            method: 'POST',
+                            body: JSON.stringify({
+                              actividad_id: idRutina,
+                              paciente_id: pacienteActivo.id,
+                            }),
+                          });
+                          console.log(`✅ [RUTINA COMPLETADA] ${t.descripcion}`);
                         }
                       } catch (err) {
-                        console.warn(`⚠️ Error al registrar ${t.descripcion}:`, err);
+                        console.error(`❌ Error registrando ${t.descripcion}:`, err);
+                        // Revertir en caso de fallo
+                        setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: false } : item));
                       }
-                    } 
-                  }
+                    },
+                  },
                 ]
               );
             }}

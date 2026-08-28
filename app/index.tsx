@@ -246,34 +246,33 @@ const handleCalibrarReloj = async () => {
   }
 };
 // 🎯 INTERCEPTOR OPERATIVO: Normalización y saneamiento de estado de Turno
-
 const corregirResumenTurno = (turnoOriginal: any, listadoMedicamentos: any[], listadoTareas: any[]) => {
   if (!turnoOriginal) return null;
 
   const hoyStr = getHoyLocalISO();
 
-  // Si listadoTareas ya contiene todas las tareas y medicamentos unificados del día:
-  const tareasValidas = (listadoTareas || []).filter(tarea => {
+  // 1. Filtrar medicamentos vigentes para hoy
+  const medsHoy = (listadoMedicamentos || []).filter(med => {
+    return med.fecha_inicio && med.fecha_inicio <= hoyStr && (!med.fecha_fin || med.fecha_fin >= hoyStr);
+  });
+  const totalMedsTurno = medsHoy.reduce((acc, med) => acc + (Array.isArray(med.horarios) ? med.horarios.length : 1), 0);
+
+  // 2. Filtrar tareas vigentes excluyendo notas
+  const tareasHoy = (listadoTareas || []).filter(tarea => {
     const tipo = String(tarea.tipo || tarea.categoria || '').toLowerCase().trim();
     const esNota = tipo === 'nota' || tipo === 'nota_cuidador' || tipo.includes('nota');
-    const esVigente = !tarea.fecha_inicio || (tarea.fecha_inicio <= hoyStr && (!tarea.fecha_fin || tarea.fecha_fin >= hoyStr));
+    const esVigente = tarea.fecha_inicio && tarea.fecha_inicio <= hoyStr && (!tarea.fecha_fin || tarea.fecha_fin >= hoyStr);
     return esVigente && !esNota;
   });
 
-  const completadasHoy = tareasValidas.filter(tarea => 
-    tarea.completada === true || 
-    tarea.completada === 1 || 
-    String(tarea.completada).toLowerCase() === 'true' ||
-    tarea.status === 'completada'
-  ).length;
-
-  const totalReal = tareasValidas.length;
+  const tareasCompletadasHoy = tareasHoy.filter(tarea => tarea.completada || tarea.status === 'completada').length;
+  const totalReal = totalMedsTurno + tareasHoy.length;
 
   return {
     ...turnoOriginal,
     total: totalReal,
-    completadas: completadasHoy,
-    tareas_completadas: completadasHoy
+    completadas: tareasCompletadasHoy,
+    tareas_completadas: tareasCompletadasHoy
   };
 };
 
@@ -564,11 +563,7 @@ useEffect(() => {
 
         console.log(`📊 RESULTADO FINAL EVALUADO: ${completadasCalculadas} / ${totalCalculado}`);
         console.log("==========================================");
-        const turnoCrudo = turnoRes?.turno || turnoRes;
-        const turnoSaneado = corregirResumenTurno(turnoCrudo, [], listaTareas);
-        if (turnoSaneado) {
-          setTurnoResumen(turnoSaneado);
-        }
+
         // 🎯 SETEAR EN EL ESTADO
         // 🎯 SETEAR EN EL ESTADO (Soporte para múltiples turnos simultáneos)
         const turnosRecibidos = Array.isArray(turnoRes?.turnos)
@@ -1281,9 +1276,9 @@ useEffect(() => {
               });
 
               // 🎯 3. CONTADOR ÚNICO GLOBAL DE ACTIVIDADES DEL DÍA
-              const primerTurno = turnosBrutos[0] || turnoResumen || {};
+              const primerTurno = turnosBrutos[0] || {};
               const totalTareas = Number(primerTurno?.total || 0);
-              const completadasTareas = Number(primerTurno?.completadas ?? primerTurno?.tareas_completadas ?? 0);
+              const completadasTareas = Number(primerTurno?.completadas || 0);
               const hayCuidadores = listaCuidadores.length > 0;
 
               return (
