@@ -409,6 +409,7 @@ useEffect(() => {
       setLoading(true);
 
       // 0. 🧼 LIMPIEZA INICIAL
+      await AsyncStorage.removeItem('@offline_queue');
       setTurnoResumen(null);
       setUltimoCierre(null);
       setNotas([]);
