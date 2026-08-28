@@ -9,24 +9,20 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { getUbicacion, solicitarGpsVivo } from '../../services/api';
 
 interface Props {
   pacienteId: string;
-  apiBaseUrl: string;
-  authToken: string;
   onPosicionFijada?: (coords: { lat: number; lng: number }) => void;
 }
 
 export const BotonEmergenciaGPS: React.FC<Props> = ({
   pacienteId,
-  apiBaseUrl,
-  authToken,
   onPosicionFijada,
 }) => {
   const [cargando, setCargando] = useState(false);
   const [segundosRestantes, setSegundosRestantes] = useState(0);
 
-  // Temporizador de cuenta regresiva (TTL de 20 min / 1200 seg)
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;
     if (segundosRestantes > 0) {
@@ -46,49 +42,42 @@ export const BotonEmergenciaGPS: React.FC<Props> = ({
   const ejecutarSolicitud = async () => {
     try {
       setCargando(true);
-      // Pulso háptico de advertencia/inicio
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
-      const res = await fetch(`${apiBaseUrl}/pacientes/${pacienteId}/solicitar-gps-vivo`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
+      // Llama a tu función nativa de api.ts
+      await solicitarGpsVivo(pacienteId);
 
-      const data = await res.json();
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setSegundosRestantes(1200); // 20 minutos
 
-      if (data.success) {
-        // Feedback háptico de éxito
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setSegundosRestantes(1200); // 20 minutos
-
-        if (data.ubicacion && onPosicionFijada) {
-          onPosicionFijada({
-            lat: Number(data.ubicacion.lat),
-            lng: Number(data.ubicacion.lng),
-          });
+      // Consulta ubicación fresca a los 3 segundos
+      setTimeout(async () => {
+        try {
+          const res = await getUbicacion(pacienteId);
+          const rawLat = res?.ubicacion?.lat ?? res?.ubicacion?.latitud;
+          const rawLng = res?.ubicacion?.lng ?? res?.ubicacion?.longitud;
+          if (rawLat && rawLng && onPosicionFijada) {
+            onPosicionFijada({ lat: Number(rawLat), lng: Number(rawLng) });
+          }
+        } catch (e) {
+          console.error('Error obteniendo fix:', e);
         }
-      } else {
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert('Aviso', data.detail || 'No se pudo iniciar el modo búsqueda.');
-      }
+      }, 3000);
+
     } catch (error) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Error', 'Falla de red al conectar con el servidor.');
+      Alert.alert('Aviso', 'No se pudo iniciar el modo búsqueda en este momento.');
     } finally {
       setCargando(false);
     }
   };
 
   const handlePress = async () => {
-    // Impacto háptico medio al tocar el botón
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     Alert.alert(
       '🚨 Modo Búsqueda Activa',
-      '¿Deseas forzar el GPS y rastrear al familiar en tiempo real (reporte cada 10s)?',
+      '¿Deseas forzar el GPS y rastrear al paciente en tiempo real (cada 10s)?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {

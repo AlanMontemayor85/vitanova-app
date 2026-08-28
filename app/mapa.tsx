@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { crearGeocerca, eliminarGeocerca, getGeocercas, getPacientes, getUbicacion, loadStoredToken, solicitarGpsVivo } from '../services/api';
+import { BotonEmergenciaGPS } from './components/BotonEmergenciaGPS';
 
 const COLORS = {
   gold: '#BF9A40',
@@ -25,13 +26,14 @@ export default function MapaScreen() {
   const pacienteIdParam = params.pacienteId as string;
   const router = useRouter();
   const mapRef = useRef<MapView>(null);
+  const [authToken, setAuthToken] = useState<string>('');
   const [paciente, setPaciente] = useState<any>(null);
   const [ubicacion, setUbicacion] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [geocercas, setGeocercas] = useState<any[]>([]);
   const [solicitandoGps, setSolicitandoGps] = useState<boolean>(false);
   const [rolUsuario, setRolUsuario] = useState<string>('');
-
+ 
   const rolDetectado = (
     params.miRol ||
     paciente?.mi_rol ||
@@ -72,41 +74,44 @@ export default function MapaScreen() {
   const currentLng = tieneCoordenadasValidas ? parsearCoord(rawLng)! : DEFAULT_LNG;
 
   useEffect(() => {
-    const cargarDatosIniciales = async () => {
-      try {
-        await loadStoredToken();
-        const data = await getPacientes('mapa-ubicacion');
+  const cargarDatosIniciales = async () => {
+    try {
+      // 🔑 Cargar y fijar el token
+      const token = await Promise.resolve(loadStoredToken());
+      if (token) setAuthToken(token);
 
-        if (data?.rol_usuario) {
-          setRolUsuario(data.rol_usuario);
-        }
+      const data = await getPacientes('mapa-ubicacion');
 
-        if (data.patients && data.patients.length > 0) {
-          const p = pacienteIdParam
-            ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
-            : data.patients[0];
-          
-          setPaciente(p);
-
-          if (p.mi_rol || p.rol || p.tipo_usuario) {
-            setRolUsuario(p.mi_rol || p.rol || p.tipo_usuario);
-          }
-
-          const ubData = await getUbicacion(p.id);
-          if (ubData.ubicacion) setUbicacion(ubData.ubicacion);
-          
-          const geocercaData = await getGeocercas(p.id);
-          if (geocercaData.geocercas) setGeocercas(geocercaData.geocercas);
-        }
-      } catch (e) {
-        console.error("❌ Error en la carga inicial del mapa:", e);
-      } finally {
-        setLoading(false);
+      if (data?.rol_usuario) {
+        setRolUsuario(data.rol_usuario);
       }
-    };
 
-    cargarDatosIniciales();
-  }, [pacienteIdParam]);
+      if (data.patients && data.patients.length > 0) {
+        const p = pacienteIdParam
+          ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
+          : data.patients[0];
+        
+        setPaciente(p);
+
+        if (p.mi_rol || p.rol || p.tipo_usuario) {
+          setRolUsuario(p.mi_rol || p.rol || p.tipo_usuario);
+        }
+
+        const ubData = await getUbicacion(p.id);
+        if (ubData.ubicacion) setUbicacion(ubData.ubicacion);
+        
+        const geocercaData = await getGeocercas(p.id);
+        if (geocercaData.geocercas) setGeocercas(geocercaData.geocercas);
+      }
+    } catch (e) {
+      console.error("❌ Error en la carga inicial del mapa:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  cargarDatosIniciales();
+}, [pacienteIdParam]);
 
   useEffect(() => {
     if (!paciente?.id) return;
@@ -328,32 +333,36 @@ export default function MapaScreen() {
             </View>
           )}
           
-          {/* BOTÓN RASTREO Y CENTRADO */}
-          <TouchableOpacity
-            style={[
-              styles.centrarBtn, 
-              solicitandoGps && { opacity: 0.8, backgroundColor: '#4A423A' }
-            ]}
-            disabled={solicitandoGps}
-            onPress={async () => {
-              mapRef.current?.animateToRegion({
-                latitude: currentLat,
-                longitude: currentLng,
-                latitudeDelta: 0.0122,
-                longitudeDelta: 0.0121,
-              });
-              await solicitarUbicacionEnVivo();
-            }}
-          >
-            {solicitandoGps ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                <ActivityIndicator size="small" color="#BF9A40" />
-                <Text style={styles.centrarBtnText}>Triangulando satélites...</Text>
-              </View>
-            ) : (
-              <Text style={styles.centrarBtnText}>📍 Centrar y rastrear en vivo</Text>
-            )}
-          </TouchableOpacity>
+          {/* 🚨 BOTÓN DE MODO EMERGENCIA CON CONTADOR Y HÁPTICOS */}
+          {paciente?.id && (
+            <BotonEmergenciaGPS
+              pacienteId={paciente.id}
+              onPosicionFijada={(coords: { lat: number; lng: number }) => {
+                setUbicacion((prev: any) => ({ ...prev, lat: coords.lat, lng: coords.lng }));
+                mapRef.current?.animateToRegion({
+                  latitude: coords.lat,
+                  longitude: coords.lng,
+                  latitudeDelta: 0.006,
+                  longitudeDelta: 0.006,
+                });
+              }}
+            />
+          )}
+
+            {/* 📍 BOTÓN EXCLUSIVO PARA CENTRAR CÁMARA */}
+            <TouchableOpacity
+              style={styles.centrarBtn}
+              onPress={() => {
+                mapRef.current?.animateToRegion({
+                  latitude: currentLat,
+                  longitude: currentLng,
+                  latitudeDelta: 0.0122,
+                  longitudeDelta: 0.0121,
+                });
+              }}
+            >
+              <Text style={styles.centrarBtnText}>📍 Centrar en ubicación actual</Text>
+            </TouchableOpacity>
            
           <Text style={[styles.infoLabel, { marginTop: 16, marginBottom: 8 }]}>Zona segura</Text>
 
