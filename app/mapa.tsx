@@ -324,14 +324,51 @@ export default function MapaScreen() {
                 : '—'}
             </Text>
           </View>
-          {ubicacion?.bateria_pct !== undefined && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Batería</Text>
-              <Text style={[styles.infoVal, { color: ubicacion.bateria_pct < 20 ? COLORS.red : COLORS.green }]}>
-                {ubicacion.bateria_pct}%
-              </Text>
-            </View>
-          )}
+
+          {/* FILA DE BATERÍA INTERACTIVA CON DETECCIÓN DE APAGADO */}
+          {ubicacion?.bateria_pct !== undefined && (() => {
+            const bat = Number(ubicacion.bateria_pct);
+            const esAgotada = bat <= 3;
+            const esBaja = bat > 3 && bat < 20;
+
+            const handleAvisoBateria = () => {
+              if (esAgotada) {
+                Alert.alert(
+                  '⚠️ Reloj Apagado por Batería Agotada',
+                  'El dispositivo se apagó al descargarse por completo.\n\n' +
+                  '1. Conéctelo a la base de carga magnética.\n' +
+                  '2. Espere 5 minutos a que tome carga básica.\n' +
+                  '3. Mantenga presionado el botón lateral 4 segundos para encenderlo.\n\n' +
+                  'El reloj no enviará ubicación ni signos hasta que se vuelva a encender.',
+                  [{ text: 'Entendido', style: 'default' }]
+                );
+              }
+            };
+
+            return (
+              <TouchableOpacity 
+                activeOpacity={esAgotada ? 0.7 : 1}
+                onPress={handleAvisoBateria}
+                style={styles.infoRow}
+              >
+                <Text style={styles.infoLabel}>Batería</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {esAgotada && <Text style={{ fontSize: 13 }}>⚠️</Text>}
+                  <Text
+                    style={[
+                      styles.infoVal,
+                      {
+                        color: esAgotada || esBaja ? COLORS.red : COLORS.green,
+                        fontWeight: esAgotada ? '800' : '600',
+                      },
+                    ]}
+                  >
+                    {esAgotada ? `${bat}% (Reloj apagado)` : `${bat}%`}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })()}
           
           {/* 🚨 BOTÓN DE MODO EMERGENCIA CON CONTADOR Y HÁPTICOS */}
           {paciente?.id && (

@@ -962,44 +962,76 @@ useEffect(() => {
                     <View style={styles.liveDot} />
                     <Text style={styles.vitalsHeaderTitle}>Telemetría en Vivo</Text>
 
-                    {/* 🔋 PILL DE BATERÍA ESTANDARIZADA */}
-                      {(() => {
-                        const batVal = 
-                          ubicacion?.bateria_pct ?? 
-                          ubicacion?.bateria ?? 
-                          signosDispositivo?.bateria_pct ?? 
-                          signosDispositivo?.bateria ?? 
-                          signosDispositivo?.data?.bateria_pct ?? 
-                          paciente?.bateria_pct ?? 
-                          null;
+                    {/* 🔋 PILL DE BATERÍA ESTANDARIZADA CON DETECCIÓN DE APAGADO */}
+                    {(() => {
+                      const batVal =
+                        ubicacion?.bateria_pct ??
+                        ubicacion?.bateria ??
+                        signosDispositivo?.bateria_pct ??
+                        signosDispositivo?.bateria ??
+                        signosDispositivo?.data?.bateria_pct ??
+                        paciente?.bateria_pct ??
+                        null;
 
-                        const esBaja = batVal !== null && typeof batVal === 'number' && batVal < 20;
+                      const numBat = batVal !== null && typeof batVal === 'number' ? batVal : null;
+                      const esAgotada = numBat !== null && numBat <= 3; // 1% a 3%: reloj apagado por batería
+                      const esBaja = numBat !== null && numBat > 3 && numBat < 20;
 
-                        return (
-                          <View style={{ 
-                            flexDirection: 'row', 
-                            alignItems: 'center', 
-                            backgroundColor: esBaja ? '#FFEBEE' : '#E8F5E9', 
-                            paddingHorizontal: 7, 
-                            paddingVertical: 2, 
+                      // Colores y estilos dinámicos
+                      const bgPill = esAgotada ? '#FEE2E2' : esBaja ? '#FFEBEE' : '#E8F5E9';
+                      const borderPill = esAgotada ? '#DC2626' : esBaja ? '#FFCDD2' : '#C8E6C9';
+                      const textPill = esAgotada ? '#991B1B' : esBaja ? '#D94F4F' : '#2E7D32';
+                      const iconPill = esAgotada ? '⚠️' : esBaja ? '🪫' : '🔋';
+
+                      const handlePillPress = () => {
+                        if (esAgotada) {
+                          Alert.alert(
+                            '⚠️ Reloj Apagado por Batería Agotada',
+                            'El dispositivo se apagó al descargarse por completo.\n\n' +
+                            '1. Conéctelo a la base de carga magnética.\n' +
+                            '2. Espere 5 minutos para que tome carga básica.\n' +
+                            '3. Mantenga presionado el botón lateral 4 segundos para encenderlo.\n\n' +
+                            'El reloj no enviará datos hasta que se encienda nuevamente.',
+                            [{ text: 'Entendido', style: 'default' }]
+                          );
+                        }
+                      };
+
+                      return (
+                        <TouchableOpacity
+                          activeOpacity={esAgotada ? 0.7 : 1}
+                          onPress={handlePillPress}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            backgroundColor: bgPill,
+                            paddingHorizontal: 7,
+                            paddingVertical: 2,
                             borderRadius: 6,
                             borderWidth: 1,
-                            borderColor: esBaja ? '#FFCDD2' : '#C8E6C9',
-                            marginLeft: 4
-                          }}>
-                            <Text style={{ fontSize: 10, marginRight: 2 }}>
-                              {esBaja ? '🪫' : '🔋'}
-                            </Text>
-                            <Text style={{ 
-                              fontSize: 10, 
-                              fontWeight: '800', 
-                              color: esBaja ? '#D94F4F' : '#2E7D32' 
-                            }}>
-                              {batVal !== null && batVal !== undefined ? `${batVal}%` : '--%'}
-                            </Text>
-                          </View>
-                        );
-                      })()}
+                            borderColor: borderPill,
+                            marginLeft: 4,
+                          }}
+                        >
+                          <Text style={{ fontSize: 10, marginRight: 2 }}>
+                            {iconPill}
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: 10,
+                              fontWeight: '800',
+                              color: textPill,
+                            }}
+                          >
+                            {esAgotada
+                              ? 'APAGADO (1%)'
+                              : numBat !== null
+                              ? `${numBat}%`
+                              : '--%'}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })()}
                   </View>
 
                   {/* Botón Sensa Ahora */}
