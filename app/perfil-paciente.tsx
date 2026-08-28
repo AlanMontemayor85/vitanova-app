@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { actualizarPaciente, clearToken, configurarReloj, getPacientes, getToken, reiniciarRegistroServidor } from '../services/api'; // 📡 Asegúrate de exportar configurarReloj de tu services/api.ts
+import { ActivityIndicator, Alert, Linking, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { actualizarPaciente, clearToken, configurarReloj, getPacientes, getRelojServidorConfig, getToken, reiniciarRegistroServidor } from '../services/api'; // 📡 Asegúrate de exportar configurarReloj de tu services/api.ts
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 const COLORS = {
@@ -55,6 +55,7 @@ export default function PerfilPacienteScreen() {
   const [telefonoAseguradora, setTelefonoAseguradora] = useState(paciente?.telefono_aseguradora ?? '');
   const [telefonoAmbulancia, setTelefonoAmbulancia] = useState(paciente?.telefono_ambulancia ?? '');
   const [zonaHoraria, setZonaHoraria] = useState<number>(-6);
+  const [telefonoSimReloj, setTelefonoSimReloj] = useState('');
   // ⌚ SWITCH MAESTRO DE HARDWARE (Se activa automáticamente si el paciente ya tiene IMEI)
   const [tieneReloj, setTieneReloj] = useState<boolean>(
     Boolean(paciente?.reloj_imei && paciente.reloj_imei.trim() !== '')
@@ -159,7 +160,34 @@ export default function PerfilPacienteScreen() {
 
     refrescarDatosAlEntrar();
   }, [paciente?.id, params?.refresh]);
+const enviarSmsAprovisionamiento = async () => {
+    const tel = telefonoSimReloj.trim().replace(/\D/g, '');
+    if (!tel || tel.length < 10) {
+      Alert.alert(
+        'Número inválido',
+        'Ingresa el número celular a 10 dígitos de la tarjeta SIM del reloj.'
+      );
+      return;
+    }
 
+    try {
+      const { host, port } = await getRelojServidorConfig();
+      const comandoIP = `ip,${host},${port}#`;
+
+      const url = Platform.select({
+        ios: `sms:${tel}&body=${encodeURIComponent(comandoIP)}`,
+        android: `sms:${tel}?body=${encodeURIComponent(comandoIP)}`,
+      });
+
+      if (url && (await Linking.canOpenURL(url))) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Aviso', 'No se pudo abrir la aplicación de mensajes.');
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Ocurrió un problema al preparar el mensaje de configuración.');
+    }
+  };
   // 📡 Disparador del Bus de Comandos por Redis
 const ejecutarSincronizacionReloj = async (targetId: string) => {
   try {
@@ -499,7 +527,58 @@ const guardar = async () => {
               onChangeText={setImei}
               keyboardType="numeric"
             />
+             {/* 📲 ASISTENTE DE ENLACE POR SMS (BYOS) */}
+            <View style={{
+              backgroundColor: COLORS.white,
+              borderRadius: 12,
+              padding: 14,
+              borderWidth: 1.5,
+              borderColor: COLORS.goldLight,
+              marginBottom: 16,
+              marginTop: 4,
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <Text style={{ fontSize: 13 }}>📲</Text>
+                <Text style={{ fontSize: 12, fontWeight: '800', color: COLORS.textDark, textTransform: 'uppercase' }}>
+                  Enlace de Servidor Vía SMS
+                </Text>
+              </View>
+              
+              <Text style={{ fontSize: 11, color: COLORS.textLight, marginBottom: 10, lineHeight: 15 }}>
+                Si utilizas un chip propio, ingresa su número para enviar el mensaje de configuración inicial que conecta el reloj a la plataforma.
+              </Text>
 
+              <Text style={styles.label}>Número Celular de la SIM del Reloj</Text>
+              <TextInput
+                style={[styles.input, { marginBottom: 10 }]}
+                placeholder="Ej. 8114007812"
+                placeholderTextColor={COLORS.textLight}
+                value={telefonoSimReloj}
+                onChangeText={setTelefonoSimReloj}
+                keyboardType="phone-pad"
+              />
+
+              <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                enviarSmsAprovisionamiento();
+              }}
+              style={{
+                backgroundColor: COLORS.gold,
+                borderRadius: 10,
+                paddingVertical: 12,
+                alignItems: 'center',
+                flexDirection: 'row',
+                justifyContent: 'center',
+                gap: 8,
+              }}
+            >
+              <Text style={{ fontSize: 14 }}>✉️</Text>
+              <Text style={{ color: COLORS.white, fontWeight: '800', fontSize: 12, letterSpacing: 0.5 }}>
+                ENVIAR SMS DE ENLACE AL RELOJ
+              </Text>
+            </TouchableOpacity>
+            </View>
             <Text style={styles.label}>Número SOS Principal (Botón de pánico del Reloj)</Text>
             <TextInput
               style={styles.input}

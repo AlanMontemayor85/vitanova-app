@@ -229,7 +229,32 @@ export const fetchWithAuth = async (
 
 // ──────────────────────────────────────────────────────────────
 
+// services/api.ts
 
+export const getRelojServidorConfig = async (): Promise<{ host: string; port: string }> => {
+  try {
+    const token = await getToken();
+    const res = await fetch(`${BASE_URL}/config/reloj-servidor`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('⚠️ No se pudo obtener la config remota del servidor TCP, usando fallback:', err);
+  }
+
+  // Fallback seguro en caso de intermitencia
+  return {
+    host: 'acela.proxy.rlwy.net',
+    port: '55538',
+  };
+};
 
 export const login = async (email: string, password: string) => {
 
