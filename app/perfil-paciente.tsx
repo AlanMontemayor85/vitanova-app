@@ -559,25 +559,45 @@ const guardar = async () => {
               />
 
               <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                enviarSmsAprovisionamiento();
-              }}
-              style={{
-                backgroundColor: COLORS.gold,
-                borderRadius: 10,
-                paddingVertical: 12,
-                alignItems: 'center',
-                flexDirection: 'row',
-                justifyContent: 'center',
-                gap: 8,
-              }}
-            >
-              <Text style={{ fontSize: 14 }}>✉️</Text>
-              <Text style={{ color: COLORS.white, fontWeight: '800', fontSize: 12, letterSpacing: 0.5 }}>
-                ENVIAR SMS DE ENLACE AL RELOJ
-              </Text>
-            </TouchableOpacity>
+                activeOpacity={0.8}
+                onPress={() => {
+                  enviarSmsAprovisionamiento();
+                }}
+                style={{
+                  backgroundColor: COLORS.gold,
+                  borderRadius: 10,
+                  paddingVertical: 12,
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  gap: 8,
+                }}
+              >
+                <Text style={{ fontSize: 14 }}>✉️</Text>
+                <Text style={{ color: COLORS.white, fontWeight: '800', fontSize: 12, letterSpacing: 0.5 }}>
+                  ENVIAR SMS DE ENLACE AL RELOJ
+                </Text>
+              </TouchableOpacity>
+
+              {/* 💡 AYUDA RCS / MENSAJES DE GOOGLE */}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  Alert.alert(
+                    '💡 Ayuda con Mensajes de Google (Android)',
+                    'Si tu aplicación de mensajes usa Chat RCS y el reloj no recibe el comando:\n\n' +
+                    '1. En la pantalla del chat con el reloj, toca los 3 puntos (o Detalles) arriba a la derecha.\n' +
+                    '2. Activa la opción "Enviar solo mensajes de texto (SMS/MMS)".\n' +
+                    '3. Si el mensaje se queda en "Enviando...", mantén presionado el mensaje y selecciona "Cambiar a SMS/MMS".\n\n' +
+                    'Una vez enviado como SMS tradicional, el reloj se conectará al servidor de inmediato.'
+                  );
+                }}
+                style={{ marginTop: 10, alignSelf: 'center', paddingVertical: 4 }}
+              >
+                <Text style={{ fontSize: 11, color: COLORS.gold, fontWeight: '700', textDecorationLine: 'underline' }}>
+                  ¿Usas Android y no se envía? Toca aquí para ver la solución
+                </Text>
+              </TouchableOpacity>
             </View>
             <Text style={styles.label}>Número SOS Principal (Botón de pánico del Reloj)</Text>
             <TextInput
