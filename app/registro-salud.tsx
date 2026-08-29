@@ -102,67 +102,75 @@ useEffect(() => {
 }, [paciente?.id]);
 
   const guardar = async () => {
-  setGuardando(true);
-  try {
-    const payload = {
-      paciente_id: paciente.id,
-      momento,
-      estado_animo: 'bien',
-      alimentacion: 'bien',
-      dolor_eva: 0,
-      spo2: null,
-      presion_sistolica: null,
-      presion_diastolica: null,
-      frecuencia_cardiaca: null,
-      temperatura: null,
-    };
+    setGuardando(true);
+    try {
+      // 🔑 Determinamos el origen: si el reloj está activo y transmitiendo, es 'dispositivo'
+      const origenCalculado = relojActivo ? 'dispositivo' : 'manual';
 
-    const token = getToken();
-
-    // Intentamos el envío normal por HTTP
-    const res = await fetch(`${BASE_URL}/registros/salud`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await res.json();
-    if (data.alertas?.length > 0) {
-      setAlertas(data.alertas);
-    } else {
-      await avanzarAlTurno();
-    }
-  } catch (error) {
-    // 🎯 FALLO DE RED: Encolamos de forma transparente sin trabar al cuidador
-    console.log('⚠️ Sin red al registrar inicio de turno. Guardando en cola local...');
-    
-    await encolarPeticionOffline(
-      `${BASE_URL}/registros/salud`,
-      'POST',
-      {
+      const payload = {
         paciente_id: paciente.id,
         momento,
         estado_animo: 'bien',
         alimentacion: 'bien',
         dolor_eva: 0,
-        spo2: null,
-        presion_sistolica: null,
-        presion_diastolica: null,
-        frecuencia_cardiaca: null,
-        temperatura: null,
-      },
-      `Inicio de turno - ${paciente.nombre_completo}`
-    );
+        spo2: spo2 ?? null,
+        presion_sistolica: sistolica ?? null,
+        presion_diastolica: diastolica ?? null,
+        frecuencia_cardiaca: fc ?? null,
+        temperatura: temperatura ?? null,
+        origen: origenCalculado,
+        metodo: relojActivo ? 'reloj_rf_v48' : 'manual_cuidador',
+      };
 
-    // El cuidador entra a la agenda de inmediato
-    await avanzarAlTurno();
-  } finally {
-    setGuardando(false);
-  }
-};
+      const token = await getToken();
+
+      // Intentamos el envío normal por HTTP
+      const res = await fetch(`${BASE_URL}/registros/salud`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (data.alertas?.length > 0) {
+        setAlertas(data.alertas);
+      } else {
+        await avanzarAlTurno();
+      }
+    } catch (error) {
+      console.log('⚠️ Sin red al registrar inicio de turno. Guardando en cola local...', error);
+      
+      const origenCalculado = relojActivo ? 'dispositivo' : 'manual';
+
+      await encolarPeticionOffline(
+        `${BASE_URL}/registros/salud`,
+        'POST',
+        {
+          paciente_id: paciente.id,
+          momento,
+          estado_animo: 'bien',
+          alimentacion: 'bien',
+          dolor_eva: 0,
+          spo2: spo2 ?? null,
+          presion_sistolica: sistolica ?? null,
+          presion_diastolica: diastolica ?? null,
+          frecuencia_cardiaca: fc ?? null,
+          temperatura: temperatura ?? null,
+          origen: origenCalculado,
+          metodo: relojActivo ? 'reloj_rf_v48' : 'manual_cuidador',
+        },
+        `Inicio de turno - ${paciente.nombre_completo}`
+      );
+
+      // El cuidador entra a la agenda de inmediato
+      await avanzarAlTurno();
+    } finally {
+      setGuardando(false);
+    }
+  };
 
   // 💡 Asegúrate de incluir 'Alert' en tus imports de React Native:
 // import { Alert, ActivityIndicator, ScrollView, ... } from 'react-native';
