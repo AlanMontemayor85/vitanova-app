@@ -961,77 +961,125 @@ useEffect(() => {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <View style={styles.liveDot} />
                     <Text style={styles.vitalsHeaderTitle}>Telemetría en Vivo</Text>
+                      {/* 🔋 PILL DE BATERÍA ESTANDARIZADA CON DETECCIÓN DE APAGADO Y DESCONEXIÓN */}
+                      {(() => {
+                        const batVal =
+                          ubicacion?.bateria_pct ??
+                          ubicacion?.bateria ??
+                          signosDispositivo?.bateria_pct ??
+                          signosDispositivo?.bateria ??
+                          signosDispositivo?.data?.bateria_pct ??
+                          paciente?.bateria_pct ??
+                          null;
 
-                    {/* 🔋 PILL DE BATERÍA ESTANDARIZADA CON DETECCIÓN DE APAGADO */}
-                    {(() => {
-                      const batVal =
-                        ubicacion?.bateria_pct ??
-                        ubicacion?.bateria ??
-                        signosDispositivo?.bateria_pct ??
-                        signosDispositivo?.bateria ??
-                        signosDispositivo?.data?.bateria_pct ??
-                        paciente?.bateria_pct ??
-                        null;
+                        const ultimaConexionStr =
+                          ubicacion?.ultima_conexion ??
+                          ubicacion?.updated_at ??
+                          signosDispositivo?.ultima_conexion ??
+                          signosDispositivo?.created_at ??
+                          paciente?.updated_at ??
+                          null;
 
-                      const numBat = batVal !== null && typeof batVal === 'number' ? batVal : null;
-                      const esAgotada = numBat !== null && numBat <= 3; // 1% a 3%: reloj apagado por batería
-                      const esBaja = numBat !== null && numBat > 3 && numBat < 20;
-
-                      // Colores y estilos dinámicos
-                      const bgPill = esAgotada ? '#FEE2E2' : esBaja ? '#FFEBEE' : '#E8F5E9';
-                      const borderPill = esAgotada ? '#DC2626' : esBaja ? '#FFCDD2' : '#C8E6C9';
-                      const textPill = esAgotada ? '#991B1B' : esBaja ? '#D94F4F' : '#2E7D32';
-                      const iconPill = esAgotada ? '⚠️' : esBaja ? '🪫' : '🔋';
-
-                      const handlePillPress = () => {
-                        if (esAgotada) {
-                          Alert.alert(
-                            '⚠️ Reloj Apagado por Batería Agotada',
-                            'El dispositivo se apagó al descargarse por completo.\n\n' +
-                            '1. Conéctelo a la base de carga magnética.\n' +
-                            '2. Espere 5 minutos para que tome carga básica.\n' +
-                            '3. Mantenga presionado el botón lateral 4 segundos para encenderlo.\n\n' +
-                            'El reloj no enviará datos hasta que se encienda nuevamente.',
-                            [{ text: 'Entendido', style: 'default' }]
-                          );
+                        // Cálculo de tiempo transcurrido
+                        let diffMinutos = 0;
+                        if (ultimaConexionStr) {
+                          try {
+                            const fechaNorm = ultimaConexionStr.includes('Z') || ultimaConexionStr.includes('+')
+                              ? ultimaConexionStr
+                              : `${ultimaConexionStr.replace(' ', 'T')}Z`;
+                            diffMinutos = Math.floor((new Date().getTime() - new Date(fechaNorm).getTime()) / (1000 * 60));
+                          } catch {
+                            diffMinutos = 0;
+                          }
                         }
-                      };
 
-                      return (
-                        <TouchableOpacity
-                          activeOpacity={esAgotada ? 0.7 : 1}
-                          onPress={handlePillPress}
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            backgroundColor: bgPill,
-                            paddingHorizontal: 7,
-                            paddingVertical: 2,
-                            borderRadius: 6,
-                            borderWidth: 1,
-                            borderColor: borderPill,
-                            marginLeft: 4,
-                          }}
-                        >
-                          <Text style={{ fontSize: 10, marginRight: 2 }}>
-                            {iconPill}
-                          </Text>
-                          <Text
+                        const numBat = batVal !== null && typeof batVal === 'number' ? batVal : null;
+                        const estaFueraDeLinea = diffMinutos > 10;
+                        const esAgotada = (numBat !== null && numBat <= 3) || (numBat !== null && numBat <= 5 && estaFueraDeLinea);
+                        const esBaja = numBat !== null && numBat > 3 && numBat < 20;
+
+                        // Estilos dinámicos
+                        let bgPill = '#E8F5E9';
+                        let borderPill = '#C8E6C9';
+                        let textPill = '#2E7D32';
+                        let iconPill = '🔋';
+                        let labelPill = numBat !== null ? `${numBat}%` : '--%';
+
+                        if (esAgotada) {
+                          bgPill = '#FEE2E2';
+                          borderPill = '#DC2626';
+                          textPill = '#991B1B';
+                          iconPill = '⚠️';
+                          labelPill = 'APAGADO';
+                        } else if (estaFueraDeLinea) {
+                          bgPill = '#FEF3C7';
+                          borderPill = '#F59E0B';
+                          textPill = '#B45309';
+                          iconPill = '📡';
+                          labelPill = numBat !== null ? `OFF (${numBat}%)` : 'OFF';
+                        } else if (esBaja) {
+                          bgPill = '#FFEBEE';
+                          borderPill = '#FFCDD2';
+                          textPill = '#D94F4F';
+                          iconPill = '🪫';
+                        }
+
+                        const handlePillPress = () => {
+                          if (esAgotada) {
+                            Alert.alert(
+                              '⚠️ Reloj Apagado por Batería Agotada',
+                              'El dispositivo se apagó al descargarse por completo.\n\n' +
+                              '1. Conéctelo a la base de carga magnética.\n' +
+                              '2. Espere 5 minutos para que tome carga básica.\n' +
+                              '3. Mantenga presionado el botón lateral 4 segundos para encenderlo.\n\n' +
+                              'El reloj no enviará datos hasta que se encienda nuevamente.',
+                              [{ text: 'Entendido', style: 'default' }]
+                            );
+                          } else if (estaFueraDeLinea) {
+                            const tiempoTexto = diffMinutos > 60 
+                              ? `${Math.floor(diffMinutos / 60)}h ${diffMinutos % 60}m` 
+                              : `${diffMinutos} min`;
+                            Alert.alert(
+                              '📡 Reloj Fuera de Línea',
+                              `El reloj no se comunica desde hace ${tiempoTexto}.\n\n` +
+                              `• Última batería registrada: ${numBat !== null ? numBat + '%' : 'No disponible'}\n` +
+                              '• Verifique si el dispositivo fue apagado manualmente o se encuentra sin cobertura móvil.',
+                              [{ text: 'Entendido', style: 'default' }]
+                            );
+                          }
+                        };
+
+                        return (
+                          <TouchableOpacity
+                            activeOpacity={esAgotada || estaFueraDeLinea ? 0.7 : 1}
+                            onPress={handlePillPress}
                             style={{
-                              fontSize: 10,
-                              fontWeight: '800',
-                              color: textPill,
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              backgroundColor: bgPill,
+                              paddingHorizontal: 7,
+                              paddingVertical: 2,
+                              borderRadius: 6,
+                              borderWidth: 1,
+                              borderColor: borderPill,
+                              marginLeft: 4,
                             }}
                           >
-                            {esAgotada
-                              ? 'APAGADO (1%)'
-                              : numBat !== null
-                              ? `${numBat}%`
-                              : '--%'}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })()}
+                            <Text style={{ fontSize: 10, marginRight: 2 }}>
+                              {iconPill}
+                            </Text>
+                            <Text
+                              style={{
+                                fontSize: 10,
+                                fontWeight: '800',
+                                color: textPill,
+                              }}
+                            >
+                              {labelPill}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })()}
                   </View>
 
                   {/* Botón Sensa Ahora */}

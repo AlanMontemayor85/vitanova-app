@@ -325,11 +325,52 @@ export default function MapaScreen() {
             </Text>
           </View>
 
-          {/* FILA DE BATERÍA INTERACTIVA CON DETECCIÓN DE APAGADO */}
+          {/* FILA DE BATERÍA INTERACTIVA CON DETECCIÓN DE APAGADO Y DESCONEXIÓN */}
           {ubicacion?.bateria_pct !== undefined && (() => {
             const bat = Number(ubicacion.bateria_pct);
-            const esAgotada = bat <= 3;
+
+            const ultimaConexionStr =
+              ubicacion?.ultima_conexion ??
+              ubicacion?.updated_at ??
+              null;
+
+            // Cálculo de tiempo transcurrido desde el último reporte
+            let diffMinutos = 0;
+            if (ultimaConexionStr) {
+              try {
+                const fechaNorm = String(ultimaConexionStr).includes('Z') || String(ultimaConexionStr).includes('+')
+                  ? String(ultimaConexionStr)
+                  : `${String(ultimaConexionStr).replace(' ', 'T')}Z`;
+                diffMinutos = Math.floor((new Date().getTime() - new Date(fechaNorm).getTime()) / (1000 * 60));
+              } catch {
+                diffMinutos = 0;
+              }
+            }
+
+            const estaFueraDeLinea = diffMinutos > 10;
+            const esAgotada = bat <= 3 || (bat <= 5 && estaFueraDeLinea);
             const esBaja = bat > 3 && bat < 20;
+
+            // Texto y colores dinámicos
+            let textoBateria = `${bat}%`;
+            let colorBateria = COLORS?.green ?? '#2E7D32';
+            let iconoBateria: string | null = null;
+
+            if (esAgotada) {
+              textoBateria = `${bat}% (Reloj apagado)`;
+              colorBateria = COLORS?.red ?? '#DC2626';
+              iconoBateria = '⚠️';
+            } else if (estaFueraDeLinea) {
+              const tiempoTexto = diffMinutos > 60 
+                ? `${Math.floor(diffMinutos / 60)}h ${diffMinutos % 60}m` 
+                : `${diffMinutos}m`;
+              textoBateria = `${bat}% (Fuera de línea hace ${tiempoTexto})`;
+              colorBateria = '#D97706'; // Ámbar/Naranja
+              iconoBateria = '📡';
+            } else if (esBaja) {
+              colorBateria = COLORS?.red ?? '#DC2626';
+              iconoBateria = '🪫';
+            }
 
             const handleAvisoBateria = () => {
               if (esAgotada) {
@@ -342,28 +383,39 @@ export default function MapaScreen() {
                   'El reloj no enviará ubicación ni signos hasta que se vuelva a encender.',
                   [{ text: 'Entendido', style: 'default' }]
                 );
+              } else if (estaFueraDeLinea) {
+                const tiempoTexto = diffMinutos > 60 
+                  ? `${Math.floor(diffMinutos / 60)} horas` 
+                  : `${diffMinutos} minutos`;
+                Alert.alert(
+                  '📡 Reloj Fuera de Línea',
+                  `El reloj no ha enviado reportes desde hace ${tiempoTexto}.\n\n` +
+                  `• Último nivel de batería registrado: ${bat}%\n` +
+                  '• Revise si el reloj fue apagado manualmente o si se encuentra en una zona sin cobertura celular.',
+                  [{ text: 'Entendido', style: 'default' }]
+                );
               }
             };
 
             return (
               <TouchableOpacity 
-                activeOpacity={esAgotada ? 0.7 : 1}
+                activeOpacity={esAgotada || estaFueraDeLinea ? 0.7 : 1}
                 onPress={handleAvisoBateria}
                 style={styles.infoRow}
               >
                 <Text style={styles.infoLabel}>Batería</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  {esAgotada && <Text style={{ fontSize: 13 }}>⚠️</Text>}
+                  {iconoBateria && <Text style={{ fontSize: 13 }}>{iconoBateria}</Text>}
                   <Text
                     style={[
                       styles.infoVal,
                       {
-                        color: esAgotada || esBaja ? COLORS.red : COLORS.green,
-                        fontWeight: esAgotada ? '800' : '600',
+                        color: colorBateria,
+                        fontWeight: esAgotada || estaFueraDeLinea ? '800' : '600',
                       },
                     ]}
                   >
-                    {esAgotada ? `${bat}% (Reloj apagado)` : `${bat}%`}
+                    {textoBateria}
                   </Text>
                 </View>
               </TouchableOpacity>

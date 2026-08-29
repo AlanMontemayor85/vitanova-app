@@ -1662,7 +1662,7 @@ const guardarRegistroEspontaneo = async () => {
                   📡 TELEMETRÍA EN VIVO
                 </Text>
 
-                {/* 🔋 PILL DE BATERÍA ESTANDARIZADA CON DETECCIÓN DE APAGADO */}
+                {/* 🔋 PILL DE BATERÍA ESTANDARIZADA CON DETECCIÓN DE APAGADO Y DESCONEXIÓN */}
                 {(() => {
                   const batVal =
                     signosDispositivo?.bateria_pct ??
@@ -1671,15 +1671,57 @@ const guardarRegistroEspontaneo = async () => {
                     pacienteActivo?.bateria_pct ??
                     null;
 
+                  const ultimaConexionStr =
+                    signosDispositivo?.created_at ??
+                    signosDispositivo?.fecha_hora ??
+                    ubicacion?.ultima_conexion ??
+                    ubicacion?.updated_at ??
+                    pacienteActivo?.updated_at ??
+                    null;
+
+                  // Cálculo de tiempo transcurrido desde el último reporte
+                  let diffMinutos = 0;
+                  if (ultimaConexionStr) {
+                    try {
+                      const fechaNorm = String(ultimaConexionStr).includes('Z') || String(ultimaConexionStr).includes('+')
+                        ? String(ultimaConexionStr)
+                        : `${String(ultimaConexionStr).replace(' ', 'T')}Z`;
+                      diffMinutos = Math.floor((new Date().getTime() - new Date(fechaNorm).getTime()) / (1000 * 60));
+                    } catch {
+                      diffMinutos = 0;
+                    }
+                  }
+
                   const numBat = batVal !== null && typeof batVal === 'number' ? batVal : null;
-                  const esAgotada = numBat !== null && numBat <= 3; // 1% a 3%: reloj apagado por batería
+                  const estaFueraDeLinea = diffMinutos > 10;
+                  const esAgotada = (numBat !== null && numBat <= 3) || (numBat !== null && numBat <= 5 && estaFueraDeLinea);
                   const esBaja = numBat !== null && numBat > 3 && numBat < 20;
 
-                  // Colores y estilos dinámicos
-                  const bgPill = esAgotada ? '#FEE2E2' : esBaja ? '#FFEBEE' : '#E8F5E9';
-                  const borderPill = esAgotada ? '#DC2626' : esBaja ? '#FFCDD2' : '#C8E6C9';
-                  const textPill = esAgotada ? '#991B1B' : esBaja ? (COLORS?.red ?? '#D94F4F') : (COLORS?.green ?? '#2E7D32');
-                  const iconPill = esAgotada ? '⚠️' : esBaja ? '🪫' : '🔋';
+                  // Estilos y etiquetas dinámicas
+                  let bgPill = '#E8F5E9';
+                  let borderPill = '#C8E6C9';
+                  let textPill = COLORS?.green ?? '#2E7D32';
+                  let iconPill = '🔋';
+                  let labelPill = numBat !== null ? `${numBat}%` : '--%';
+
+                  if (esAgotada) {
+                    bgPill = '#FEE2E2';
+                    borderPill = '#DC2626';
+                    textPill = '#991B1B';
+                    iconPill = '⚠️';
+                    labelPill = 'APAGADO (1%)';
+                  } else if (estaFueraDeLinea) {
+                    bgPill = '#FEF3C7';
+                    borderPill = '#F59E0B';
+                    textPill = '#B45309';
+                    iconPill = '📡';
+                    labelPill = numBat !== null ? `OFF (${numBat}%)` : 'OFF';
+                  } else if (esBaja) {
+                    bgPill = '#FFEBEE';
+                    borderPill = '#FFCDD2';
+                    textPill = COLORS?.red ?? '#D94F4F';
+                    iconPill = '🪫';
+                  }
 
                   const handlePillPress = () => {
                     if (esAgotada) {
@@ -1692,12 +1734,23 @@ const guardarRegistroEspontaneo = async () => {
                         'El reloj no enviará signos ni ubicación hasta que se encienda nuevamente.',
                         [{ text: 'Entendido', style: 'default' }]
                       );
+                    } else if (estaFueraDeLinea) {
+                      const tiempoTexto = diffMinutos > 60
+                        ? `${Math.floor(diffMinutos / 60)}h ${diffMinutos % 60}m`
+                        : `${diffMinutos} min`;
+                      Alert.alert(
+                        '📡 Reloj Fuera de Línea',
+                        `El reloj no se comunica desde hace ${tiempoTexto}.\n\n` +
+                        `• Última batería registrada: ${numBat !== null ? numBat + '%' : 'No disponible'}\n` +
+                        '• Verifique si el dispositivo fue apagado manualmente o se encuentra sin cobertura móvil.',
+                        [{ text: 'Entendido', style: 'default' }]
+                      );
                     }
                   };
 
                   return (
                     <TouchableOpacity
-                      activeOpacity={esAgotada ? 0.7 : 1}
+                      activeOpacity={esAgotada || estaFueraDeLinea ? 0.7 : 1}
                       onPress={handlePillPress}
                       style={{
                         flexDirection: 'row',
@@ -1720,11 +1773,7 @@ const guardarRegistroEspontaneo = async () => {
                           color: textPill,
                         }}
                       >
-                        {esAgotada
-                          ? 'APAGADO (1%)'
-                          : numBat !== null
-                          ? `${numBat}%`
-                          : '--%'}
+                        {labelPill}
                       </Text>
                     </TouchableOpacity>
                   );
