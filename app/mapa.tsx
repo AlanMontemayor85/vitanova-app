@@ -1,8 +1,9 @@
+import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { crearGeocerca, eliminarGeocerca, getGeocercas, getPacientes, getUbicacion, loadStoredToken, solicitarGpsVivo } from '../services/api';
+import { crearGeocerca, eliminarGeocerca, getGeocercas, getPacientes, getUbicacion, loadStoredToken } from '../services/api';
 import { BotonEmergenciaGPS } from './components/BotonEmergenciaGPS';
 
 const COLORS = {
@@ -21,6 +22,20 @@ const COLORS = {
 const DEFAULT_LAT = 25.6866;
 const DEFAULT_LNG = -100.3161;
 
+// 🧮 Cálculo de distancia Haversine en metros
+const calcularDistanciaMetros = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371e3;
+  const toRad = (x: number) => (x * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+};
+
 export default function MapaScreen() {
   const params = useLocalSearchParams();
   const pacienteIdParam = params.pacienteId as string;
@@ -33,7 +48,10 @@ export default function MapaScreen() {
   const [geocercas, setGeocercas] = useState<any[]>([]);
   const [solicitandoGps, setSolicitandoGps] = useState<boolean>(false);
   const [rolUsuario, setRolUsuario] = useState<string>('');
- 
+  
+  // 📱 Estado de la ubicación del celular del usuario
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+
   const rolDetectado = (
     params.miRol ||
     paciente?.mi_rol ||
@@ -73,46 +91,85 @@ export default function MapaScreen() {
   const currentLat = tieneCoordenadasValidas ? parsearCoord(rawLat)! : DEFAULT_LAT;
   const currentLng = tieneCoordenadasValidas ? parsearCoord(rawLng)! : DEFAULT_LNG;
 
+  // 📍 1. Solicitar permisos y monitorear la ubicación del celular en tiempo real
   useEffect(() => {
-  const cargarDatosIniciales = async () => {
-    try {
-      // 🔑 Cargar y fijar el token
-      const token = await Promise.resolve(loadStoredToken());
-      if (token) setAuthToken(token);
+    let locationSubscription: Location.LocationSubscription | null = null;
 
-      const data = await getPacientes('mapa-ubicacion');
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const initialPos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          setUserLocation({
+            lat: initialPos.coords.latitude,
+            lng: initialPos.coords.longitude,
+          });
 
-      if (data?.rol_usuario) {
-        setRolUsuario(data.rol_usuario);
+          locationSubscription = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.Balanced,
+              timeInterval: 5000,
+              distanceInterval: 5,
+            },
+            (pos) => {
+              setUserLocation({
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+              });
+            }
+          );
+        }
+      } catch (err) {
+        console.log('ℹ️ Permisos de ubicación o GPS de teléfono omitido:', err);
       }
+    })();
 
-      if (data.patients && data.patients.length > 0) {
-        const p = pacienteIdParam
-          ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
-          : data.patients[0];
-        
-        setPaciente(p);
+    return () => {
+      locationSubscription?.remove();
+    };
+  }, []);
 
-        if (p.mi_rol || p.rol || p.tipo_usuario) {
-          setRolUsuario(p.mi_rol || p.rol || p.tipo_usuario);
+  // 🔄 2. Carga inicial de datos
+  useEffect(() => {
+    const cargarDatosIniciales = async () => {
+      try {
+        const token = await Promise.resolve(loadStoredToken());
+        if (token) setAuthToken(token);
+
+        const data = await getPacientes('mapa-ubicacion');
+
+        if (data?.rol_usuario) {
+          setRolUsuario(data.rol_usuario);
         }
 
-        const ubData = await getUbicacion(p.id);
-        if (ubData.ubicacion) setUbicacion(ubData.ubicacion);
-        
-        const geocercaData = await getGeocercas(p.id);
-        if (geocercaData.geocercas) setGeocercas(geocercaData.geocercas);
+        if (data.patients && data.patients.length > 0) {
+          const p = pacienteIdParam
+            ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
+            : data.patients[0];
+          
+          setPaciente(p);
+
+          if (p.mi_rol || p.rol || p.tipo_usuario) {
+            setRolUsuario(p.mi_rol || p.rol || p.tipo_usuario);
+          }
+
+          const ubData = await getUbicacion(p.id);
+          if (ubData.ubicacion) setUbicacion(ubData.ubicacion);
+          
+          const geocercaData = await getGeocercas(p.id);
+          if (geocercaData.geocercas) setGeocercas(geocercaData.geocercas);
+        }
+      } catch (e) {
+        console.error("❌ Error en la carga inicial del mapa:", e);
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      console.error("❌ Error en la carga inicial del mapa:", e);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  cargarDatosIniciales();
-}, [pacienteIdParam]);
+    cargarDatosIniciales();
+  }, [pacienteIdParam]);
 
+  // ⏱️ 3. Polling periódico de ubicación del paciente
   useEffect(() => {
     if (!paciente?.id) return;
 
@@ -123,12 +180,16 @@ export default function MapaScreen() {
           setUbicacion(ubData.ubicacion);
         }
       } catch (e) {
-        console.error("❌ Error al actualizar ubicación en segundo plano:", e);
+        console.log("ℹ️ Error al actualizar ubicación en segundo plano:", e);
       }
     }, 30000);
 
     return () => clearInterval(interval);
   }, [paciente?.id]);
+
+  const distanciaMetros = (tieneCoordenadasValidas && userLocation)
+    ? calcularDistanciaMetros(userLocation.lat, userLocation.lng, currentLat, currentLng)
+    : null;
 
   const crearYCargar = async (radio: number) => {
     if (!tieneCoordenadasValidas) {
@@ -167,54 +228,26 @@ export default function MapaScreen() {
     }
   };
 
-  const solicitarUbicacionEnVivo = async () => {
-    const idPaciente = paciente?.id;
-    if (!idPaciente || solicitandoGps) return;
-
-    Alert.alert(
-      '🛰️ Búsqueda Activa en Vivo',
-      'El reloj reportará su ubicación en tiempo real cada 30 segundos durante los próximos 15 minutos.\n\n⚠️ Este modo consume más batería de lo habitual.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
+  const centrarAmbosPuntos = () => {
+    if (tieneCoordenadasValidas && userLocation && mapRef.current) {
+      mapRef.current.fitToCoordinates(
+        [
+          { latitude: currentLat, longitude: currentLng },
+          { latitude: userLocation.lat, longitude: userLocation.lng },
+        ],
         {
-          text: 'Rastrear Ahora',
-          onPress: async () => {
-            try {
-              setSolicitandoGps(true);
-              await solicitarGpsVivo(idPaciente);
-
-              setTimeout(async () => {
-                try {
-                  const data = await getUbicacion(idPaciente);
-                  if (data?.ubicacion) {
-                    setUbicacion(data.ubicacion);
-                    const freshLat = parsearCoord(data.ubicacion.lat ?? data.ubicacion.latitud);
-                    const freshLng = parsearCoord(data.ubicacion.lng ?? data.ubicacion.longitud);
-                    if (freshLat && freshLng) {
-                      mapRef.current?.animateToRegion({
-                        latitude: freshLat,
-                        longitude: freshLng,
-                        latitudeDelta: 0.008,
-                        longitudeDelta: 0.008,
-                      });
-                    }
-                  }
-                } catch (err) {
-                  console.error('Error refrescando mapa tras GPS en vivo:', err);
-                } finally {
-                  setSolicitandoGps(false);
-                }
-              }, 5000);
-
-            } catch (error) {
-              console.error('❌ Error solicitando GPS en vivo:', error);
-              Alert.alert('Aviso', 'No se pudo activar el modo de búsqueda en este momento.');
-              setSolicitandoGps(false);
-            }
-          }
+          edgePadding: { top: 70, right: 70, bottom: 70, left: 70 },
+          animated: true,
         }
-      ]
-    );
+      );
+    } else {
+      mapRef.current?.animateToRegion({
+        latitude: currentLat,
+        longitude: currentLng,
+        latitudeDelta: 0.0122,
+        longitudeDelta: 0.0121,
+      });
+    }
   };
 
   if (loading) {
@@ -253,6 +286,8 @@ export default function MapaScreen() {
             ref={mapRef}
             style={styles.mapa}
             provider={PROVIDER_GOOGLE}
+            showsUserLocation={true}          // 🔵 Punto azul nativo de tu celular
+            showsMyLocationButton={true}      // 🎯 Botón nativo para centrar en tu celular
             region={{
               latitude: currentLat,
               longitude: currentLng,
@@ -260,6 +295,7 @@ export default function MapaScreen() {
               longitudeDelta: 0.0121,
             }}
           >
+            {/* 📍 Marcador del paciente / reloj */}
             <Marker
               coordinate={{ 
                 latitude: currentLat, 
@@ -301,7 +337,7 @@ export default function MapaScreen() {
         </View>
       )}
 
-      {/* INFO CARD CON COMPENSACIÓN DE PANTALLA INFERIOR */}
+      {/* INFO CARD CON DETECCIÓN DE DISTANCIA */}
       {tieneCoordenadasValidas && (
         <ScrollView 
           style={styles.infoCard} 
@@ -309,10 +345,21 @@ export default function MapaScreen() {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
+          {/* DISTANCIA RELATIVA AL CELULAR */}
+          {distanciaMetros !== null && (
+            <View style={[styles.infoRow, { backgroundColor: '#F3EFE6', paddingHorizontal: 12, borderRadius: 8, marginVertical: 4 }]}>
+              <Text style={[styles.infoLabel, { color: COLORS.cacao }]}>Distancia a ti</Text>
+              <Text style={[styles.infoVal, { color: COLORS.gold, fontSize: 13 }]}>
+                {distanciaMetros < 1000 ? `${distanciaMetros} metros` : `${(distanciaMetros / 1000).toFixed(2)} km`}
+              </Text>
+            </View>
+          )}
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Dispositivo</Text>
             <Text style={styles.infoVal}>{ubicacion?.modelo ?? ubicacion?.device_id ?? 'ReachFar GPS'}</Text>
           </View>
+          
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Última actualización</Text>
             <Text style={styles.infoVal}>
@@ -325,16 +372,11 @@ export default function MapaScreen() {
             </Text>
           </View>
 
-          {/* FILA DE BATERÍA INTERACTIVA CON DETECCIÓN DE APAGADO Y DESCONEXIÓN */}
+          {/* FILA DE BATERÍA */}
           {ubicacion?.bateria_pct !== undefined && (() => {
             const bat = Number(ubicacion.bateria_pct);
+            const ultimaConexionStr = ubicacion?.ultima_conexion ?? ubicacion?.updated_at ?? null;
 
-            const ultimaConexionStr =
-              ubicacion?.ultima_conexion ??
-              ubicacion?.updated_at ??
-              null;
-
-            // Cálculo de tiempo transcurrido desde el último reporte
             let diffMinutos = 0;
             if (ultimaConexionStr) {
               try {
@@ -351,7 +393,6 @@ export default function MapaScreen() {
             const esAgotada = bat <= 3 || (bat <= 5 && estaFueraDeLinea);
             const esBaja = bat > 3 && bat < 20;
 
-            // Texto y colores dinámicos
             let textoBateria = `${bat}%`;
             let colorBateria = COLORS?.green ?? '#2E7D32';
             let iconoBateria: string | null = null;
@@ -365,64 +406,27 @@ export default function MapaScreen() {
                 ? `${Math.floor(diffMinutos / 60)}h ${diffMinutos % 60}m` 
                 : `${diffMinutos}m`;
               textoBateria = `${bat}% (Fuera de línea hace ${tiempoTexto})`;
-              colorBateria = '#D97706'; // Ámbar/Naranja
+              colorBateria = '#D97706';
               iconoBateria = '📡';
             } else if (esBaja) {
               colorBateria = COLORS?.red ?? '#DC2626';
               iconoBateria = '🪫';
             }
 
-            const handleAvisoBateria = () => {
-              if (esAgotada) {
-                Alert.alert(
-                  '⚠️ Reloj Apagado por Batería Agotada',
-                  'El dispositivo se apagó al descargarse por completo.\n\n' +
-                  '1. Conéctelo a la base de carga magnética.\n' +
-                  '2. Espere 5 minutos a que tome carga básica.\n' +
-                  '3. Mantenga presionado el botón lateral 4 segundos para encenderlo.\n\n' +
-                  'El reloj no enviará ubicación ni signos hasta que se vuelva a encender.',
-                  [{ text: 'Entendido', style: 'default' }]
-                );
-              } else if (estaFueraDeLinea) {
-                const tiempoTexto = diffMinutos > 60 
-                  ? `${Math.floor(diffMinutos / 60)} horas` 
-                  : `${diffMinutos} minutos`;
-                Alert.alert(
-                  '📡 Reloj Fuera de Línea',
-                  `El reloj no ha enviado reportes desde hace ${tiempoTexto}.\n\n` +
-                  `• Último nivel de batería registrado: ${bat}%\n` +
-                  '• Revise si el reloj fue apagado manualmente o si se encuentra en una zona sin cobertura celular.',
-                  [{ text: 'Entendido', style: 'default' }]
-                );
-              }
-            };
-
             return (
-              <TouchableOpacity 
-                activeOpacity={esAgotada || estaFueraDeLinea ? 0.7 : 1}
-                onPress={handleAvisoBateria}
-                style={styles.infoRow}
-              >
+              <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Batería</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   {iconoBateria && <Text style={{ fontSize: 13 }}>{iconoBateria}</Text>}
-                  <Text
-                    style={[
-                      styles.infoVal,
-                      {
-                        color: colorBateria,
-                        fontWeight: esAgotada || estaFueraDeLinea ? '800' : '600',
-                      },
-                    ]}
-                  >
+                  <Text style={[styles.infoVal, { color: colorBateria, fontWeight: esAgotada || estaFueraDeLinea ? '800' : '600' }]}>
                     {textoBateria}
                   </Text>
                 </View>
-              </TouchableOpacity>
+              </View>
             );
           })()}
           
-          {/* 🚨 BOTÓN DE MODO EMERGENCIA CON CONTADOR Y HÁPTICOS */}
+          {/* BOTÓN DE EMERGENCIA */}
           {paciente?.id && (
             <BotonEmergenciaGPS
               pacienteId={paciente.id}
@@ -438,20 +442,29 @@ export default function MapaScreen() {
             />
           )}
 
-            {/* 📍 BOTÓN EXCLUSIVO PARA CENTRAR CÁMARA */}
+          {/* BOTONES DE CENTRADO */}
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
             <TouchableOpacity
-              style={styles.centrarBtn}
+              style={[styles.centrarBtn, { flex: 1, marginTop: 0 }]}
               onPress={() => {
                 mapRef.current?.animateToRegion({
                   latitude: currentLat,
                   longitude: currentLng,
-                  latitudeDelta: 0.0122,
-                  longitudeDelta: 0.0121,
+                  latitudeDelta: 0.008,
+                  longitudeDelta: 0.008,
                 });
               }}
             >
-              <Text style={styles.centrarBtnText}>📍 Centrar en ubicación actual</Text>
+              <Text style={styles.centrarBtnText}>📍 Paciente</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.centrarBtn, { flex: 1, marginTop: 0, backgroundColor: COLORS.gold }]}
+              onPress={centrarAmbosPuntos}
+            >
+              <Text style={styles.centrarBtnText}>🔍 Ver Ambos</Text>
+            </TouchableOpacity>
+          </View>
            
           <Text style={[styles.infoLabel, { marginTop: 16, marginBottom: 8 }]}>Zona segura</Text>
 
@@ -524,7 +537,6 @@ export default function MapaScreen() {
             ))
           )}
 
-          {/* Espaciador de seguridad para librar botones de navegación y barra de gestos */}
           <View style={{ height: Platform.OS === 'android' ? 60 : 40 }} />
         </ScrollView>
       )}
@@ -671,7 +683,6 @@ const styles = StyleSheet.create({
     borderRadius: 12, 
     paddingVertical: 14,
     alignItems: 'center', 
-    marginTop: 12,
     shadowColor: COLORS.cacao,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
