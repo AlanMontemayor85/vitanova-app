@@ -222,11 +222,29 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
         </View>
       </View>
 
-      {/* 📝 NOTAS DE OBSERVACIÓN */}
-      {(cierre.notas || cierre.observaciones) && (
+      {/* 📝 OBSERVACIONES Y NOTAS DEL CUIDADOR */}
+      {(cierre.observaciones || cierre.notas) && (
         <View style={styles.notasBox}>
-          <Text style={styles.notasTitle}>📝 Observaciones del Cuidador:</Text>
-          <Text style={styles.notasText}>{cierre.notas || cierre.observaciones}</Text>
+          <Text style={styles.notasTitle}>📝 Observaciones del Turno:</Text>
+          
+          {/* 1. Prioridad: Texto explícito de observaciones */}
+          {cierre.observaciones ? (
+            <Text style={styles.notasText}>{cierre.observaciones}</Text>
+          ) : null}
+
+          {/* 2. Notas incidentales del turno (si existen y no son el mensaje genérico) */}
+          {cierre.notas && cierre.notas !== 'Sin notas incidentales en el turno.' && cierre.notas !== cierre.observaciones ? (
+            <Text style={[styles.notasText, cierre.observaciones && { marginTop: 4, fontStyle: 'italic', color: COLORS.textLight }]}>
+              {cierre.notas}
+            </Text>
+          ) : null}
+
+          {/* 3. Si solo viene el texto genérico y no hubo observaciones */}
+          {!cierre.observaciones && cierre.notas === 'Sin notas incidentales en el turno.' && (
+            <Text style={[styles.notasText, { color: COLORS.textLight, fontStyle: 'italic' }]}>
+              Sin observaciones ni incidencias reportadas.
+            </Text>
+          )}
         </View>
       )}
     </View>
