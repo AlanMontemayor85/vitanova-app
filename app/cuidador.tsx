@@ -409,15 +409,23 @@ useEffect(() => {
     });
 
     // 🔄 Función combinada de actualización
+    // 🔄 Función combinada de actualización
     const actualizarTelemetriaYBateria = async () => {
       sincronizarSignosReloj(pacienteActivo.id);
       
-      // 🔋 Cargar batería
+      // 🔋 Cargar batería y ubicación
       try {
         const ubData = await getUbicacion(pacienteActivo.id);
-        if (ubData?.ubicacion) setUbicacion(ubData.ubicacion);
-      } catch (e) {
-        console.error("❌ Error cargando batería:", e);
+        if (ubData?.ubicacion) {
+          setUbicacion(ubData.ubicacion);
+        }
+      } catch (e: any) {
+        // 🛡️ Si expiró la sesión, limpiamos el intervalo y dejamos actuar al auto-logout
+        if (e?.message === 'UNAUTHORIZED') {
+          if (interval) clearInterval(interval);
+          return;
+        }
+        console.log("⚠️ [TELEMETRÍA] No se pudo actualizar batería/ubicación:", e?.message || e);
       }
     };
 
