@@ -36,7 +36,9 @@ export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
       setLoading(true);
       const res = await getHistorialCierres(pacienteId);
       
-      const historial = Array.isArray(res) ? res : res?.cierres || [];
+      // 🎯 Prioridad 1: turnos_tamizaje (turnos puros individuales sin autocierres)
+      // 🎯 Prioridad 2: array directo o res.cierres como fallback
+      const historial = res?.turnos_tamizaje || (Array.isArray(res) ? res : res?.cierres || []);
 
       if (historial.length > 0) {
         const resultadoAlertas = evaluarPatronesPreventivos(historial);
