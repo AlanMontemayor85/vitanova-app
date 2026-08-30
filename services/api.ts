@@ -233,29 +233,22 @@ export const fetchWithAuth = async (
 
 export const getRelojServidorConfig = async (): Promise<{ host: string; port: string }> => {
   try {
-    const token = await getToken();
-    const res = await fetch(`${BASE_URL}/config/reloj-servidor`, {
+    const res = await fetchWithAuth(`${BASE_URL}/config/reloj-servidor`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
     });
 
     if (res.ok) {
       return await res.json();
     }
   } catch (err) {
-    console.warn('⚠️ No se pudo obtener la config remota del servidor TCP, usando fallback:', err);
+    console.warn('⚠️ Fallback activado para servidor TCP:', err);
   }
 
-  // Fallback seguro en caso de intermitencia
   return {
-    host: 'acela.proxy.rlwy.net',
+    host: 'gps.vitanovaintegralis.com',
     port: '55538',
   };
 };
-
 export const login = async (email: string, password: string) => {
 
   try {
@@ -1085,7 +1078,15 @@ export const solicitarGpsVivo = async (pacienteId: string) => {
   return res.json();
 
 };
-
+export const detenerGpsVivo = async (pacienteId: string) => {
+  const res = await fetchWithAuth(`${BASE_URL}/pacientes/${pacienteId}/detener-gps-vivo`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    throw new Error('Error al detener modo en vivo');
+  }
+  return await res.json();
+};
 export const crearEvaluacion = async (data: object) => {
 
   const res = await fetchWithAuth(`${BASE_URL}/evaluaciones/hogar`, {

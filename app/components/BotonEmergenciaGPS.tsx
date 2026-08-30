@@ -1,20 +1,25 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  AppState,
+  AppStateStatus,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { getUbicacion, solicitarGpsVivo } from '../../services/api';
-
+import { detenerGpsVivo, getUbicacion, solicitarGpsVivo } from '../../services/api';
 interface Props {
   pacienteId: string;
   onPosicionFijada?: (coords: { lat: number; lng: number }) => void;
 }
+
+const STORAGE_KEY = (id: string) => `@vitanova_emergencia_expira_${id}`;
+const DURACION_EMERGENCIA_SEG = 600; // 10 minutos (600 s)
 
 export const BotonEmergenciaGPS: React.FC<Props> = ({
   pacienteId,
@@ -22,16 +27,70 @@ export const BotonEmergenciaGPS: React.FC<Props> = ({
 }) => {
   const [cargando, setCargando] = useState(false);
   const [segundosRestantes, setSegundosRestantes] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    let timer: ReturnType<typeof setInterval>;
-    if (segundosRestantes > 0) {
-      timer = setInterval(() => {
-        setSegundosRestantes((prev) => (prev > 0 ? prev - 1 : 0));
-      }, 1000);
+  // 🔄 1. Sincronizar tiempo real restante desde AsyncStorage
+  const sincronizarTemporizador = async () => {
+    try {
+      const storedExpira = await AsyncStorage.getItem(STORAGE_KEY(pacienteId));
+      if (!storedExpira) {
+        setSegundosRestantes(0);
+        return;
+      }
+
+      const expiraMs = parseInt(storedExpira, 10);
+      const diffSegundos = Math.floor((expiraMs - Date.now()) / 1000);
+
+      if (diffSegundos > 0) {
+        setSegundosRestantes(diffSegundos);
+      } else {
+        await AsyncStorage.removeItem(STORAGE_KEY(pacienteId));
+        setSegundosRestantes(0);
+      }
+    } catch (e) {
+      console.warn('Error leyendo temporizador de emergencia:', e);
     }
-    return () => clearInterval(timer);
-  }, [segundosRestantes]);
+  };
+
+  // 📱 2. Escuchar montaje y cambios de primer/segundo plano
+  useEffect(() => {
+    sincronizarTemporizador();
+
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        sincronizarTemporizador();
+      }
+    };
+
+    const sub = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      sub.remove();
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [pacienteId]);
+
+  // ⏱️ 3. Intervalo de descuento por segundo
+  useEffect(() => {
+    if (segundosRestantes > 0) {
+      timerRef.current = setInterval(() => {
+        setSegundosRestantes((prev) => {
+          if (prev <= 1) {
+            clearInterval(timerRef.current!);
+            AsyncStorage.removeItem(STORAGE_KEY(pacienteId));
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [segundosRestantes > 0]);
 
   const formatearTiempo = (seg: number) => {
     const m = Math.floor(seg / 60);
@@ -44,11 +103,14 @@ export const BotonEmergenciaGPS: React.FC<Props> = ({
       setCargando(true);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
 
-      // Llama a tu función nativa de api.ts
       await solicitarGpsVivo(pacienteId);
 
+      // Guardar tiempo de expiración absoluto (10 minutos desde ahora)
+      const expiraMs = Date.now() + DURACION_EMERGENCIA_SEG * 1000;
+      await AsyncStorage.setItem(STORAGE_KEY(pacienteId), expiraMs.toString());
+      setSegundosRestantes(DURACION_EMERGENCIA_SEG);
+
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setSegundosRestantes(1200); // 20 minutos
 
       // Consulta ubicación fresca a los 3 segundos
       setTimeout(async () => {
@@ -63,7 +125,6 @@ export const BotonEmergenciaGPS: React.FC<Props> = ({
           console.error('Error obteniendo fix:', e);
         }
       }, 3000);
-
     } catch (error) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Aviso', 'No se pudo iniciar el modo búsqueda en este momento.');
@@ -72,12 +133,47 @@ export const BotonEmergenciaGPS: React.FC<Props> = ({
     }
   };
 
+  const ejecutarDetener = async () => {
+    try {
+      setCargando(true);
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      await detenerGpsVivo(pacienteId);
+      await AsyncStorage.removeItem(STORAGE_KEY(pacienteId));
+      setSegundosRestantes(0);
+
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('✅ Modo Reposo', 'El reloj regresó a modo normal de ahorro de batería.');
+    } catch (error) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Aviso', 'No se pudo detener el modo en vivo en el servidor.');
+    } finally {
+      setCargando(false);
+    }
+  };
+
   const handlePress = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+    if (segundosRestantes > 0) {
+      Alert.alert(
+        '🛑 Detener Búsqueda Activa',
+        '¿Deseas regresar el reloj a su modo reposo (15 min) para enfriarlo y ahorrar batería?',
+        [
+          { text: 'Continuar Rastreando', style: 'cancel' },
+          {
+            text: 'Detener',
+            style: 'destructive',
+            onPress: ejecutarDetener,
+          },
+        ]
+      );
+      return;
+    }
+
     Alert.alert(
       '🚨 Modo Búsqueda Activa',
-      '¿Deseas forzar el GPS y rastrear al paciente en tiempo real (cada 10s)?',
+      '¿Deseas forzar el GPS y rastrear al paciente en tiempo real (cada 10s durante 10 min)?\n\n⚠️ Este modo consume más batería.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -110,7 +206,7 @@ export const BotonEmergenciaGPS: React.FC<Props> = ({
           />
           <View style={styles.bloqueTexto}>
             <Text style={styles.textoTitulo}>
-              {activo ? 'BÚSQUEDA ACTIVA (10s)' : 'SOLICITAR GPS EN VIVO'}
+              {activo ? 'DETENER BÚSQUEDA ACTIVA (10s)' : 'SOLICITAR GPS EN VIVO'}
             </Text>
             {activo && (
               <Text style={styles.textoSub}>
