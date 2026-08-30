@@ -1497,98 +1497,61 @@ const guardarRegistroEspontaneo = async () => {
           <Text style={styles.sectionTitle}>Tus pacientes hoy</Text>
           {pacientes.map((p) => {
             const estadoTurno = p.estado_turno ?? 'no_iniciado';
-            const turnoInfo = p.turno_info;
-
             return (
               <View key={p.id} style={styles.pacienteCard}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View style={styles.pacienteAvatar}>
-                    <Text style={styles.pacienteAvatarText}>{p.nombre_completo?.[0]}</Text>
-                  </View>
+                  <View style={styles.pacienteAvatar}><Text style={styles.pacienteAvatarText}>{p.nombre_completo?.[0]}</Text></View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.pacienteNombre}>{p.nombre_completo}</Text>
-                    <Text style={styles.pacienteCondiciones}>
-                      {p.condiciones_medicas?.join(' · ') ?? 'Sin condiciones crónicas'}
-                    </Text>
-
-                    {/* 🕒 📍 AQUÍ: BADGE DEL TURNO ASIGNADO / EN CURSO */}
-                    {turnoInfo && (
-                      <View style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        marginTop: 4,
-                        alignSelf: 'flex-start',
-                        backgroundColor: estadoTurno === 'activo' ? COLORS.greenPale : '#F3EFE6',
-                        borderColor: estadoTurno === 'activo' ? COLORS.green : COLORS.border,
-                        borderWidth: 1,
-                        paddingHorizontal: 8,
-                        paddingVertical: 2,
-                        borderRadius: 10,
-                        gap: 4
-                      }}>
-                        <Text style={{ fontSize: 10 }}>
-                          {estadoTurno === 'activo' ? '🟢' : '🕒'}
-                        </Text>
-                        <Text style={{
-                          fontSize: 10,
-                          fontWeight: '700',
-                          color: estadoTurno === 'activo' ? COLORS.green : COLORS.textLight
-                        }}>
-                          {turnoInfo.etiqueta}
-                        </Text>
-                      </View>
-                    )}
+                    <Text style={styles.pacienteCondiciones}>{p.condiciones_medicas?.join(' · ') ?? 'Sin condiciones crónicas'}</Text>
                   </View>
-
-                  {estadoTurno === 'activo' && (
-                    <View style={styles.badgeActivo}>
-                      <View style={styles.activoDot} />
-                      <Text style={styles.badgeActivoText}>En Turno</Text>
-                    </View>
-                  )}
+                  {estadoTurno === 'activo' && <View style={styles.badgeActivo}><View style={styles.activoDot} /><Text style={styles.badgeActivoText}>En Turno</Text></View>}
                 </View>
 
-                {/* 1. BOTÓN CUANDO EL TURNO NO ESTÁ ACTIVO */}
-                {estadoTurno !== 'activo' && (
-                  <TouchableOpacity 
-                    style={[styles.iniciarBtn, { marginTop: 10 }]} 
-                    onPress={async () => {
-                      if (iniciando) return;
-                      setIniciando(true);
-                      
-                      try {
-                        console.log("🩺 Iniciando verificación de turno para:", p.nombre_completo);
+              {/* 1. BOTÓN CUANDO EL TURNO NO ESTÁ ACTIVO */}
+              {estadoTurno !== 'activo' && (
+                <TouchableOpacity 
+                  style={[styles.iniciarBtn, { marginTop: 10 }]} 
+                  onPress={async () => {
+                    if (iniciando) return;
+                    setIniciando(true);
+                    
+                    try {
+                      console.log("🩺 Iniciando verificación de turno para:", p.nombre_completo);
 
-                        if (!esSwitchFamiliar) {
-                          const tareasCheck = await getTareasDia(p.id);
-                          if (tareasCheck?.sin_horario) {
-                            Alert.alert(
-                              'Sin horario asignado',
-                              'Pídele al familiar principal que configure tu horario y los días en que puedes ingresar.'
-                            );
-                            return;
-                          }
+                      // 🛡️ Chequeo de horario SOLO para cuidadores reales usando getTareasDia
+                      if (!esSwitchFamiliar) {
+                        const tareasCheck = await getTareasDia(p.id);
+                        if (tareasCheck?.sin_horario) {
+                          Alert.alert(
+                            'Sin horario asignado',
+                            'Pídele al familiar principal que configure tu horario y los días en que puedes ingresar.'
+                          );
+                          return;
                         }
-
-                        await manejarInicioTurno({
-                          ...p,
-                          rol_en_equipo: esSwitchFamiliar ? 'familiar_principal' : (p.rol_en_equipo || 'cuidador_contratado'),
-                          usuarioRol: esSwitchFamiliar ? 'familiar_principal' : 'cuidador_contratado'
-                        });
-
-                      } catch (error) {
-                        console.error("❌ Error al transicionar el turno:", error);
-                      } finally {
-                        setIniciando(false);
                       }
-                    }} 
-                    disabled={iniciando}
-                  >
-                    <Text style={styles.iniciarBtnText}>
-                      {iniciando ? 'Sincronizando...' : 'Proceder a Verificación →'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
+
+                      // Le pasamos el paciente con el rol correcto
+                      await manejarInicioTurno({
+                        ...p,
+                        rol_en_equipo: esSwitchFamiliar ? 'familiar_principal' : (p.rol_en_equipo || 'cuidador_contratado'),
+                        usuarioRol: esSwitchFamiliar ? 'familiar_principal' : 'cuidador_contratado'
+                      });
+
+                    } catch (error) {
+                      console.error("❌ Error al transicionar el turno:", error);
+                    } finally {
+                      setIniciando(false);
+                    }
+                  }} 
+                  disabled={iniciando}
+                >
+                  <Text style={styles.iniciarBtnText}>
+                    {iniciando ? 'Sincronizando...' : 'Proceder a Verificación →'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              
                 
                 {/* 2. BOTÓN CUANDO EL TURNO YA ESTÁ ACTIVO */}
                 {estadoTurno === 'activo' && (
@@ -1596,6 +1559,8 @@ const guardarRegistroEspontaneo = async () => {
                     style={[styles.iniciarBtn, { backgroundColor: COLORS.greenPale, borderColor: COLORS.green, marginTop: 10 }]} 
                     onPress={() => {
                       console.log("🩺 Abriendo Consola. Asegurando sincronización a modo operativo...");
+                      
+                      // Forzamos síncronamente los estados locales para levantar el render
                       setPacienteActivo(p); 
                       cargarTurno(p.id); 
                       setVista('turno'); 
