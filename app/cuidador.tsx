@@ -374,14 +374,7 @@ const refrescarPacientes = async (
   try {
     const data = await getPacientes(origen);
     if (data?.patients) {
-      // 🛡️ FILTRO: Solo pacientes donde el usuario actúa como cuidador operativo
-      const rolesOperativos = ['cuidador_contratado', 'cuidador', 'enfermero', 'terapeuta'];
-
-      const pacientesCuidado = data.patients.filter((p: any) => 
-        rolesOperativos.includes(p.rol_en_equipo?.toLowerCase())
-      );
-
-      setPacientes(pacientesCuidado);
+      setPacientes([...data.patients]);
       if (data.usuario_nombre) setNombreUsuario(data.usuario_nombre);
     }
   } catch (e) {
@@ -567,34 +560,35 @@ useEffect(() => {
         await loadStoredToken();
         vaciarColaOffline();
         const data = await getPacientes('cuidador-mount');
-        
         if (data?.usuario_nombre) {
           setNombreUsuario(data.usuario_nombre);
         }
-
-        if (data && data.patients) {
-          const rolesCuidadores = ['cuidador_contratado', 'cuidador', 'enfermero', 'terapeuta'];
+        if (data.patients) {
+          // 🎯 Mantenemos el rol de familiar_principal si entramos desde el modo switch
+          const pacientesMapeados = data.patients.map((p: any) => {
+            // Si el paciente que llegó coincide con el embebido actual, le inyectamos su rol real
+            if (pacienteProp && p.id === pacienteProp.id) {
+              return { 
+                ...p, 
+                rol_en_equipo: pacienteProp.rol_en_equipo || 'familiar_principal',
+                usuarioRol: 'familiar_principal'
+              };
+            }
+            return p;
+          });
           
-          // 🛡️ Filtro estricto: solo pacientes donde el usuario funge como personal de cuidado operativo
-          const pacientesCuidado = data.patients.filter((p: any) =>
-            rolesCuidadores.includes(p.rol_en_equipo?.toLowerCase())
-          );
-
-          setPacientes(pacientesCuidado);
-        } else {
-          setPacientes([]);
+          setPacientes(pacientesMapeados);
         }
         
         await registrarNotificaciones().catch(err => 
           console.log("Push omitido en cuidador:", err)
         );
       } catch (e) {
-        console.error('❌ Error en carga inicial de cuidador:', e);
+        console.error(e);
       } finally {
         setLoading(false);
       }
     };
-
     cargar();
   }, []);
 
@@ -1504,7 +1498,7 @@ if (vista === 'lista') {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
-
+      
       {/* HEADER PROPIO DEL CUIDADOR */}
       {!pacienteProp && (
         <View style={styles.header}>
@@ -1516,47 +1510,32 @@ if (vista === 'lista') {
                 : (nombreUsuario || 'Cuidador')}
             </Text>
           </View>
-
-          {/* 👨‍👩‍👧 CONMUTADOR: Regresar/Ir a Panel Familiar */}
-          <TouchableOpacity 
-            style={[styles.notifBtn, { marginRight: 8, backgroundColor: 'rgba(200, 157, 92, 0.25)' }]} 
-            onPress={() => {
-              if (onRegresar) {
-                onRegresar();
-              } else {
-                router.replace('/');
-              }
-            }}
-          >
-            <Text style={{ fontSize: 16 }}>👨‍👩‍👧</Text>
-          </TouchableOpacity>
-
-          {/* ➕ BOTÓN: Dar de alta un familiar propio */}
-          <TouchableOpacity 
-            style={[styles.notifBtn, { marginRight: 8 }]} 
-            onPress={() => router.push('/nuevo-paciente' as any)}
-          >
-            <Text style={styles.notifIcon}>➕</Text>
-          </TouchableOpacity>
-
-          {/* 🔗 BOTÓN: Vincular código de invitación */}
           <TouchableOpacity 
             style={[styles.notifBtn, { marginRight: 8 }]} 
             onPress={() => router.push('/aceptar-invitacion' as any)}
           >
             <Text style={styles.notifIcon}>🔗</Text>
           </TouchableOpacity>
-
-          {/* 🚪 BOTÓN: Salir */}
           <TouchableOpacity 
             style={styles.notifBtn} 
-            onPress={async () => {
-              await clearToken();
-              router.replace('/login');
-            }}
+            onPress={async () => { await clearToken(); router.replace('/login'); }}
           >
             <Text style={styles.notifIcon}>🚪</Text>
           </TouchableOpacity>
+          {modoFamiliar && (
+            <TouchableOpacity 
+              style={[styles.notifBtn, { marginRight: 8 }]} 
+              onPress={() => {
+                if (onRegresar) {
+                  onRegresar();
+                } else {
+                  router.replace('/');
+                }
+              }}
+            >
+              <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
