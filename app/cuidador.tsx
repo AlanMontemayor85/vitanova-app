@@ -241,6 +241,15 @@ export default function CuidadorScreen({
 
   return `${hrs}:${mins} ${ampm}`;
 };
+const formatearHorarioCompletoAMPM = (etiquetaRaw: string | undefined, horasRaw?: string): string => {
+  if (!etiquetaRaw) return 'Programado';
+  if (etiquetaRaw.toLowerCase().includes('24 hrs')) return etiquetaRaw;
+
+  // Si viene en formato "08:00 a 16:00" o "08:00 - 16:00"
+  return etiquetaRaw.replace(/(\d{1,2}:\d{2}(?::\d{2})?)\s*(a|-)\s*(\d{1,2}:\d{2}(?::\d{2})?)/gi, (_, hIni, sep, hFin) => {
+    return `${formatearHoraBonita(hIni)} a ${formatearHoraBonita(hFin)}`;
+  });
+};
 const [nuevaTareaFecha, setNuevaTareaFecha] = useState(hoyLatino());
   // ⚙️ Convierte "22/07/2026" -> "2026-07-22" (Para enviar al backend)
   const LatinoaISO = (fechaLatino: string) => {
@@ -249,7 +258,40 @@ const [nuevaTareaFecha, setNuevaTareaFecha] = useState(hoyLatino());
     if (partes.length !== 3) return fechaLatino;
     return `${partes[2]}-${partes[1]}-${partes[0]}`;
   };
+const formatearBadgeTurno = (estadoTurno: string, turnoInfo: any) => {
+  if (estadoTurno === 'activo') {
+    return {
+      icono: '🟢',
+      texto: 'En turno activo',
+      bg: COLORS.greenPale,
+      border: COLORS.green,
+      color: COLORS.green
+    };
+  }
 
+  if (estadoTurno === 'finalizado') {
+    return {
+      icono: '✅',
+      texto: 'Turno concluido hoy',
+      bg: '#EAF5E8',
+      border: '#C8E6C9',
+      color: '#2E7D32'
+    };
+  }
+
+  // No iniciado: Mostrar Días y Horas limpios
+  const diasTexto = turnoInfo?.dias || '';
+  const horasTexto = formatearHorarioCompletoAMPM(turnoInfo?.horas);
+  const detalle = [diasTexto, horasTexto].filter(Boolean).join(' · ');
+
+  return {
+    icono: '🕒',
+    texto: detalle ? `${detalle}` : 'Horario programado',
+    bg: '#F5F3EF',
+    border: '#E8E3D8',
+    color: '#6E675F'
+  };
+};
   // Estados para Picker
 const [showDatePicker, setShowDatePicker] = useState(false);
 const [showTimePicker, setShowTimePicker] = useState(false);
@@ -1451,201 +1493,230 @@ const guardarRegistroEspontaneo = async () => {
     );
   }
 
-  // ── 1. VISTA LISTA DE PACIENTES ──
-  if (vista === 'lista') {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
-        
-        {/* HEADER PROPIO DEL CUIDADOR */}
-        {/* 🎯 Solo lo pintamos si NO está embebido en el index familiar */}
-        {!pacienteProp && (
-          <View style={styles.header}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.greeting}>Bienvenido</Text>
-              <Text style={styles.userName}>
-                {esSwitchFamiliar
-                  ? (nombreUsuario || 'Monitoreo Familiar')
-                  : (nombreUsuario || 'Cuidador')}
-              </Text>
-            </View>
-            <TouchableOpacity style={[styles.notifBtn, { marginRight: 8 }]} onPress={() => router.push('/aceptar-invitacion' as any)}>
-              <Text style={styles.notifIcon}>🔗</Text>
+  // ── 1. VISTA LISTA DE USUARIOS ──
+if (vista === 'lista') {
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
+      
+      {/* HEADER PROPIO DEL CUIDADOR */}
+      {!pacienteProp && (
+        <View style={styles.header}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.greeting}>Bienvenido</Text>
+            <Text style={styles.userName}>
+              {esSwitchFamiliar
+                ? (nombreUsuario || 'Monitoreo Familiar')
+                : (nombreUsuario || 'Cuidador')}
+            </Text>
+          </View>
+          <TouchableOpacity 
+            style={[styles.notifBtn, { marginRight: 8 }]} 
+            onPress={() => router.push('/aceptar-invitacion' as any)}
+          >
+            <Text style={styles.notifIcon}>🔗</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.notifBtn} 
+            onPress={async () => { await clearToken(); router.replace('/login'); }}
+          >
+            <Text style={styles.notifIcon}>🚪</Text>
+          </TouchableOpacity>
+          {modoFamiliar && (
+            <TouchableOpacity 
+              style={[styles.notifBtn, { marginRight: 8 }]} 
+              onPress={() => {
+                if (onRegresar) {
+                  onRegresar();
+                } else {
+                  router.replace('/');
+                }
+              }}
+            >
+              <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.notifBtn} onPress={async () => { await clearToken(); router.replace('/login'); }}>
-              <Text style={styles.notifIcon}>🚪</Text>
-            </TouchableOpacity>
-            {modoFamiliar && (
-              <TouchableOpacity 
-                style={[styles.notifBtn, { marginRight: 8 }]} 
-                onPress={() => {
-                  if (onRegresar) {
-                    onRegresar(); // Retorna al index familiar en memoria sin navegar por URL
-                  } else {
-                    router.replace('/');
-                  }
-                }}
-              >
-                <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
-              </TouchableOpacity>
-              )}
-            </View>
           )}
+        </View>
+      )}
 
-       {/* Agregamos un pequeño margen superior estético si el header del index está presente */}
-        <ScrollView style={[styles.body, pacienteProp && { marginTop: 16 }]} showsVerticalScrollIndicator={false}>
-          <Text style={styles.sectionTitle}>Tus pacientes hoy</Text>
-          {pacientes.map((p) => {
-            const estadoTurno = p.estado_turno ?? 'no_iniciado';
-            const turnoInfo = p.turno_info;
+      {/* LISTADO DE PACIENTES */}
+      <ScrollView 
+        style={[styles.body, pacienteProp && { marginTop: 16 }]} 
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.sectionTitle}>Tus usuarios hoy</Text>
+        
+        {pacientes.map((p) => {
+          const estadoTurno = p.estado_turno ?? 'no_iniciado';
+          const turnoInfo = p.turno_info;
 
-            return (
-              <View key={p.id} style={styles.pacienteCard}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View style={styles.pacienteAvatar}>
-                    <Text style={styles.pacienteAvatarText}>{p.nombre_completo?.[0]}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.pacienteNombre}>{p.nombre_completo}</Text>
-                    <Text style={styles.pacienteCondiciones}>
-                      {p.condiciones_medicas?.join(' · ') ?? 'Sin condiciones crónicas'}
-                    </Text>
+          // 🕒 Formatear Días y Rango Horario (12 hrs AM/PM)
+          const diasTexto = turnoInfo?.dias || '';
+          const horasAMPM = formatearHorarioCompletoAMPM(turnoInfo?.horas || turnoInfo?.etiqueta);
+          const horarioCompleto = [diasTexto, horasAMPM].filter(Boolean).join(' · ') || 'Horario programado';
 
-                    {/* 🕒 📍 AQUÍ: BADGE DEL TURNO ASIGNADO / EN CURSO */}
-                    {turnoInfo && (
+          return (
+            <View key={p.id} style={styles.pacienteCard}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                <View style={styles.pacienteAvatar}>
+                  <Text style={styles.pacienteAvatarText}>{p.nombre_completo?.[0]}</Text>
+                </View>
+                
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pacienteNombre}>{p.nombre_completo}</Text>
+                  <Text style={styles.pacienteCondiciones}>
+                    {p.condiciones_medicas?.join(' · ') ?? 'Sin condiciones crónicas'}
+                  </Text>
+
+                  {/* 🕒 📍 HORARIO FIJO SIEMPRE VISIBLE + BADGE DE ESTADO */}
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 5 }}>
+                    
+                    {/* Píldora de Horario Base Permanente */}
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: '#F5F3EF',
+                      borderColor: '#E8E3D8',
+                      borderWidth: 1,
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                      borderRadius: 8,
+                      gap: 4
+                    }}>
+                      <Text style={{ fontSize: 10 }}>🕒</Text>
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: '#6E675F' }}>
+                        {horarioCompleto}
+                      </Text>
+                    </View>
+
+                    {/* Badge adicional si ya está concluido hoy */}
+                    {estadoTurno === 'finalizado' && (
                       <View style={{
                         flexDirection: 'row',
                         alignItems: 'center',
-                        marginTop: 4,
-                        alignSelf: 'flex-start',
-                        backgroundColor: estadoTurno === 'activo' ? COLORS.greenPale : '#F3EFE6',
-                        borderColor: estadoTurno === 'activo' ? COLORS.green : COLORS.border,
+                        backgroundColor: '#EAF5E8',
+                        borderColor: '#C8E6C9',
                         borderWidth: 1,
-                        paddingHorizontal: 8,
-                        paddingVertical: 2,
-                        borderRadius: 10,
-                        gap: 4
+                        paddingHorizontal: 6,
+                        paddingVertical: 3,
+                        borderRadius: 8,
+                        gap: 3
                       }}>
-                        <Text style={{ fontSize: 10 }}>
-                          {estadoTurno === 'activo' ? '🟢' : '🕒'}
-                        </Text>
-                        <Text style={{
-                          fontSize: 10,
-                          fontWeight: '700',
-                          color: estadoTurno === 'activo' ? COLORS.green : COLORS.textLight
-                        }}>
-                          {turnoInfo.etiqueta}
+                        <Text style={{ fontSize: 9 }}>✓</Text>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: '#2E7D32' }}>
+                          Concluido hoy
                         </Text>
                       </View>
                     )}
                   </View>
-
-                  {estadoTurno === 'activo' && (
-                    <View style={styles.badgeActivo}>
-                      <View style={styles.activoDot} />
-                      <Text style={styles.badgeActivoText}>En Turno</Text>
-                    </View>
-                  )}
                 </View>
 
-                {/* 1. BOTÓN CUANDO EL TURNO NO ESTÁ ACTIVO */}
-                {estadoTurno !== 'activo' && (
-                  <TouchableOpacity 
-                    style={[styles.iniciarBtn, { marginTop: 10 }]} 
-                    onPress={async () => {
-                      if (iniciando) return;
-                      setIniciando(true);
-                      
-                      try {
-                        console.log("🩺 Iniciando verificación de turno para:", p.nombre_completo);
-
-                        if (!esSwitchFamiliar) {
-                          const tareasCheck = await getTareasDia(p.id);
-                          if (tareasCheck?.sin_horario) {
-                            Alert.alert(
-                              'Sin horario asignado',
-                              'Pídele al familiar principal que configure tu horario y los días en que puedes ingresar.'
-                            );
-                            return;
-                          }
-                        }
-
-                        await manejarInicioTurno({
-                          ...p,
-                          rol_en_equipo: esSwitchFamiliar ? 'familiar_principal' : (p.rol_en_equipo || 'cuidador_contratado'),
-                          usuarioRol: esSwitchFamiliar ? 'familiar_principal' : 'cuidador_contratado'
-                        });
-
-                      } catch (error) {
-                        console.error("❌ Error al transicionar el turno:", error);
-                      } finally {
-                        setIniciando(false);
-                      }
-                    }} 
-                    disabled={iniciando}
-                  >
-                    <Text style={styles.iniciarBtnText}>
-                      {iniciando ? 'Sincronizando...' : 'Proceder a Verificación →'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                
-                {/* 2. BOTÓN CUANDO EL TURNO YA ESTÁ ACTIVO */}
                 {estadoTurno === 'activo' && (
-                  <TouchableOpacity 
-                    style={[styles.iniciarBtn, { backgroundColor: COLORS.greenPale, borderColor: COLORS.green, marginTop: 10 }]} 
-                    onPress={() => {
-                      console.log("🩺 Abriendo Consola. Asegurando sincronización a modo operativo...");
-                      setPacienteActivo(p); 
-                      cargarTurno(p.id); 
-                      setVista('turno'); 
-                    }}
-                  >
-                    <Text style={[styles.iniciarBtnText, { color: COLORS.green }]}>Abrir Consola de Control →</Text>
-                  </TouchableOpacity>
+                  <View style={styles.badgeActivo}>
+                    <View style={styles.activoDot} />
+                    <Text style={styles.badgeActivoText}>En Turno</Text>
+                  </View>
                 )}
               </View>
-            );
-          })}
-        </ScrollView>
 
-        <Modal visible={cambiosModal} transparent={true} animationType="slide">
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-            <View style={{ backgroundColor: COLORS.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24 }}>
-              <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.textDark, marginBottom: 4 }}>
-                Cambios desde tu último turno
-              </Text>
-              <Text style={{ fontSize: 12, color: COLORS.textLight, marginBottom: 16 }}>
-                Revisa antes de iniciar
-              </Text>
-              
-              {cambiosPendientes.map((c: any, i: number) => (
-                <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10, gap: 8 }}>
-                  <Text style={{ fontSize: 16 }}>{c.severidad === 'alta' ? '🚨' : '📋'}</Text>
-                  <Text style={{ flex: 1, fontSize: 13, color: COLORS.textDark }}>{c.mensaje}</Text>
-                </View>
-              ))}
+              {/* 🎯 1. BOTÓN PRINCIPAL: SI NO ESTÁ ACTIVO (NO INICIADO O YA CONCLUIDO) */}
+              {estadoTurno !== 'activo' && (
+                <TouchableOpacity 
+                  style={[styles.iniciarBtn, { marginTop: 12 }]} 
+                  onPress={async () => {
+                    if (iniciando) return;
+                    setIniciando(true);
+                    
+                    try {
+                      console.log("🩺 Iniciando verificación de turno para:", p.nombre_completo);
 
-              <TouchableOpacity
-                style={[styles.iniciarBtn, { marginTop: 16, paddingVertical: 12 }]}
-                onPress={() => { setCambiosModal(false); irARegistroSalud(pacienteActivo!); }}
-              >
-                <Text style={styles.iniciarBtnText}>Entendido, continuar →</Text>
-              </TouchableOpacity>
+                      if (!esSwitchFamiliar) {
+                        const tareasCheck = await getTareasDia(p.id);
+                        if (tareasCheck?.sin_horario) {
+                          Alert.alert(
+                            'Sin horario asignado',
+                            'Pídele al familiar principal que configure tu horario y los días en que puedes ingresar.'
+                          );
+                          return;
+                        }
+                      }
+
+                      await manejarInicioTurno({
+                        ...p,
+                        rol_en_equipo: esSwitchFamiliar ? 'familiar_principal' : (p.rol_en_equipo || 'cuidador_contratado'),
+                        usuarioRol: esSwitchFamiliar ? 'familiar_principal' : 'cuidador_contratado'
+                      });
+
+                    } catch (error) {
+                      console.error("❌ Error al transicionar el turno:", error);
+                    } finally {
+                      setIniciando(false);
+                    }
+                  }} 
+                  disabled={iniciando}
+                >
+                  <Text style={styles.iniciarBtnText}>
+                    {iniciando ? 'Sincronizando...' : 'Proceder a Verificación →'}
+                  </Text>
+                </TouchableOpacity>
+              )}
               
-              <TouchableOpacity
-                style={{ marginTop: 12, alignItems: 'center', padding: 8 }}
-                onPress={() => setCambiosModal(false)}
-              >
-                <Text style={{ fontSize: 13, color: COLORS.textLight }}>Cerrar</Text>
-              </TouchableOpacity>
+              {/* 🎯 2. BOTÓN PRINCIPAL: CUANDO EL TURNO ESTÁ ACTIVO EN VIVO */}
+              {estadoTurno === 'activo' && (
+                <TouchableOpacity 
+                  style={[styles.iniciarBtn, { backgroundColor: COLORS.greenPale, borderColor: COLORS.green, marginTop: 12 }]} 
+                  onPress={() => {
+                    console.log("🩺 Abriendo Consola. Asegurando sincronización a modo operativo...");
+                    setPacienteActivo(p); 
+                    cargarTurno(p.id); 
+                    setVista('turno'); 
+                  }}
+                >
+                  <Text style={[styles.iniciarBtnText, { color: COLORS.green }]}>Abrir Consola de Control →</Text>
+                </TouchableOpacity>
+              )}
             </View>
-          </View>
-        </Modal>
-      </View>
-    );
-  }
+          );
+        })}
+      </ScrollView>
 
+      {/* MODAL DE CAMBIOS PENDIENTES */}
+      <Modal visible={cambiosModal} transparent={true} animationType="slide">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: COLORS.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24 }}>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.textDark, marginBottom: 4 }}>
+              Cambios desde tu último turno
+            </Text>
+            <Text style={{ fontSize: 12, color: COLORS.textLight, marginBottom: 16 }}>
+              Revisa antes de iniciar
+            </Text>
+            
+            {cambiosPendientes.map((c: any, i: number) => (
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10, gap: 8 }}>
+                <Text style={{ fontSize: 16 }}>{c.severidad === 'alta' ? '🚨' : '📋'}</Text>
+                <Text style={{ flex: 1, fontSize: 13, color: COLORS.textDark }}>{c.mensaje}</Text>
+              </View>
+            ))}
+
+            <TouchableOpacity
+              style={[styles.iniciarBtn, { marginTop: 16, paddingVertical: 12 }]}
+              onPress={() => { setCambiosModal(false); irARegistroSalud(pacienteActivo!); }}
+            >
+              <Text style={styles.iniciarBtnText}>Entendido, continuar →</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={{ marginTop: 12, alignItems: 'center', padding: 8 }}
+              onPress={() => setCambiosModal(false)}
+            >
+              <Text style={{ fontSize: 13, color: COLORS.textLight }}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
   // 2. VISTA CONSOLA DE TURNO ACTIVA
   if (vista === 'turno' && pacienteActivo) {
     const tareasPendientes = tareas.filter(t => !t.completada);
@@ -2588,9 +2659,38 @@ const guardarRegistroEspontaneo = async () => {
             <TouchableOpacity style={[styles.accionBtn, { backgroundColor: COLORS.redPale, borderColor: COLORS.red }]} onPress={() => setIncidenteOpen(true)}>
               <Text style={{ color: COLORS.red, marginRight: 6 }}>🚨</Text><Text style={[styles.accionBtnText, { color: COLORS.red }]}>Reportar Incidente</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.accionBtn, { backgroundColor: COLORS.bluePale, borderColor: COLORS.blue }]} onPress={() => setVista('espontaneo')}>
-              <Text style={{ color: COLORS.blue, marginRight: 6 }}>🩺</Text><Text style={[styles.accionBtnText, { color: COLORS.blue }]}>Registro Confort</Text>
-            </TouchableOpacity>
+            <TouchableOpacity 
+  style={[
+    styles.accionBtn, 
+    { 
+      backgroundColor: COLORS.bluePale, 
+      borderColor: COLORS.blue,
+      flex: 1,
+      minHeight: 46,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+    }
+  ]} 
+  onPress={() => setVista('espontaneo')}
+>
+  <Text style={{ fontSize: 16, marginRight: 6 }}>🩺</Text>
+  <Text 
+    style={[
+      styles.accionBtnText, 
+      { 
+        color: COLORS.blue, 
+        flex: 1, 
+        flexShrink: 1, 
+        fontSize: 11, 
+        lineHeight: 14,
+        textAlign: 'center'
+      }
+    ]}
+    numberOfLines={2}
+  >
+    Registro Signos Vitales Manual
+  </Text>
+</TouchableOpacity>
           </View>
 
           <TouchableOpacity style={styles.cerrarBtn} onPress={async () => {
