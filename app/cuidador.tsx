@@ -1504,24 +1504,23 @@ if (vista === 'lista') {
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
             <Text style={styles.greeting}>Bienvenido</Text>
-            <Text style={styles.userName}>
+            <Text style={styles.userName} numberOfLines={1}>
               {esSwitchFamiliar
                 ? (nombreUsuario || 'Monitoreo Familiar')
                 : (nombreUsuario || 'Cuidador')}
             </Text>
           </View>
+
+          {/* 🔗 VINCULAR NUEVO PACIENTE POR CÓDIGO */}
           <TouchableOpacity 
             style={[styles.notifBtn, { marginRight: 8 }]} 
             onPress={() => router.push('/aceptar-invitacion' as any)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Text style={styles.notifIcon}>🔗</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.notifBtn} 
-            onPress={async () => { await clearToken(); router.replace('/login'); }}
-          >
-            <Text style={styles.notifIcon}>🚪</Text>
-          </TouchableOpacity>
+
+          {/* 👨‍👩‍👧 RETORNO A MODO FAMILIAR (SI VIENE DEL SWITCH) */}
           {modoFamiliar && (
             <TouchableOpacity 
               style={[styles.notifBtn, { marginRight: 8 }]} 
@@ -1532,10 +1531,23 @@ if (vista === 'lista') {
                   router.replace('/');
                 }
               }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
             </TouchableOpacity>
           )}
+
+          {/* 🚪 CERRAR SESIÓN */}
+          <TouchableOpacity 
+            style={styles.notifBtn} 
+            onPress={async () => { 
+              await clearToken(); 
+              router.replace('/login'); 
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.notifIcon}>🚪</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -1544,13 +1556,13 @@ if (vista === 'lista') {
         style={[styles.body, pacienteProp && { marginTop: 16 }]} 
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.sectionTitle}>Tus usuarios hoy</Text>
+        <Text style={styles.sectionTitle}>Tus pacientes hoy</Text>
         
         {pacientes.map((p) => {
           const estadoTurno = p.estado_turno ?? 'no_iniciado';
           const turnoInfo = p.turno_info;
 
-          // 🕒 Formatear Días y Rango Horario (12 hrs AM/PM)
+          // 🕒 Formateo permanente de Días y Horas en 12 hrs (a.m. / p.m.)
           const diasTexto = turnoInfo?.dias || '';
           const horasAMPM = formatearHorarioCompletoAMPM(turnoInfo?.horas || turnoInfo?.etiqueta);
           const horarioCompleto = [diasTexto, horasAMPM].filter(Boolean).join(' · ') || 'Horario programado';
@@ -1568,10 +1580,8 @@ if (vista === 'lista') {
                     {p.condiciones_medicas?.join(' · ') ?? 'Sin condiciones crónicas'}
                   </Text>
 
-                  {/* 🕒 📍 HORARIO FIJO SIEMPRE VISIBLE + BADGE DE ESTADO */}
+                  {/* 🕒 📍 HORARIO FIJO PERMANENTE + ETIQUETAS DE ESTADO */}
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 5 }}>
-                    
-                    {/* Píldora de Horario Base Permanente */}
                     <View style={{
                       flexDirection: 'row',
                       alignItems: 'center',
@@ -1589,7 +1599,7 @@ if (vista === 'lista') {
                       </Text>
                     </View>
 
-                    {/* Badge adicional si ya está concluido hoy */}
+                    {/* Badge complementario si el turno concluyó */}
                     {estadoTurno === 'finalizado' && (
                       <View style={{
                         flexDirection: 'row',
@@ -1619,8 +1629,21 @@ if (vista === 'lista') {
                 )}
               </View>
 
-              {/* 🎯 1. BOTÓN PRINCIPAL: SI NO ESTÁ ACTIVO (NO INICIADO O YA CONCLUIDO) */}
-              {estadoTurno !== 'activo' && (
+              {/* 🎯 BOTÓN 1: TURNO ACTIVO (ABRIR CONSOLA DIRECTA) */}
+              {estadoTurno === 'activo' ? (
+                <TouchableOpacity 
+                  style={[styles.iniciarBtn, { backgroundColor: COLORS.greenPale, borderColor: COLORS.green, marginTop: 12 }]} 
+                  onPress={() => {
+                    console.log("🩺 Abriendo Consola en turno activo...");
+                    setPacienteActivo(p); 
+                    cargarTurno(p.id); 
+                    setVista('turno'); 
+                  }}
+                >
+                  <Text style={[styles.iniciarBtnText, { color: COLORS.green }]}>Abrir Consola de Control →</Text>
+                </TouchableOpacity>
+              ) : (
+                /* 🎯 BOTÓN 2: PROCEDER A VERIFICACIÓN (NO INICIADO O CONCLUIDO) */
                 <TouchableOpacity 
                   style={[styles.iniciarBtn, { marginTop: 12 }]} 
                   onPress={async () => {
@@ -1660,24 +1683,46 @@ if (vista === 'lista') {
                   </Text>
                 </TouchableOpacity>
               )}
-              
-              {/* 🎯 2. BOTÓN PRINCIPAL: CUANDO EL TURNO ESTÁ ACTIVO EN VIVO */}
-              {estadoTurno === 'activo' && (
-                <TouchableOpacity 
-                  style={[styles.iniciarBtn, { backgroundColor: COLORS.greenPale, borderColor: COLORS.green, marginTop: 12 }]} 
-                  onPress={() => {
-                    console.log("🩺 Abriendo Consola. Asegurando sincronización a modo operativo...");
-                    setPacienteActivo(p); 
-                    cargarTurno(p.id); 
-                    setVista('turno'); 
-                  }}
-                >
-                  <Text style={[styles.iniciarBtnText, { color: COLORS.green }]}>Abrir Consola de Control →</Text>
-                </TouchableOpacity>
-              )}
             </View>
           );
         })}
+
+        {/* ── 🏡 BOTÓN: ENTRAR A PANEL DE FAMILIAR PRINCIPAL ── */}
+<TouchableOpacity 
+  style={{
+    marginTop: 18,
+    marginBottom: 32,
+    backgroundColor: '#FAF5EE',
+    borderColor: COLORS.gold,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12
+  }}
+  onPress={() => {
+    console.log("🏠 Navegando a Panel Familiar y reseteando parámetros switch...");
+    if (typeof onRegresar === 'function') {
+      onRegresar();
+    }
+    router.replace({
+      pathname: '/',
+      params: { modoSwitch: 'ninguno', abrirModoCuidador: undefined }
+    } as any);
+  }}
+>
+  <Text style={{ fontSize: 24 }}>👨‍👩‍👧</Text>
+  <View style={{ flex: 1 }}>
+    <Text style={{ fontSize: 14, fontWeight: '800', color: COLORS.cacao }}>
+      Panel de Familiar Principal
+    </Text>
+    <Text style={{ fontSize: 11, color: COLORS.textLight, marginTop: 2 }}>
+      Administra o da de alta pacientes bajo tu cadena de mando
+    </Text>
+  </View>
+  <Text style={{ fontSize: 16, color: COLORS.gold }}>→</Text>
+</TouchableOpacity>
       </ScrollView>
 
       {/* MODAL DE CAMBIOS PENDIENTES */}
@@ -4136,4 +4181,16 @@ const styles = StyleSheet.create({
   chipCatSelected: { backgroundColor: COLORS.gold, borderColor: COLORS.gold },
   chipCatText: { fontSize: 11, fontWeight: '600', color: COLORS.textLight },
   chipCatTextSelected: { color: COLORS.white, fontWeight: '800' },
+  btnPanelFamiliar: {
+  marginTop: 18,
+  marginBottom: 32,
+  backgroundColor: '#FAF5EE',
+  borderColor: COLORS.gold,
+  borderWidth: 1,
+  borderRadius: 14,
+  padding: 16,
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 12,
+},
 });
