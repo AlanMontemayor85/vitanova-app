@@ -228,8 +228,29 @@ export const fetchWithAuth = async (
 // ENDPOINTS DE AUTENTICACIÓN
 
 // ──────────────────────────────────────────────────────────────
+// ── TIPADO DE ROLES DE USUARIO ──
+export interface RolesUsuarioResponse {
+  usuario_id?: string;
+  nombre?: string;
+  tipo_base?: string;
+  tiene_familiar?: boolean;
+  tiene_cuidador?: boolean;
+  total_pacientes_familiar?: number;
+  total_pacientes_cuidador?: number;
+  es_cuenta_dual?: boolean;
+  requiere_perfil?: boolean;
+}
 
-// services/api.ts
+export const getRolesUsuario = async (): Promise<RolesUsuarioResponse | null> => {
+  try {
+    const res = await fetchWithAuth('/usuarios/roles');
+    return res as RolesUsuarioResponse;
+  } catch (error) {
+    console.error('⚠️ Error obteniendo roles de usuario:', error);
+    return null;
+  }
+};
+
 
 export const getRelojServidorConfig = async (): Promise<{ host: string; port: string }> => {
   try {

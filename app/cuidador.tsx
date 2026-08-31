@@ -1499,29 +1499,40 @@ if (vista === 'lista') {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
       
-      {/* HEADER PROPIO DEL CUIDADOR */}
-      {!pacienteProp && (
-        <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>Bienvenido</Text>
-            <Text style={styles.userName}>
-              {esSwitchFamiliar
-                ? (nombreUsuario || 'Monitoreo Familiar')
-                : (nombreUsuario || 'Cuidador')}
-            </Text>
-          </View>
-          <TouchableOpacity 
-            style={[styles.notifBtn, { marginRight: 8 }]} 
-            onPress={() => router.push('/aceptar-invitacion' as any)}
-          >
-            <Text style={styles.notifIcon}>🔗</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.notifBtn} 
-            onPress={async () => { await clearToken(); router.replace('/login'); }}
-          >
-            <Text style={styles.notifIcon}>🚪</Text>
-          </TouchableOpacity>
+          {/* HEADER PROPIO DEL CUIDADOR */}
+          {!pacienteProp && (
+            <View style={styles.header}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.greeting}>Bienvenido</Text>
+        <Text style={styles.userName}>
+          {esSwitchFamiliar
+            ? (nombreUsuario || 'Monitoreo Familiar')
+            : (nombreUsuario || 'Cuidador')}
+        </Text>
+      </View>
+      
+      {/* ➕ BOTÓN NUEVO: Registrar a mi familiar */}
+      <TouchableOpacity 
+        style={[styles.notifBtn, { marginRight: 8 }]} 
+        onPress={() => router.push('/registro-paciente' as any)}
+      >
+        <Text style={styles.notifIcon}>➕</Text>
+      </TouchableOpacity>
+
+      {/* 🔗 Vincular código (el que ya tienes) */}
+      <TouchableOpacity 
+        style={[styles.notifBtn, { marginRight: 8 }]} 
+        onPress={() => router.push('/aceptar-invitacion' as any)}
+      >
+        <Text style={styles.notifIcon}>🔗</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={styles.notifBtn} 
+        onPress={async () => { await clearToken(); router.replace('/login'); }}
+      >
+        <Text style={styles.notifIcon}>🚪</Text>
+      </TouchableOpacity>
           {modoFamiliar && (
             <TouchableOpacity 
               style={[styles.notifBtn, { marginRight: 8 }]} 
