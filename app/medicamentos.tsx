@@ -1393,7 +1393,15 @@ const ejecutarEliminacion = async () => {
           value={dosis} 
           onChangeText={setDosis} 
         />
-
+        <Text style={styles.label}>Indicaciones (opcional)</Text>
+        <TextInput 
+          style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]} 
+          placeholder="Tomar con alimentos..." 
+          placeholderTextColor={COLORS.textLight} 
+          multiline 
+          value={indicaciones} 
+          onChangeText={setIndicaciones} 
+        />
         {/* 📦 Stock Inicial Opcional para Inventario (Se oculta si ya se heredó de un producto existente) */}
         {!medicamentoEditando && !inventarioId && (
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
@@ -1486,15 +1494,7 @@ const ejecutarEliminacion = async () => {
           ))}
         </View>
 
-        <Text style={styles.label}>Indicaciones (opcional)</Text>
-        <TextInput 
-          style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]} 
-          placeholder="Tomar con alimentos..." 
-          placeholderTextColor={COLORS.textLight} 
-          multiline 
-          value={indicaciones} 
-          onChangeText={setIndicaciones} 
-        />
+        
 
         <View style={{ marginVertical: 12, padding: 12, backgroundColor: '#F9F9F9', borderRadius: 8, borderWidth: 1, borderColor: '#EAEAEA' }}>
           <Text style={{ fontSize: 14, fontWeight: '700', color: COLORS.cacao, marginBottom: 8 }}>🗓️ Duración del Plan</Text>

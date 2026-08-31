@@ -2233,133 +2233,164 @@ const guardarRegistroEspontaneo = async () => {
               ? formatearHoraBonita(horaOriginal)
               : (t.fecha_inicio ? ISOaLatino(String(t.fecha_inicio)) : 'Sin hora');
 
+            // 💡 Extracción de indicaciones de uso para render directo
+            const indicacionVisible = t.indicaciones || t.instrucciones || (!t.es_incidental ? t.notas : null);
+
             return (
               <TouchableOpacity 
-              key={t.id} 
-              style={[
-                styles.tareaCard,
-                t.completada && { opacity: 0.6, backgroundColor: '#F8FAFC' }
-              ]} 
-              onPress={() => {
-              if (t.completada) {
-                Alert.alert('Completada', `"${t.descripcion}" ya fue registrada.`);
-                return;
-              }
+                key={t.id} 
+                style={[
+                  styles.tareaCard,
+                  t.completada && { opacity: 0.6, backgroundColor: '#F8FAFC' }
+                ]} 
+                onPress={() => {
+                  if (t.completada) {
+                    Alert.alert('Completada', `"${t.descripcion}" ya fue registrada.`);
+                    return;
+                  }
 
-              Alert.alert(
-                'Confirmar ejecución',
-                `¿Confirmas la realización de: ${t.descripcion}?`,
-                [
-                  { text: 'Cancelar', style: 'cancel' },
-                  {
-                    text: '✓ Confirmar',
-                    onPress: async () => {
-                      // 1. Optimismo visual inmediato
-                      setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: true } : item));
+                  Alert.alert(
+                    'Confirmar ejecución',
+                    `¿Confirmas la realización de: ${t.descripcion}?`,
+                    [
+                      { text: 'Cancelar', style: 'cancel' },
+                      {
+                        text: '✓ Confirmar',
+                        onPress: async () => {
+                          setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: true } : item));
 
-                      try {
-                        // 💊 1. MEDICAMENTO
-                        if (t.tipo === 'medicamento' || t.med_id) {
-                          const medUuid = t.med_id || String(t.id).replace(/^med_/, '').split('_')[0];
-                          const horaProg = t.hora_programada || t.hora || '08:00';
-                          const horaFormateada = horaProg.length === 5 ? `${horaProg}:00` : horaProg;
+                          try {
+                            // 💊 1. MEDICAMENTO
+                            if (t.tipo === 'medicamento' || t.med_id) {
+                              const medUuid = t.med_id || String(t.id).replace(/^med_/, '').split('_')[0];
+                              const horaProg = t.hora_programada || t.hora || '08:00';
+                              const horaFormateada = horaProg.length === 5 ? `${horaProg}:00` : horaProg;
 
-                          await fetchWithAuth(`${BASE_URL}/medicamentos/completar`, {
-                            method: 'POST',
-                            body: JSON.stringify({
-                              med_id: medUuid,
-                              paciente_id: pacienteActivo.id,
-                              descripcion: t.descripcion,
-                              hora_programada: horaFormateada,
-                            }),
-                          });
-                          console.log(`✅ [MEDICAMENTO COMPLETADO] ${t.descripcion}`);
-                        }
-                        // ⚡ 2. TAREA INCIDENTAL
-                        else if (t.es_incidental) {
-                          await fetchWithAuth(`${BASE_URL}/tareas/${t.id}/completar`, {
-                            method: 'PATCH',
-                            body: JSON.stringify({
-                              paciente_id: pacienteActivo.id,
-                              completada: true,
-                            }),
-                          });
-                          console.log(`✅ [INCIDENTAL COMPLETADA] ${t.descripcion}`);
-                        }
-                        // 📋 3. RUTINA RECURRENTE (Ejercicio, Cena, Higiene, etc.)
-                        else {
-                          const idRutina = t.actividad_id || t.id;
-                          await fetchWithAuth(`${BASE_URL}/actividades/completar`, {
-                            method: 'POST',
-                            body: JSON.stringify({
-                              actividad_id: idRutina,
-                              paciente_id: pacienteActivo.id,
-                            }),
-                          });
-                          console.log(`✅ [RUTINA COMPLETADA] ${t.descripcion}`);
-                        }
-                      } catch (err) {
-                        console.error(`❌ Error registrando ${t.descripcion}:`, err);
-                        // Revertir en caso de fallo
-                        setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: false } : item));
-                      }
-                    },
-                  },
-                ]
-              );
-            }}
-            >
-              <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
-
-              <View style={styles.tareaInfo}>
-                <Text style={[
-                  styles.tareaTexto,
-                  t.completada && { textDecorationLine: 'line-through', color: '#94A3B8' }
-                ]}>
-                  {t.descripcion}
-                </Text>
-
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                  <Text style={styles.tareaHora}>{horaTexto}</Text>
-                  <Text style={{ fontSize: 10, color: '#CCC' }}>·</Text>
-                  <View style={{ backgroundColor: '#F0F0F0', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, borderWidth: 1, borderColor: '#EAEAEA' }}>
-                    {renderTemporalidadTarea()}
-                  </View>
-                </View>
-              </View>
-
-              {/* ℹ️ BOTÓN INFORMATIVO INTELIGENTE */}
-              <TouchableOpacity 
-                onPress={(e) => {
-                  e.stopPropagation();
-                  setItemSeleccionadoDetalle(t);
+                              await fetchWithAuth(`${BASE_URL}/medicamentos/completar`, {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                  med_id: medUuid,
+                                  paciente_id: pacienteActivo.id,
+                                  descripcion: t.descripcion,
+                                  hora_programada: horaFormateada,
+                                }),
+                              });
+                              console.log(`✅ [MEDICAMENTO COMPLETADO] ${t.descripcion}`);
+                            }
+                            // ⚡ 2. TAREA INCIDENTAL
+                            else if (t.es_incidental) {
+                              await fetchWithAuth(`${BASE_URL}/tareas/${t.id}/completar`, {
+                                method: 'PATCH',
+                                body: JSON.stringify({
+                                  paciente_id: pacienteActivo.id,
+                                  completada: true,
+                                }),
+                              });
+                              console.log(`✅ [INCIDENTAL COMPLETADA] ${t.descripcion}`);
+                            }
+                            // 📋 3. RUTINA RECURRENTE (Ejercicio, Cena, Higiene, etc.)
+                            else {
+                              const idRutina = t.actividad_id || t.id;
+                              await fetchWithAuth(`${BASE_URL}/actividades/completar`, {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                  actividad_id: idRutina,
+                                  paciente_id: pacienteActivo.id,
+                                }),
+                              });
+                              console.log(`✅ [RUTINA COMPLETADA] ${t.descripcion}`);
+                            }
+                          } catch (err) {
+                            console.error(`❌ Error registrando ${t.descripcion}:`, err);
+                            setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: false } : item));
+                          }
+                        },
+                      },
+                    ]
+                  );
                 }}
-                style={{
-                  paddingHorizontal: 8,
-                  paddingVertical: 4,
-                  backgroundColor: '#F1F5F9',
-                  borderRadius: 6,
-                  borderWidth: 1,
-                  borderColor: '#CBD5E1',
-                  marginRight: 8
-                }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#475569' }}>ℹ️</Text>
+                <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
+
+                <View style={styles.tareaInfo}>
+                  <Text style={[
+                    styles.tareaTexto,
+                    t.completada && { textDecorationLine: 'line-through', color: '#94A3B8' }
+                  ]}>
+                    {t.descripcion}
+                  </Text>
+
+                  {/* 📍 Subtítulo de Dosis / Vía de administración si están disponibles */}
+                  {(t.dosis || t.via_administracion) && (
+                    <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '500', marginTop: 1 }}>
+                      {[t.dosis, t.via_administracion].filter(Boolean).join(' · ')}
+                    </Text>
+                  )}
+
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                    <Text style={styles.tareaHora}>{horaTexto}</Text>
+                    <Text style={{ fontSize: 10, color: '#CCC' }}>·</Text>
+                    <View style={{ backgroundColor: '#F0F0F0', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, borderWidth: 1, borderColor: '#EAEAEA' }}>
+                      {renderTemporalidadTarea()}
+                    </View>
+                  </View>
+
+                  {/* ⚠️ 📍 INDICACIONES DE USO VISIBLES DIRECTAMENTE EN LA TARJETA */}
+                  {Boolean(indicacionVisible) && (
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: '#FFFBEB',
+                      borderColor: '#FDE68A',
+                      borderWidth: 1,
+                      borderRadius: 6,
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                      marginTop: 6,
+                      gap: 4
+                    }}>
+                      <Text style={{ fontSize: 10 }}>💡</Text>
+                      <Text 
+                        style={{ fontSize: 10, color: '#92400E', fontWeight: '600', flex: 1 }} 
+                        numberOfLines={2}
+                      >
+                        {indicacionVisible}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* ℹ️ BOTÓN INFORMATIVO INTELIGENTE */}
+                <TouchableOpacity 
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setItemSeleccionadoDetalle(t);
+                  }}
+                  style={{
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    backgroundColor: '#F1F5F9',
+                    borderRadius: 6,
+                    borderWidth: 1,
+                    borderColor: '#CBD5E1',
+                    marginRight: 8
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#475569' }}>ℹ️</Text>
+                </TouchableOpacity>
+
+                {/* 🎯 CHECK INTERACTIVO */}
+                <View style={[
+                  styles.tareaCheck,
+                  t.completada && { backgroundColor: '#10B981', borderColor: '#059669', justifyContent: 'center', alignItems: 'center' }
+                ]}>
+                  {t.completada && <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>✓</Text>}
+                </View>
               </TouchableOpacity>
+            );
+          })}
 
-              {/* 🎯 CHECK INTERACTIVO: Muestra fondo verde y palomita cuando t.completada es true */}
-              <View style={[
-                styles.tareaCheck,
-                t.completada && { backgroundColor: '#10B981', borderColor: '#059669', justifyContent: 'center', alignItems: 'center' }
-              ]}>
-                {t.completada && <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>✓</Text>}
-              </View>
-            </TouchableOpacity>
-                        );
-                      })}
-
-          
           {/* MODAL INFORMATIVO COMPLETO */}
           <Modal 
             visible={!!itemSeleccionadoDetalle} 
@@ -2384,16 +2415,13 @@ const guardarRegistroEspontaneo = async () => {
                   </Text>
                 )}
 
-                {/* 📍 Ubicación en Casa (Solo se muestra si es tipo medicamento) */}
+                {/* 📍 Ubicación en Casa (Solo si es tipo medicamento) */}
                 {(() => {
                   const t = itemSeleccionadoDetalle;
                   if (!t) return null;
 
                   const esMedicamento = t.tipo?.toLowerCase() === 'medicamento';
-
-                  if (!esMedicamento) {
-                    return null;
-                  }
+                  if (!esMedicamento) return null;
 
                   return (
                     <View style={{ marginBottom: 12 }}>
@@ -2407,7 +2435,7 @@ const guardarRegistroEspontaneo = async () => {
                   );
                 })()}
 
-                {/* 💡 Indicaciones / Modo de Uso (Restauradas) */}
+                {/* 💡 Indicaciones / Modo de Uso */}
                 <View style={{ marginBottom: 12 }}>
                   <Text style={{ fontSize: 10, fontWeight: '800', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 3 }}>
                     💡 Indicaciones / Modo de Uso:
@@ -2417,7 +2445,7 @@ const guardarRegistroEspontaneo = async () => {
                   </Text>
                 </View>
 
-                {/* 📌 Notas adicionales (Solo si son diferentes a las indicaciones) */}
+                {/* 📌 Notas adicionales */}
                 {(() => {
                   const ind = itemSeleccionadoDetalle?.indicaciones || itemSeleccionadoDetalle?.instrucciones || '';
                   const notas = itemSeleccionadoDetalle?.notas || itemSeleccionadoDetalle?.observaciones || '';
