@@ -745,7 +745,7 @@ useEffect(() => {
 
       {/* ── 1. ENCABEZADO DINÁMICO SEGÚN MODO ── */}
       {modoCuidadorFamiliar ? (
-        /* 🩺 HEADER ULTRA-COMPACTO (MODO CONSOLA) */
+        /* 🩺 HEADER ULTRA-COMPACTO (MODO CONSOLA SWITCH) */
         <View style={styles.headerConsolaCompacto}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
             <Text style={{ fontSize: 13 }}>🩺</Text>
@@ -770,8 +770,18 @@ useEffect(() => {
             <TouchableOpacity 
               style={styles.notifBtnMin}
               onPress={async () => {
-                await clearToken();
-                router.replace('/login');
+                try {
+                  const rolesData = await getMisRoles();
+                  if (rolesData?.multi_rol) {
+                    await AsyncStorage.removeItem('rol_activo');
+                    router.replace('/selector-rol');
+                  } else {
+                    await clearToken();
+                    router.replace('/login');
+                  }
+                } catch {
+                  router.replace('/login');
+                }
               }}
             >
               <Text style={{ fontSize: 13 }}>🚪</Text>
@@ -789,7 +799,7 @@ useEffect(() => {
           </View>
 
           {/* SWITCH MODO */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12, gap: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10, gap: 4 }}>
             <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>👨‍👩‍👧</Text>
             <Switch
               value={modoCuidadorFamiliar}
@@ -800,17 +810,38 @@ useEffect(() => {
             />
           </View>
 
+          {/* 🔗 PUERTA FAMILIAR ➔ CUIDADOR (Aceptar invitación de trabajo) */}
           <TouchableOpacity 
-            style={[styles.notifBtn, { marginRight: 5 }]}
+            style={[styles.notifBtn, { marginRight: 6 }]}
+            onPress={() => router.push('/aceptar-invitacion' as any)}
+          >
+            <Text style={styles.notifIcon}>🔗</Text>
+          </TouchableOpacity>
+
+          {/* ➕ AGREGAR PACIENTE FAMILIAR PROPIO */}
+          <TouchableOpacity 
+            style={[styles.notifBtn, { marginRight: 6 }]}
             onPress={() => router.push('/nuevo-paciente' as any)}
           >
-            <Text style={{ color: COLORS.gold, fontSize: 22, fontWeight: '800' }}>+</Text>
+            <Text style={{ color: COLORS.gold, fontSize: 20, fontWeight: '800' }}>+</Text>
           </TouchableOpacity>
+
+          {/* 🚪 SALIR / CAMBIAR ROL */}
           <TouchableOpacity 
             style={styles.notifBtn}
             onPress={async () => {
-              await clearToken();
-              router.replace('/login');
+              try {
+                const rolesData = await getMisRoles();
+                if (rolesData?.multi_rol) {
+                  await AsyncStorage.removeItem('rol_activo');
+                  router.replace('/selector-rol');
+                } else {
+                  await clearToken();
+                  router.replace('/login');
+                }
+              } catch {
+                router.replace('/login');
+              }
             }}
           >
             <Text style={styles.notifIcon}>🚪</Text>
