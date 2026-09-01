@@ -16,7 +16,7 @@ import {
   TouchableOpacity, View,
 } from 'react-native';
 import {
-  agregarTareaManual, clearToken,
+  agregarTareaManual,
   consumirItemInventario,
   detectarCambiosTurno,
   enviarComandoReloj,
@@ -363,26 +363,29 @@ const confirmarReinicioCuidador = () => {
   );
 };
 const refrescarPacientes = async (
-  origen: string = 'lista',
-  forzar: boolean = false
-) => {
-  const now = Date.now();
-  if (!forzar && now - lastFetchRef.current < 8000) {
-    console.log('⏭️ Skip getPacientes', origen);
-    return;
-  }
-  lastFetchRef.current = now;
-
-  try {
-    const data = await getPacientes(origen);
-    if (data?.patients) {
-      setPacientes([...data.patients]);
-      if (data.usuario_nombre) setNombreUsuario(data.usuario_nombre);
+    origen: string = 'lista',
+    forzar: boolean = false
+  ) => {
+    const now = Date.now();
+    if (!forzar && now - lastFetchRef.current < 8000) {
+      console.log('⏭️ Skip getPacientes', origen);
+      return;
     }
-  } catch (e) {
-    console.error('❌ Error refrescando pacientes:', e);
-  }
-};
+    lastFetchRef.current = now;
+
+    try {
+      const esSwitch = params.modoSwitch === 'cuidador' || esSwitchFamiliar;
+      const rolPeticion = esSwitch ? 'familiar' : 'cuidador';
+      
+      const data = await getPacientes(origen, rolPeticion);
+      if (data?.patients) {
+        setPacientes([...data.patients]);
+        if (data.usuario_nombre) setNombreUsuario(data.usuario_nombre);
+      }
+    } catch (e) {
+      console.error('❌ Error refrescando pacientes:', e);
+    }
+  };
   // 1. Cargar y normalizar signos en Cuidador
 const sincronizarSignosReloj = async (pacienteIdTarget: string, forzarSensado: boolean = false) => {
   if (!pacienteIdTarget) return;
@@ -562,24 +565,30 @@ useEffect(() => {
         await loadStoredToken();
         vaciarColaOffline();
 
-        // 🎯 Aseguramos que el rol activo en storage sea cuidador
-        // (A menos que venga explícitamente en modo switch familiar)
-        const esModoSwitch = params.modoSwitch === 'cuidador';
-        if (!esModoSwitch) {
+        const esSwitch = params.modoSwitch === 'cuidador' || esSwitchFamiliar;
+        
+        // 🎯 Si viene de Switch Familiar pedimos sus familiares; si es Cuidador laboral, sus pacientes de turno
+        const rolPeticion = esSwitch ? 'familiar' : 'cuidador';
+
+        if (!esSwitch) {
           await AsyncStorage.setItem('rol_activo', 'cuidador');
         }
 
-        const data = await getPacientes('cuidador-mount');
+        const data = await getPacientes('cuidador-mount', rolPeticion);
+        
         if (data?.usuario_nombre) {
           setNombreUsuario(data.usuario_nombre);
         }
+        
         if (data?.patients) {
-          // 🎯 Mantenemos el rol de familiar_principal si entramos desde el modo switch
+          // Si venimos con un paciente específico por params (ej. María), lo priorizamos
+          const pIdObjetivo = params.pacienteId || pacienteProp?.id;
+          
           const pacientesMapeados = data.patients.map((p: any) => {
-            if (pacienteProp && p.id === pacienteProp.id) {
+            if (pIdObjetivo && String(p.id) === String(pIdObjetivo)) {
               return { 
                 ...p, 
-                rol_en_equipo: pacienteProp.rol_en_equipo || 'familiar_principal',
+                rol_en_equipo: 'familiar_principal',
                 usuarioRol: 'familiar_principal'
               };
             }
@@ -599,7 +608,7 @@ useEffect(() => {
       }
     };
     cargar();
-  }, []);
+  }, [params.modoSwitch, params.pacienteId]);
 
   // ── NAVEGACIÓN DESDE OTRAS PANTALLAS ──
   useEffect(() => {
@@ -1532,7 +1541,7 @@ const handleRegresarOpciones = async () => {
     );
   }
 
-  // ── 1. VISTA LISTA DE USUARIOS ──
+ // ── 1. VISTA LISTA DE USUARIOS ──
 if (vista === 'lista') {
   return (
     <View style={styles.container}>
@@ -1549,35 +1558,32 @@ if (vista === 'lista') {
                 : (nombreUsuario || 'Cuidador')}
             </Text>
           </View>
+
+          {/* 👨‍👩‍👧 1. PUERTA CUIDADOR ➔ FAMILIAR: Dar de alta un familiar propio */}
+          <TouchableOpacity 
+            style={[styles.notifBtn, { marginRight: 8 }]} 
+            onPress={() => router.push('/perfil-paciente' as any)}
+          >
+            <Text style={{ fontSize: 16 }}>👨‍👩‍👧</Text>
+          </TouchableOpacity>
+
+          {/* 🔗 2. ACEPTAR INVITACIÓN: Sumarse a otro equipo como cuidador */}
           <TouchableOpacity 
             style={[styles.notifBtn, { marginRight: 8 }]} 
             onPress={() => router.push('/aceptar-invitacion' as any)}
           >
             <Text style={styles.notifIcon}>🔗</Text>
           </TouchableOpacity>
+
+          {/* 🚪 3. SALIR / CAMBIAR DE ROL */}
           <TouchableOpacity 
             style={styles.notifBtn} 
-            onPress={async () => { await clearToken(); router.replace('/login'); }}
+            onPress={handleRegresarOpciones}
           >
             <Text style={styles.notifIcon}>🚪</Text>
           </TouchableOpacity>
-          {modoFamiliar && (
-            <TouchableOpacity 
-              style={[styles.notifBtn, { marginRight: 8 }]} 
-              onPress={() => {
-                if (onRegresar) {
-                  onRegresar();
-                } else {
-                  router.replace('/');
-                }
-              }}
-            >
-              <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
-            </TouchableOpacity>
-          )}
         </View>
       )}
-
       {/* LISTADO DE PACIENTES */}
       <ScrollView 
         style={[styles.body, pacienteProp && { marginTop: 16 }]} 
@@ -1593,6 +1599,9 @@ if (vista === 'lista') {
           const diasTexto = turnoInfo?.dias || '';
           const horasAMPM = formatearHorarioCompletoAMPM(turnoInfo?.horas || turnoInfo?.etiqueta);
           const horarioCompleto = [diasTexto, horasAMPM].filter(Boolean).join(' · ') || 'Horario programado';
+
+          // 👑 Identificar si este paciente se atiende bajo rol familiar
+          const esFamiliarDirecto = esSwitchFamiliar || p.rol_en_equipo === 'familiar_principal' || p.rol_en_equipo === 'familiar_co_admin' || p.rol_en_equipo === 'admin';
 
           return (
             <View key={p.id} style={styles.pacienteCard}>
@@ -1628,8 +1637,8 @@ if (vista === 'lista') {
                       </Text>
                     </View>
 
-                    {/* Badge adicional si ya está concluido hoy */}
-                    {estadoTurno === 'finalizado' && (
+                    {/* Badge adicional si ya está concluido hoy (Solo cuidador laboral) */}
+                    {!esFamiliarDirecto && estadoTurno === 'finalizado' && (
                       <View style={{
                         flexDirection: 'row',
                         alignItems: 'center',
@@ -1650,16 +1659,56 @@ if (vista === 'lista') {
                   </View>
                 </View>
 
-                {estadoTurno === 'activo' && (
+                {(estadoTurno === 'activo' || esFamiliarDirecto) && (
                   <View style={styles.badgeActivo}>
                     <View style={styles.activoDot} />
-                    <Text style={styles.badgeActivoText}>En Turno</Text>
+                    <Text style={styles.badgeActivoText}>
+                      {esFamiliarDirecto ? 'Familiar' : 'En Turno'}
+                    </Text>
                   </View>
                 )}
               </View>
 
-              {/* 🎯 1. BOTÓN PRINCIPAL: SI NO ESTÁ ACTIVO (NO INICIADO O YA CONCLUIDO) */}
-              {estadoTurno !== 'activo' && (
+              {/* 🎯 BOTÓN DE ACCIÓN UNIFICADO */}
+              {estadoTurno === 'activo' || esFamiliarDirecto ? (
+                /* 🟢 1. ACCESO DIRECTO A CONSOLA (Familiar / Turno Cuidador Activo) */
+                <TouchableOpacity 
+                  style={[styles.iniciarBtn, { backgroundColor: '#EBF7EE', borderColor: '#2E7D32', borderWidth: 1.5, marginTop: 12 }]} 
+                  onPress={async () => {
+                    if (iniciando) return;
+                    setIniciando(true);
+                    try {
+                      console.log("🩺 Abriendo Consola para:", p.nombre_completo);
+                      
+                      if (esFamiliarDirecto) {
+                        const turnoLocal = {
+                          id: p.turno_id || `turno-familiar-${p.id}`,
+                          paciente_id: p.id,
+                          modo: 'monitoreo_familiar',
+                          hora_inicio: new Date().toISOString(),
+                          es_local: true,
+                        };
+                        setTurnoActivo(turnoLocal);
+                        turnoActivoRef.current = turnoLocal;
+                      }
+
+                      setPacienteActivo(p); 
+                      await cargarTurno(p.id); 
+                      setVista('turno'); 
+                    } catch (error) {
+                      console.error("❌ Error abriendo consola:", error);
+                    } finally {
+                      setIniciando(false);
+                    }
+                  }}
+                  disabled={iniciando}
+                >
+                  <Text style={[styles.iniciarBtnText, { color: '#2E7D32', fontWeight: '800' }]}>
+                    {iniciando ? 'Cargando Consola...' : 'Abrir Consola de Control →'}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                /* 🩺 2. FLUJO LABORAL CON FICHAJE GPS (Solo Cuidador Contratado) */
                 <TouchableOpacity 
                   style={[styles.iniciarBtn, { marginTop: 12 }]} 
                   onPress={async () => {
@@ -1667,23 +1716,21 @@ if (vista === 'lista') {
                     setIniciando(true);
                     
                     try {
-                      console.log("🩺 Iniciando verificación de turno para:", p.nombre_completo);
+                      console.log("🩺 Iniciando verificación de turno laboral para:", p.nombre_completo);
 
-                      if (!esSwitchFamiliar) {
-                        const tareasCheck = await getTareasDia(p.id);
-                        if (tareasCheck?.sin_horario) {
-                          Alert.alert(
-                            'Sin horario asignado',
-                            'Pídele al familiar principal que configure tu horario y los días en que puedes ingresar.'
-                          );
-                          return;
-                        }
+                      const tareasCheck = await getTareasDia(p.id);
+                      if (tareasCheck?.sin_horario) {
+                        Alert.alert(
+                          'Sin horario asignado',
+                          'Pídele al familiar principal que configure tu horario y los días en que puedes ingresar.'
+                        );
+                        return;
                       }
 
                       await manejarInicioTurno({
                         ...p,
-                        rol_en_equipo: esSwitchFamiliar ? 'familiar_principal' : (p.rol_en_equipo || 'cuidador_contratado'),
-                        usuarioRol: esSwitchFamiliar ? 'familiar_principal' : 'cuidador_contratado'
+                        rol_en_equipo: p.rol_en_equipo || 'cuidador_contratado',
+                        usuarioRol: 'cuidador_contratado'
                       });
 
                     } catch (error) {
@@ -1697,21 +1744,6 @@ if (vista === 'lista') {
                   <Text style={styles.iniciarBtnText}>
                     {iniciando ? 'Sincronizando...' : 'Proceder a Verificación →'}
                   </Text>
-                </TouchableOpacity>
-              )}
-              
-              {/* 🎯 2. BOTÓN PRINCIPAL: CUANDO EL TURNO ESTÁ ACTIVO EN VIVO */}
-              {estadoTurno === 'activo' && (
-                <TouchableOpacity 
-                  style={[styles.iniciarBtn, { backgroundColor: COLORS.greenPale, borderColor: COLORS.green, marginTop: 12 }]} 
-                  onPress={() => {
-                    console.log("🩺 Abriendo Consola. Asegurando sincronización a modo operativo...");
-                    setPacienteActivo(p); 
-                    cargarTurno(p.id); 
-                    setVista('turno'); 
-                  }}
-                >
-                  <Text style={[styles.iniciarBtnText, { color: COLORS.green }]}>Abrir Consola de Control →</Text>
                 </TouchableOpacity>
               )}
             </View>
