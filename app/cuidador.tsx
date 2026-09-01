@@ -1541,7 +1541,7 @@ const handleRegresarOpciones = async () => {
     );
   }
 
-// ── 1. VISTA LISTA DE USUARIOS ──
+ // ── 1. VISTA LISTA DE USUARIOS ──
 if (vista === 'lista') {
   return (
     <View style={styles.container}>
@@ -1584,7 +1584,6 @@ if (vista === 'lista') {
           </TouchableOpacity>
         </View>
       )}
-
       {/* LISTADO DE PACIENTES */}
       <ScrollView 
         style={[styles.body, pacienteProp && { marginTop: 16 }]} 
@@ -1601,12 +1600,8 @@ if (vista === 'lista') {
           const horasAMPM = formatearHorarioCompletoAMPM(turnoInfo?.horas || turnoInfo?.etiqueta);
           const horarioCompleto = [diasTexto, horasAMPM].filter(Boolean).join(' · ') || 'Horario programado';
 
-          // 👑 Identificar si este paciente se atiende bajo rol familiar auténtico (SÓLO si venimos de Switch)
-          const esFamiliarDirecto = esSwitchFamiliar && (
-            p.rol_en_equipo === 'familiar_principal' || 
-            p.rol_en_equipo === 'familiar_co_admin' || 
-            p.rol_en_equipo === 'admin'
-          );
+          // 👑 Identificar si este paciente se atiende bajo rol familiar
+          const esFamiliarDirecto = esSwitchFamiliar || p.rol_en_equipo === 'familiar_principal' || p.rol_en_equipo === 'familiar_co_admin' || p.rol_en_equipo === 'admin';
 
           return (
             <View key={p.id} style={styles.pacienteCard}>
@@ -1676,7 +1671,7 @@ if (vista === 'lista') {
 
               {/* 🎯 BOTÓN DE ACCIÓN UNIFICADO */}
               {estadoTurno === 'activo' || esFamiliarDirecto ? (
-                /* 🟢 1. ACCESO DIRECTO A CONSOLA (Turno Activo en Curso o Modo Switch Familiar) */
+                /* 🟢 1. ACCESO DIRECTO A CONSOLA (Familiar / Turno Cuidador Activo) */
                 <TouchableOpacity 
                   style={[styles.iniciarBtn, { backgroundColor: '#EBF7EE', borderColor: '#2E7D32', borderWidth: 1.5, marginTop: 12 }]} 
                   onPress={async () => {
@@ -1713,22 +1708,13 @@ if (vista === 'lista') {
                   </Text>
                 </TouchableOpacity>
               ) : (
-                /* 🩺 2. FLUJO LABORAL CON VALIDACIÓN DE DÍA Y FICHAJE */
+                /* 🩺 2. FLUJO LABORAL CON FICHAJE GPS (Solo Cuidador Contratado) */
                 <TouchableOpacity 
                   style={[styles.iniciarBtn, { marginTop: 12 }]} 
                   onPress={async () => {
                     if (iniciando) return;
-
-                    // 🛑 CANDADO DE DÍA ASIGNADO
-                    if (p.turno_info?.es_dia_laboral === false) {
-                      Alert.alert(
-                        'Día no asignado',
-                        `Hoy no tienes turno programado con este usuario.\nTus días asignados son: ${p.turno_info?.dias || 'Ninguno'}.`
-                      );
-                      return;
-                    }
-
                     setIniciando(true);
+                    
                     try {
                       console.log("🩺 Iniciando verificación de turno laboral para:", p.nombre_completo);
 
