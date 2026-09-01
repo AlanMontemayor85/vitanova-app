@@ -1510,21 +1510,35 @@ if (vista === 'lista') {
                 : (nombreUsuario || 'Cuidador')}
             </Text>
           </View>
+
+          {/* ➕ Botón para dar de alta a un familiar propio */}
+          <TouchableOpacity 
+            style={[styles.notifBtn, { marginRight: 8, backgroundColor: '#4F46E5' }]} 
+            onPress={() => router.push('/perfil-paciente' as any)}
+          >
+            <Text style={{ fontSize: 15 }}>➕</Text>
+          </TouchableOpacity>
+
+          {/* 🔗 Aceptar invitación con código */}
           <TouchableOpacity 
             style={[styles.notifBtn, { marginRight: 8 }]} 
             onPress={() => router.push('/aceptar-invitacion' as any)}
           >
             <Text style={styles.notifIcon}>🔗</Text>
           </TouchableOpacity>
+
+          {/* 🚪 Cerrar sesión */}
           <TouchableOpacity 
             style={styles.notifBtn} 
             onPress={async () => { await clearToken(); router.replace('/login'); }}
           >
             <Text style={styles.notifIcon}>🚪</Text>
           </TouchableOpacity>
+
+          {/* 👨‍👩‍👧 Volver al entorno familiar si está activo */}
           {modoFamiliar && (
             <TouchableOpacity 
-              style={[styles.notifBtn, { marginRight: 8 }]} 
+              style={[styles.notifBtn, { marginLeft: 8 }]} 
               onPress={() => {
                 if (onRegresar) {
                   onRegresar();

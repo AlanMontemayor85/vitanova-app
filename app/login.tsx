@@ -16,7 +16,6 @@ import {
 } from 'react-native';
 import {
   forgotPassword,
-  getRolesUsuario,
   login,
   register,
   resendConfirmation,
@@ -91,25 +90,23 @@ export default function LoginScreen() {
         await intentarRegistroPush();
 
         if (data.tipo && data.tipo.trim() !== '') {
-          // 1. Médicos y autónomos mantienen su ruta directa
-          if (data.tipo === 'medico') {
-            router.replace('/medico');
-            return;
-          }
-          if (data.tipo === 'autonomo') {
-            router.replace('/autocuidador');
-            return;
-          }
-
-          // 2. Evaluamos si la cuenta tiene asignaciones duales
-          const rolesData = await getRolesUsuario();
-
-          if (rolesData?.es_cuenta_dual) {
-            router.replace('/seleccionar-rol' as any);
-          } else if (rolesData?.tiene_cuidador && !rolesData?.tiene_familiar) {
-            router.replace('/cuidador');
-          } else {
-            router.replace('/');
+          switch (data.tipo) {
+            case 'dual':
+              // 🛡️ Usuario con ambos roles activos (Familiar + Cuidador)
+              router.replace('/seleccionar-rol' as any);
+              break;
+            case 'medico':
+              router.replace('/medico' as any);
+              break;
+            case 'cuidador':
+            case 'cuidador_contratado':
+              router.replace('/cuidador' as any);
+              break;
+            case 'autonomo':
+              router.replace('/autocuidador' as any);
+              break;
+            default:
+              router.replace('/' as any);
           }
         } else {
           router.replace('/completar-perfil' as any);
