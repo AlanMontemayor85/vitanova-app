@@ -91,22 +91,18 @@ export default function LoginScreen() {
 
         if (data.tipo && data.tipo.trim() !== '') {
           switch (data.tipo) {
-            case 'dual':
-              // 🛡️ Usuario con ambos roles activos (Familiar + Cuidador)
-              router.replace('/seleccionar-rol' as any);
-              break;
             case 'medico':
-              router.replace('/medico' as any);
+              router.replace('/medico');
               break;
             case 'cuidador':
             case 'cuidador_contratado':
-              router.replace('/cuidador' as any);
+              router.replace('/cuidador');
               break;
             case 'autonomo':
-              router.replace('/autocuidador' as any);
+              router.replace('/autocuidador');
               break;
             default:
-              router.replace('/' as any);
+              router.replace('/');
           }
         } else {
           router.replace('/completar-perfil' as any);

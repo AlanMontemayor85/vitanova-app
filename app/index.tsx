@@ -432,7 +432,7 @@ useEffect(() => {
 
       // 3. Aduana Biomédica
       const data = await getPacientes('init');
-      console.log("📌 [ORDEN BACKEND]", data?.patients?.map((p: any, i: number) => `[${i}]: ${p.nombre_completo} (ID: ${p.id})`));
+      console.log("📌 [ORDEN BACKEND]", data?.patients?.map((p: any, i: number) => `[${i}]: ${p.nombre} (ID: ${p.id})`));
       
       if (data && data.usuario_nombre && typeof setNombreUsuario === 'function') {
         setNombreUsuario(data.usuario_nombre);

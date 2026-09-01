@@ -291,23 +291,11 @@ const guardar = async () => {
 
     setExito(true);
 
-    setTimeout(async () => {
+    setTimeout(() => {
       if (paciente?.id) {
-        // Edición de paciente existente -> vuelve a la pantalla previa
         router.back();
       } else {
-        // 🛡️ Alta de paciente nuevo: Consultar el tipo de usuario actualizado
-        try {
-          const freshData = await getPacientes('post-alta-check');
-          if (freshData?.usuario_tipo === 'dual') {
-            router.replace('/seleccionar-rol' as any);
-          } else {
-            router.replace('/');
-          }
-        } catch (e) {
-          // Fallback seguro
-          router.replace('/seleccionar-rol' as any);
-        }
+        router.replace('/');
       }
     }, 800);
 
