@@ -147,9 +147,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between'
   },
   logoutHeaderBtn: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    padding: 10,
-    borderRadius: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   greeting: { fontSize: 10, fontWeight: '700', letterSpacing: 2, color: 'rgba(255,255,255,0.5)', marginBottom: 6 },
   userName: { fontSize: 20, fontWeight: '800', color: COLORS.white },
