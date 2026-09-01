@@ -381,26 +381,34 @@ export const register = async (
 
 
 
-export const getPacientes = async (origen: string = 'desconocido') => {
-
+export const getPacientes = async (origen: string = 'desconocido', rolForzado?: string) => {
   try {
+    // 1. Obtener rol explícito o leer el activo de AsyncStorage
+    const rolActivo = rolForzado || (await AsyncStorage.getItem('rol_activo'));
+    
+    // 2. Armar la URL con el query param ?rol= si existe
+    const endpoint = rolActivo 
+      ? `${BASE_URL}/medical/patients?rol=${rolActivo}` 
+      : `${BASE_URL}/medical/patients`;
 
-    console.log('📡 getPacientes desde:', origen);
+    console.log(`📡 getPacientes desde [${origen}] | Rol activo: [${rolActivo || 'todos'}]`);
 
-    const res = await fetchWithAuth(`${BASE_URL}/medical/patients`);
-
+    const res = await fetchWithAuth(endpoint);
     return await res.json();
-
   } catch (error) {
-
     return { error: String(error) };
-
   }
-
 };
-
-
-
+export const getMisRoles = async () => {
+  try {
+    console.log('📡 Consultando roles de acceso del usuario...');
+    const res = await fetchWithAuth(`${BASE_URL}/auth/mis-roles`);
+    return await res.json();
+  } catch (error) {
+    console.error('❌ Error en getMisRoles:', error);
+    return { roles: [], multi_rol: false, error: String(error) };
+  }
+};
 export const getUltimoCierre = async (pacienteId: string) => {
 
   try {
