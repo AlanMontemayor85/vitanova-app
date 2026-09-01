@@ -76,6 +76,7 @@ export default function HomeScreen() {
   const [equipo, setEquipo] = useState<MiembroEquipo[]>([]);
   const [totalTareasHoy, setTotalTareasHoy] = useState<number>(0);
   const [completadasTareasHoy, setCompletadasTareasHoy] = useState<number>(0);
+  const lastFocusFetchRef = useRef<number>(0);
   const solicitarConfirmacion = (
   titulo: string, 
   mensaje: string, 
@@ -471,7 +472,7 @@ useEffect(() => {
 
       // 3. Aduana Biomédica (Filtrada por rol familiar)
       const data = await getPacientes('init');
-      console.log("📌 [ORDEN BACKEND]", data?.patients?.map((p: any, i: number) => `[${i}]: ${p.nombre} (ID: ${p.id})`));
+      console.log("📌 [ORDEN BACKEND]", data?.patients?.map((p: any, i: number) => `[${i}]: ${p.nombre_completo} (ID: ${p.id})`));
       
       if (data && data.usuario_nombre && typeof setNombreUsuario === 'function') {
         setNombreUsuario(data.usuario_nombre);
@@ -671,11 +672,19 @@ useEffect(() => {
 
 useFocusEffect(
   useCallback(() => {
-    // Primer focus = montaje inicial → lo deja el init
+    // Primer focus = montaje inicial → lo gestiona el init principal
     if (isFirstFocus.current) {
       isFirstFocus.current = false;
       return;
     }
+
+    // 🛑 THROTTLE: Si consultó hace menos de 5 segundos, ignora la ráfaga
+    const now = Date.now();
+    if (now - lastFocusFetchRef.current < 5000) {
+      console.log('⏭️ [FOCUS] Refresco omitido por throttle (<5s)');
+      return;
+    }
+    lastFocusFetchRef.current = now;
 
     let cancelled = false;
 
@@ -684,8 +693,8 @@ useFocusEffect(
         const token = await loadStoredToken();
         if (!token || cancelled) return;
 
-        const idx = pacienteIndexRef.current ?? 0;
-        const data = await getPacientes('focus-refresh');
+        // Pasamos 'familiar' explícitamente para mantener el aislamiento
+        const data = await getPacientes('focus-refresh', 'familiar');
         if (cancelled || !data?.patients?.length) return;
         if (data.no_autenticado || data.detail === 'Token inválido o expirado') return;
 
@@ -694,10 +703,10 @@ useFocusEffect(
         );
         setPacientes(pacientesEstables);
 
+        const idx = pacienteIndexRef.current ?? 0;
         const p = pacientesEstables[idx] || pacientesEstables[0];
         setPaciente(p);
 
-        
       } catch (e) {
         console.log('focus-refresh omitido:', e);
       }

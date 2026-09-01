@@ -3,14 +3,14 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    SafeAreaView,
     StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
     View
 } from 'react-native';
-import { getMisRoles } from '../services/api';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { clearToken, getMisRoles } from '../services/api';
 
 const COLORS = {
   gold: '#BF9A40',
@@ -43,7 +43,6 @@ const OPCIONES: Record<string, { icon: string; titulo: string; desc: string; rut
   },
 };
 
-// 🎯 ASEGÚRATE DE TENER "export default" AQUÍ:
 export default function SelectorRolScreen() {
   const router = useRouter();
   const [roles, setRoles] = useState<string[]>([]);
@@ -67,6 +66,12 @@ export default function SelectorRolScreen() {
     router.replace(ruta as any);
   };
 
+  const handleCerrarSesionCompleta = async () => {
+    await AsyncStorage.removeItem('rol_activo');
+    await clearToken();
+    router.replace('/login');
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -80,8 +85,19 @@ export default function SelectorRolScreen() {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
       
       <View style={styles.header}>
-        <Text style={styles.greeting}>VITANOVA INTEGRALIS</Text>
-        <Text style={styles.userName}>¿Cómo deseas entrar hoy?</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.greeting}>VITANOVA INTEGRALIS</Text>
+          <Text style={styles.userName}>¿Cómo deseas entrar hoy?</Text>
+        </View>
+
+        {/* 🚪 Puerta directa al Login (Cerrar sesión completa) */}
+        <TouchableOpacity 
+          style={styles.logoutHeaderBtn}
+          onPress={handleCerrarSesionCompleta}
+          activeOpacity={0.7}
+        >
+          <Text style={{ fontSize: 16 }}>🚪</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.body}>
@@ -105,6 +121,14 @@ export default function SelectorRolScreen() {
             </TouchableOpacity>
           );
         })}
+
+        {/* Opción al pie para cambiar de cuenta */}
+        <TouchableOpacity 
+          style={styles.btnCambiarCuenta} 
+          onPress={handleCerrarSesionCompleta}
+        >
+          <Text style={styles.btnCambiarCuentaTexto}>Cerrar sesión / Cambiar de cuenta</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -113,7 +137,20 @@ export default function SelectorRolScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.cream },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream },
-  header: { backgroundColor: COLORS.cacao, paddingTop: 32, paddingHorizontal: 24, paddingBottom: 28 },
+  header: { 
+    backgroundColor: COLORS.cacao, 
+    paddingTop: 32, 
+    paddingHorizontal: 24, 
+    paddingBottom: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  logoutHeaderBtn: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    padding: 10,
+    borderRadius: 10,
+  },
   greeting: { fontSize: 10, fontWeight: '700', letterSpacing: 2, color: 'rgba(255,255,255,0.5)', marginBottom: 6 },
   userName: { fontSize: 20, fontWeight: '800', color: COLORS.white },
   body: { flex: 1, padding: 20, gap: 14 },
@@ -133,4 +170,16 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textDark },
   cardDesc: { fontSize: 12, color: COLORS.textLight, marginTop: 2 },
+  btnCambiarCuenta: {
+    marginTop: 'auto',
+    alignSelf: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  btnCambiarCuentaTexto: {
+    color: COLORS.textLight,
+    fontSize: 13,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
 });
