@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -24,6 +25,7 @@ import {
   getAlertaPeso,
   getBateriaPaciente,
   getInventario,
+  getMisRoles,
   getNotasTurno,
   getPacientes,
   getSignosRecientes,
@@ -559,14 +561,21 @@ useEffect(() => {
       try {
         await loadStoredToken();
         vaciarColaOffline();
+
+        // 🎯 Aseguramos que el rol activo en storage sea cuidador
+        // (A menos que venga explícitamente en modo switch familiar)
+        const esModoSwitch = params.modoSwitch === 'cuidador';
+        if (!esModoSwitch) {
+          await AsyncStorage.setItem('rol_activo', 'cuidador');
+        }
+
         const data = await getPacientes('cuidador-mount');
         if (data?.usuario_nombre) {
           setNombreUsuario(data.usuario_nombre);
         }
-        if (data.patients) {
+        if (data?.patients) {
           // 🎯 Mantenemos el rol de familiar_principal si entramos desde el modo switch
           const pacientesMapeados = data.patients.map((p: any) => {
-            // Si el paciente que llegó coincide con el embebido actual, le inyectamos su rol real
             if (pacienteProp && p.id === pacienteProp.id) {
               return { 
                 ...p, 
@@ -584,7 +593,7 @@ useEffect(() => {
           console.log("Push omitido en cuidador:", err)
         );
       } catch (e) {
-        console.error(e);
+        console.error('Error en carga cuidador:', e);
       } finally {
         setLoading(false);
       }
@@ -1234,7 +1243,37 @@ const guardarRegistroEspontaneo = async () => {
       Alert.alert('Error', 'WhatsApp no está disponible o instalado en este dispositivo.');
     });
   };
+  // ── GESTIÓN DE RETORNO / CAMBIO DE ROL ──
+const handleRegresarOpciones = async () => {
+  try {
+    // 1. Si está dentro de la consola del turno, primero regresar a la lista de pacientes
+    if (vista !== 'lista') {
+      resetEstados();
+      setVista('lista');
+      return;
+    }
 
+    // 2. Si venía de "Modo Cuidador" (Switch temporal desde familiar)
+    if (params.modoSwitch === 'cuidador' || esSwitchFamiliar) {
+      router.replace('/');
+      return;
+    }
+
+    // 3. Si es usuario Multi-Rol, regresar al selector de accesos
+    const rolesData = await getMisRoles();
+    if (rolesData?.multi_rol) {
+      await AsyncStorage.removeItem('rol_activo');
+      router.replace('/selector-rol');
+      return;
+    }
+
+    // 4. Si es cuidador puro en la pantalla de lista, salir a login o inicio
+    router.replace('/');
+  } catch (err) {
+    console.error('Error al gestionar regreso en cuidador:', err);
+    router.replace('/');
+  }
+};
   const ejecutarCierre = async () => {
   // 🧹 Función auxiliar para limpiar la UI y redirigir
   const limpiarYSalir = (mensajeTitulo: string, mensajeCuerpo: string) => {
@@ -1727,11 +1766,7 @@ if (vista === 'lista') {
         {/* Renderizamos la barra operativa normal sin el botón extra del emoji familiar */}
         <View style={styles.header}>
           <TouchableOpacity 
-            onPress={async () => {
-              setVista('lista');
-              resetEstados();
-              await refrescarPacientes('lista', true);
-            }}
+            onPress={handleRegresarOpciones}
             style={styles.backBtn}
           >
             <Text style={styles.backIcon}>←</Text>

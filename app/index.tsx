@@ -4,7 +4,7 @@ import { useFocusEffect, useLocalSearchParams, usePathname, useRouter } from 'ex
 import { Bell, Calendar, MapPin, Pill } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, DeviceEventEmitter, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { calibrarAcelerometroReloj, clearToken, enviarComandoReloj, forzarMedicionSignos, getAlertaPeso, getHoyLocalISO, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUbicacion, getUltimoCierre, getUserNombre, loadStoredToken, MiembroEquipo } from '../services/api';
+import { calibrarAcelerometroReloj, clearToken, enviarComandoReloj, forzarMedicionSignos, getAlertaPeso, getHoyLocalISO, getMisRoles, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUbicacion, getUltimoCierre, getUserNombre, loadStoredToken, MiembroEquipo } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 import { BannerAlertasPreventivas } from './components/BannerAlertasPreventivas';
 import { TarjetaUltimoCierre } from './components/TarjetaUltimoCierre';
@@ -398,13 +398,12 @@ useEffect(() => {
 
 // 🔄 Carga inicial y Enrutador Inteligente Relacional
 useEffect(() => {
-
   console.log("🚀 [INIT DISPARADO]", { 
-  refresh: params.refresh, 
-  modoSwitchParam, 
-  paramModoSwitch: params.modoSwitch,
-  time: new Date().toISOString() 
-});
+    refresh: params.refresh, 
+    modoSwitchParam, 
+    paramModoSwitch: params.modoSwitch,
+    time: new Date().toISOString() 
+  });
 
   const init = async () => {
     try {
@@ -430,7 +429,47 @@ useEffect(() => {
         return;
       }
 
-      // 3. Aduana Biomédica
+      // 🚪 2.5. EVALUACIÓN DE ROLES (Multi-rol & Puertas de Acceso)
+      const rolGuardado = await AsyncStorage.getItem('rol_activo');
+      const rolesData = await getMisRoles();
+
+      if (rolesData?.multi_rol) {
+        // Si tiene múltiples puertas y no tiene rol fijado o no coincide con los disponibles
+        if (!rolGuardado || !rolesData.roles.includes(rolGuardado)) {
+          console.log("🚪 Usuario Multi-Rol detectado sin rol activo. Navegando a /selector-rol");
+          router.replace('/selector-rol');
+          return;
+        }
+
+        // Si ya eligió cuidador o autónomo en el selector, enviarlo a su pantalla
+        if (rolGuardado === 'cuidador') {
+          router.replace({
+            pathname: '/cuidador' as any,
+            params: { usuarioRol: 'cuidador_contratado', modoSwitch: 'ninguno' }
+          });
+          return;
+        } else if (rolGuardado === 'autonomo') {
+          router.replace('/autocuidador' as any);
+          return;
+        }
+        // Si rolGuardado === 'familiar', continúa abajo normalmente
+      } else if (rolesData?.roles?.length === 1) {
+        const unicoRol = rolesData.roles[0];
+        await AsyncStorage.setItem('rol_activo', unicoRol);
+
+        if (unicoRol === 'cuidador') {
+          router.replace({
+            pathname: '/cuidador' as any,
+            params: { usuarioRol: 'cuidador_contratado', modoSwitch: 'ninguno' }
+          });
+          return;
+        } else if (unicoRol === 'autonomo') {
+          router.replace('/autocuidador' as any);
+          return;
+        }
+      }
+
+      // 3. Aduana Biomédica (Filtrada por rol familiar)
       const data = await getPacientes('init');
       console.log("📌 [ORDEN BACKEND]", data?.patients?.map((p: any, i: number) => `[${i}]: ${p.nombre} (ID: ${p.id})`));
       
@@ -446,8 +485,6 @@ useEffect(() => {
       }
 
       // 🛑 CANDADO DE SEGURIDAD:
-      // Si el backend pide completar perfil, no hay tipo de usuario, 
-      // O el nombre viene vacío/nulo, REBOTAR a /completar-perfil SÍ O SÍ.
       if (
         data.status === 'pending_profile' || 
         data.requiere_perfil || 
@@ -459,16 +496,17 @@ useEffect(() => {
         router.replace('/completar-perfil');
         return;
       }
-      // Segmentación de Rutas
+
+      // Segmentación de Rutas Legacy / Fallback
       const tipo = data.usuario_tipo;
       const esCuidadorPuro = tipo === 'cuidador' || tipo === 'cuidador_contratado';
-      // 🎯 Reemplaza tu línea actual de esFamiliar por esta:
       const esFamiliar = 
         tipo === 'familiar' || 
         tipo === 'admin' || 
         tipo === 'familiar_principal' || 
         tipo === 'familiar_co_admin'; 
-      if (esCuidadorPuro) {
+
+      if (esCuidadorPuro && !rolesData?.multi_rol) {
         router.replace({
           pathname: '/cuidador' as any,
           params: { usuarioRol: 'cuidador_contratado', modoSwitch: 'ninguno' }
@@ -477,9 +515,6 @@ useEffect(() => {
       }
 
       if (esFamiliar) {
-        // 🎯 SOLO nos desviamos si el usuario expresamente activó el Modo Cuidador.
-        // Si el valor es 'familiar', 'ninguno' o no viene nada, la condición da false 
-        // y el código continúa directo al Paso 4 (Flujo Normal de Familiar).
         const quiereModoCuidador = modoSwitchParam === 'cuidador';
 
         if (quiereModoCuidador) {
@@ -487,14 +522,14 @@ useEffect(() => {
             pathname: '/cuidador' as any,
             params: {
               usuarioRol: 'familiar_principal',
-              modoSwitch: 'cuidador', // Notificamos a la vista cuidador su nuevo estado
+              modoSwitch: 'cuidador',
               pacienteId: pacienteIdParam || data.patients?.[0]?.id,
               refresh: Date.now().toString()
             }
           });
           return;
         }
-      } else if (tipo === 'autonomo') {
+      } else if (tipo === 'autonomo' && !rolesData?.multi_rol) {
         router.replace({ pathname: '/autocuidador' as any, params: { pacienteId: data.patients?.[0]?.id } });
         return;
       } else if (tipo === 'medico') {
@@ -503,19 +538,16 @@ useEffect(() => {
       }
 
       if (data.patients && data.patients.length > 0) {
-        // 📌 1. Estabilizamos el orden por ID para que Railway no nos mueva las sillas
         const pacientesEstables = [...data.patients].sort((a, b) => 
           String(a.id).localeCompare(String(b.id))
         );
 
         setPacientes(pacientesEstables);
 
-        // 📌 2. Leemos la posición sobre la lista que YA está ordenada
         const idxActual = pacienteIndexRef.current ?? 0;
         const p = pacientesEstables[idxActual] || pacientesEstables[0];
         setPaciente(p);
 
-        // Peticiones paralelas originales que ya te funcionaban
         const [cierreData, notasData, alertaPesoData, turnoRes, tareasHoyData] = await Promise.all([
           getUltimoCierre(p.id).catch(() => ({ cierre: null })),
           getNotasTurno(p.id).catch(() => ({ notas: [] })),
@@ -531,12 +563,10 @@ useEffect(() => {
         if (notasData?.notas) setNotas(notasData.notas);
         if (alertaPesoData?.alerta) setAlertaPeso(alertaPesoData);
 
-        // 🎯 EXTRAER EL ARRAY COMPLETO DE TAREAS RECIBIDO
         const listaTareas = Array.isArray(tareasHoyData)
           ? tareasHoyData
           : (tareasHoyData?.tareas || []);
         
-        // 🔍 LOG DE DEPURACIÓN DETALLADO
         console.log("==========================================");
         console.log("🔍 DIAGNÓSTICO EN FRONTEND (Index.tsx):");
         console.log("📦 Respuesta cruda de tareasHoyData:", JSON.stringify(tareasHoyData));
@@ -567,19 +597,16 @@ useEffect(() => {
         console.log("==========================================");
         setTotalTareasHoy(totalCalculado);
         setCompletadasTareasHoy(completadasCalculadas);
-        // 🎯 SETEAR EN EL ESTADO
-        // 🎯 SETEAR EN EL ESTADO (Soporte para múltiples turnos simultáneos)
+
         const turnosRecibidos = Array.isArray(turnoRes?.turnos)
           ? turnoRes.turnos
           : (turnoRes?.turno ? [turnoRes.turno] : (Array.isArray(turnoRes) ? turnoRes : []));
 
         if (turnosRecibidos.length > 0) {
-          // Mapeamos los turnos respetando el conteo de tareas de cada uno
           const turnosProcesados = turnosRecibidos.map((t: any) => ({
             ...t,
             cuidador_nombre: t.cuidador_nombre || "Turno del Día",
             horario: t.horario || "00:00 - 23:59",
-            // Si el turno ya trae sus tareas calculadas del backend las usa, sino asigna el cálculo del día
             total: t.total !== undefined ? t.total : totalCalculado,
             completadas: t.completadas !== undefined ? t.completadas : completadasCalculadas,
           }));

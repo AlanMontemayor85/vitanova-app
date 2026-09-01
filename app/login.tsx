@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { makeRedirectUri } from 'expo-auth-session';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -16,11 +17,12 @@ import {
 } from 'react-native';
 import {
   forgotPassword,
+  getMisRoles,
   login,
   register,
   resendConfirmation,
   resetPassword,
-  setToken,
+  setToken
 } from '../services/api';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -89,19 +91,52 @@ export default function LoginScreen() {
         await setToken(data.access_token);
         await intentarRegistroPush();
 
+        // 👨‍⚕️ 1. Médicos van directo a su panel
+        if (data.tipo === 'medico') {
+          await AsyncStorage.setItem('rol_activo', 'medico');
+          router.replace('/medico');
+          return;
+        }
+
+        // 🚪 2. Consultar roles derivados en equipo_cuidado
+        const rolesData = await getMisRoles();
+
+        if (rolesData?.multi_rol) {
+          // Si tiene 2 o más puertas abiertas, selector
+          router.replace('/selector-rol');
+          return;
+        }
+
+        if (rolesData?.roles?.length === 1) {
+          const unicoRol = rolesData.roles[0];
+          await AsyncStorage.setItem('rol_activo', unicoRol);
+
+          if (unicoRol === 'cuidador') {
+            router.replace('/cuidador');
+            return;
+          } else if (unicoRol === 'autonomo') {
+            router.replace('/autocuidador');
+            return;
+          } else {
+            router.replace('/');
+            return;
+          }
+        }
+
+        // 🔄 3. Fallback con data.tipo de Supabase
         if (data.tipo && data.tipo.trim() !== '') {
           switch (data.tipo) {
-            case 'medico':
-              router.replace('/medico');
-              break;
             case 'cuidador':
             case 'cuidador_contratado':
+              await AsyncStorage.setItem('rol_activo', 'cuidador');
               router.replace('/cuidador');
               break;
             case 'autonomo':
+              await AsyncStorage.setItem('rol_activo', 'autonomo');
               router.replace('/autocuidador');
               break;
             default:
+              await AsyncStorage.setItem('rol_activo', 'familiar');
               router.replace('/');
           }
         } else {
@@ -241,6 +276,29 @@ export default function LoginScreen() {
           const decodedToken = decodeURIComponent(accessToken);
           await setToken(decodedToken);
           intentarRegistroPush().catch((err) => console.log('⚠️ Registro Push ignorado:', err));
+
+          // 🚪 Consultar roles tras login de Google
+          const rolesData = await getMisRoles();
+
+          if (rolesData?.multi_rol) {
+            router.replace('/selector-rol');
+            return;
+          }
+
+          if (rolesData?.roles?.length === 1) {
+            const unicoRol = rolesData.roles[0];
+            await AsyncStorage.setItem('rol_activo', unicoRol);
+
+            if (unicoRol === 'cuidador') {
+              router.replace('/cuidador');
+              return;
+            } else if (unicoRol === 'autonomo') {
+              router.replace('/autocuidador');
+              return;
+            }
+          }
+
+          await AsyncStorage.setItem('rol_activo', 'familiar');
           router.replace('/' as any);
         } else if (code) {
           setError('OAuth devolvió un code (PKCE) — requiere intercambio');
