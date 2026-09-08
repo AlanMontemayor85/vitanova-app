@@ -2047,28 +2047,6 @@ const handleRegresarOpciones = async () => {
 
               <View style={{ width: 1, height: 26, backgroundColor: COLORS.border, alignSelf: 'center' }} />
 
-              {/* 2. PRESIÓN */}
-              <View style={{ alignItems: 'center', flex: 1 }}>
-                <Text style={{ fontSize: 19, fontWeight: '800', color: COLORS.cacao }}>
-                  {(() => {
-                    if (!signosDispositivo?.frescura?.bphrt) return "—";
-                    if (signosDispositivo?.presion && signosDispositivo.presion !== "—") return signosDispositivo.presion;
-                    if (signosDispositivo?.presion_sistolica && signosDispositivo?.presion_diastolica) {
-                      return `${signosDispositivo.presion_sistolica}/${signosDispositivo.presion_diastolica}`;
-                    }
-                    return "—";
-                  })()}
-                </Text>
-                <Text style={[styles.monitorSubTextLabel, { marginTop: 2 }]}>Presión</Text>
-                {signosDispositivo?.frescura?.bphrt && signosDispositivo?.bphrt_ts && (
-                  <Text style={{ fontSize: 10, color: '#8E8E93', fontWeight: '500', marginTop: 1 }}>
-                    {formatearHora(signosDispositivo.bphrt_ts)}
-                  </Text>
-                )}
-              </View>
-
-              <View style={{ width: 1, height: 26, backgroundColor: COLORS.border, alignSelf: 'center' }} />
-
               {/* 3. PULSO */}
               <View style={{ alignItems: 'center', flex: 1 }}>
                 <Text style={{ fontSize: 19, fontWeight: '800', color: COLORS.red }}>

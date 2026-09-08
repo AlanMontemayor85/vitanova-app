@@ -1273,29 +1273,6 @@ useEffect(() => {
                       )}
                     </View>
 
-                    {/* PRESIÓN ARTERIAL */}
-                    <View style={styles.vitalCard}>
-                      <View style={styles.valueWithUnitRow}>
-                        <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
-                          {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
-                            ? signosDispositivo?.presion.split('/')[0] 
-                            : '—'}
-                          <Text style={styles.vitalValSmall}>
-                            {signosDispositivo?.frescura?.bphrt && signosDispositivo?.presion !== "—" 
-                              ? `/${signosDispositivo?.presion.split('/')[1]}` 
-                              : ''}
-                          </Text>
-                        </Text>
-                        <Text style={styles.vitalUnit}>mmHg</Text>
-                      </View>
-                      <Text style={styles.vitalLabel}>Presión</Text>
-                      {signosDispositivo?.bphrt_ts && (
-                        <Text style={styles.subtextoHora}>
-                          {formatearHora(signosDispositivo.bphrt_ts)}
-                        </Text>
-                      )}
-                    </View>
-
                     {/* FRECUENCIA CARDÍACA */}
                     <View style={styles.vitalCard}>
                       <View style={styles.valueWithUnitRow}>
