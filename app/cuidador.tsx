@@ -2047,6 +2047,8 @@ const handleRegresarOpciones = async () => {
 
               <View style={{ width: 1, height: 26, backgroundColor: COLORS.border, alignSelf: 'center' }} />
 
+              
+
               {/* 3. PULSO */}
               <View style={{ alignItems: 'center', flex: 1 }}>
                 <Text style={{ fontSize: 19, fontWeight: '800', color: COLORS.red }}>

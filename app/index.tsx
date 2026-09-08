@@ -1273,6 +1273,8 @@ useEffect(() => {
                       )}
                     </View>
 
+                    
+
                     {/* FRECUENCIA CARDÍACA */}
                     <View style={styles.vitalCard}>
                       <View style={styles.valueWithUnitRow}>
