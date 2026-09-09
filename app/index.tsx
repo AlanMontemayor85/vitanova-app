@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, DeviceEventEmitter, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { calibrarAcelerometroReloj, clearToken, enviarComandoReloj, forzarMedicionSignos, getAlertaPeso, getHoyLocalISO, getMisRoles, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUbicacion, getUltimoCierre, getUserNombre, loadStoredToken, MiembroEquipo } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
+import { CheckinControlCard } from '././components/CheckInCard';
 import { BannerAlertasPreventivas } from './components/BannerAlertasPreventivas';
 import { TarjetaUltimoCierre } from './components/TarjetaUltimoCierre';
 import CuidadorScreen from './cuidador';
@@ -1332,7 +1333,15 @@ useEffect(() => {
 )}
               </>
             )}
-            
+            {/* ── 🟢 TELEASISTENCIA: CHECK-IN / ESTOY BIEN ── */}
+            {paciente?.id && (
+              <View style={{ marginHorizontal: 16, marginBottom: 16 }}>
+                <CheckinControlCard
+                  patientId={paciente.id}
+                  initialConfig={paciente.checkin_config}
+                />
+              </View>
+            )}
            {/* ======================================================== */}
             {/* ⚡ SECCIÓN 1: TURNOS ACTIVOS DE CUIDADO                  */}
             {/* ======================================================== */}

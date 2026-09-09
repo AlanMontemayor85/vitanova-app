@@ -1,15 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
-import { actualizarConfigCheckin, CheckinConfig, solicitarCheckinPaciente } from '../../services/api'; // Ajusta la ruta a tu api.ts
+import {
+    actualizarConfigCheckin,
+    CheckinConfig,
+    loadStoredToken,
+    solicitarCheckinPaciente
+} from '../../services/api';
 
 interface CheckinCardProps {
   patientId: string;
   initialConfig?: CheckinConfig;
-  userToken: string;
 }
 
-export const CheckinControlCard = ({ patientId, initialConfig, userToken }: CheckinCardProps) => {
+export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProps) => {
   const [loading, setLoading] = useState(false);
   const [activo, setActivo] = useState(initialConfig?.activo ?? false);
   const [horas] = useState(initialConfig?.horas ?? ['09:00', '20:00']);
@@ -17,7 +21,13 @@ export const CheckinControlCard = ({ patientId, initialConfig, userToken }: Chec
   const handleDispararCheckin = async () => {
     setLoading(true);
     try {
-      const data = await solicitarCheckinPaciente(patientId, userToken);
+      const token = await loadStoredToken();
+      if (!token) {
+        Alert.alert("Sesión expirada", "Por favor inicia sesión nuevamente.");
+        return;
+      }
+
+      const data = await solicitarCheckinPaciente(patientId, token);
       if (data.success) {
         Alert.alert("🔔 Solicitud enviada", "El reloj comenzó a sonar. Esperando que el paciente presione el botón de voz.");
       } else {
@@ -33,6 +43,13 @@ export const CheckinControlCard = ({ patientId, initialConfig, userToken }: Chec
   const handleToggle = async (valor: boolean) => {
     setActivo(valor);
     try {
+      const token = await loadStoredToken();
+      if (!token) {
+        Alert.alert("Sesión expirada", "Por favor inicia sesión nuevamente.");
+        setActivo(!valor);
+        return;
+      }
+
       await actualizarConfigCheckin(
         patientId,
         {
@@ -40,7 +57,7 @@ export const CheckinControlCard = ({ patientId, initialConfig, userToken }: Chec
           horas: horas,
           dias: [1, 2, 3, 4, 5, 6, 7],
         },
-        userToken
+        token
       );
     } catch (err: any) {
       Alert.alert("Error", "No se pudo guardar la configuración.");
