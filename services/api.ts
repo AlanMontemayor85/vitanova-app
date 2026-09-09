@@ -438,7 +438,58 @@ export const getUltimoCierre = async (pacienteId: string) => {
 };
 
 
+// ─── TELEASISTENCIA / CHECK-IN ──────────────────────────────────────────────
 
+export interface CheckinConfig {
+  activo: boolean;
+  horas: string[];
+  dias: number[];
+}
+
+/**
+ * Dispara una alerta sonora al reloj para solicitar confirmación de estado ("Estoy bien")
+ */
+export const solicitarCheckinPaciente = async (patientId: string, token: string) => {
+  const response = await fetch(`${BASE_URL}/pacientes/${patientId}/solicitar-checkin`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || 'Error al solicitar el check-in.');
+  }
+
+  return response.json();
+};
+
+/**
+ * Actualiza la configuración de horarios automatizados para el check-in del paciente
+ */
+export const actualizarConfigCheckin = async (
+  patientId: string,
+  config: CheckinConfig,
+  token: string
+) => {
+  const response = await fetch(`${BASE_URL}/pacientes/${patientId}/checkin-config`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(config),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || 'Error al actualizar la configuración de check-in.');
+  }
+
+  return response.json();
+};
 export const getNotasTurno = async (pacienteId: string) => {
 
   try {

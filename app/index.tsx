@@ -1019,135 +1019,122 @@ useEffect(() => {
             {/* ⌚ SOLO SE MUESTRA SI EL PACIENTE TIENE UN RELOJ VINCULADO (IMEI) */}
             {Boolean(paciente?.reloj_imei) && (
               <>
-                {/* VITALS CON TELEMETRÍA EN VIVO */}
+               {/* VITALS CON TELEMETRÍA EN VIVO */}
               <View style={styles.vitalsContainer}>
                 {/* CABECERA DEL MÓDULO */}
-                <View style={styles.vitalsHeaderRow}>
-                  
-                  {/* Título + Live Dot + Pill Batería */}
+                <View style={[styles.vitalsHeaderRow, { alignItems: 'center', marginBottom: 12 }]}>
+                  {/* Título + Dot + Pill de Conexión */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <View style={styles.liveDot} />
                     <Text style={styles.vitalsHeaderTitle}>Telemetría en Vivo</Text>
-                      {/* 🔋 PILL DE BATERÍA ESTANDARIZADA CON DETECCIÓN DE APAGADO Y DESCONEXIÓN */}
-                      {(() => {
-                        const batVal =
-                          ubicacion?.bateria_pct ??
-                          ubicacion?.bateria ??
-                          signosDispositivo?.bateria_pct ??
-                          signosDispositivo?.bateria ??
-                          signosDispositivo?.data?.bateria_pct ??
-                          paciente?.bateria_pct ??
-                          null;
+                    {(() => {
+                      const batVal =
+                        ubicacion?.bateria_pct ??
+                        ubicacion?.bateria ??
+                        signosDispositivo?.bateria_pct ??
+                        signosDispositivo?.bateria ??
+                        signosDispositivo?.data?.bateria_pct ??
+                        paciente?.bateria_pct ??
+                        null;
 
-                        const ultimaConexionStr =
-                          ubicacion?.ultima_conexion ??
-                          ubicacion?.updated_at ??
-                          signosDispositivo?.ultima_conexion ??
-                          signosDispositivo?.created_at ??
-                          paciente?.updated_at ??
-                          null;
+                      const ultimaConexionStr =
+                        ubicacion?.ultima_conexion ??
+                        ubicacion?.updated_at ??
+                        signosDispositivo?.ultima_conexion ??
+                        signosDispositivo?.created_at ??
+                        paciente?.updated_at ??
+                        null;
 
-                        // Cálculo de tiempo transcurrido
-                        let diffMinutos = 0;
-                        if (ultimaConexionStr) {
-                          try {
-                            const fechaNorm = ultimaConexionStr.includes('Z') || ultimaConexionStr.includes('+')
-                              ? ultimaConexionStr
-                              : `${ultimaConexionStr.replace(' ', 'T')}Z`;
-                            diffMinutos = Math.floor((new Date().getTime() - new Date(fechaNorm).getTime()) / (1000 * 60));
-                          } catch {
-                            diffMinutos = 0;
-                          }
+                      let diffMinutos = 0;
+                      if (ultimaConexionStr) {
+                        try {
+                          const fechaNorm = ultimaConexionStr.includes('Z') || ultimaConexionStr.includes('+')
+                            ? ultimaConexionStr
+                            : `${ultimaConexionStr.replace(' ', 'T')}Z`;
+                          diffMinutos = Math.floor((new Date().getTime() - new Date(fechaNorm).getTime()) / (1000 * 60));
+                        } catch {
+                          diffMinutos = 0;
                         }
+                      }
 
-                        const numBat = batVal !== null && typeof batVal === 'number' ? batVal : null;
-                        const estaFueraDeLinea = diffMinutos > 10;
-                        const esAgotada = (numBat !== null && numBat <= 3) || (numBat !== null && numBat <= 5 && estaFueraDeLinea);
-                        const esBaja = numBat !== null && numBat > 3 && numBat < 20;
+                      const numBat = typeof batVal === 'number' ? batVal : null;
+                      const estaFueraDeLinea = diffMinutos > 10;
+                      const esAgotada = (numBat !== null && numBat <= 3) || (numBat !== null && numBat <= 5 && estaFueraDeLinea);
+                      const esBaja = numBat !== null && numBat > 3 && numBat < 20;
 
-                        // Estilos dinámicos sobrios
-                        let bgPill = '#F0FDF4';
-                        let borderPill = '#BBF7D0';
-                        let textPill = '#166534';
-                        let labelPill = numBat !== null ? `${numBat}%` : '--%';
+                      let bgPill = '#F0FDF4';
+                      let borderPill = '#BBF7D0';
+                      let textPill = '#166534';
+                      let labelPill = numBat !== null ? `${numBat}%` : '--%';
 
-                        if (signosDispositivo?.cargando) {
-                          bgPill = '#EFF6FF';
-                          borderPill = '#BFDBFE';
-                          textPill = '#1E40AF';
-                          labelPill = numBat !== null ? `CARGA ${numBat}%` : 'CARGANDO';
-                        } else if (esAgotada) {
-                          bgPill = '#FEF2F2';
-                          borderPill = '#FECACA';
-                          textPill = '#991B1B';
-                          labelPill = 'APAGADO';
+                      if (signosDispositivo?.cargando) {
+                        bgPill = '#EFF6FF';
+                        borderPill = '#BFDBFE';
+                        textPill = '#1E40AF';
+                        labelPill = numBat !== null ? `CARGA ${numBat}%` : 'CARGANDO';
+                      } else if (esAgotada) {
+                        bgPill = '#FEF2F2';
+                        borderPill = '#FECACA';
+                        textPill = '#991B1B';
+                        labelPill = 'APAGADO';
+                      } else if (estaFueraDeLinea) {
+                        bgPill = '#FFFBEB';
+                        borderPill = '#FDE68A';
+                        textPill = '#92400E';
+                        labelPill = numBat !== null ? `OFF ${numBat}%` : 'OFF';
+                      } else if (esBaja) {
+                        bgPill = '#FEF2F2';
+                        borderPill = '#FCA5A5';
+                        textPill = '#B91C1C';
+                      }
+
+                      const handlePillPress = () => {
+                        if (esAgotada) {
+                          Alert.alert(
+                            'Reloj Apagado por Batería',
+                            'El dispositivo se apagó al descargarse por completo.\n\n' +
+                            '1. Conéctelo a la base de carga magnética.\n' +
+                            '2. Espere 5 minutos para carga básica.\n' +
+                            '3. Presione el botón lateral 4 segundos para encenderlo.',
+                            [{ text: 'Entendido', style: 'default' }]
+                          );
                         } else if (estaFueraDeLinea) {
-                          bgPill = '#FFFBEB';
-                          borderPill = '#FDE68A';
-                          textPill = '#92400E';
-                          labelPill = numBat !== null ? `OFF ${numBat}%` : 'OFF';
-                        } else if (esBaja) {
-                          bgPill = '#FEF2F2';
-                          borderPill = '#FCA5A5';
-                          textPill = '#B91C1C';
+                          const tiempoTexto = diffMinutos > 60 
+                            ? `${Math.floor(diffMinutos / 60)}h ${diffMinutos % 60}m` 
+                            : `${diffMinutos} min`;
+                          Alert.alert(
+                            'Reloj Fuera de Línea',
+                            `El reloj no se comunica desde hace ${tiempoTexto}.\n\n` +
+                            `• Batería: ${numBat !== null ? numBat + '%' : 'No disponible'}\n` +
+                            '• Verifique si se encuentra apagado o sin cobertura.',
+                            [{ text: 'Entendido', style: 'default' }]
+                          );
                         }
+                      };
 
-                        const handlePillPress = () => {
-                          if (esAgotada) {
-                            Alert.alert(
-                              'Reloj Apagado por Batería',
-                              'El dispositivo se apagó al descargarse por completo.\n\n' +
-                              '1. Conéctelo a la base de carga magnética.\n' +
-                              '2. Espere 5 minutos para que tome carga básica.\n' +
-                              '3. Mantenga presionado el botón lateral 4 segundos para encenderlo.\n\n' +
-                              'El reloj no enviará datos hasta que se encienda nuevamente.',
-                              [{ text: 'Entendido', style: 'default' }]
-                            );
-                          } else if (estaFueraDeLinea) {
-                            const tiempoTexto = diffMinutos > 60 
-                              ? `${Math.floor(diffMinutos / 60)}h ${diffMinutos % 60}m` 
-                              : `${diffMinutos} min`;
-                            Alert.alert(
-                              'Reloj Fuera de Línea',
-                              `El reloj no se comunica desde hace ${tiempoTexto}.\n\n` +
-                              `• Última batería registrada: ${numBat !== null ? numBat + '%' : 'No disponible'}\n` +
-                              '• Verifique si el dispositivo fue apagado manualmente o se encuentra sin cobertura móvil.',
-                              [{ text: 'Entendido', style: 'default' }]
-                            );
-                          }
-                        };
-
-                        return (
-                          <TouchableOpacity
-                            activeOpacity={esAgotada || estaFueraDeLinea ? 0.7 : 1}
-                            onPress={handlePillPress}
-                            style={{
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              backgroundColor: bgPill,
-                              paddingHorizontal: 7,
-                              paddingVertical: 2.5,
-                              borderRadius: 6,
-                              borderWidth: 1,
-                              borderColor: borderPill,
-                              marginLeft: 4,
-                              gap: 4,
-                            }}
-                          >
-                            <View style={{ width: 4.5, height: 4.5, borderRadius: 2.5, backgroundColor: textPill }} />
-                            <Text
-                              style={{
-                                fontSize: 10,
-                                fontWeight: '700',
-                                color: textPill,
-                                letterSpacing: 0.3,
-                              }}
-                            >
-                              {labelPill}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })()}
+                      return (
+                        <TouchableOpacity
+                          activeOpacity={esAgotada || estaFueraDeLinea ? 0.7 : 1}
+                          onPress={handlePillPress}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            backgroundColor: bgPill,
+                            paddingHorizontal: 7,
+                            paddingVertical: 2,
+                            borderRadius: 6,
+                            borderWidth: 1,
+                            borderColor: borderPill,
+                            gap: 4,
+                          }}
+                        >
+                          <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: textPill }} />
+                          <Text style={{ fontSize: 10, fontWeight: '700', color: textPill }}>
+                            {labelPill}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })()}
                   </View>
 
                   {/* Botón Sensa Ahora */}
@@ -1155,30 +1142,26 @@ useEffect(() => {
                     style={[
                       styles.btnMedir, 
                       {
-                        paddingHorizontal: 10,
+                        paddingHorizontal: 12,
                         paddingVertical: 6,
                         borderRadius: 8,
-                        minWidth: 105,
                         alignItems: 'center',
                         justifyContent: 'center',
                       },
                       midiendo 
-                        ? { backgroundColor: '#C2410C', opacity: 0.95 } 
+                        ? { backgroundColor: '#C2410C' } 
                         : signosDispositivo?.cargando 
-                          ? { backgroundColor: '#475569', opacity: 0.95 } 
+                          ? { backgroundColor: '#475569' } 
                           : null
                     ]} 
                     onPress={() => {
                       if (signosDispositivo?.cargando) {
                         Alert.alert(
-                          "Reloj en Modo Carga",
-                          "El sistema detectó que el reloj permanece en la cuna de carga. ¿El paciente ya lo tiene colocado en la muñeca?",
+                          "Reloj en Base de Carga",
+                          "El dispositivo está conectado a la base. Para sensar signos debe colocarse en la muñeca.",
                           [
                             { text: "Cancelar", style: "cancel" },
-                            { 
-                              text: "Sí, ya está colocado", 
-                              onPress: () => ejecutarMedicionRemota() 
-                            }
+                            { text: "Ya colocado", onPress: () => ejecutarMedicionRemota() }
                           ]
                         );
                         return;
@@ -1186,64 +1169,58 @@ useEffect(() => {
                       ejecutarMedicionRemota();
                     }}
                     disabled={midiendo}
-                    activeOpacity={0.7}
+                    activeOpacity={0.8}
                   >
                     <Text style={[
                       styles.btnMedirText,
-                      { fontSize: 10.5, fontWeight: '700', letterSpacing: 0.4, textAlign: 'center' },
-                      (midiendo || signosDispositivo?.cargando) && { color: '#FFFFFF' }
+                      { fontSize: 10.5, fontWeight: '700', letterSpacing: 0.3 }
                     ]}>
-                      {midiendo 
-                        ? "SENSANDO..." 
-                        : signosDispositivo?.cargando
-                          ? "EN CARGA" 
-                          : "SENSA AHORA"}
+                      {midiendo ? "SENSANDO..." : signosDispositivo?.cargando ? "EN BASE" : "SENSA AHORA"}
                     </Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* FILA 1: FRECUENCIA CARDÍACA, SPO2 Y TEMPERATURA */}
-                <View style={styles.vitalsGridRow}>
+                {/* FILA 1: FRECUENCIA CARDÍACA Y OXÍGENO (SPO2) */}
+                <View style={[styles.vitalsGridRow, { marginBottom: 10 }]}>
                   {/* FRECUENCIA CARDÍACA */}
-                  <View style={styles.vitalCard}>
+                  <View style={[styles.vitalCard, { flex: 1 }]}>
                     <View style={styles.valueWithUnitRow}>
-                      <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.bphrt ? (COLORS?.red ?? '#DC2626') : COLORS.textDark }]}>
+                      <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.bphrt ? COLORS.red : COLORS.textDark }]}>
                         {signosDispositivo?.frescura?.bphrt && signosDispositivo?.fc !== "—" 
-                          ? signosDispositivo?.fc 
+                          ? signosDispositivo.fc 
                           : '—'}
                       </Text>
                       <Text style={styles.vitalUnit}>bpm</Text>
                     </View>
                     <Text style={styles.vitalLabel}>F. Cardíaca</Text>
-                    {signosDispositivo?.bphrt_ts && (
-                      <Text style={styles.subtextoHora}>
-                        {formatearHora(signosDispositivo.bphrt_ts)}
-                      </Text>
-                    )}
+                    <Text style={styles.subtextoHora}>
+                      {signosDispositivo?.bphrt_ts ? formatearHora(signosDispositivo.bphrt_ts) : 'Sin registro'}
+                    </Text>
                   </View>
 
-                  {/* SPO2 */}
-                  <View style={styles.vitalCard}>
+                  {/* OXÍGENO */}
+                  <View style={[styles.vitalCard, { flex: 1 }]}>
                     <View style={styles.valueWithUnitRow}>
                       <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
                         {signosDispositivo?.frescura?.spo2 && signosDispositivo?.spo2 !== "—" 
-                          ? signosDispositivo?.spo2 
+                          ? signosDispositivo.spo2 
                           : '—'}
                       </Text>
                       <Text style={styles.vitalUnit}>%</Text>
                     </View>
                     <Text style={styles.vitalLabel}>SpO₂</Text>
-                    {signosDispositivo?.spo2_ts && (
-                      <Text style={styles.subtextoHora}>
-                        {formatearHora(signosDispositivo.spo2_ts)}
-                      </Text>
-                    )}
+                    <Text style={styles.subtextoHora}>
+                      {signosDispositivo?.spo2_ts ? formatearHora(signosDispositivo.spo2_ts) : 'Sin registro'}
+                    </Text>
                   </View>
+                </View>
 
-                  {/* TEMPERATURA CORPORAL */}
-                  <View style={styles.vitalCard}>
+                {/* FILA 2: TEMPERATURA Y PESO */}
+                <View style={styles.vitalsGridRow}>
+                  {/* TEMPERATURA */}
+                  <View style={[styles.vitalCard, { flex: 1 }]}>
                     <View style={styles.valueWithUnitRow}>
-                      <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.temperatura ? (COLORS?.green ?? '#059669') : COLORS.textDark }]}>
+                      <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.temperatura ? COLORS.green : COLORS.textDark }]}>
                         {signosDispositivo?.frescura?.temperatura && signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
                           ? signosDispositivo.temperatura 
                           : '—'}
@@ -1253,48 +1230,9 @@ useEffect(() => {
                       )}
                     </View>
                     <Text style={styles.vitalLabel}>Temp. Cutánea</Text>
-                    {signosDispositivo?.temp_ts && (
-                      <Text style={styles.subtextoHora}>
-                        {formatearHora(signosDispositivo.temp_ts)}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-
-                {/* FILA 2: CONDICIÓN CLÍNICA Y PESO */}
-                <View style={styles.vitalsGridRow}>
-                  {/* CONDICIÓN GENERAL (FORMATO TEXTUAL FORMAL) */}
-                  <View style={[styles.vitalCard, { flex: 1.6 }]}>
-                    {(() => {
-                      const tieneDatos = Boolean(signosDispositivo?.frescura?.bphrt || signosDispositivo?.frescura?.spo2);
-                      const estado = signosDispositivo?.condicion_carita;
-
-                      let colorEstado = COLORS.textLight;
-                      let labelEstado = 'SIN REGISTRO';
-
-                      if (tieneDatos) {
-                        if (estado === 'critica') {
-                          colorEstado = COLORS?.red ?? '#DC2626';
-                          labelEstado = 'EN REVISIÓN';
-                        } else if (estado === 'regular') {
-                          colorEstado = COLORS?.amber ?? '#D97706';
-                          labelEstado = 'VARIACIÓN';
-                        } else {
-                          colorEstado = COLORS?.green ?? '#059669';
-                          labelEstado = 'ESTABLE';
-                        }
-                      }
-
-                      return (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginVertical: 4 }}>
-                          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colorEstado }} />
-                          <Text style={[styles.vitalVal, { fontSize: 15, fontWeight: '700', color: colorEstado, letterSpacing: 0.3 }]}>
-                            {labelEstado}
-                          </Text>
-                        </View>
-                      );
-                    })()}
-                    <Text style={styles.vitalLabel}>Estado General</Text>
+                    <Text style={styles.subtextoHora}>
+                      {signosDispositivo?.temp_ts ? formatearHora(signosDispositivo.temp_ts) : 'Sin registro'}
+                    </Text>
                   </View>
 
                   {/* PESO */}
@@ -1308,6 +1246,7 @@ useEffect(() => {
                       <Text style={styles.vitalUnit}>kg</Text>
                     </View>
                     <Text style={styles.vitalLabel}>Peso</Text>
+                    <Text style={styles.subtextoHora}>En expediente</Text>
                   </View>
                 </View>
               </View>
