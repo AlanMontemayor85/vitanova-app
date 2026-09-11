@@ -120,108 +120,67 @@ const headers = () => ({
 
 });
 
-
-// 🚀 INTERCEPTOR BLINDADO: Asegura token antes de enviar y maneja reintentos
+// Cerrojo para evitar que múltiples llamadas simultáneas purguen en cascada
+let isPurging = false;
 
 export const fetchWithAuth = async (
-
   url: string,
-
   options: RequestInit = {},
-
   reintentado: boolean = false
-
 ): Promise<Response> => {
-
   try {
-
     if (!authToken) {
-
       await loadStoredToken();
-
     }
-
-
 
     const res = await fetch(url, {
-
       ...options,
-
       headers: {
-
         'Content-Type': 'application/json',
-
         ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-
         ...((options.headers as any) ?? {}),
-
       },
-
     });
 
-
-
-    // Reintento con disco si el token en memoria falló
-
+    // 1. Reintento único si falla con 401
     if (res.status === 401 && !reintentado) {
-
-      console.log("🔄 [AUTH] 401 recibido. Reintentando con token de disco...");
-
+      console.log("🔄 [AUTH] 401 recibido. Recargando token de disco para reintento...");
       const tokenDisco = await loadStoredToken();
-
-      if (tokenDisco && tokenDisco !== authToken) {
-
+      if (tokenDisco) {
         return await fetchWithAuth(url, options, true);
-
       }
-
     }
 
-
-
-    // 🥾 Expulsión inmediata ante token inválido/expirado
-
+    // 2. Expulsión controlada con cerrojo (se ejecuta UNA SOLA VEZ)
     if (res.status === 401) {
+      if (!isPurging) {
+        isPurging = true;
+        console.warn("🚨 [SESIÓN CAÍDA] 401 confirmado. Redirigiendo a login...");
+        
+        await clearToken();
+        
+        if (onSessionExpiredCallback) {
+          onSessionExpiredCallback();
+        }
 
-      console.warn("🚨 [SESIÓN CAÍDA] 401 confirmado. Redirigiendo a login...");
-
-      await clearToken();
-
-      if (onSessionExpiredCallback) {
-
-        onSessionExpiredCallback();
-
+        // Liberar el cerrojo tras completar la transición de pantalla
+        setTimeout(() => {
+          isPurging = false;
+        }, 3000);
       }
-
       throw new Error('UNAUTHORIZED');
-
     }
-
-
 
     return res;
-
   } catch (error: any) {
-
     if (error.message === 'UNAUTHORIZED') {
-
       throw error;
-
     }
 
-
-
-    // 🛑 Silenciamos LogBox en desarrollo cambiando console.error por log limpio
-
     console.log("⚠️ [OFFLINE / RED] Servidor inalcanzable temporalmente:", error?.message || error);
-
     throw error;
-
   }
-
 };
-
-
 
 // ──────────────────────────────────────────────────────────────
 
