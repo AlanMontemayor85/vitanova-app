@@ -403,10 +403,16 @@ export const getMisRoles = async () => {
   try {
     console.log('📡 Consultando roles de acceso del usuario...');
     const res = await fetchWithAuth(`${BASE_URL}/auth/mis-roles`);
+    
+    if (!res || !res.ok) {
+      console.warn(`⚠️ [AUTH] /auth/mis-roles respondió status ${res?.status}`);
+      return { roles: ['familiar'], multi_rol: false };
+    }
+
     return await res.json();
   } catch (error) {
     console.error('❌ Error en getMisRoles:', error);
-    return { roles: [], multi_rol: false, error: String(error) };
+    return { roles: ['familiar'], multi_rol: false, error: String(error) };
   }
 };
 export const getUltimoCierre = async (pacienteId: string) => {
