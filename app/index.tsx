@@ -4,7 +4,7 @@ import { useFocusEffect, useLocalSearchParams, usePathname, useRouter } from 'ex
 import { Bell, Calendar, MapPin, Pill } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, DeviceEventEmitter, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { calibrarAcelerometroReloj, clearToken, enviarComandoReloj, forzarMedicionSignos, getAlertaPeso, getHoyLocalISO, getMisRoles, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUbicacion, getUltimoCierre, getUserNombre, loadStoredToken, MiembroEquipo } from '../services/api';
+import { calibrarAcelerometroReloj, clearToken, enviarComandoReloj, forzarMedicionSignos, getActividadHoy, getAlertaPeso, getHoyLocalISO, getMisRoles, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUbicacion, getUltimoCierre, getUserNombre, loadStoredToken, MiembroEquipo } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 import { CheckinControlCard } from '././components/CheckInCard';
 import { BannerAlertasPreventivas } from './components/BannerAlertasPreventivas';
@@ -78,6 +78,7 @@ export default function HomeScreen() {
   const [totalTareasHoy, setTotalTareasHoy] = useState<number>(0);
   const [completadasTareasHoy, setCompletadasTareasHoy] = useState<number>(0);
   const lastFocusFetchRef = useRef<number>(0);
+  const [pasosHoy, setPasosHoy] = useState<number>(0);
   const solicitarConfirmacion = (
   titulo: string, 
   mensaje: string, 
@@ -134,7 +135,6 @@ export default function HomeScreen() {
 };
 
 // 📡 1. Función para jalar la telemetría más reciente del reloj
-// 📡 1. Función para jalar la telemetría más reciente del reloj (Corregida)
 const cargarSignosDispositivo = async (idToLoad?: string) => {
   const targetId = idToLoad || pacienteId;
   if (!targetId) return;
@@ -188,11 +188,20 @@ const cargarSignosDispositivo = async (idToLoad?: string) => {
     } catch (ubErr) {
       console.log("⚠️ Error consultando ubicación/batería:", ubErr);
     }
+
+    // ── 🟢 3. Pasos del día con corte a medianoche ──
+    try {
+      const pasos = await getActividadHoy(targetId);
+      setPasosHoy(pasos);
+      console.log(`👟 [INDEX] Pasos de hoy para ${targetId}:`, pasos);
+    } catch (pasosErr) {
+      console.log("⚠️ Error consultando pasos de hoy:", pasosErr);
+    }
+
   } catch (error) {
     console.log("⚠️ Error cargando signos vitales:", error);
   }
 };
-
 
 // ⚡ 2. Función para disparar la ráfaga 'hrtstart' por Redis
 const ejecutarMedicionRemota = async () => {
@@ -1017,240 +1026,240 @@ useEffect(() => {
 
         </View>
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-            {/* ⌚ SOLO SE MUESTRA SI EL PACIENTE TIENE UN RELOJ VINCULADO (IMEI) */}
-            {Boolean(paciente?.reloj_imei) && (
-              <>
-               {/* VITALS CON TELEMETRÍA EN VIVO */}
-              <View style={styles.vitalsContainer}>
-                {/* CABECERA DEL MÓDULO */}
-                <View style={[styles.vitalsHeaderRow, { alignItems: 'center', marginBottom: 12 }]}>
-                  {/* Título + Dot + Pill de Conexión */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <View style={styles.liveDot} />
-                    <Text style={styles.vitalsHeaderTitle}>Telemetría en Vivo</Text>
-                    {(() => {
-                      const batVal =
-                        ubicacion?.bateria_pct ??
-                        ubicacion?.bateria ??
-                        signosDispositivo?.bateria_pct ??
-                        signosDispositivo?.bateria ??
-                        signosDispositivo?.data?.bateria_pct ??
-                        paciente?.bateria_pct ??
-                        null;
+            {/* ⌚ SUPERVISIÓN OPERATIVA DEL DISPOSITIVO PERS (RF-V48 / RF-V46) */}
+  {Boolean(paciente?.reloj_imei) && (
+    <>
+      <View style={styles.vitalsContainer}>
+        {/* CABECERA DEL MÓDULO */}
+        <View style={[styles.vitalsHeaderRow, { alignItems: 'center', marginBottom: 12 }]}>
+          {/* Título + Dot + Pill de Conexión */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={styles.liveDot} />
+            <Text style={styles.vitalsHeaderTitle}>Supervisión en Vivo</Text>
+            {(() => {
+              const batVal =
+                ubicacion?.bateria_pct ??
+                ubicacion?.bateria ??
+                signosDispositivo?.bateria_pct ??
+                signosDispositivo?.bateria ??
+                signosDispositivo?.data?.bateria_pct ??
+                paciente?.bateria_pct ??
+                null;
 
-                      const ultimaConexionStr =
-                        ubicacion?.ultima_conexion ??
-                        ubicacion?.updated_at ??
-                        signosDispositivo?.ultima_conexion ??
-                        signosDispositivo?.created_at ??
-                        paciente?.updated_at ??
-                        null;
+              const ultimaConexionStr =
+                ubicacion?.ultima_conexion ??
+                ubicacion?.updated_at ??
+                signosDispositivo?.ultima_conexion ??
+                signosDispositivo?.created_at ??
+                paciente?.updated_at ??
+                null;
 
-                      let diffMinutos = 0;
-                      if (ultimaConexionStr) {
-                        try {
-                          const fechaNorm = ultimaConexionStr.includes('Z') || ultimaConexionStr.includes('+')
-                            ? ultimaConexionStr
-                            : `${ultimaConexionStr.replace(' ', 'T')}Z`;
-                          diffMinutos = Math.floor((new Date().getTime() - new Date(fechaNorm).getTime()) / (1000 * 60));
-                        } catch {
-                          diffMinutos = 0;
-                        }
-                      }
+              let diffMinutos = 0;
+              if (ultimaConexionStr) {
+                try {
+                  const fechaNorm = ultimaConexionStr.includes('Z') || ultimaConexionStr.includes('+')
+                    ? ultimaConexionStr
+                    : `${ultimaConexionStr.replace(' ', 'T')}Z`;
+                  diffMinutos = Math.floor((new Date().getTime() - new Date(fechaNorm).getTime()) / (1000 * 60));
+                } catch {
+                  diffMinutos = 0;
+                }
+              }
 
-                      const numBat = typeof batVal === 'number' ? batVal : null;
-                      const estaFueraDeLinea = diffMinutos > 10;
-                      const esAgotada = (numBat !== null && numBat <= 3) || (numBat !== null && numBat <= 5 && estaFueraDeLinea);
-                      const esBaja = numBat !== null && numBat > 3 && numBat < 20;
+              const numBat = typeof batVal === 'number' ? batVal : null;
+              const estaFueraDeLinea = diffMinutos > 10;
+              const esAgotada = (numBat !== null && numBat <= 3) || (numBat !== null && numBat <= 5 && estaFueraDeLinea);
+              const esBaja = numBat !== null && numBat > 3 && numBat < 20;
 
-                      let bgPill = '#F0FDF4';
-                      let borderPill = '#BBF7D0';
-                      let textPill = '#166534';
-                      let labelPill = numBat !== null ? `${numBat}%` : '--%';
+              let bgPill = '#F0FDF4';
+              let borderPill = '#BBF7D0';
+              let textPill = '#166534';
+              let labelPill = numBat !== null ? `${numBat}%` : '--%';
 
-                      if (signosDispositivo?.cargando) {
-                        bgPill = '#EFF6FF';
-                        borderPill = '#BFDBFE';
-                        textPill = '#1E40AF';
-                        labelPill = numBat !== null ? `CARGA ${numBat}%` : 'CARGANDO';
-                      } else if (esAgotada) {
-                        bgPill = '#FEF2F2';
-                        borderPill = '#FECACA';
-                        textPill = '#991B1B';
-                        labelPill = 'APAGADO';
-                      } else if (estaFueraDeLinea) {
-                        bgPill = '#FFFBEB';
-                        borderPill = '#FDE68A';
-                        textPill = '#92400E';
-                        labelPill = numBat !== null ? `OFF ${numBat}%` : 'OFF';
-                      } else if (esBaja) {
-                        bgPill = '#FEF2F2';
-                        borderPill = '#FCA5A5';
-                        textPill = '#B91C1C';
-                      }
+              if (signosDispositivo?.cargando) {
+                bgPill = '#EFF6FF';
+                borderPill = '#BFDBFE';
+                textPill = '#1E40AF';
+                labelPill = numBat !== null ? `CARGA ${numBat}%` : 'CARGANDO';
+              } else if (esAgotada) {
+                bgPill = '#FEF2F2';
+                borderPill = '#FECACA';
+                textPill = '#991B1B';
+                labelPill = 'APAGADO';
+              } else if (estaFueraDeLinea) {
+                bgPill = '#FFFBEB';
+                borderPill = '#FDE68A';
+                textPill = '#92400E';
+                labelPill = numBat !== null ? `OFF ${numBat}%` : 'OFF';
+              } else if (esBaja) {
+                bgPill = '#FEF2F2';
+                borderPill = '#FCA5A5';
+                textPill = '#B91C1C';
+              }
 
-                      const handlePillPress = () => {
-                        if (esAgotada) {
-                          Alert.alert(
-                            'Reloj Apagado por Batería',
-                            'El dispositivo se apagó al descargarse por completo.\n\n' +
-                            '1. Conéctelo a la base de carga magnética.\n' +
-                            '2. Espere 5 minutos para carga básica.\n' +
-                            '3. Presione el botón lateral 4 segundos para encenderlo.',
-                            [{ text: 'Entendido', style: 'default' }]
-                          );
-                        } else if (estaFueraDeLinea) {
-                          const tiempoTexto = diffMinutos > 60 
-                            ? `${Math.floor(diffMinutos / 60)}h ${diffMinutos % 60}m` 
-                            : `${diffMinutos} min`;
-                          Alert.alert(
-                            'Reloj Fuera de Línea',
-                            `El reloj no se comunica desde hace ${tiempoTexto}.\n\n` +
-                            `• Batería: ${numBat !== null ? numBat + '%' : 'No disponible'}\n` +
-                            '• Verifique si se encuentra apagado o sin cobertura.',
-                            [{ text: 'Entendido', style: 'default' }]
-                          );
-                        }
-                      };
+              const handlePillPress = () => {
+                if (esAgotada) {
+                  Alert.alert(
+                    'Reloj Apagado por Batería',
+                    'El dispositivo se apagó al descargarse por completo.\n\n' +
+                    '1. Conéctelo a la base de carga magnética.\n' +
+                    '2. Espere 5 minutos para carga básica.\n' +
+                    '3. Presione el botón lateral 4 segundos para encenderlo.',
+                    [{ text: 'Entendido', style: 'default' }]
+                  );
+                } else if (estaFueraDeLinea) {
+                  const tiempoTexto = diffMinutos > 60 
+                    ? `${Math.floor(diffMinutos / 60)}h ${diffMinutos % 60}m` 
+                    : `${diffMinutos} min`;
+                  Alert.alert(
+                    'Reloj Fuera de Línea',
+                    `El reloj no se comunica desde hace ${tiempoTexto}.\n\n` +
+                    `• Batería: ${numBat !== null ? numBat + '%' : 'No disponible'}\n` +
+                    '• Verifique si se encuentra apagado o sin cobertura.',
+                    [{ text: 'Entendido', style: 'default' }]
+                  );
+                }
+              };
 
-                      return (
-                        <TouchableOpacity
-                          activeOpacity={esAgotada || estaFueraDeLinea ? 0.7 : 1}
-                          onPress={handlePillPress}
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            backgroundColor: bgPill,
-                            paddingHorizontal: 7,
-                            paddingVertical: 2,
-                            borderRadius: 6,
-                            borderWidth: 1,
-                            borderColor: borderPill,
-                            gap: 4,
-                          }}
-                        >
-                          <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: textPill }} />
-                          <Text style={{ fontSize: 10, fontWeight: '700', color: textPill }}>
-                            {labelPill}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })()}
-                  </View>
+              return (
+                <TouchableOpacity
+                  activeOpacity={esAgotada || estaFueraDeLinea ? 0.7 : 1}
+                  onPress={handlePillPress}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: bgPill,
+                    paddingHorizontal: 7,
+                    paddingVertical: 2,
+                    borderRadius: 6,
+                    borderWidth: 1,
+                    borderColor: borderPill,
+                    gap: 4,
+                  }}
+                >
+                  <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: textPill }} />
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: textPill }}>
+                    {labelPill}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })()}
+          </View>
 
-                  {/* Botón Sensa Ahora */}
-                  <TouchableOpacity 
-                    style={[
-                      styles.btnMedir, 
-                      {
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                        borderRadius: 8,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      },
-                      midiendo 
-                        ? { backgroundColor: '#C2410C' } 
-                        : signosDispositivo?.cargando 
-                          ? { backgroundColor: '#475569' } 
-                          : null
-                    ]} 
-                    onPress={() => {
-                      if (signosDispositivo?.cargando) {
-                        Alert.alert(
-                          "Reloj en Base de Carga",
-                          "El dispositivo está conectado a la base. Para sensar signos debe colocarse en la muñeca.",
-                          [
-                            { text: "Cancelar", style: "cancel" },
-                            { text: "Ya colocado", onPress: () => ejecutarMedicionRemota() }
-                          ]
-                        );
-                        return;
-                      }
-                      ejecutarMedicionRemota();
-                    }}
-                    disabled={midiendo}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[
-                      styles.btnMedirText,
-                      { fontSize: 10.5, fontWeight: '700', letterSpacing: 0.3 }
-                    ]}>
-                      {midiendo ? "SENSANDO..." : signosDispositivo?.cargando ? "EN BASE" : "SENSA AHORA"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+          {/* BOTÓN VERIFICAR CONEXIÓN / PING */}
+          <TouchableOpacity 
+            style={[
+              styles.btnMedir, 
+              {
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 8,
+                alignItems: 'center',
+                justifyContent: 'center',
+              },
+              midiendo 
+                ? { backgroundColor: '#C2410C' } 
+                : signosDispositivo?.cargando 
+                  ? { backgroundColor: '#475569' } 
+                  : null
+            ]} 
+            onPress={() => {
+              if (signosDispositivo?.cargando) {
+                Alert.alert(
+                  "Reloj en Base de Carga",
+                  "El dispositivo está conectado a la base magnética.",
+                  [{ text: "Entendido", style: "default" }]
+                );
+                return;
+              }
+              ejecutarMedicionRemota();
+            }}
+            disabled={midiendo}
+            activeOpacity={0.8}
+          >
+            <Text style={[
+              styles.btnMedirText,
+              { fontSize: 10.5, fontWeight: '700', letterSpacing: 0.3 }
+            ]}>
+              {midiendo ? "VERIFICANDO..." : signosDispositivo?.cargando ? "EN BASE" : "ACTUALIZAR"}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-                {/* FILA 1: FRECUENCIA CARDÍACA Y OXÍGENO (SPO2) */}
-                <View style={[styles.vitalsGridRow, { marginBottom: 10 }]}>
-                  {/* FRECUENCIA CARDÍACA */}
-                  <View style={[styles.vitalCard, { flex: 1 }]}>
-                    <View style={styles.valueWithUnitRow}>
-                      <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.bphrt ? COLORS.red : COLORS.textDark }]}>
-                        {signosDispositivo?.frescura?.bphrt && signosDispositivo?.fc !== "—" 
-                          ? signosDispositivo.fc 
-                          : '—'}
-                      </Text>
-                      <Text style={styles.vitalUnit}>bpm</Text>
-                    </View>
-                    <Text style={styles.vitalLabel}>F. Cardíaca</Text>
-                    <Text style={styles.subtextoHora}>
-                      {signosDispositivo?.bphrt_ts ? formatearHora(signosDispositivo.bphrt_ts) : 'Sin registro'}
-                    </Text>
-                  </View>
+        {/* FILA 1: ESTADO DE PORTACIÓN (IAB) Y ACTIVIDAD (PASOS REALES) */}
+        <View style={[styles.vitalsGridRow, { marginBottom: 10 }]}>
+          {/* ESTADO DE PORTACIÓN (IAB / NTC) */}
+          <View style={[styles.vitalCard, { flex: 1 }]}>
+            <View style={styles.valueWithUnitRow}>
+              <Text style={[
+                styles.vitalVal, 
+                { 
+                  fontSize: 16, 
+                  color: signosDispositivo?.reloj_puesto ? COLORS.green : '#94A3B8',
+                  fontWeight: '700' 
+                }
+              ]}>
+                {signosDispositivo?.cargando 
+                  ? 'En Base' 
+                  : signosDispositivo?.reloj_puesto 
+                    ? 'En Muñeca' 
+                    : 'Sin Colocar'}
+              </Text>
+            </View>
+            <Text style={styles.vitalLabel}>Portación</Text>
+            <Text style={styles.subtextoHora}>
+              {signosDispositivo?.reloj_puesto ? 'Uso confirmado' : 'En reposo / Buró'}
+            </Text>
+          </View>
 
-                  {/* OXÍGENO */}
-                  <View style={[styles.vitalCard, { flex: 1 }]}>
-                    <View style={styles.valueWithUnitRow}>
-                      <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
-                        {signosDispositivo?.frescura?.spo2 && signosDispositivo?.spo2 !== "—" 
-                          ? signosDispositivo.spo2 
-                          : '—'}
-                      </Text>
-                      <Text style={styles.vitalUnit}>%</Text>
-                    </View>
-                    <Text style={styles.vitalLabel}>SpO₂</Text>
-                    <Text style={styles.subtextoHora}>
-                      {signosDispositivo?.spo2_ts ? formatearHora(signosDispositivo.spo2_ts) : 'Sin registro'}
-                    </Text>
-                  </View>
-                </View>
+          {/* PASOS REALES DEL PODÓMETRO */}
+          <View style={[styles.vitalCard, { flex: 1 }]}>
+            <View style={styles.valueWithUnitRow}>
+              <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
+                {(pasosHoy ?? 0).toLocaleString('es-MX')}
+              </Text>
+              <Text style={styles.vitalUnit}>pasos</Text>
+            </View>
+            <Text style={styles.vitalLabel}>Actividad Hoy</Text>
+            <Text style={styles.subtextoHora}>
+              Podómetro activo
+            </Text>
+          </View>
+        </View>
 
-                {/* FILA 2: TEMPERATURA Y PESO */}
-                <View style={styles.vitalsGridRow}>
-                  {/* TEMPERATURA */}
-                  <View style={[styles.vitalCard, { flex: 1 }]}>
-                    <View style={styles.valueWithUnitRow}>
-                      <Text style={[styles.vitalVal, { color: signosDispositivo?.frescura?.temperatura ? COLORS.green : COLORS.textDark }]}>
-                        {signosDispositivo?.frescura?.temperatura && signosDispositivo?.temperatura && signosDispositivo?.temperatura !== "—" 
-                          ? signosDispositivo.temperatura 
-                          : '—'}
-                      </Text>
-                      {signosDispositivo?.frescura?.temperatura && signosDispositivo?.temperatura !== "—" && (
-                        <Text style={styles.vitalUnit}>°C</Text>
-                      )}
-                    </View>
-                    <Text style={styles.vitalLabel}>Temp. Cutánea</Text>
-                    <Text style={styles.subtextoHora}>
-                      {signosDispositivo?.temp_ts ? formatearHora(signosDispositivo.temp_ts) : 'Sin registro'}
-                    </Text>
-                  </View>
+        {/* FILA 2: PULSO ESTIMADO (REPOSO) Y PESO */}
+        <View style={styles.vitalsGridRow}>
+          {/* PULSO ESTIMADO EN REPOSO */}
+          <View style={[styles.vitalCard, { flex: 1 }]}>
+            <View style={styles.valueWithUnitRow}>
+              <Text style={[styles.vitalVal, { color: signosDispositivo?.fc && signosDispositivo?.fc !== "—" ? COLORS.red : COLORS.textDark }]}>
+                {signosDispositivo?.reloj_puesto && signosDispositivo?.fc && signosDispositivo?.fc !== "—"
+                  ? signosDispositivo.fc 
+                  : '—'}
+              </Text>
+              <Text style={styles.vitalUnit}>bpm</Text>
+            </View>
+            <Text style={styles.vitalLabel}>Pulso Estimado</Text>
+            <Text style={styles.subtextoHora}>
+              {signosDispositivo?.bphrt_ts ? formatearHora(signosDispositivo.bphrt_ts) : 'Tendencia reposo'}
+            </Text>
+          </View>
 
-                  {/* PESO */}
-                  <View style={[styles.vitalCard, { flex: 1 }]}>
-                    <View style={styles.valueWithUnitRow}>
-                      <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
-                        {signosDispositivo?.peso && signosDispositivo?.peso !== "—"
-                          ? signosDispositivo.peso.replace(" kg", "") 
-                          : (ultimoCierre?.peso_kg ? `${ultimoCierre.peso_kg}` : '—')}
-                      </Text>
-                      <Text style={styles.vitalUnit}>kg</Text>
-                    </View>
-                    <Text style={styles.vitalLabel}>Peso</Text>
-                    <Text style={styles.subtextoHora}>En expediente</Text>
-                  </View>
-                </View>
-              </View>
+          {/* PESO (EXPEDIENTE) */}
+          <View style={[styles.vitalCard, { flex: 1 }]}>
+            <View style={styles.valueWithUnitRow}>
+              <Text style={[styles.vitalVal, { color: COLORS.cacao }]}>
+                {signosDispositivo?.peso && signosDispositivo?.peso !== "—"
+                  ? signosDispositivo.peso.replace(" kg", "") 
+                  : (ultimoCierre?.peso_kg ? `${ultimoCierre.peso_kg}` : '—')}
+              </Text>
+              <Text style={styles.vitalUnit}>kg</Text>
+            </View>
+            <Text style={styles.vitalLabel}>Peso</Text>
+            <Text style={styles.subtextoHora}>En expediente</Text>
+          </View>
+        </View>
+      </View>
                   
               
                {/* TARJETA CONFIG RELOJ */}

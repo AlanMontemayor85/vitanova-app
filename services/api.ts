@@ -436,8 +436,36 @@ export const getUltimoCierre = async (pacienteId: string) => {
   }
 
 };
+export interface ActividadHoyResponse {
+  pasos_hoy: number;
+}
 
+export const getActividadHoy = async (patientId: string, token?: string): Promise<number> => {
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
+    const response = await fetch(`${BASE_URL}/pacientes/${patientId}/actividad-hoy`, {
+      method: 'GET',
+      headers,
+    });
+
+    if (!response.ok) {
+      console.warn(`[getActividadHoy] HTTP error: ${response.status}`);
+      return 0;
+    }
+
+    const data: ActividadHoyResponse = await response.json();
+    return data?.pasos_hoy ?? 0;
+  } catch (error) {
+    console.error("Error al obtener pasos del día:", error);
+    return 0;
+  }
+};
 // ─── TELEASISTENCIA / CHECK-IN ──────────────────────────────────────────────
 
 export interface CheckinConfig {
