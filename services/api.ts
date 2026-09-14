@@ -483,6 +483,29 @@ export const actualizarConfigCheckin = async (
 
   return response.json();
 };
+/**
+ * Obtiene la configuración de horarios automatizados para el check-in del paciente
+ */
+export const obtenerConfigCheckin = async (
+  patientId: string,
+  token: string
+): Promise<CheckinConfig | null> => {
+  const response = await fetch(`${BASE_URL}/pacientes/${patientId}/checkin-config`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || 'Error al obtener la configuración de check-in.');
+  }
+
+  const result = await response.json();
+  return result.data ?? null;
+};
 export const getNotasTurno = async (pacienteId: string) => {
 
   try {
