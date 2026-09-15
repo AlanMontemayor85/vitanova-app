@@ -3162,153 +3162,122 @@ const handleRegresarOpciones = async () => {
               ))}
             </View>
 
-            {/* 2. 🩺 SIGNOS VITALES DE CIERRE (DESPLEGABLE SI HAY RELOJ) */}
-            <View style={{ backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, marginBottom: 16, overflow: 'hidden' }}>
-              
-              {/* CABECERA ACORDEÓN */}
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => setMostrarSignosReloj(!mostrarSignosReloj)}
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: 14,
-                  backgroundColor: signosDispositivo ? COLORS.cream : COLORS.white
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '800', color: COLORS.cacao }}>
-                    🩺 Signos Vitales de Cierre
-                  </Text>
-                  <View style={{ backgroundColor: signosDispositivo ? COLORS.greenPale : COLORS.amberPale, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
-                    <Text style={{ fontSize: 9, fontWeight: '800', color: signosDispositivo ? COLORS.green : COLORS.amber }}>
-                      {signosDispositivo ? '⌚ Reloj detectado' : '📝 Captura manual'}
-                    </Text>
-                  </View>
-                </View>
+            {/* 2. 🩺 SIGNOS VITALES DE CIERRE (CAPTURA MANUAL CLÍNICA) */}
+<View style={{ backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, marginBottom: 16, padding: 14 }}>
+  
+  {/* CABECERA DIRECTA */}
+  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <Text style={{ fontSize: 13, fontWeight: '800', color: COLORS.cacao }}>
+        🩺 Signos Vitales de Cierre
+      </Text>
+      <View style={{ backgroundColor: COLORS.greenPale, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
+        <Text style={{ fontSize: 9, fontWeight: '800', color: COLORS.green }}>
+          📝 Toma Manual
+        </Text>
+      </View>
+    </View>
+  </View>
 
-                {signosDispositivo && (
-                  <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.gold }}>
-                    {mostrarSignosReloj ? '▲ Ocultar' : '▼ Ajustar'}
-                  </Text>
-                )}
-              </TouchableOpacity>
+  <Text style={{ fontSize: 10, color: COLORS.textLight, marginBottom: 12 }}>
+    Ingresa las constantes vitales tomadas antes de finalizar el turno (deja en blanco los que no se hayan medido):
+  </Text>
 
-              {/* CONTENIDO DE CAMPOS (SI NO HAY RELOJ O SI EL ACORDEÓN ESTÁ EXPANDIDO) */}
-              {(!signosDispositivo || mostrarSignosReloj) && (
-                <View style={{ padding: 14, borderTopWidth: 1, borderTopColor: COLORS.border + '50' }}>
-                  <Text style={{ fontSize: 10, color: COLORS.textLight, marginBottom: 12 }}>
-                    {signosDispositivo 
-                      ? 'Puedes ingresar valores manuales para sobreescribir la lectura del reloj si se tomaron con equipo médico.'
-                      : 'Ingresa los signos tomados durante el turno:'}
-                  </Text>
+  {/* PRESIÓN ARTERIAL */}
+  <Text style={styles.fieldLabel}>PRESIÓN ARTERIAL (mmHg)</Text>
+  <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+    <TextInput
+      style={[styles.inputCentradoGrande, { flex: 1, paddingHorizontal: 4 }]}
+      placeholder="Sistólica (ej. 120)"
+      placeholderTextColor={COLORS.textLight}
+      keyboardType="numeric"
+      value={presionSist}
+      onChangeText={setPresionSist}
+    />
+    <Text style={{ fontWeight: '700', color: COLORS.textLight, fontSize: 18 }}>/</Text>
+    <TextInput
+      style={[styles.inputCentradoGrande, { flex: 1, paddingHorizontal: 4 }]}
+      placeholder="Diastólica (ej. 80)"
+      placeholderTextColor={COLORS.textLight}
+      keyboardType="numeric"
+      value={presionDiast}
+      onChangeText={setPresionDiast}
+    />
+  </View>
 
-                  {/* PRESIÓN ARTERIAL */}
-                  <Text style={styles.fieldLabel}>PRESIÓN ARTERIAL (mmHg)</Text>
-                  <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-                    <TextInput
-                      style={[styles.inputCentradoGrande, { flex: 1, paddingHorizontal: 4 }]}
-                      placeholder={
-                        signosDispositivo?.presion && String(signosDispositivo.presion).includes('/')
-                          ? `Reloj: ${String(signosDispositivo.presion).split('/')[0]}`
-                          : "Sistólica"
-                      }
-                      placeholderTextColor={COLORS.textLight}
-                      keyboardType="numeric"
-                      value={presionSist}
-                      onChangeText={setPresionSist}
-                    />
-                    <Text style={{ fontWeight: '700', color: COLORS.textLight, fontSize: 18 }}>/</Text>
-                    <TextInput
-                      style={[styles.inputCentradoGrande, { flex: 1, paddingHorizontal: 4 }]}
-                      placeholder={
-                        signosDispositivo?.presion && String(signosDispositivo.presion).includes('/')
-                          ? `Reloj: ${String(signosDispositivo.presion).split('/')[1] || ''}`
-                          : "Diastólica"
-                      }
-                      placeholderTextColor={COLORS.textLight}
-                      keyboardType="numeric"
-                      value={presionDiast}
-                      onChangeText={setPresionDiast}
-                    />
-                  </View>
+  {/* SPO2 Y PULSO */}
+  <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+    <View style={{ flex: 1 }}>
+      <Text style={styles.fieldLabel}>SpO₂ (%)</Text>
+      <TextInput
+        style={styles.inputCentradoGrande}
+        placeholder="Ej. 98"
+        placeholderTextColor={COLORS.textLight}
+        keyboardType="numeric"
+        value={spo2Manual}
+        onChangeText={setSpo2Manual}
+      />
+    </View>
+    <View style={{ flex: 1 }}>
+      <Text style={styles.fieldLabel}>PULSO (bpm)</Text>
+      <TextInput
+        style={styles.inputCentradoGrande}
+        placeholder="Ej. 72"
+        placeholderTextColor={COLORS.textLight}
+        keyboardType="numeric"
+        value={frecCard}
+        onChangeText={setFrecCard}
+      />
+    </View>
+  </View>
 
-                  {/* SPO2 Y PULSO */}
-                  <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.fieldLabel}>SpO₂ (%)</Text>
-                      <TextInput
-                        style={styles.inputCentradoGrande}
-                        placeholder={signosDispositivo?.spo2 ? `Reloj: ${signosDispositivo.spo2}%` : "Ej. 98"}
-                        placeholderTextColor={COLORS.textLight}
-                        keyboardType="numeric"
-                        value={spo2Manual}
-                        onChangeText={setSpo2Manual}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.fieldLabel}>PULSO (bpm)</Text>
-                      <TextInput
-                        style={styles.inputCentradoGrande}
-                        placeholder={signosDispositivo?.fc ? `Reloj: ${signosDispositivo.fc}` : "Ej. 72"}
-                        placeholderTextColor={COLORS.textLight}
-                        keyboardType="numeric"
-                        value={frecCard}
-                        onChangeText={setFrecCard}
-                      />
-                    </View>
-                  </View>
+  {/* TEMPERATURA Y GLUCOSA */}
+  <View style={{ flexDirection: 'row', gap: 10 }}>
+    <View style={{ flex: 1 }}>
+      <Text style={styles.fieldLabel}>TEMP (°C)</Text>
+      <TextInput
+        style={styles.inputCentradoGrande}
+        placeholder="Ej. 36.5"
+        placeholderTextColor={COLORS.textLight}
+        keyboardType="numeric"
+        value={tempManual}
+        onChangeText={setTempManual}
+      />
+    </View>
+    <View style={{ flex: 1 }}>
+      <Text style={styles.fieldLabel}>GLUCOSA (mg/dL)</Text>
+      <TextInput
+        style={styles.inputCentradoGrande}
+        placeholder="Ej. 95"
+        placeholderTextColor={COLORS.textLight}
+        keyboardType="numeric"
+        value={glucosa}
+        onChangeText={setGlucosa}
+      />
+    </View>
+  </View>
+</View>
 
-                  {/* TEMPERATURA Y GLUCOSA */}
-                  <View style={{ flexDirection: 'row', gap: 10 }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.fieldLabel}>TEMP (°C)</Text>
-                      <TextInput
-                        style={styles.inputCentradoGrande}
-                        placeholder={signosDispositivo?.temperatura ? `Reloj: ${signosDispositivo.temperatura}°` : "Ej. 36.5"}
-                        placeholderTextColor={COLORS.textLight}
-                        keyboardType="numeric"
-                        value={tempManual}
-                        onChangeText={setTempManual}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.fieldLabel}>GLUCOSA (mg/dL)</Text>
-                      <TextInput
-                        style={styles.inputCentradoGrande}
-                        placeholder="Ej. 95"
-                        placeholderTextColor={COLORS.textLight}
-                        keyboardType="numeric"
-                        value={glucosa}
-                        onChangeText={setGlucosa}
-                      />
-                    </View>
-                  </View>
-                </View>
-              )}
-            </View>
-
-            {/* 3. PESO CORPORAL */}
-            <Text style={styles.sectionTitle}>Peso del paciente (kg)</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 14, marginBottom: 16 }}>
-              <Text style={{ fontSize: 18, marginRight: 8 }}>⚖️</Text>
-              <TextInput
-                style={{ flex: 1, fontSize: 15, fontWeight: '700', color: COLORS.textDark, paddingVertical: 12 }}
-                placeholder="Ej. 70.5"
-                placeholderTextColor={COLORS.textLight}
-                keyboardType="numeric"
-                value={peso === 0 ? '' : peso.toString()}
-                onChangeText={(val) => {
-                  const textoLimpio = val.replace(',', '.');
-                  if (textoLimpio === '') { setPeso(0); return; }
-                  if (textoLimpio.endsWith('.')) { const num = parseFloat(textoLimpio); if (!isNaN(num)) setPeso(num); return; }
-                  const num = parseFloat(textoLimpio);
-                  if (!isNaN(num)) setPeso(num);
-                }}
-              />
-              <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textLight }}>kg</Text>
-            </View>
+{/* 3. PESO CORPORAL */}
+<Text style={styles.sectionTitle}>Peso del paciente (kg)</Text>
+<View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 14, marginBottom: 16 }}>
+  <Text style={{ fontSize: 18, marginRight: 8 }}>⚖️</Text>
+  <TextInput
+    style={{ flex: 1, fontSize: 15, fontWeight: '700', color: COLORS.textDark, paddingVertical: 12 }}
+    placeholder="Ej. 70.5"
+    placeholderTextColor={COLORS.textLight}
+    keyboardType="numeric"
+    value={peso === 0 ? '' : peso.toString()}
+    onChangeText={(val) => {
+      const textoLimpio = val.replace(',', '.');
+      if (textoLimpio === '') { setPeso(0); return; }
+      if (textoLimpio.endsWith('.')) { const num = parseFloat(textoLimpio); if (!isNaN(num)) setPeso(num); return; }
+      const num = parseFloat(textoLimpio);
+      if (!isNaN(num)) setPeso(num);
+    }}
+  />
+  <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textLight }}>kg</Text>
+</View>
 
             {/* 4. 🔴 INTENSIDAD DEL DOLOR (ESCALA EVA MEJORADA) */}
             <View style={{ backgroundColor: COLORS.white, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: COLORS.border, marginBottom: 16 }}>
