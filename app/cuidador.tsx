@@ -1507,32 +1507,35 @@ const handleRegresarOpciones = async () => {
       }
     }
 
-    // 🎯 3. RESOLUCIÓN DE JERARQUÍA: MANUAL PREVALECE SOBRE RELOJ
-    let finalSistolica = presionSist ? parseInt(presionSist, 10) : null;
-    let finalDiastolica = presionDiast ? parseInt(presionDiast, 10) : null;
-    
-    if (!finalSistolica && signosDispositivo?.presion && String(signosDispositivo.presion).includes('/')) {
-      const partes = String(signosDispositivo.presion).split('/');
-      finalSistolica = parseInt(partes[0], 10) || null;
-      finalDiastolica = parseInt(partes[1], 10) || null;
-    }
+    // 🎯 3. RESOLUCIÓN CLÍNICA: 100% MANUAL (Cero herencia pasiva del reloj)
+    const finalSistolica = presionSist && presionSist.trim() !== '' 
+      ? parseInt(presionSist.trim(), 10) 
+      : null;
 
-    const finalSpo2 = spo2Manual 
-      ? parseInt(spo2Manual, 10) 
-      : (signosDispositivo?.spo2 ? parseInt(String(signosDispositivo.spo2), 10) : null);
+    const finalDiastolica = presionDiast && presionDiast.trim() !== '' 
+      ? parseInt(presionDiast.trim(), 10) 
+      : null;
 
-    const finalFc = frecCard 
-      ? parseInt(frecCard, 10) 
-      : (signosDispositivo?.fc ? parseInt(String(signosDispositivo.fc), 10) : null);
+    const finalSpo2 = spo2Manual && spo2Manual.trim() !== '' 
+      ? parseInt(spo2Manual.trim(), 10) 
+      : null;
 
-    const finalTemp = tempManual 
-      ? parseFloat(tempManual) 
-      : (signosDispositivo?.temperatura ? parseFloat(String(signosDispositivo.temperatura)) : null);
+    const finalFc = frecCard && frecCard.trim() !== '' 
+      ? parseInt(frecCard.trim(), 10) 
+      : null;
+
+    const finalTemp = tempManual && tempManual.trim() !== '' 
+      ? parseFloat(tempManual.trim()) 
+      : null;
+
+    const finalGlucosa = glucosa && String(glucosa).trim() !== '' 
+      ? parseInt(String(glucosa).trim(), 10) 
+      : null;
 
     const finalPeso = peso && String(peso).trim() !== '' && Number(peso) > 0 
       ? parseFloat(String(peso)) 
       : null;
-
+      
   // 📦 1. Transformar consumosTurno (Insumos manuales como gasas, pañales, etc.)
   const insumosConsumidosArray = Object.entries(consumosTurno)
     .filter(([_, cant]) => (cant as number) > 0)
@@ -1583,6 +1586,7 @@ const handleRegresarOpciones = async () => {
       frecuencia_cardiaca: finalFc,
       presion_sistolica: finalSistolica,
       presion_diastolica: finalDiastolica,
+      glucosa: finalGlucosa,
       temperatura: finalTemp,
       notas: notasConsolidadas, 
       barthel_scores: barthelTocado ? barthelScores : null, 
@@ -1645,6 +1649,7 @@ const handleRegresarOpciones = async () => {
         presion_sistolica: presionSist ? Number(presionSist) : null,
         presion_diastolica: presionDiast ? Number(presionDiast) : null,
         temperatura: tempManual ? Number(tempManual) : null,
+        glucosa: glucosa && String(glucosa).trim() !== '' ? Number(glucosa) : null,
         notas: "Cierre consolidado en modo offline.", 
         barthel_scores: barthelTocado ? barthelScores : null, 
         barthel_total: barthelTocado ? barthelTotal : null, 
