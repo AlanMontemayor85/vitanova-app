@@ -1028,229 +1028,229 @@ useEffect(() => {
         </View>
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
            {/* ⌚ SUPERVISIÓN OPERATIVA DEL DISPOSITIVO PERS (RF-V48 / RF-V46) */}
-            {Boolean(paciente?.reloj_imei) && (
-              <>
-                <SupervisionVisualPERS
-                  signosDispositivo={signosDispositivo}
-                  ubicacion={ubicacion}
-                  pacienteActivo={paciente}
-                  pasosHoy={pasosHoy}
-                  ultimoCierre={ultimoCierre}
-                  onRefreshData={cargarSignosDispositivo}
-                />
+{Boolean(paciente?.reloj_imei) && (
+  <>
+    <SupervisionVisualPERS
+      signosDispositivo={signosDispositivo}
+      ubicacion={ubicacion}
+      pacienteActivo={paciente}
+      pasosHoy={pasosHoy}
+      ultimoCierre={ultimoCierre}
+      onRefreshData={cargarSignosDispositivo}
+    />
 
-                {/* TARJETA CONFIG RELOJ */}
-                {signosDispositivo?.reloj_config && (
-                  <TouchableOpacity 
-                    activeOpacity={0.7}
-                    onPress={() => setModalConfigVisible(true)}
-                    style={{
-                      backgroundColor: COLORS.white,
-                      borderRadius: 14,
-                      padding: 14,
-                      marginTop: 8,
-                      marginBottom: 16,
-                      marginHorizontal: 16,
-                      borderWidth: 1,
-                      borderColor: COLORS.border,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 12,
-                    }}
-                  >
-                    <Text style={{ fontSize: 24 }}>⚙️</Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.cacao, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                        Configuración del reloj
-                      </Text>
-                      <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
-                        {(() => {
-                          const config = signosDispositivo?.reloj_config;
-                          if (!config?.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
-                          
-                          const sens = Number(config?.sensibilidad ?? config?.sensibilidad_caidas ?? 4);
-                          switch (sens) {
-                            case 1: return 'Detector de caídas: 🔴 Muy Alta (1)';
-                            case 2: return 'Detector de caídas: 🟠 Alta (2)';
-                            case 3: return 'Detector de caídas: 🟡 Media (3)';
-                            case 4: return 'Detector de caídas: 🟢 Estándar (4)';
-                            case 5: return 'Detector de caídas: 🔵 Baja (5)';
-                            case 6: return 'Detector de caídas: ⚪ Mínima (6)';
-                            default: return `Detector de caídas: 🟢 Estándar (${sens > 6 ? 4 : sens})`;
-                          }
-                        })()}
-                      </Text>
-                      <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 1 }}>
-                        {(() => {
-                          const uc = signosDispositivo?.reloj_config?.ultima_configuracion;
-                          if (!uc) return 'Última sinc: Sin registro';
-                          try {
-                            const fecha = new Date(uc);
-                            return `Última sinc: ${fecha.toLocaleDateString('es-MX', { 
-                              day: 'numeric', 
-                              month: 'short', 
-                              hour: '2-digit', 
-                              minute: '2-digit' 
-                            })}`;
-                          } catch {
-                            return 'Última sinc: Sin registro';
-                          }
-                        })()}
-                      </Text>
-                    </View>
-                    <View style={{
-                      backgroundColor: COLORS.goldPale,
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: 'rgba(191, 154, 64, 0.3)',
-                    }}>
-                      <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.gold }}>Ajustar</Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
-
-                {/* ── 🟢 TELEASISTENCIA: CHECK-IN / ESTOY BIEN (SOLO SI TIENE RELOJ) ── */}
-                {paciente?.id && (
-                  <View style={{ marginHorizontal: 16, marginBottom: 16 }}>
-                    <CheckinControlCard
-                      patientId={paciente.id}
-                      initialConfig={paciente.checkin_config}
-                    />
-                  </View>
-                )}
-              </>
-            )}
-
-            {/* SECCIÓN 1: TURNOS ACTIVOS DE CUIDADO */}
-           {/* ======================================================== */}
-            {/* ⚡ SECCIÓN 1: TURNOS ACTIVOS DE CUIDADO                  */}
-            {/* ======================================================== */}
+    {/* TARJETA CONFIG RELOJ */}
+    {signosDispositivo?.reloj_config && (
+      <TouchableOpacity 
+        activeOpacity={0.7}
+        onPress={() => setModalConfigVisible(true)}
+        style={{
+          backgroundColor: COLORS.white,
+          borderRadius: 14,
+          padding: 14,
+          marginTop: 8,
+          marginBottom: 10,
+          width: '100%',            // 👈 Ancho completo emparejado
+          alignSelf: 'stretch',
+          borderWidth: 1,
+          borderColor: COLORS.border,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.04,
+          shadowRadius: 3,
+          elevation: 2,
+        }}
+      >
+        <Text style={{ fontSize: 24 }}>⚙️</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.cacao, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Configuración del reloj
+          </Text>
+          <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
             {(() => {
-              // 1. Extraemos la lista cruda
-              let turnosBrutos: any[] = [];
-              if (Array.isArray(turnoResumen)) {
-                turnosBrutos = turnoResumen;
-              } else if (Array.isArray(turnoResumen?.turnos)) {
-                turnosBrutos = turnoResumen.turnos;
-              } else if (turnoResumen?.turno) {
-                turnosBrutos = Array.isArray(turnoResumen.turno) ? turnoResumen.turno : [turnoResumen.turno];
-              } else if (turnoResumen && typeof turnoResumen === 'object' && turnoResumen.id) {
-                turnosBrutos = [turnoResumen];
+              const config = signosDispositivo?.reloj_config;
+              if (!config?.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
+              
+              const sens = Number(config?.sensibilidad ?? config?.sensibilidad_caidas ?? 4);
+              switch (sens) {
+                case 1: return 'Detector de caídas: 🔴 Muy Alta (1)';
+                case 2: return 'Detector de caídas: 🟠 Alta (2)';
+                case 3: return 'Detector de caídas: 🟡 Media (3)';
+                case 4: return 'Detector de caídas: 🟢 Estándar (4)';
+                case 5: return 'Detector de caídas: 🔵 Baja (5)';
+                case 6: return 'Detector de caídas: ⚪ Mínima (6)';
+                default: return `Detector de caídas: 🟢 Estándar (${sens > 6 ? 4 : sens})`;
               }
-
-              // 🚫 2. FILTRAR AL FAMILIAR PRINCIPAL (Solo cuidadores contratados/profesionales)
-              const listaCuidadores = turnosBrutos.filter((t: any) => {
-                const esFamiliar = 
-                  t.es_cobertura === true ||
-                  t.tipo_turno === 'familiar' ||
-                  t._clase === 'familiar' ||
-                  t.rol === 'familiar_principal' ||
-                  t.rol === 'admin';
-                return !esFamiliar;
-              });
-
-              // 🟢 Asignación directa desde los estados actualizados
-              const totalTareas = totalTareasHoy;
-              const completadasTareas = completadasTareasHoy;
-              const hayCuidadores = listaCuidadores.length > 0;
-
-              return (
-                <View style={{ marginTop: 12, marginBottom: 8 }}>
-                  {/* 🏷️ HEADER DE LA SECCIÓN CON EL CONTADOR ÚNICO */}
-                  <View style={[styles.sectionHeader, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-                    <Text style={styles.sectionTitle}>
-                      {listaCuidadores.length > 1 ? `Turnos activos (${listaCuidadores.length})` : 'Turno activo'}
-                    </Text>
-
-                    {/* 📊 BADGE ÚNICO GLOBAL DE TAREAS DEL PACIENTE */}
-                  <View style={{
-                    backgroundColor: '#F5EFE6',
-                    paddingHorizontal: 10,
-                    paddingVertical: 4,
-                    borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: '#E8DFD1',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 4
-                  }}>
-                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#8C6D23' }}>
-                      {`${completadasTareas}/${totalTareas}`}
-                    </Text>
-                    <Text style={{ fontSize: 10, fontWeight: '600', color: '#8C8275' }}>
-                      tareas
-                    </Text>
-                  </View>
-                  </View>
-
-                  {/* 📋 LISTA DE CUIDADORES EN TURNO */}
-                  {hayCuidadores ? (
-                    <View style={{ gap: 8, marginTop: 8 }}>
-                      {listaCuidadores.map((turno: any, idx: number) => (
-                        <View 
-                          key={turno.id || turno.turno_id || idx} 
-                          style={[
-                            styles.turnoCard, 
-                            { 
-                              flexDirection: 'row', 
-                              alignItems: 'center', 
-                              paddingHorizontal: 14,
-                              paddingVertical: 12
-                            }
-                          ]}
-                        >
-                          {/* 👤 Avatar con iniciales */}
-                          <View style={styles.turnoAvatar}>
-                            <Text style={styles.turnoAvatarText}>
-                              {turno.cuidador_nombre
-                                ?.split(' ')
-                                .map((n: string) => n[0])
-                                .join('')
-                                .slice(0, 2)
-                                .toUpperCase() || 'CU'}
-                            </Text>
-                          </View>
-
-                          {/* ℹ️ Nombre y Horario completo */}
-                          <View style={{ flex: 1, marginLeft: 12 }}>
-                            <Text style={[styles.turnoName, { fontSize: 15, fontWeight: '700' }]} numberOfLines={1}>
-                              {turno.cuidador_nombre}
-                            </Text>
-                            
-                            <Text style={[styles.turnoHora, { fontSize: 12, color: '#8C8275', marginTop: 2 }]} numberOfLines={1}>
-                              {formatearHorarioRango(turno.horario || turno.hora_inicio)}
-                            </Text>
-                          </View>
-
-                          {/* 🟢 Indicador sutil de turno en curso */}
-                          <View style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: 4,
-                            backgroundColor: '#2E7D32',
-                            marginRight: 4
-                          }} />
-                        </View>
-                      ))}
-                    </View>
-                  ) : (
-                    <View style={[styles.turnoCard, { justifyContent: 'center', alignItems: 'center', paddingVertical: 16, marginTop: 8 }]}>
-                      <Text style={{ fontSize: 13, color: COLORS.textLight, textAlign: 'center' }}>
-                        Sin cuidadores contratados en turno activo
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              );
             })()}
-            
-            {/* 📊 Estado del último cierre registrado */}
-            {pacienteId && <TarjetaUltimoCierre pacienteId={pacienteId} />}
+          </Text>
+          <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 1 }}>
+            {(() => {
+              const uc = signosDispositivo?.reloj_config?.ultima_configuracion;
+              if (!uc) return 'Última sinc: Sin registro';
+              try {
+                const fecha = new Date(uc);
+                return `Última sinc: ${fecha.toLocaleDateString('es-MX', { 
+                  day: 'numeric', 
+                  month: 'short', 
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                })}`;
+              } catch {
+                return 'Última sinc: Sin registro';
+              }
+            })()}
+          </Text>
+        </View>
+        <View style={{
+          backgroundColor: COLORS.goldPale,
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: 'rgba(191, 154, 64, 0.3)',
+        }}>
+          <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.gold }}>Ajustar</Text>
+        </View>
+      </TouchableOpacity>
+    )}
 
-            {/* 🛡️ Alertas y tamizaje preventivo basado en tendencias */}
-            {pacienteId && <BannerAlertasPreventivas pacienteId={pacienteId} />}
+    {/* ── 🟢 TELEASISTENCIA: CHECK-IN / ESTOY BIEN (SOLO SI TIENE RELOJ) ── */}
+    {paciente?.id && (
+      <View style={{ width: '100%', alignSelf: 'stretch', marginBottom: 12 }}>
+        <CheckinControlCard
+          patientId={paciente.id}
+          initialConfig={paciente.checkin_config}
+        />
+      </View>
+    )}
+  </>
+)}
+
+{/* ======================================================== */}
+{/* ⚡ SECCIÓN 1: TURNOS ACTIVOS DE CUIDADO                  */}
+{/* ======================================================== */}
+{(() => {
+  let turnosBrutos: any[] = [];
+  if (Array.isArray(turnoResumen)) {
+    turnosBrutos = turnoResumen;
+  } else if (Array.isArray(turnoResumen?.turnos)) {
+    turnosBrutos = turnoResumen.turnos;
+  } else if (turnoResumen?.turno) {
+    turnosBrutos = Array.isArray(turnoResumen.turno) ? turnoResumen.turno : [turnoResumen.turno];
+  } else if (turnoResumen && typeof turnoResumen === 'object' && turnoResumen.id) {
+    turnosBrutos = [turnoResumen];
+  }
+
+  const listaCuidadores = turnosBrutos.filter((t: any) => {
+    const esFamiliar = 
+      t.es_cobertura === true ||
+      t.tipo_turno === 'familiar' ||
+      t._clase === 'familiar' ||
+      t.rol === 'familiar_principal' ||
+      t.rol === 'admin';
+    return !esFamiliar;
+  });
+
+  const totalTareas = totalTareasHoy;
+  const completadasTareas = completadasTareasHoy;
+  const hayCuidadores = listaCuidadores.length > 0;
+
+  return (
+    <View style={{ marginTop: 12, marginBottom: 8, width: '100%', alignSelf: 'stretch' }}>
+      {/* 🏷️ HEADER DE LA SECCIÓN CON EL CONTADOR ÚNICO */}
+      <View style={[styles.sectionHeader, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+        <Text style={styles.sectionTitle}>
+          {listaCuidadores.length > 1 ? `Turnos activos (${listaCuidadores.length})` : 'Turno activo'}
+        </Text>
+
+        <View style={{
+          backgroundColor: '#F5EFE6',
+          paddingHorizontal: 10,
+          paddingVertical: 4,
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: '#E8DFD1',
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 4
+        }}>
+          <Text style={{ fontSize: 11, fontWeight: '800', color: '#8C6D23' }}>
+            {`${completadasTareas}/${totalTareas}`}
+          </Text>
+          <Text style={{ fontSize: 10, fontWeight: '600', color: '#8C8275' }}>
+            tareas
+          </Text>
+        </View>
+      </View>
+
+      {/* 📋 LISTA DE CUIDADORES EN TURNO */}
+      {hayCuidadores ? (
+        <View style={{ gap: 8, marginTop: 8 }}>
+          {listaCuidadores.map((turno: any, idx: number) => (
+            <View 
+              key={turno.id || turno.turno_id || idx} 
+              style={[
+                styles.turnoCard, 
+                { 
+                  flexDirection: 'row', 
+                  alignItems: 'center', 
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                  width: '100%',
+                  alignSelf: 'stretch'
+                }
+              ]}
+            >
+              <View style={styles.turnoAvatar}>
+                <Text style={styles.turnoAvatarText}>
+                  {turno.cuidador_nombre
+                    ?.split(' ')
+                    .map((n: string) => n[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase() || 'CU'}
+                </Text>
+              </View>
+
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[styles.turnoName, { fontSize: 15, fontWeight: '700' }]} numberOfLines={1}>
+                  {turno.cuidador_nombre}
+                </Text>
+                
+                <Text style={[styles.turnoHora, { fontSize: 12, color: '#8C8275', marginTop: 2 }]} numberOfLines={1}>
+                  {formatearHorarioRango(turno.horario || turno.hora_inicio)}
+                </Text>
+              </View>
+
+              <View style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: '#2E7D32',
+                marginRight: 4
+              }} />
+            </View>
+          ))}
+        </View>
+      ) : (
+        <View style={[styles.turnoCard, { justifyContent: 'center', alignItems: 'center', paddingVertical: 16, marginTop: 8, width: '100%', alignSelf: 'stretch' }]}>
+          <Text style={{ fontSize: 13, color: COLORS.textLight, textAlign: 'center' }}>
+            Sin cuidadores contratados en turno activo
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+})()}
+
+{/* 📊 Estado del último cierre registrado */}
+{pacienteId && <TarjetaUltimoCierre pacienteId={pacienteId} />}
+
+{/* 🛡️ Alertas y tamizaje preventivo basado en tendencias */}
+{pacienteId && <BannerAlertasPreventivas pacienteId={pacienteId} />}
            {/* ======================================================== */}
             {/* 🎛️ SECCIÓN 2: ACCESOS RÁPIDOS OPERATIVOS                */}
             {/* ======================================================== */}
