@@ -17,7 +17,6 @@ import {
 } from 'react-native';
 import {
   agregarTareaManual,
-  consumirItemInventario,
   detectarCambiosTurno,
   enviarComandoReloj,
   fetchWithAuth,
@@ -1409,135 +1408,91 @@ const handleRegresarOpciones = async () => {
   }
 };
   const ejecutarCierre = async () => {
-  // 🧹 Función auxiliar para limpiar la UI y redirigir
-  // 🧹 Función auxiliar corregida para limpiar la UI y refrescar la lista
+  if (!pacienteActivo?.id) {
+    Alert.alert('Error', 'No se detectó un paciente activo para cerrar el turno.');
+    return;
+  }
+
+  // 🧹 Función auxiliar para limpiar la UI y refrescar estado
   const limpiarYSalir = async (mensajeTitulo: string, mensajeCuerpo: string) => {
-    // 1. Limpiar campos clínicos del formulario
-    setPresionSist('');
-    setPresionDiast('');
-    setFrecCard('');
-    setSpo2Manual('');
-    setTempManual('');
-    setGlucosa('');
-    setObservaciones('');
-    setDolorEva(0);
-    setEstadoAnimo('');
-    setHidratacion(0);
-    setAlimentacion('');
-    setConsumosTurno({});
-
-    // 2. 🛑 PURGAR ESTADOS Y REFERENCIAS DE TURNO ACTIVO
-    setPacienteActivo(null);
-    setTurnoActivo(null);
-    if (turnoActivoRef) turnoActivoRef.current = null;
-    resetEstados(); 
-
-    // 3. 🔄 Forzar recarga inmediata de la lista de pacientes desde el backend
     try {
-      const pData = await getPacientes('cierre-turno');
-      if (pData?.patients) {
-        setPacientes(pData.patients);
+      // 1. Limpiar campos clínicos del formulario
+      setPresionSist('');
+      setPresionDiast('');
+      setFrecCard('');
+      setSpo2Manual('');
+      setTempManual('');
+      setGlucosa('');
+      setObservaciones('');
+      setDolorEva(0);
+      setEstadoAnimo('');
+      setHidratacion(0);
+      setAlimentacion('');
+      setConsumosTurno({});
+
+      // 2. 🛑 PURGAR ESTADOS Y REFERENCIAS DE TURNO ACTIVO
+      setPacienteActivo(null);
+      setTurnoActivo(null);
+      if (turnoActivoRef) turnoActivoRef.current = null;
+      resetEstados();
+
+      // 3. 🔄 Refrescar lista de pacientes de forma tolerante (no bloqueante)
+      try {
+        const pData = await getPacientes('cierre-turno');
+        if (pData?.patients) {
+          setPacientes(pData.patients);
+        }
+      } catch (e) {
+        console.warn("No se pudo refrescar lista tras cierre:", e);
       }
-    } catch (e) {
-      console.warn("No se pudo refrescar lista tras cierre:", e);
-    }
 
-    // 4. Volver a la lista de tarjetas
-    setVista('lista');
-    Alert.alert(mensajeTitulo, mensajeCuerpo);
+      // 4. Salir a la lista
+      setVista('lista');
+      Alert.alert(mensajeTitulo, mensajeCuerpo);
 
-    // Si venía exclusivamente de modo switch familiar, regresamos a '/'
-    if (esSwitchFamiliar || params.modoSwitch === 'familiar') {
-      router.replace({
-        pathname: '/' as any,
-        params: { refresh: String(Date.now()) }
-      });
+      if (esSwitchFamiliar || params.modoSwitch === 'familiar') {
+        router.replace({
+          pathname: '/' as any,
+          params: { refresh: String(Date.now()) }
+        });
+      }
+    } catch (errLimpieza) {
+      console.error("Error en limpiarYSalir:", errLimpieza);
+      setVista('lista');
     }
   };
 
-  try {
-    // 📦 1. PROCESAR CONSUMOS DE INVENTARIO DEL TURNO (Con protección offline)
-    for (const [itemId, cantidadUsada] of Object.entries(consumosTurno)) {
-      if (cantidadUsada > 0) {
-        try {
-          await consumirItemInventario(itemId, cantidadUsada);
-        } catch (invErr) {
-          console.warn(`⚠️ Sin red para consumir item ${itemId}. Encolando offline...`, invErr);
-          await encolarPeticionOffline(
-            `${BASE_URL}/inventario/${itemId}/consumo`,
-            'POST',
-            { cantidad: cantidadUsada },
-            `Consumo inventario: ${itemId} (${cantidadUsada} uds)`
-          );
-        }
-      }
-    }
+  // 🎯 1. RESOLUCIÓN CLÍNICA: 100% MANUAL (Cero herencia pasiva del reloj)
+  const finalSistolica = presionSist && presionSist.trim() !== '' 
+    ? parseInt(presionSist.trim(), 10) 
+    : null;
 
-    // 2. CONSOLIDACIÓN DE NOTAS (Con fallback a memoria local si no hay red)
-    let notasConsolidadas = "Sin notas incidentales en el turno.";
-    try {
-      const token = await getToken();
-      const notasRes = await fetch(`${BASE_URL}/notas?paciente_id=${pacienteActivo.id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const datasetNotas = await notasRes.json();
-      const arrayParaFiltrar = Array.isArray(datasetNotas?.notas) 
-        ? datasetNotas.notas 
-        : (Array.isArray(datasetNotas?.registros) ? datasetNotas.registros : null);
+  const finalDiastolica = presionDiast && presionDiast.trim() !== '' 
+    ? parseInt(presionDiast.trim(), 10) 
+    : null;
 
-      if (arrayParaFiltrar) {
-        const idTurnoActual = turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId;
-        const notasDelTurno = arrayParaFiltrar.filter((n: any) => n.turno_id === idTurnoActual || n.turno_id === null);
+  const finalSpo2 = spo2Manual && spo2Manual.trim() !== '' 
+    ? parseInt(spo2Manual.trim(), 10) 
+    : null;
 
-        if (notasDelTurno.length > 0) {
-          notasConsolidadas = notasDelTurno
-            .reverse() 
-            .map((n: any) => {
-              const textoNota = n.texto || n.descripcion || "Nota sin texto";
-              const hora = n.created_at ? new Date(n.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : "";
-              return hora ? `[${hora}] ${textoNota}` : `- ${textoNota}`;
-            })
-            .join('\n');
-        }
-      }
-    } catch (errNotas) {
-      console.warn("⚠️ No se pudieron consultar notas del servidor. Usando buffer local...", errNotas);
-      if (notas && notas.length > 0) {
-        notasConsolidadas = notas.map((n: any) => n.descripcion || n.texto || "Nota local").join('\n');
-      }
-    }
+  const finalFc = frecCard && frecCard.trim() !== '' 
+    ? parseInt(frecCard.trim(), 10) 
+    : null;
 
-    // 🎯 3. RESOLUCIÓN CLÍNICA: 100% MANUAL (Cero herencia pasiva del reloj)
-    const finalSistolica = presionSist && presionSist.trim() !== '' 
-      ? parseInt(presionSist.trim(), 10) 
-      : null;
+  const finalTemp = tempManual && tempManual.trim() !== '' 
+    ? parseFloat(tempManual.trim()) 
+    : null;
 
-    const finalDiastolica = presionDiast && presionDiast.trim() !== '' 
-      ? parseInt(presionDiast.trim(), 10) 
-      : null;
+  const finalGlucosa = glucosa && String(glucosa).trim() !== '' 
+    ? parseInt(String(glucosa).trim(), 10) 
+    : null;
 
-    const finalSpo2 = spo2Manual && spo2Manual.trim() !== '' 
-      ? parseInt(spo2Manual.trim(), 10) 
-      : null;
+  const finalPeso = peso && String(peso).trim() !== '' && Number(peso) > 0 
+    ? parseFloat(String(peso)) 
+    : null;
 
-    const finalFc = frecCard && frecCard.trim() !== '' 
-      ? parseInt(frecCard.trim(), 10) 
-      : null;
-
-    const finalTemp = tempManual && tempManual.trim() !== '' 
-      ? parseFloat(tempManual.trim()) 
-      : null;
-
-    const finalGlucosa = glucosa && String(glucosa).trim() !== '' 
-      ? parseInt(String(glucosa).trim(), 10) 
-      : null;
-
-    const finalPeso = peso && String(peso).trim() !== '' && Number(peso) > 0 
-      ? parseFloat(String(peso)) 
-      : null;
-      
-  // 📦 1. Transformar consumosTurno (Insumos manuales como gasas, pañales, etc.)
-  const insumosConsumidosArray = Object.entries(consumosTurno)
+  // 📦 2. INVENTARIO E INSUMOS CONSUMIDOS
+  const insumosConsumidosArray = Object.entries(consumosTurno || {})
     .filter(([_, cant]) => (cant as number) > 0)
     .map(([itemId, cant]) => {
       const itemInfo = (inventarioHogar || []).find((inv: any) => inv.id === itemId);
@@ -1553,114 +1508,110 @@ const handleRegresarOpciones = async () => {
       };
     });
 
-  // 💊 2. Extraer los medicamentos administrados (completados) en este turno
-  const medicamentosConsumidosArray = (tareas || [])
-    .filter((t: any) => (t.tipo === 'medicamento' || t.med_id) && t.completada)
-    .map((m: any) => {
-      const cleanId = m.med_id || String(m.id).replace(/^med_/, '').split('_')[0];
-      return {
-        id: cleanId,
-        inventario_id: cleanId,
-        medicamento_id: cleanId,
-        nombre: m.descripcion || m.nombre || 'Medicamento',
-        usado_hoy: 1,
-        cantidad: 1,
-        unidad: 'piezas',
-        tipo: 'medicamento',
-        registrado_por: typeof nombreUsuario !== 'undefined' ? nombreUsuario : 'Personal Vitanova'
-      };
+  // 📝 3. CONSOLIDACIÓN SEGURA DE NOTAS (Con Try/Catch aislado que NUNCA tumba el cierre)
+  let notasConsolidadas = "Sin notas incidentales en el turno.";
+  try {
+    const token = await getToken();
+    const notasRes = await fetch(`${BASE_URL}/notas?paciente_id=${pacienteActivo.id}`, {
+      headers: { Authorization: `Bearer ${token}` }
     });
+    if (notasRes.ok) {
+      const datasetNotas = await notasRes.json();
+      const arrayParaFiltrar = Array.isArray(datasetNotas?.notas) 
+        ? datasetNotas.notas 
+        : (Array.isArray(datasetNotas?.registros) ? datasetNotas.registros : null);
 
-  // 📦 3. Unir insumos libres + medicamentos administrados para el payload
-  const inventarioConsolidadoFinal = [
-    ...insumosConsumidosArray,
-    ...medicamentosConsumidosArray
-  ];
-    // 4. PAYLOAD FINAL DE CIERRE
-    const bodyPayload = {
-      turno_id: turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId, 
-      paciente_id: pacienteActivo.id, 
-      estado_paciente: estadoPaciente, 
-      peso_kg: finalPeso,
-      spo2: finalSpo2,
-      frecuencia_cardiaca: finalFc,
-      presion_sistolica: finalSistolica,
-      presion_diastolica: finalDiastolica,
-      glucosa: finalGlucosa,
-      temperatura: finalTemp,
-      notas: notasConsolidadas, 
-      barthel_scores: barthelTocado ? barthelScores : null, 
-      barthel_total: barthelTocado ? barthelTotal : null, 
-      barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
-      dolor_eva: typeof dolorEva === 'number' ? dolorEva : 0,
-      estado_animo: estadoAnimo || 'tranquilo',
-      hidratacion_vasos: typeof hidratacion === 'number' ? hidratacion : 0,
-      alimentacion: alimentacion || 'completa',
-      observaciones: (observaciones && typeof observaciones === 'string') ? observaciones.trim() : null,
-      inventario_usado: insumosConsumidosArray,
-      insumos: insumosConsumidosArray,
-    };
+      if (arrayParaFiltrar) {
+        const idTurnoActual = turnoActivoRef?.current?.id || turnoActivo?.id || params.turnoId;
+        const notasDelTurno = arrayParaFiltrar.filter((n: any) => n.turno_id === idTurnoActual || n.turno_id === null);
 
-    console.log('🚀 [CIERRE] Payload enviado a /turnos/cerrar:', JSON.stringify(bodyPayload, null, 2));
+        if (notasDelTurno.length > 0) {
+          notasConsolidadas = notasDelTurno
+            .reverse() 
+            .map((n: any) => {
+              const textoNota = n.texto || n.descripcion || "Nota sin texto";
+              const hora = n.created_at ? new Date(n.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : "";
+              return hora ? `[${hora}] ${textoNota}` : `- ${textoNota}`;
+            })
+            .join('\n');
+        }
+      }
+    }
+  } catch (errNotas) {
+    console.warn("⚠️ No se pudieron consultar notas del servidor. Usando buffer local...", errNotas);
+    if (Array.isArray(notas) && notas.length > 0) {
+      notasConsolidadas = notas.map((n: any) => n.descripcion || n.texto || "Nota local").join('\n');
+    }
+  }
 
-    // 5. INTENTO DE ENVÍO DIRECTO AL BACKEND
+  // 📦 4. PAYLOAD FINAL DEFINITIVO (Glucosa garantizada)
+  const idTurnoFinal = turnoActivoRef?.current?.id || turnoActivo?.id || params.turnoId;
+
+  const bodyPayload = {
+    turno_id: idTurnoFinal, 
+    paciente_id: pacienteActivo.id, 
+    estado_paciente: estadoPaciente || 'bien', 
+    peso_kg: finalPeso,
+    spo2: finalSpo2,
+    frecuencia_cardiaca: finalFc,
+    presion_sistolica: finalSistolica,
+    presion_diastolica: finalDiastolica,
+    temperatura: finalTemp,
+    glucosa: finalGlucosa, // 👈 🟢 Glucosa presente y validada
+    notas: notasConsolidadas, 
+    barthel_scores: barthelTocado ? barthelScores : null, 
+    barthel_total: barthelTocado ? barthelTotal : null, 
+    barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
+    dolor_eva: typeof dolorEva === 'number' ? dolorEva : 0,
+    estado_animo: estadoAnimo || 'tranquilo',
+    hidratacion_vasos: typeof hidratacion === 'number' ? hidratacion : 0,
+    alimentacion: alimentacion || 'completa',
+    observaciones: (observaciones && typeof observaciones === 'string') ? observaciones.trim() : null,
+    inventario_usado: insumosConsumidosArray,
+    insumos: insumosConsumidosArray,
+  };
+
+  console.log('🚀 [CIERRE] Payload listo para enviar:', JSON.stringify(bodyPayload, null, 2));
+
+  // 5. INTENTO DE ENVÍO DIRECTO ONLINE
+  try {
     const token = await getToken();
     const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 
+        'Content-Type': 'application/json', 
+        Authorization: `Bearer ${token}` 
+      },
       body: JSON.stringify(bodyPayload),
     });
 
     console.log('📡 [CIERRE] Status HTTP recibido:', res.status);
 
     if (!res.ok) {
-      throw new Error(`Servidor respondió con status HTTP ${res.status}`);
+      const errorText = await res.text();
+      throw new Error(`Servidor respondió HTTP ${res.status}: ${errorText}`);
     }
 
     const data = await res.json();
     if (data.status === 'ok') {
-      try {
-        const pData = await getPacientes('cierre');
-        if (pData?.patients) setPacientes(pData.patients);
-      } catch (errRefresh) {
-        console.log("No se pudo refrescar lista tras cierre:", errRefresh);
-      }
-      
-      limpiarYSalir(
+      // Éxito online garantizado
+      await limpiarYSalir(
         '✅ Turno Cerrado',
         'La bitácora del día se ha consolidado y los signos clínicos fueron registrados.'
       );
+      return;
     } else {
       throw new Error(data.mensaje || 'Respuesta no exitosa al cerrar turno');
     }
 
-  } catch (e: any) { 
-    console.warn("⚠️ Sin conexión o fallo de red al ejecutar cierre. Guardando en cola local...", e);
-    
-    // 6. 🎯 ENCOLAMIENTO OFFLINE: El cuidador no se queda bloqueado en la casa
+  } catch (errEnvioOnline: any) {
+    console.warn("⚠️ Falló el envío directo. Procediendo a encolamiento offline:", errEnvioOnline);
+
+    // 6. RESPALDO EN COLA OFFLINE (Reutilizando idéntico bodyPayload, sin clones ni relojes)
     try {
       const payloadOffline = {
-        turno_id: turnoActivoRef.current?.id || turnoActivo?.id || params.turnoId, 
-        paciente_id: pacienteActivo.id, 
-        estado_paciente: estadoPaciente, 
-        peso_kg: peso && Number(peso) > 0 ? Number(peso) : null,
-        spo2: spo2Manual ? Number(spo2Manual) : (signosDispositivo?.spo2 ? Number(signosDispositivo.spo2) : null),
-        frecuencia_cardiaca: frecCard ? Number(frecCard) : (signosDispositivo?.fc ? Number(signosDispositivo.fc) : null),
-        presion_sistolica: presionSist ? Number(presionSist) : null,
-        presion_diastolica: presionDiast ? Number(presionDiast) : null,
-        temperatura: tempManual ? Number(tempManual) : null,
-        glucosa: glucosa && String(glucosa).trim() !== '' ? Number(glucosa) : null,
-        notas: "Cierre consolidado en modo offline.", 
-        barthel_scores: barthelTocado ? barthelScores : null, 
-        barthel_total: barthelTocado ? barthelTotal : null, 
-        barthel_label: barthelTocado ? getBarthelLabel(barthelTotal) : null,
-        dolor_eva: typeof dolorEva === 'number' ? dolorEva : 0,
-        estado_animo: estadoAnimo || 'tranquilo',
-        hidratacion_vasos: typeof hidratacion === 'number' ? hidratacion : 0,
-        alimentacion: alimentacion || 'completa',
-        observaciones: observaciones ? observaciones.trim() : null,
-        inventario_usado: [],
-        insumos: []
+        ...bodyPayload,
+        notas: bodyPayload.notas || "Cierre consolidado en modo offline."
       };
 
       await encolarPeticionOffline(
@@ -1670,7 +1621,7 @@ const handleRegresarOpciones = async () => {
         `Cierre de turno - ${pacienteActivo?.nombre_completo || 'Paciente'}`
       );
 
-      limpiarYSalir(
+      await limpiarYSalir(
         '💾 Guardado Localmente',
         'El turno se cerró en el dispositivo. La información se sincronizará automáticamente al recuperar conexión a internet.'
       );

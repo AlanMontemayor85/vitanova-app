@@ -57,7 +57,8 @@ export default function RegistroSaludScreen() {
   const [spo2Manual, setSpo2Manual] = useState<string>('');
   const [tempManual, setTempManual] = useState<string>('');
   const [glucosaManual, setGlucosaManual] = useState<string>('');
-
+  
+  const [peso, setPeso] = useState<string>(paciente?.peso_kg?.toString() ?? '');
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [alertas, setAlertas] = useState<string[]>([]);
@@ -134,14 +135,13 @@ export default function RegistroSaludScreen() {
   }, [paciente?.id]);
 
   const hayDatosManuales = Boolean(
-    sistolica.trim() ||
-    diastolica.trim() ||
-    fcManual.trim() ||
-    spo2Manual.trim() ||
-    tempManual.trim() ||
-    glucosaManual.trim()
-  );
-
+  sistolica.trim() ||
+  diastolica.trim() ||
+  fcManual.trim() ||
+  spo2Manual.trim() ||
+  tempManual.trim() ||
+  glucosaManual.trim()
+);
   const procesarInicioTurno = async () => {
     setGuardando(true);
     try {
@@ -161,6 +161,7 @@ export default function RegistroSaludScreen() {
           spo2: spo2Manual ? Number(spo2Manual) : null,
           temperatura: tempManual ? Number(tempManual) : null,
           glucosa: glucosaManual ? Number(glucosaManual) : null,
+          peso_kg: peso && !isNaN(Number(peso)) && Number(peso) > 0 ? Number(peso) : null,
         };
 
         try {
@@ -457,7 +458,23 @@ export default function RegistroSaludScreen() {
             </View>
           </View>
         </View>
-
+        {/* ⚖️ PESO CORPORAL (ESTADO BASAL DEL PACIENTE) */}
+<View style={[styles.inputsRow, { marginTop: 12 }]}>
+  <View style={styles.inputFlex}>
+    <Text style={styles.inputGroupLabel}>Peso Corporal (kg)</Text>
+    <TextInput
+      style={styles.textInput}
+      placeholder={paciente?.peso_kg ? String(paciente.peso_kg) : "70.5"}
+      placeholderTextColor={COLORS.textLight}
+      keyboardType="decimal-pad"
+      value={peso}
+      onChangeText={(val) => setPeso(val.replace(',', '.'))}
+      maxLength={5}
+    />
+  </View>
+  {/* Espacio reservado para balancear la cuadrícula */}
+  <View style={styles.inputFlex} />
+</View>
         {/* 3. BOTÓN DE ACCIÓN */}
         <TouchableOpacity
           style={[styles.iniciarBtn, guardando && styles.disabledBtn]}
