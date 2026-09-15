@@ -758,7 +758,30 @@ useEffect(() => {
   const nombre = paciente?.nombre_completo?.split(' ')[0] ?? 'Paciente';
   const condiciones = paciente?.condiciones_medicas?.join(' · ') ?? '—';
   const iniciales = paciente?.nombre_completo?.split(' ').map((n: string) => n[0]).slice(0, 2).join('') ?? 'VN';
+// 🧭 Manejador de navegación para Accesos Rápidos
+const handleNavegacionRapida = (item: { label: string; ruta: string }) => {
+  const commonParams: any = {
+    pacienteId: paciente?.id,
+    pacienteNombre: paciente?.nombre_completo,
+  };
 
+  router.push({
+    pathname: item.ruta as any,
+    params: commonParams,
+  });
+};
+
+// 🏛️ Manejador de Servicios Vitanova
+const handleServicioVitanova = (item: any) => {
+  if (item.label === 'Solicitar Equipamiento' || item.isModal) {
+    setSolicitudOpen(true);
+  } else if (item.ruta) {
+    router.push({
+      pathname: item.ruta as any,
+      params: { pacienteId: paciente?.id },
+    });
+  }
+};
  return (
    <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
@@ -1251,251 +1274,183 @@ useEffect(() => {
 
 {/* 🛡️ Alertas y tamizaje preventivo basado en tendencias */}
 {pacienteId && <BannerAlertasPreventivas pacienteId={pacienteId} />}
-           {/* ======================================================== */}
-            {/* 🎛️ SECCIÓN 2: ACCESOS RÁPIDOS OPERATIVOS                */}
-            {/* ======================================================== */}
-            <Text style={[styles.sectionTitle, { marginTop: 16, marginBottom: 12 }]}>Accesos rápidos</Text>
-            
-            <View style={{ 
-              flexDirection: 'row', 
-              flexWrap: 'wrap', 
-              gap: 8, 
-              marginBottom: 20 
-            }}>
-              {[
-                
-                { icon: '💊', label: 'Medicam.', ruta: '/medicamentos' },                
-                { icon: '💬', label: 'Cuidadores', ruta: '/red-cuidadores' },
-                { icon: '📊', label: 'Gráficas', ruta: '/grafica-signos' },
-                { icon: '📜', label: 'Historial', ruta: '/historial' },
-              ].map((item) => (
-                <TouchableOpacity
-                  key={item.label}
-                  style={[
-                    styles.qaBtn, 
-                    { 
-                      // 🎯 Calcula el ancho para que quepan exactamente 3 columnas restando el gap
-                      width: '31.8%', 
-                      marginBottom: 4,
-                      paddingVertical: 12
-                    }
-                  ]}
-                  onPress={() => {
-                    if (item.label === 'Cuidadores') {
-                      router.push({
-                        pathname: '/red-cuidadores' as any,
-                        params: {
-                          pacienteId: paciente?.id,
-                          pacienteNombre: paciente?.nombre_completo,
-                        }
-                      });
-                    } else if (item.label === 'Medicam.') {
-                      router.push({
-                        pathname: '/medicamentos' as any,
-                        params: {
-                          pacienteId: paciente?.id,
-                          
-                          
-                        }
-                      });
-                    } else if (item.label === 'Alertas') {
-                      router.push({
-                        pathname: '/alertas' as any,
-                        params: {
-                          pacienteId: paciente?.id,
-                        }
-                      });
-                    } else if (item.label === 'Ubicación') {
-                      router.push({
-                        pathname: '/mapa' as any,
-                        params: {
-                          pacienteId: paciente?.id,
-                        }
-                      });
-                    } else if (item.label === 'Gráficas') {
-                      router.push({
-                        pathname: '/grafica-signos' as any,
-                        params: {
-                          pacienteId: paciente?.id,
-                          pacienteNombre: paciente?.nombre_completo
-                        }
-                      });
-                    } else if (item.label === 'Historial') {
-                      router.push({
-                        pathname: '/historial' as any,
-                        params: {
-                          pacienteId: paciente?.id,
-                          pacienteNombre: paciente?.nombre_completo
-                        }
-                      });
-                    }
-                  }}
-                >
-                  <Text style={styles.qaIcon}>{item.icon}</Text>
-                  <Text style={styles.qaLabel}>{item.label}</Text>
-                </TouchableOpacity>
-              ))}
+{/* ======================================================== */}
+{/* 🎛️ SECCIÓN 2: ACCESOS RÁPIDOS OPERATIVOS                */}
+{/* ======================================================== */}
+<View style={styles.sectionHeaderRow}>
+  <Text style={styles.sectionTitle}>Accesos rápidos</Text>
+ 
+</View>
+
+{/* Fila única de 4 columnas simétricas */}
+<View style={styles.quickRowContainer}>
+  {[
+    { icon: '💊', label: 'Medicación', ruta: '/medicamentos', bg: '#F0F7FF', border: '#BAE6FD' },
+    { icon: '💬', label: 'Cuidadores', ruta: '/red-cuidadores', bg: '#F0FDF4', border: '#BBF7D0' },
+    { icon: '📊', label: 'Gráficas', ruta: '/grafica-signos', bg: '#FAF5FF', border: '#E9D5FF' },
+    { icon: '📜', label: 'Historial', ruta: '/historial', bg: '#FFFBEB', border: '#FDE68A' },
+  ].map((item) => (
+    <TouchableOpacity
+      key={item.label}
+      activeOpacity={0.7}
+      style={styles.quickColBtn}
+      onPress={() => handleNavegacionRapida(item)}
+    >
+      <View style={[styles.quickIconBoxRow, { backgroundColor: item.bg, borderColor: item.border }]}>
+        <Text style={styles.quickIconEmoji}>{item.icon}</Text>
+      </View>
+      <Text style={styles.quickColLabel} numberOfLines={1}>
+        {item.label}
+      </Text>
+    </TouchableOpacity>
+  ))}
+</View>
+{/* ======================================================== */}
+{/* 🏛️ SECCIÓN 3: SERVICIOS VITANOVA INTEGRALIS              */}
+{/* ======================================================== */}
+<View style={[styles.sectionHeaderRow, { marginTop: 18 }]}>
+  <Text style={styles.sectionTitle}>Servicios Especializados Vitanova Integralis</Text>
+  
+</View>
+
+<View style={styles.servicesRow}>
+  {[
+    {
+      icon: '🏠',
+      title: 'Evaluación de Entorno',
+      sub: 'Seguridad en hogar',
+      actionLabel: 'Evaluar',
+      ruta: '/evaluacion-hogar',
+    },
+    {
+      icon: '🛏️',
+      title: 'Equipamiento Clínico',
+      sub: 'Barras y confort',
+      actionLabel: 'Solicitar',
+      ruta: null,
+      isModal: true,
+    },
+  ].map((item) => (
+    <TouchableOpacity
+      key={item.title}
+      activeOpacity={0.8}
+      style={styles.servicePremiumCard}
+      onPress={() => handleServicioVitanova(item)}
+    >
+      <View style={styles.serviceHeader}>
+        <View style={styles.serviceIconContainer}>
+          <Text style={styles.serviceIconEmoji}>{item.icon}</Text>
+        </View>
+        <View style={styles.servicePill}>
+          <Text style={styles.servicePillText}>{item.actionLabel}</Text>
+        </View>
+      </View>
+
+      <Text style={styles.serviceTitle} numberOfLines={2}>{item.title}</Text>
+      <Text style={styles.serviceSub} numberOfLines={1}>{item.sub}</Text>
+    </TouchableOpacity>
+  ))}
+</View>
+          
+       {/* ======================================================== */}
+{/* ⚖️ RECORDATORIO / ALERTA DE CONTROL PONDERAL             */}
+{/* ======================================================== */}
+{alertaPeso && (
+  <View style={styles.alertaPesoCard}>
+    <View style={styles.alertaPesoIconBubble}>
+      <Text style={styles.alertaPesoEmoji}>⚖️</Text>
+    </View>
+    <View style={styles.alertaPesoContent}>
+      <Text style={styles.alertaPesoTitle}>Control Ponderal</Text>
+      <Text style={styles.alertaPesoDesc}>{alertaPeso.mensaje}</Text>
+    </View>
+  </View>
+)}
+
+           {/* ========================================================== */}
+{/* 📝 NOTAS DEL CUIDADOR (CON ACORDEÓN DESPLEGABLE)          */}
+{/* ========================================================== */}
+<View style={styles.notasHeaderRow}>
+  <View style={styles.notasTitleGroup}>
+    <Text style={styles.sectionTitle}>Notas del Cuidador</Text>
+    {notas && notas.length > 0 && (
+      <View style={styles.notasCountBadge}>
+        <Text style={styles.notasCountText}>{notas.length}</Text>
+      </View>
+    )}
+  </View>
+
+  {notas && notas.length > 1 && (
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={() => setNotasExpandidas(!notasExpandidas)}
+      style={styles.acordeonBtnPill}
+    >
+      <Text style={styles.acordeonBtnText}>
+        {notasExpandidas ? 'Ver menos' : `Historial (+${notas.length - 1})`}
+      </Text>
+      <Text style={styles.acordeonChevron}>{notasExpandidas ? '▲' : '▼'}</Text>
+    </TouchableOpacity>
+  )}
+</View>
+
+{notas && notas.length > 0 ? (
+  <View style={styles.notasListContainer}>
+    {(notasExpandidas ? notas.slice(0, 5) : [notas[0]]).map((n, i) => {
+      const contenidoNota = n?.descripcion || n?.texto || 'Nota de relevo registrada';
+      const textoLimpio = String(contenidoNota).replace(/^📝\s*/, '');
+      const autor = n?.usuarios?.nombre_completo ?? 'Personal Vitanova';
+      const fechaTexto = n?.created_at
+        ? new Date(n.created_at).toLocaleDateString('es-MX', {
+            day: 'numeric',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : '';
+
+      return (
+        <View key={n?.id || i} style={styles.notaCard}>
+          <View style={styles.notaStripe} />
+          
+          <View style={styles.notaBody}>
+            <View style={styles.notaIconBubble}>
+              <Text style={styles.notaIconText}>✍️</Text>
             </View>
 
-            {/* ======================================================== */}
-            {/* 👑 SECCIÓN 3: SERVICIOS VITANOVA INTEGRALIS              */}
-            {/* ======================================================== */}
-            <Text style={[styles.sectionTitle, { marginTop: 20, marginBottom: 12 }]}>Servicios Vitanova Integralis</Text>
-            <View style={[styles.quickActions, { justifyContent: 'flex-start', gap: 12 }]}>
-              {[
-                { icon: '🏠', label: 'Evaluación de Entorno', ruta: '/evaluacion-hogar' },
-                { icon: '🛏️', label: 'Solicitar Equipamiento', ruta: null },       
-              ].map((item) => (
-                <TouchableOpacity
-                  key={item.label}
-                  style={[styles.qaBtn, { width: '48%', maxWidth: '48%' }]}
-                  onPress={() => {
-                    if (item.label === 'Solicitar Equipamiento') {
-                      setSolicitudOpen(true);
-                    } else if (item.ruta) {
-                      router.push({
-                        pathname: item.ruta as any,
-                        params: { pacienteId: paciente?.id }
-                      });
-                    }
-                  }}
-                >
-                  <Text style={styles.qaIcon}>{item.icon}</Text>
-                  <Text style={styles.qaLabel} numberOfLines={2}>{item.label}</Text> 
-                </TouchableOpacity>
-              ))}
+            <View style={styles.notaContentCol}>
+              <Text style={styles.notaTextoPrincipal}>
+                {textoLimpio}
+              </Text>
+
+              <View style={styles.notaMetaRow}>
+                <Text style={styles.notaAutor}>{autor}</Text>
+                {Boolean(fechaTexto) && (
+                  <>
+                    <Text style={styles.notaSeparador}>•</Text>
+                    <Text style={styles.notaFecha}>{fechaTexto}</Text>
+                  </>
+                )}
+              </View>
             </View>
-
-            {/* ======================================================== */}
-            {/* 📜 SECCIÓN 4: BITÁCORA DE RESUMEN (ÚLTIMO TURNO CERRADO) */}
-            {/* ======================================================== */}
-            <Text style={[styles.sectionTitle, { marginTop: 20, marginBottom: 12 }]}>Último turno</Text>
-
-            {ultimoCierre ? (
-              <>
-                <View style={[styles.alertCard, { backgroundColor: COLORS.greenPale, borderColor: '#C5E8D4', flexDirection: 'row', alignItems: 'center' }]}>
-                  <Text style={styles.alertIcon}>👤</Text>
-                  <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
-                    <Text style={styles.alertTitle}>
-                      {ultimoCierre.usuarios?.nombre_completo ?? 'Cuidador'}
-                    </Text>
-                    <Text style={styles.alertSub}>
-                      {`Estado: ${ultimoCierre.estado_paciente} · ${new Date(ultimoCierre.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`}
-                    </Text>
-                  </View>
-                </View>
-
-                {ultimoCierre.barthel_total !== null && (
-                  <View style={[styles.alertCard, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, marginTop: 8, flexDirection: 'row', alignItems: 'center' }]}>
-                    <Text style={styles.alertIcon}>📋</Text>
-                    <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
-                      <Text style={styles.alertTitle}>Índice de Barthel: {ultimoCierre.barthel_total}/100</Text>
-                      <Text style={styles.alertSub}>{ultimoCierre.barthel_label}</Text>
-                    </View>
-                  </View>
-                )}
-
-                {ultimoCierre.morse_total !== null && ultimoCierre.morse_total >= 25 && (
-                  <View style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0', marginTop: 8, flexDirection: 'row', alignItems: 'center' }]}>
-                    <Text style={styles.alertIcon}>⚠️</Text>
-                    <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
-                      <Text style={styles.alertTitle}>Riesgo de caída: {ultimoCierre.morse_total} pts</Text>
-                      <Text style={styles.alertSub}>{ultimoCierre.morse_label}</Text>
-                    </View>
-                  </View>
-                )}
-              </>
-            ) : (
-              <View style={[styles.alertCard, { backgroundColor: COLORS.goldPale, borderColor: COLORS.gold, flexDirection: 'row', alignItems: 'center' }]}>
-                <Text style={styles.alertIcon}>ℹ️</Text>
-                <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
-                  <Text style={styles.alertTitle}>Sin registros aún</Text>
-                  <Text style={styles.alertSub}>El cuidador no ha cerrado ningún turno todavía</Text>
-                </View>
-              </View>
-            )}
-
-            {alertaPeso && (
-              <View style={[styles.alertCard, { backgroundColor: COLORS.amberPale, borderColor: '#F5DBA0', marginTop: 8, flexDirection: 'row', alignItems: 'center' }]}>
-                <Text style={styles.alertIcon}>⚖️</Text>
-                <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
-                  <Text style={styles.alertTitle}>Recordatorio de peso</Text>
-                  <Text style={styles.alertSub}>{alertaPeso.mensaje}</Text>
-                </View>
-              </View>
-            )}
-
-            {/* ========================================================== */}
-            {/* 📝 NOTAS DEL CUIDADOR (CON ACORDEÓN DESPLEGABLE)          */}
-            {/* ========================================================== */}
-            <Text style={[styles.sectionTitle, { marginTop: 24, marginBottom: 12 }]}>
-              Notas del Cuidador
-            </Text>
-
-            {notas && notas.length > 0 ? (
-              <View style={{ gap: 8, marginBottom: 4 }}>
-                {/* Evaluamos qué notas renderizar según el estado de expansión */}
-                {(notasExpandidas ? notas.slice(0, 5) : [notas[0]]).map((n, i) => {
-                  const contenidoNota = n?.descripcion || n?.texto || "Nota de relevo registrada";
-                  return (
-                    <View 
-                      key={n?.id || i} 
-                      style={[styles.alertCard, { 
-                        backgroundColor: COLORS.amberPale, 
-                        borderColor: '#F5DBA0', 
-                        marginHorizontal: 0, 
-                        marginBottom: 0,
-                        flexDirection: 'row',
-                        alignItems: 'center'
-                      }]}
-                    >
-                      <Text style={styles.alertIcon}>📝</Text>
-                      <View style={[styles.alertContent, { flex: 1, justifyContent: 'center' }]}>
-                        <Text style={styles.alertTitle}>
-                          {String(contenidoNota).replace('📝 ', '')}
-                        </Text>
-                        <Text style={styles.alertSub}>
-                          {`${n?.usuarios?.nombre_completo ?? 'Personal Vitanova'} · ${
-                            n?.created_at 
-                              ? new Date(n.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-                              : ''
-                          }`}
-                        </Text>
-                      </View>
-                    </View>
-                  );
-                })}
-
-                {/* Botón de despliegue interactivo (Visible si hay más de 1 nota) */}
-                {notas.length > 1 && (
-                  <TouchableOpacity 
-                    onPress={() => setNotasExpandidas(!notasExpandidas)}
-                    style={{ 
-                      paddingVertical: 7, 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      backgroundColor: '#FDF8EE', 
-                      borderRadius: 8, 
-                      borderWidth: 1, 
-                      borderColor: '#F5DBA0',
-                      marginTop: 2 
-                    }}
-                  >
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.amber }}>
-                      {notasExpandidas ? "🔼 Ver menos notas" : `🔽 Ver historial completo (+${notas.length - 1} notas)`}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            ) : (
-              <View style={[styles.alertCard, { backgroundColor: '#F9F9F9', borderColor: COLORS.border, marginHorizontal: 0 }]}>
-                <Text style={styles.alertIcon}>🔍</Text>
-                <View style={styles.alertContent}>
-                  <Text style={styles.alertTitle}>Sin notas en el bloque actual</Text>
-                  <Text style={styles.alertSub}>El cuidador aún no ha registrado notas de relevo.</Text>
-                </View>
-              </View>
-            )}
+          </View>
+        </View>
+      );
+    })}
+  </View>
+) : (
+  <View style={styles.notaEmptyCard}>
+    <View style={styles.notaEmptyIconCircle}>
+      <Text style={{ fontSize: 16 }}>📋</Text>
+    </View>
+    <View style={{ flex: 1 }}>
+      <Text style={styles.notaEmptyTitle}>Sin notas en el turno actual</Text>
+      <Text style={styles.notaEmptySub}>
+        Los cuidadores no han reportado novedades u observaciones recientes.
+      </Text>
+    </View>
+  </View>
+)}
              
             {/* Espaciador final correcto al fondo del ScrollView */}
             <View style={{ height: 60 }} />
@@ -2524,4 +2479,501 @@ subtextoHora: {
   marginTop: 2,
   textAlign: 'center',
 },
+// ── HEADERS DE SECCIÓN ──
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: 10,
+    marginTop: 14,
+    paddingHorizontal: 2,
+  },
+  
+  sectionSubtitle: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  vitanovaBrand: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.gold,
+    letterSpacing: 0.4,
+  },
+
+  // ── ACCESOS RÁPIDOS (GRID SIMÉTRICO) ──
+  quickGridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 10,
+  },
+  quickCard: {
+    width: '48.5%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1.5,
+  },
+  quickIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  quickIconText: {
+    fontSize: 17,
+  },
+  quickTextCol: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  quickLabelText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  quickDescText: {
+    fontSize: 10.5,
+    fontWeight: '500',
+    color: '#64748B',
+    marginTop: 1,
+  },
+
+  // ── SERVICIOS ESPECIALIZADOS VITANOVA ──
+  servicesRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  servicePremiumCard: {
+    flex: 1,
+    backgroundColor: '#FCFAF7',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#EFE7DA',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 5,
+    elevation: 2,
+    minHeight: 110,
+    justifyContent: 'space-between',
+  },
+  serviceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  serviceIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E8DFD1',
+  },
+  serviceIconEmoji: {
+    fontSize: 18,
+  },
+  servicePill: {
+    backgroundColor: COLORS.goldPale,
+    paddingHorizontal: 9,
+    paddingVertical: 3.5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(191, 154, 64, 0.3)',
+  },
+  servicePillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: COLORS.gold,
+    letterSpacing: 0.2,
+  },
+  serviceTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: COLORS.cacao,
+    lineHeight: 17,
+  },
+  serviceSub: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#8C8275',
+    marginTop: 2,
+  },
+  // ── HEADER NOTAS ──
+  notasHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 10,
+    paddingHorizontal: 2,
+  },
+  notasTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  notasCountBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  notasCountText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  acordeonBtnPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    gap: 4,
+  },
+  acordeonBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  acordeonChevron: {
+    fontSize: 8,
+    color: '#92400E',
+  },
+
+  // ── TARJETA DE NOTA ──
+  notasListContainer: {
+    gap: 8,
+    marginBottom: 8,
+  },
+  notaCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    overflow: 'hidden',
+    position: 'relative',
+    shadowColor: '#78350F',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1.5,
+  },
+  notaStripe: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: '#F59E0B',
+  },
+  notaBody: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingLeft: 16,
+    gap: 12,
+  },
+  notaIconBubble: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    backgroundColor: '#FEF3C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 1,
+  },
+  notaIconText: {
+    fontSize: 15,
+  },
+  notaContentCol: {
+    flex: 1,
+  },
+  notaTextoPrincipal: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1E293B',
+    lineHeight: 18,
+  },
+  notaMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 5,
+    flexWrap: 'wrap',
+    gap: 5,
+  },
+  notaAutor: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  notaSeparador: {
+    fontSize: 10,
+    color: '#CBD5E1',
+  },
+  notaFecha: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#64748B',
+  },
+
+  // ── EMPTY STATE ──
+  notaEmptyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 12,
+    marginBottom: 8,
+  },
+  notaEmptyIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notaEmptyTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  notaEmptySub: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#94A3B8',
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  // ── VALORACIÓN CLÍNICA ──
+  clinicalSummaryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+    marginBottom: 10,
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  cierreAuthorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  cierreAvatarMini: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#ECFDF5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  cierreAvatarMiniText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#059669',
+  },
+  cierreAuthorName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  cierreTimestamp: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  scalesGrid: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+  },
+  scaleItemBox: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  scaleHeaderLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    textTransform: 'uppercase',
+  },
+  scaleValueText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 3,
+  },
+  scaleStatusSub: {
+    fontSize: 11,
+    color: '#475569',
+    marginTop: 1,
+  },
+
+  // ── ESTADO VACÍO & ALERTA PESO ──
+  emptyClinicalCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 12,
+    marginBottom: 10,
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  emptyClinicalTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  emptyClinicalSub: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  
+  alertaPesoTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#92400E',
+    textTransform: 'uppercase',
+  },
+  alertaPesoDesc: {
+    fontSize: 12,
+    color: '#78350F',
+    marginTop: 1,
+    lineHeight: 16,
+  },
+  // ── FILA ÚNICA (4 BOTONES) ──
+  quickRowContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+    width: '100%',
+    alignSelf: 'stretch',
+    marginBottom: 14,
+  },
+  quickColBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
+  },
+  quickIconBoxRow: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    marginBottom: 6,
+  },
+  quickIconEmoji: {
+    fontSize: 20,
+  },
+  quickColLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#334155',
+    textAlign: 'center',
+  },
+  alertaPesoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 12,
+    width: '100%',
+    alignSelf: 'stretch',
+    shadowColor: '#78350F',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  alertaPesoIconBubble: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#FEF3C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  alertaPesoEmoji: {
+    fontSize: 18,
+  },
+  alertaPesoContent: {
+    flex: 1,
+  },
+
+ 
 });
