@@ -470,7 +470,7 @@ export const actualizarConfigCheckin = async (
   const response = await fetch(`${BASE_URL}/pacientes/${patientId}/checkin-config`, {
     method: 'PATCH',
     headers: {
-      'Authorization': `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(config),
@@ -481,8 +481,14 @@ export const actualizarConfigCheckin = async (
     throw new Error(errorData.detail || 'Error al actualizar la configuración de check-in.');
   }
 
-  return response.json();
+  const result = await response.json();
+  if (!result.success) {
+    throw new Error(result.detail || 'No se pudo guardar la configuración.');
+  }
+
+  return result;
 };
+
 /**
  * Obtiene la configuración de horarios automatizados para el check-in del paciente
  */

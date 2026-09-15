@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Animated,
   Easing,
+  Modal,
   Platform,
   StyleSheet,
   Switch,
@@ -30,40 +32,28 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
   const [loading, setLoading] = useState(false);
   const [savingHoras, setSavingHoras] = useState(false);
   const [activo, setActivo] = useState(initialConfig?.activo ?? false);
-  const [horas, setHoras] = useState<string[]>(initialConfig?.horas ?? ['09:00', '20:00']);
+  const [horas, setHoras] = useState<string[]>(
+    Array.isArray(initialConfig?.horas) && initialConfig.horas.length > 0
+      ? initialConfig.horas
+      : ['09:00', '20:00']
+  );
 
-  // Control del selector de fecha/hora
+  // Selector de hora en tambor / ruleta vertical
   const [showPicker, setShowPicker] = useState(false);
   const [tempDate, setTempDate] = useState(new Date());
 
-  // ── ANIMACIONES TIPO SUPERVISIÓN VISUAL PERS ──
+  // Cerrojo de concurrencia para evitar que useFocusEffect pise guardados en curso
+  const isUpdatingRef = useRef(false);
+
+  // Animaciones estilo Supervisión Visual PERS
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const buttonScale = useRef(new Animated.Value(1)).current;
 
-
-   useEffect(() => {
-  const cargarConfiguracionInicial = async () => {
-    try {
-      const token = await loadStoredToken();
-      if (!token) return;
-
-      const res = await obtenerConfigCheckin(patientId, token);
-      if (res) {
-        if (typeof res.activo === 'boolean') setActivo(res.activo);
-        if (Array.isArray(res.horas) && res.horas.length > 0) setHoras(res.horas);
-      }
-    } catch (e) {
-      console.log("Error cargando configuración guardada de checkin:", e);
-    }
-  };
-
-  cargarConfiguracionInicial();
-}, [patientId]);
-  // Bucle infinito de radar/pulso mientras el servicio esté activo
   useEffect(() => {
     let animLoop: Animated.CompositeAnimation | null = null;
 
     if (activo) {
+      pulseAnim.setValue(0);
       animLoop = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
@@ -81,6 +71,7 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
       );
       animLoop.start();
     } else {
+      pulseAnim.stopAnimation();
       pulseAnim.setValue(0);
     }
 
@@ -89,7 +80,6 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
     };
   }, [activo]);
 
-  // Interpolaciones para el anillo exterior de radar
   const pulseScale = pulseAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0.9, 1.7],
@@ -100,7 +90,6 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
     outputRange: [0.6, 0.25, 0],
   });
 
-  // Efecto resorte para el botón de acción
   const handlePressIn = () => {
     Animated.spring(buttonScale, {
       toValue: 0.96,
@@ -117,8 +106,34 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
     }).start();
   };
 
-  // ── PERSISTENCIA Y HANDLERS ──
+  // Carga reactiva de base de datos cada vez que la pantalla toma foco
+  const recargarConfiguracion = useCallback(async () => {
+    if (isUpdatingRef.current) return;
+    try {
+      const token = await loadStoredToken();
+      if (!token) return;
+
+      const data = await obtenerConfigCheckin(patientId, token);
+      if (data && !isUpdatingRef.current) {
+        setActivo(Boolean(data.activo));
+        if (Array.isArray(data.horas) && data.horas.length > 0) {
+          setHoras(data.horas);
+        }
+      }
+    } catch (err) {
+      console.warn('Error recargando checkin-config:', err);
+    }
+  }, [patientId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      recargarConfiguracion();
+    }, [recargarConfiguracion])
+  );
+
+  // Persistencia en Supabase
   const persistirCambios = async (nuevoActivo: boolean, nuevasHoras: string[]) => {
+    isUpdatingRef.current = true;
     try {
       setSavingHoras(true);
       const token = await loadStoredToken();
@@ -127,11 +142,13 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
         return false;
       }
 
+      const payloadHoras = nuevasHoras && nuevasHoras.length > 0 ? nuevasHoras : ['09:00', '20:00'];
+
       await actualizarConfigCheckin(
         patientId,
         {
           activo: nuevoActivo,
-          horas: nuevasHoras,
+          horas: payloadHoras,
           dias: [1, 2, 3, 4, 5, 6, 7],
         },
         token
@@ -142,6 +159,9 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
       return false;
     } finally {
       setSavingHoras(false);
+      setTimeout(() => {
+        isUpdatingRef.current = false;
+      }, 400);
     }
   };
 
@@ -154,7 +174,7 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
   };
 
   const handleEliminarHora = (horaEliminar: string) => {
-    if (horas.length <= 1) {
+    if ((horas || []).length <= 1) {
       Alert.alert('Aviso', 'Debes mantener al menos un horario configurado.');
       return;
     }
@@ -163,22 +183,26 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
     persistirCambios(activo, actualizadas);
   };
 
-  const handleHoraSeleccionada = (event: any, date?: Date) => {
-    setShowPicker(Platform.OS === 'ios');
-    if (event.type === 'dismissed' || !date) return;
-
+  const handleHoraConfirmada = (date: Date) => {
+    setShowPicker(false);
     const hh = String(date.getHours()).padStart(2, '0');
     const mm = String(date.getMinutes()).padStart(2, '0');
     const nuevaHora = `${hh}:${mm}`;
 
-    if (horas.includes(nuevaHora)) {
+    if ((horas || []).includes(nuevaHora)) {
       Alert.alert('Horario existente', 'Ese horario ya se encuentra configurado.');
       return;
     }
 
-    const actualizadas = [...horas, nuevaHora].sort();
+    const actualizadas = [...(horas || []), nuevaHora].sort();
     setHoras(actualizadas);
     persistirCambios(activo, actualizadas);
+  };
+
+  const handleAndroidPicker = (event: any, date?: Date) => {
+    setShowPicker(false);
+    if (event.type === 'dismissed' || !date) return;
+    handleHoraConfirmada(date);
   };
 
   const handleDispararCheckin = async () => {
@@ -191,13 +215,13 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
       }
 
       const data = await solicitarCheckinPaciente(patientId, token);
-      if (data.success) {
+      if (data?.success) {
         Alert.alert(
           '🔔 Solicitud enviada',
-          'El reloj comenzó a sonar. Esperando confirmación por botón físico.'
+          'El reloj comenzó a sonar. Esperando confirmación del paciente.'
         );
       } else {
-        Alert.alert('Aviso', data.detail || 'No se pudo solicitar el check-in.');
+        Alert.alert('Aviso', data?.detail || 'No se pudo solicitar el check-in.');
       }
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Error al conectar con el servidor.');
@@ -208,11 +232,9 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
 
   return (
     <View style={[styles.card, activo && styles.cardActive]}>
-      {/* Franja lateral de acento telemático */}
-      <View style={[styles.statusStripe, { backgroundColor: activo ? '#10B981' : '#D1D5DB' }]} />
+      <View style={[styles.statusStripe, { backgroundColor: activo ? '#10B981' : '#CBD5E1' }]} />
 
       <View style={styles.cardContent}>
-        {/* Cabecera con Radar Beacon */}
         <View style={styles.headerRow}>
           <View style={styles.titleContainer}>
             <View style={styles.beaconContainer}>
@@ -230,13 +252,13 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
               <View
                 style={[
                   styles.iconBubble,
-                  { backgroundColor: activo ? '#ECFDF5' : '#F3F4F6' },
+                  { backgroundColor: activo ? '#ECFDF5' : '#F1F5F9' },
                 ]}
               >
                 <Ionicons
                   name={activo ? 'shield-checkmark' : 'shield-outline'}
                   size={20}
-                  color={activo ? '#059669' : '#9CA3AF'}
+                  color={activo ? '#059669' : '#94A3B8'}
                 />
               </View>
             </View>
@@ -247,11 +269,11 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
                 <View
                   style={[
                     styles.statusDot,
-                    { backgroundColor: activo ? '#10B981' : '#9CA3AF' },
+                    { backgroundColor: activo ? '#10B981' : '#94A3B8' },
                   ]}
                 />
                 <Text style={styles.subStatusText}>
-                  {activo ? 'Monitoreo telemático PERS activo' : 'Supervisión en pausa'}
+                  {activo ? 'Monitoreo telemático activo' : 'Supervisión en pausa'}
                 </Text>
               </View>
             </View>
@@ -260,18 +282,17 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
           <Switch
             value={activo}
             onValueChange={handleToggle}
-            trackColor={{ false: '#E5E7EB', true: '#A7F3D0' }}
-            thumbColor={activo ? '#059669' : '#FFFFFF'}
+            trackColor={{ false: '#E2E8F0', true: '#A7F3D0' }}
+            thumbColor={activo ? '#059669' : '#94A3B8'}
           />
         </View>
 
         <Text style={styles.description}>
           Solicita confirmación sonora al reloj para asegurar el bienestar del familiar sin detonar
-          alarmas de pánico institucional.
+          alarmas de pánico.
         </Text>
 
-        {/* Sección de Horarios */}
-        {activo && (
+        {activo ? (
           <View style={styles.scheduleContainer}>
             <View style={styles.scheduleHeader}>
               <View style={styles.scheduleHeaderLeft}>
@@ -282,14 +303,14 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
             </View>
 
             <View style={styles.chipsContainer}>
-              {horas.map((h) => (
+              {(horas || []).map((h) => (
                 <View key={h} style={styles.chip}>
                   <Text style={styles.chipText}>{h}</Text>
                   <TouchableOpacity
                     onPress={() => handleEliminarHora(h)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Ionicons name="close-circle" size={15} color="#9CA3AF" />
+                    <Ionicons name="close-circle" size={15} color="#94A3B8" />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -306,19 +327,64 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
               </TouchableOpacity>
             </View>
           </View>
+        ) : (
+          <View style={styles.pausedBanner}>
+            <Ionicons name="information-circle-outline" size={16} color="#94A3B8" />
+            <Text style={styles.pausedText}>
+              Activa la supervisión para programar toques automáticos diarios.
+            </Text>
+          </View>
         )}
 
-        {showPicker && (
+        {/* Modal Spinner en iOS */}
+        {showPicker && Platform.OS === 'ios' && (
+          <Modal transparent={true} animationType="fade" visible={showPicker}>
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalBox}>
+                <Text style={styles.modalTitle}>Seleccionar Horario</Text>
+                
+                <DateTimePicker
+                  value={tempDate}
+                  mode="time"
+                  is24Hour={true}
+                  display="spinner"
+                  textColor="#0F172A"
+                  onChange={(_, date) => {
+                    if (date) setTempDate(date);
+                  }}
+                />
+
+                <View style={styles.modalButtonsRow}>
+                  <TouchableOpacity 
+                    style={styles.modalBtnCancel} 
+                    onPress={() => setShowPicker(false)}
+                  >
+                    <Text style={styles.modalBtnCancelText}>Cancelar</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={styles.modalBtnConfirm} 
+                    onPress={() => handleHoraConfirmada(tempDate)}
+                  >
+                    <Text style={styles.modalBtnConfirmText}>Guardar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        )}
+
+        {/* Tambor Nativo Vertical en Android */}
+        {showPicker && Platform.OS === 'android' && (
           <DateTimePicker
             value={tempDate}
             mode="time"
             is24Hour={true}
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={handleHoraSeleccionada}
+            display="spinner"
+            onChange={handleAndroidPicker}
           />
         )}
 
-        {/* Botón de Acción Táctil PERS con Resorte */}
         <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
           <TouchableOpacity
             style={[styles.actionButton, loading && styles.disabledButton]}
@@ -355,6 +421,7 @@ const styles = StyleSheet.create({
     elevation: 3,
     overflow: 'hidden',
     position: 'relative',
+    minHeight: 180,
   },
   cardActive: {
     borderColor: '#D1FAE5',
@@ -376,7 +443,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   titleContainer: {
     flexDirection: 'row',
@@ -404,7 +471,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
   },
   cardTitle: {
     fontSize: 15,
@@ -431,7 +498,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     lineHeight: 18,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   scheduleContainer: {
     backgroundColor: '#F8FAFC',
@@ -497,6 +564,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#059669',
   },
+  pausedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 14,
+    gap: 6,
+  },
+  pausedText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    flexShrink: 1,
+  },
   actionButton: {
     backgroundColor: '#059669',
     flexDirection: 'row',
@@ -521,5 +602,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 10,
+  },
+  modalButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    width: '100%',
+    gap: 12,
+    marginTop: 14,
+  },
+  modalBtnCancel: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  modalBtnCancelText: {
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  modalBtnConfirm: {
+    backgroundColor: '#059669',
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 8,
+  },
+  modalBtnConfirmText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
 });

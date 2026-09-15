@@ -40,6 +40,7 @@ import {
 } from '../services/api';
 import { programarNotificacionTarea, registrarNotificaciones } from '../services/notifications';
 import { encolarPeticionOffline, vaciarColaOffline } from '../services/offlineQueue';
+import { SupervisionCuidadorCard } from './components/SupervisionCuidadorCard';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
@@ -200,6 +201,7 @@ export default function CuidadorScreen({
   const [enviandoFalla, setEnviandoFalla] = useState(false);
   const [modalConfigVisible, setModalConfigVisible] = useState(false);
   const [ejecutandoCmd, setEjecutandoCmd] = useState<string | null>(null);
+  const [pasosHoy, setPasosHoy] = useState<number | null>(null);
   const [bateria, setBateria] = useState<number | null>(null);
   const [modalConfigCuidadorVisible, setModalConfigCuidadorVisible] = useState(false);
   const cambiarConsumoItem = (itemId: string, delta: number) => {
@@ -386,7 +388,7 @@ const refrescarPacientes = async (
       console.error('❌ Error refrescando pacientes:', e);
     }
   };
-  // 1. Cargar y normalizar signos en Cuidador
+ // 1. Cargar y normalizar signos en Cuidador
 const sincronizarSignosReloj = async (pacienteIdTarget: string, forzarSensado: boolean = false) => {
   if (!pacienteIdTarget) return;
 
@@ -405,6 +407,18 @@ const sincronizarSignosReloj = async (pacienteIdTarget: string, forzarSensado: b
     if (res && res.success) {
       const estaEnCarga = Boolean(res.cargando || res.estado_contacto === 'cargando');
       const puesto = res.dispositivoPuesto !== false && res.sin_contacto !== true && !estaEnCarga;
+
+      // 🚶‍♂️ Extraer pasos del payload inicial
+      const pasosDetectados =
+        res.pasos ??
+        res.pasos_hoy ??
+        res.data?.pasos ??
+        res.steps ??
+        null;
+
+      if (pasosDetectados !== null && !isNaN(Number(pasosDetectados))) {
+        setPasosHoy(Number(pasosDetectados));
+      }
 
       const normalizado = {
         ...res,
@@ -427,6 +441,19 @@ const sincronizarSignosReloj = async (pacienteIdTarget: string, forzarSensado: b
         const resReintento = await getSignosRecientes(pacienteIdTarget);
         if (resReintento?.success) {
           const estaEnCargaRe = Boolean(resReintento.cargando || resReintento.estado_contacto === 'cargando');
+          
+          // 🚶‍♂️ Actualizar pasos tras la lectura forzada
+          const pasosRe =
+            resReintento.pasos ??
+            resReintento.pasos_hoy ??
+            resReintento.data?.pasos ??
+            resReintento.steps ??
+            null;
+
+          if (pasosRe !== null && !isNaN(Number(pasosRe))) {
+            setPasosHoy(Number(pasosRe));
+          }
+
           setSignosDispositivo({
             ...resReintento,
             cargando: estaEnCargaRe,
@@ -1165,7 +1192,105 @@ const guardarRegistroEspontaneo = async () => {
       console.error("❌ Error en registrarIncidente:", e);
     }
   };
+// ── 🧠 LÓGICA DE COMPLETADO DE TAREAS ──────────────────────────────
+const handleConfirmarTarea = (t: any) => {
+  if (t.completada) {
+    Alert.alert('Completada', `"${t.descripcion}" ya fue registrada.`);
+    return;
+  }
 
+  Alert.alert(
+    'Confirmar ejecución',
+    `¿Confirmas la realización de: ${t.descripcion}?`,
+    [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: '✓ Confirmar',
+        onPress: async () => {
+          // Optimistic UI update
+          setTareas((prev: any[]) =>
+            prev.map((item) => (item.id === t.id ? { ...item, completada: true } : item))
+          );
+
+          try {
+            if (t.tipo === 'medicamento' || t.med_id) {
+              const medUuid = t.med_id || String(t.id).replace(/^med_/, '').split('_')[0];
+              const horaProg = t.hora_programada || t.hora || '08:00';
+              const horaFormateada = horaProg.length === 5 ? `${horaProg}:00` : horaProg;
+
+              await fetchWithAuth(`${BASE_URL}/medicamentos/completar`, {
+                method: 'POST',
+                body: JSON.stringify({
+                  med_id: medUuid,
+                  paciente_id: pacienteActivo.id,
+                  descripcion: t.descripcion,
+                  hora_programada: horaFormateada,
+                }),
+              });
+            } else if (t.es_incidental) {
+              await fetchWithAuth(`${BASE_URL}/tareas/${t.id}/completar`, {
+                method: 'PATCH',
+                body: JSON.stringify({
+                  paciente_id: pacienteActivo.id,
+                  completada: true,
+                }),
+              });
+            } else {
+              const idRutina = t.actividad_id || t.id;
+              await fetchWithAuth(`${BASE_URL}/actividades/completar`, {
+                method: 'POST',
+                body: JSON.stringify({
+                  actividad_id: idRutina,
+                  paciente_id: pacienteActivo.id,
+                }),
+              });
+            }
+          } catch (err) {
+            console.error(`❌ Error registrando ${t.descripcion}:`, err);
+            // Rollback en caso de fallo
+            setTareas((prev: any[]) =>
+              prev.map((item) => (item.id === t.id ? { ...item, completada: false } : item))
+            );
+          }
+        },
+      },
+    ]
+  );
+};
+
+// ── 🏷️ BADGE DE TEMPORALIDAD ─────────────────────────────────────────
+const renderTemporalidadBadge = (t: any) => {
+  const hoyISO = new Date().toISOString().split('T')[0];
+  const fechaTareaISO = t.fecha_inicio ? String(t.fecha_inicio).split('T')[0] : hoyISO;
+  const tieneHora = Boolean(t.hora_programada || (t.hora && t.hora !== 'Incidental'));
+  const esFechaFuturaODiferente = fechaTareaISO !== hoyISO;
+
+  if (t.es_incidental) {
+    const esAgendada = tieneHora || esFechaFuturaODiferente;
+    return (
+      <Text style={[styles.badgeText, { color: esAgendada ? '#0284C7' : '#D97706' }]}>
+        {esAgendada ? '⏰ Agendada' : '⚡ Del Día'}
+      </Text>
+    );
+  }
+
+  if (!t.fecha_fin) {
+    return <Text style={[styles.badgeText, { color: COLORS.gold }]}>♾️ Permanente</Text>;
+  }
+
+  const inicioClean = ISOaLatino(String(t.fecha_inicio));
+  const finClean = ISOaLatino(String(t.fecha_fin));
+
+  if (inicioClean === finClean) {
+    return <Text style={[styles.badgeText, { color: '#64748B' }]}>📍 {inicioClean}</Text>;
+  }
+
+  return (
+    <Text style={[styles.badgeText, { color: '#64748B' }]}>
+      📆 {inicioClean} al {finClean}
+    </Text>
+  );
+};
   const compartirWhatsApp = () => {
     // 🎯 1. Jerarquía de Signos Vitales (Manual si existe, si no usa Reloj)
     const valSpo2 = spo2Manual || signosDispositivo?.spo2 || '';
@@ -1550,6 +1675,8 @@ const handleRegresarOpciones = async () => {
     }
   }
 };
+
+
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
@@ -1825,273 +1952,104 @@ const handleRegresarOpciones = async () => {
             <Text style={styles.activoText}>Monitoreo</Text>
           </View>
         </View>
+
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
         {/* ⌚ SECCIÓN DE HARDWARE Y TELEMETRÍA (Solo visible si pacienteActivo tiene reloj IMEI) */}
         {Boolean(pacienteActivo?.reloj_imei && pacienteActivo.reloj_imei.trim() !== '') && (
           <>
-           {/* 📡 TARJETA PRINCIPAL: SUPERVISIÓN OPERATIVA */}
-          <View style={{
-            backgroundColor: COLORS.white || '#FFFFFF',
-            borderRadius: 16,
-            paddingHorizontal: 16,
-            paddingVertical: 16,
-            marginBottom: 16,
-            borderWidth: 1,
-            borderColor: COLORS.border || '#E0D8CC',
-            elevation: 2,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.05,
-            shadowRadius: 4,
-          }}>
-
-            {/* CABECERA: TÍTULO Y PILL DE BATERÍA */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={{ fontSize: 13 }}>📡</Text>
-                <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textLight, letterSpacing: 0.5, textTransform: 'uppercase' }}>
-                  Supervisión en Vivo
-                </Text>
-              </View>
-
-              {/* 🔋 PILL DE BATERÍA CON MANEJO DE ESTADOS */}
-              {(() => {
-                const batVal =
-                  signosDispositivo?.bateria_pct ??
-                  signosDispositivo?.bateria ??
-                  ubicacion?.bateria_pct ??
-                  pacienteActivo?.bateria_pct ??
-                  null;
-
-                const ultimaConexionStr =
-                  signosDispositivo?.created_at ??
-                  signosDispositivo?.fecha_hora ??
-                  ubicacion?.ultima_conexion ??
-                  ubicacion?.updated_at ??
-                  pacienteActivo?.updated_at ??
-                  null;
-
-                let diffMinutos = 0;
-                if (ultimaConexionStr) {
-                  try {
-                    const fechaNorm = String(ultimaConexionStr).includes('Z') || String(ultimaConexionStr).includes('+')
-                      ? String(ultimaConexionStr)
-                      : `${String(ultimaConexionStr).replace(' ', 'T')}Z`;
-                    diffMinutos = Math.floor((new Date().getTime() - new Date(fechaNorm).getTime()) / (1000 * 60));
-                  } catch {
-                    diffMinutos = 0;
-                  }
-                }
-
-                const numBat = batVal !== null && typeof batVal === 'number' ? batVal : null;
-                const estaFueraDeLinea = diffMinutos > 10;
-                const esAgotada = (numBat !== null && numBat <= 3) || (numBat !== null && numBat <= 5 && estaFueraDeLinea);
-                const esBaja = numBat !== null && numBat > 3 && numBat < 20;
-
-                let bgPill = '#E8F5E9';
-                let borderPill = '#C8E6C9';
-                let textPill = COLORS?.green ?? '#2E7D32';
-                let iconPill = '🔋';
-                let labelPill = numBat !== null ? `${numBat}%` : '--%';
-
-                if (signosDispositivo?.cargando) {
-                  bgPill = '#EFF6FF';
-                  borderPill = '#BFDBFE';
-                  textPill = '#1E40AF';
-                  iconPill = '🔌';
-                  labelPill = numBat !== null ? `CARGA ${numBat}%` : 'CARGANDO';
-                } else if (esAgotada) {
-                  bgPill = '#FEE2E2';
-                  borderPill = '#DC2626';
-                  textPill = '#991B1B';
-                  iconPill = '⚠️';
-                  labelPill = 'APAGADO';
-                } else if (estaFueraDeLinea) {
-                  bgPill = '#FEF3C7';
-                  borderPill = '#F59E0B';
-                  textPill = '#B45309';
-                  iconPill = '📡';
-                  labelPill = numBat !== null ? `OFF (${numBat}%)` : 'OFF';
-                } else if (esBaja) {
-                  bgPill = '#FFEBEE';
-                  borderPill = '#FFCDD2';
-                  textPill = COLORS?.red ?? '#D94F4F';
-                  iconPill = '🪫';
-                }
-
-                const handlePillPress = () => {
-                  if (esAgotada) {
-                    Alert.alert(
-                      '⚠️ Reloj Apagado por Batería Agotada',
-                      'El dispositivo se apagó al descargarse por completo.\n\n' +
-                      '1. Conéctelo a la base de carga magnética.\n' +
-                      '2. Espere 5 minutos para que tome carga básica.\n' +
-                      '3. Mantenga presionado el botón lateral 4 segundos para encenderlo.\n\n' +
-                      'El reloj no enviará alertas ni ubicación hasta que se encienda nuevamente.',
-                      [{ text: 'Entendido', style: 'default' }]
-                    );
-                  } else if (estaFueraDeLinea) {
-                    const tiempoTexto = diffMinutos > 60
-                      ? `${Math.floor(diffMinutos / 60)}h ${diffMinutos % 60}m`
-                      : `${diffMinutos} min`;
-                    Alert.alert(
-                      '📡 Reloj Fuera de Línea',
-                      `El reloj no se comunica desde hace ${tiempoTexto}.\n\n` +
-                      `• Última batería registrada: ${numBat !== null ? numBat + '%' : 'No disponible'}\n` +
-                      '• Verifique si el dispositivo fue apagado manualmente o se encuentra sin cobertura móvil.',
-                      [{ text: 'Entendido', style: 'default' }]
-                    );
-                  }
-                };
-
-                return (
-                  <TouchableOpacity
-                    activeOpacity={esAgotada || estaFueraDeLinea ? 0.7 : 1}
-                    onPress={handlePillPress}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      backgroundColor: bgPill,
-                      paddingHorizontal: 8,
-                      paddingVertical: 3,
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: borderPill,
-                    }}
-                  >
-                    <Text style={{ fontSize: 10, marginRight: 3 }}>{iconPill}</Text>
-                    <Text style={{ fontSize: 10, fontWeight: '800', color: textPill }}>{labelPill}</Text>
-                  </TouchableOpacity>
-                );
-              })()}
-            </View>
-
-            {/* FILA DE ESTADO OPERATIVO: PORTACIÓN / BASE */}
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              backgroundColor: 'rgba(0,0,0,0.02)',
-              paddingVertical: 12,
-              paddingHorizontal: 14,
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: 'rgba(0,0,0,0.04)',
-            }}>
-              <View>
-                <Text style={{ fontSize: 9.5, color: COLORS.textLight, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Estado de Uso
-                </Text>
-                <Text style={{
-                  fontSize: 14,
-                  fontWeight: '800',
-                  marginTop: 3,
-                  color: signosDispositivo?.cargando 
-                    ? '#1E40AF' 
-                    : (signosDispositivo?.reloj_puesto ? COLORS.green : '#94A3B8')
-                }}>
-                  {signosDispositivo?.cargando 
-                    ? 'Conectado a la base de carga' 
-                    : (signosDispositivo?.reloj_puesto ? 'En muñeca (Portación activa)' : 'En reposo / No colocado')}
-                </Text>
-              </View>
-
-              <View style={{
-                width: 10,
-                height: 10,
-                borderRadius: 5,
-                backgroundColor: signosDispositivo?.cargando 
-                  ? '#3B82F6' 
-                  : (signosDispositivo?.reloj_puesto ? COLORS.green : '#CBD5E1')
-              }} />
-            </View>
-
-          </View>
-
-           {/* 🎛️ TARJETA CONFIG RELOJ — Vista Cuidador */}
-          {signosDispositivo?.reloj_config && (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setModalConfigCuidadorVisible(true)}
-              style={{
-                backgroundColor: COLORS.white,
-                borderRadius: 14,
-                padding: 14,
-                marginTop: 8,
-                marginBottom: 12,
-                marginHorizontal: 16,
-                borderWidth: 1,
-                borderColor: COLORS.border,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 12,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.04,
-                shadowRadius: 3,
-                elevation: 2,
+            <SupervisionCuidadorCard
+              signosDispositivo={signosDispositivo}
+              ubicacion={ubicacion}
+              pacienteActivo={pacienteActivo}
+              pasosHoy={pasosHoy}
+              ultimoCierre={null}
+              onRefreshData={async (id) => {
+                await sincronizarSignosReloj(id || pacienteActivo.id, true);
               }}
-            >
-              <Text style={{ fontSize: 22 }}>{'⚙️'}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textDark, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Configuración del reloj
-                </Text>
-                
-                {/* Estado del Detector de Caídas */}
-                <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
-                  {(() => {
-                    const config = signosDispositivo.reloj_config;
-                    if (!config.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
-                    
-                    const sens = Number(config.sensibilidad ?? config.sensibilidad_caidas);
-                    switch (sens) {
-                      case 1: return 'Detector de caídas: 🔴 Muy Alta (1)';
-                      case 2: return 'Detector de caídas: 🟠 Alta (2)';
-                      case 3: return 'Detector de caídas: 🟡 Media (3)';
-                      case 4: return 'Detector de caídas: 🟢 Estándar (4)';
-                      case 5: return 'Detector de caídas: 🔵 Baja (5)';
-                      case 6: return 'Detector de caídas: ⚪ Mínima (6)';
-                      default: return 'Detector de caídas: 🟢 Estándar (4)';
-                    }
-                  })()}
-                </Text>
+            />
+            {/* 🎛️ TARJETA CONFIG RELOJ — Vista Cuidador */}
+            {signosDispositivo?.reloj_config && (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setModalConfigCuidadorVisible(true)}
+                style={{
+                  backgroundColor: COLORS.white,
+                  borderRadius: 14,
+                  padding: 14,
+                  marginTop: 8,
+                  marginBottom: 12,
+                  alignSelf: 'stretch', // 👈 Ocupa el 100% del ancho del contenedor padre
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.04,
+                  shadowRadius: 3,
+                  elevation: 2,
+                }}
+              >
+                <Text style={{ fontSize: 22 }}>{'⚙️'}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textDark, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Configuración del reloj
+                  </Text>
+                  
+                  {/* Estado del Detector de Caídas */}
+                  <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
+                    {(() => {
+                      const config = signosDispositivo.reloj_config;
+                      if (!config.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
+                      
+                      const sens = Number(config.sensibilidad ?? config.sensibilidad_caidas);
+                      switch (sens) {
+                        case 1: return 'Detector de caídas: 🔴 Muy Alta (1)';
+                        case 2: return 'Detector de caídas: 🟠 Alta (2)';
+                        case 3: return 'Detector de caídas: 🟡 Media (3)';
+                        case 4: return 'Detector de caídas: 🟢 Estándar (4)';
+                        case 5: return 'Detector de caídas: 🔵 Baja (5)';
+                        case 6: return 'Detector de caídas: ⚪ Mínima (6)';
+                        default: return 'Detector de caídas: 🟢 Estándar (4)';
+                      }
+                    })()}
+                  </Text>
 
-                {/* Última Sincronización */}
-                <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 2 }}>
-                  {(() => {
-                    const uc = signosDispositivo.reloj_config.ultima_configuracion;
-                    if (!uc) return 'Última sincronización: Sin registro aún';
-                    try {
-                      const fecha = new Date(uc);
-                      if (isNaN(fecha.getTime())) return 'Última sincronización: Sin registro aún';
-                      return `Última sincronización: ${fecha.toLocaleDateString('es-MX', { 
-                        day: 'numeric', 
-                        month: 'short', 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })}`;
-                    } catch {
-                      return 'Última sincronización: Sin registro aún';
-                    }
-                  })()}
-                </Text>
-              </View>
+                  {/* Última Sincronización */}
+                  <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 2 }}>
+                    {(() => {
+                      const uc = signosDispositivo.reloj_config.ultima_configuracion;
+                      if (!uc) return 'Última sincronización: Sin registro aún';
+                      try {
+                        const fecha = new Date(uc);
+                        if (isNaN(fecha.getTime())) return 'Última sincronización: Sin registro aún';
+                        return `Última sincronización: ${fecha.toLocaleDateString('es-MX', { 
+                          day: 'numeric', 
+                          month: 'short', 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}`;
+                      } catch {
+                        return 'Última sincronización: Sin registro aún';
+                      }
+                    })()}
+                  </Text>
+                </View>
 
-              {/* Botón Ajustar */}
-              <View style={{
-                backgroundColor: COLORS.goldPale,
-                paddingHorizontal: 12,
-                paddingVertical: 6,
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: 'rgba(191, 154, 64, 0.3)',
-              }}>
-                <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.gold }}>Ajustar</Text>
-              </View>
-            </TouchableOpacity>
-          )}
+                {/* Botón Ajustar */}
+                <View style={{
+                  backgroundColor: COLORS.goldPale,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: 'rgba(191, 154, 64, 0.3)',
+                }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.gold }}>Ajustar</Text>
+                </View>
+              </TouchableOpacity>
+            )}
         </>
       )}
 
@@ -2226,303 +2184,109 @@ const handleRegresarOpciones = async () => {
             </TouchableOpacity>
           </View>
         )}
-
          {/* ========================================================== */}
-          {/* 1. 📋 PLAN DE CUIDADOS DEL DÍA                             */}
-          {/* ========================================================== */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, marginTop: 4 }}>
-            <Text style={styles.sectionTitle}>Plan de cuidados del día ({tareasPendientes.length})</Text>
-            <TouchableOpacity style={[styles.iniciarBtn, { paddingHorizontal: 12, paddingVertical: 4 }]} onPress={() => setTareaOpen(true)}>
-              <Text style={[styles.iniciarBtnText, { fontSize: 11 }]}>+ Incidental</Text>
-            </TouchableOpacity>
+{/* 📋 1. PLAN DE CUIDADOS DEL DÍA                             */}
+{/* ========================================================== */}
+<View style={styles.planHeaderRow}>
+  <View style={styles.planTitleBadgeGroup}>
+    <Text style={styles.planSectionTitle}>Plan de cuidados del día</Text>
+    <View style={styles.countBadge}>
+      <Text style={styles.countBadgeText}>{tareasPendientes.length}</Text>
+    </View>
+  </View>
+  <TouchableOpacity 
+    activeOpacity={0.8} 
+    style={styles.btnIncidentalModern} 
+    onPress={() => setTareaOpen(true)}
+  >
+    <Text style={styles.btnIncidentalPlus}>+</Text>
+    <Text style={styles.btnIncidentalText}>Incidental</Text>
+  </TouchableOpacity>
+</View>
+
+{tareasPendientes.map((t) => {
+  const horaOriginal = t.hora_programada || (t.hora !== 'Incidental' ? t.hora : null);
+  const horaTexto = horaOriginal
+    ? formatearHoraBonita(horaOriginal)
+    : (t.fecha_inicio ? ISOaLatino(String(t.fecha_inicio)) : 'Sin hora');
+
+  const subtituloDosis = [t.dosis, t.via_administracion].filter(Boolean).join(' · ');
+  const indicacionVisible = t.indicaciones || t.instrucciones || (!t.es_incidental ? t.notas : null);
+
+  return (
+    <View 
+      key={t.id} 
+      style={[styles.careCard, t.completada && styles.careCardCompleted]}
+    >
+      <View style={styles.careCardBody}>
+        {/* Icono de tipo con burbuja suave */}
+        <View style={[styles.iconContainer, t.completada && styles.iconContainerCompleted]}>
+          <Text style={styles.iconEmoji}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
+        </View>
+
+        {/* Información central */}
+        <View style={styles.cardContent}>
+          <Text 
+            style={[styles.taskTitle, t.completada && styles.taskTitleCompleted]}
+            numberOfLines={2}
+          >
+            {t.descripcion}
+          </Text>
+
+          {Boolean(subtituloDosis) && (
+            <Text style={styles.taskDosageText}>{subtituloDosis}</Text>
+          )}
+
+          {/* Fila de metadatos: Hora + Badge de frecuencia */}
+          <View style={styles.metaRow}>
+            <View style={styles.timeTag}>
+              <Text style={styles.timeIcon}>🕒</Text>
+              <Text style={styles.timeText}>{horaTexto}</Text>
+            </View>
+            <View style={styles.recurrencePill}>
+              {renderTemporalidadBadge(t)}
+            </View>
           </View>
 
-          {tareasPendientes.map((t) => {
-            const renderTemporalidadTarea = () => {
-              const hoyISO = new Date().toISOString().split('T')[0];
-              const fechaTareaISO = t.fecha_inicio ? String(t.fecha_inicio).split('T')[0] : hoyISO;
-              
-              const tieneHora = Boolean(t.hora_programada || (t.hora && t.hora !== 'Incidental'));
-              const esFechaFuturaODiferente = fechaTareaISO !== hoyISO;
+          {/* Indicaciones médicas / notas */}
+          {Boolean(indicacionVisible) && (
+            <View style={styles.instructionsCallout}>
+              <Text style={styles.bulbIcon}>💡</Text>
+              <Text style={styles.instructionsText} numberOfLines={2}>
+                {indicacionVisible}
+              </Text>
+            </View>
+          )}
+        </View>
 
-              if (t.es_incidental) {
-                const esAgendada = tieneHora || esFechaFuturaODiferente;
-
-                return (
-                  <Text style={{ fontSize: 10, color: esAgendada ? '#0284C7' : '#D97706', fontWeight: '600' }}>
-                    {esAgendada ? '⏰ Agendada' : '⚡ Del Día'}
-                  </Text>
-                );
-              }
-
-              const fInicio = t.fecha_inicio;
-              const fFin = t.fecha_fin;
-
-              if (!fFin || fFin === null || fFin === '') {
-                return <Text style={{ fontSize: 10, color: COLORS.gold, fontWeight: '600' }}>♾️ Permanente</Text>;
-              }
-
-              const inicioClean = ISOaLatino(String(fInicio));
-              const finClean = ISOaLatino(String(fFin));
-
-              if (inicioClean === finClean) {
-                return <Text style={{ fontSize: 10, color: '#555', fontWeight: '600' }}>📍 {inicioClean}</Text>;
-              }
-
-              return (
-                <Text style={{ fontSize: 10, color: '#555', fontWeight: '600' }}>
-                  📆 {inicioClean} al {finClean}
-                </Text>
-              );
-            };
-
-            // 🎯 HORA FORMATO 12 HRS (Limpio y Amigable)
-            const horaOriginal = t.hora_programada || (t.hora && t.hora !== 'Incidental' ? t.hora : null);
-            const horaTexto = horaOriginal 
-              ? formatearHoraBonita(horaOriginal)
-              : (t.fecha_inicio ? ISOaLatino(String(t.fecha_inicio)) : 'Sin hora');
-
-            // 💡 Extracción de indicaciones de uso para render directo
-            const indicacionVisible = t.indicaciones || t.instrucciones || (!t.es_incidental ? t.notas : null);
-
-            return (
-              <TouchableOpacity 
-                key={t.id} 
-                style={[
-                  styles.tareaCard,
-                  t.completada && { opacity: 0.6, backgroundColor: '#F8FAFC' }
-                ]} 
-                onPress={() => {
-                  if (t.completada) {
-                    Alert.alert('Completada', `"${t.descripcion}" ya fue registrada.`);
-                    return;
-                  }
-
-                  Alert.alert(
-                    'Confirmar ejecución',
-                    `¿Confirmas la realización de: ${t.descripcion}?`,
-                    [
-                      { text: 'Cancelar', style: 'cancel' },
-                      {
-                        text: '✓ Confirmar',
-                        onPress: async () => {
-                          setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: true } : item));
-
-                          try {
-                            // 💊 1. MEDICAMENTO
-                            if (t.tipo === 'medicamento' || t.med_id) {
-                              const medUuid = t.med_id || String(t.id).replace(/^med_/, '').split('_')[0];
-                              const horaProg = t.hora_programada || t.hora || '08:00';
-                              const horaFormateada = horaProg.length === 5 ? `${horaProg}:00` : horaProg;
-
-                              await fetchWithAuth(`${BASE_URL}/medicamentos/completar`, {
-                                method: 'POST',
-                                body: JSON.stringify({
-                                  med_id: medUuid,
-                                  paciente_id: pacienteActivo.id,
-                                  descripcion: t.descripcion,
-                                  hora_programada: horaFormateada,
-                                }),
-                              });
-                              console.log(`✅ [MEDICAMENTO COMPLETADO] ${t.descripcion}`);
-                            }
-                            // ⚡ 2. TAREA INCIDENTAL
-                            else if (t.es_incidental) {
-                              await fetchWithAuth(`${BASE_URL}/tareas/${t.id}/completar`, {
-                                method: 'PATCH',
-                                body: JSON.stringify({
-                                  paciente_id: pacienteActivo.id,
-                                  completada: true,
-                                }),
-                              });
-                              console.log(`✅ [INCIDENTAL COMPLETADA] ${t.descripcion}`);
-                            }
-                            // 📋 3. RUTINA RECURRENTE (Ejercicio, Cena, Higiene, etc.)
-                            else {
-                              const idRutina = t.actividad_id || t.id;
-                              await fetchWithAuth(`${BASE_URL}/actividades/completar`, {
-                                method: 'POST',
-                                body: JSON.stringify({
-                                  actividad_id: idRutina,
-                                  paciente_id: pacienteActivo.id,
-                                }),
-                              });
-                              console.log(`✅ [RUTINA COMPLETADA] ${t.descripcion}`);
-                            }
-                          } catch (err) {
-                            console.error(`❌ Error registrando ${t.descripcion}:`, err);
-                            setTareas(prev => prev.map(item => item.id === t.id ? { ...item, completada: false } : item));
-                          }
-                        },
-                      },
-                    ]
-                  );
-                }}
-              >
-                <Text style={styles.tareaIcon}>{ICONOS_TIPO[t.tipo] ?? '📋'}</Text>
-
-                <View style={styles.tareaInfo}>
-                  <Text style={[
-                    styles.tareaTexto,
-                    t.completada && { textDecorationLine: 'line-through', color: '#94A3B8' }
-                  ]}>
-                    {t.descripcion}
-                  </Text>
-
-                  {/* 📍 Subtítulo de Dosis / Vía de administración si están disponibles */}
-                  {(t.dosis || t.via_administracion) && (
-                    <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '500', marginTop: 1 }}>
-                      {[t.dosis, t.via_administracion].filter(Boolean).join(' · ')}
-                    </Text>
-                  )}
-
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
-                    <Text style={styles.tareaHora}>{horaTexto}</Text>
-                    <Text style={{ fontSize: 10, color: '#CCC' }}>·</Text>
-                    <View style={{ backgroundColor: '#F0F0F0', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, borderWidth: 1, borderColor: '#EAEAEA' }}>
-                      {renderTemporalidadTarea()}
-                    </View>
-                  </View>
-
-                  {/* ⚠️ 📍 INDICACIONES DE USO VISIBLES DIRECTAMENTE EN LA TARJETA */}
-                  {Boolean(indicacionVisible) && (
-                    <View style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      backgroundColor: '#FFFBEB',
-                      borderColor: '#FDE68A',
-                      borderWidth: 1,
-                      borderRadius: 6,
-                      paddingHorizontal: 8,
-                      paddingVertical: 3,
-                      marginTop: 6,
-                      gap: 4
-                    }}>
-                      <Text style={{ fontSize: 10 }}>💡</Text>
-                      <Text 
-                        style={{ fontSize: 10, color: '#92400E', fontWeight: '600', flex: 1 }} 
-                        numberOfLines={2}
-                      >
-                        {indicacionVisible}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* ℹ️ BOTÓN INFORMATIVO INTELIGENTE */}
-                <TouchableOpacity 
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    setItemSeleccionadoDetalle(t);
-                  }}
-                  style={{
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    backgroundColor: '#F1F5F9',
-                    borderRadius: 6,
-                    borderWidth: 1,
-                    borderColor: '#CBD5E1',
-                    marginRight: 8
-                  }}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#475569' }}>ℹ️</Text>
-                </TouchableOpacity>
-
-                {/* 🎯 CHECK INTERACTIVO */}
-                <View style={[
-                  styles.tareaCheck,
-                  t.completada && { backgroundColor: '#10B981', borderColor: '#059669', justifyContent: 'center', alignItems: 'center' }
-                ]}>
-                  {t.completada && <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold' }}>✓</Text>}
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-
-          {/* MODAL INFORMATIVO COMPLETO */}
-          <Modal 
-            visible={!!itemSeleccionadoDetalle} 
-            transparent 
-            animationType="fade" 
-            onRequestClose={() => setItemSeleccionadoDetalle(null)}
+        {/* Acciones del extremo derecho: Info y Check */}
+        <View style={styles.actionsColumn}>
+          <TouchableOpacity
+            style={styles.modernInfoButton}
+            activeOpacity={0.7}
+            onPress={() => setItemSeleccionadoDetalle(t)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <TouchableOpacity 
-              style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}
-              activeOpacity={1}
-              onPress={() => setItemSeleccionadoDetalle(null)}
-            >
-              <View style={{ backgroundColor: COLORS.white, borderRadius: 16, padding: 20, width: '100%', maxWidth: 340, borderWidth: 1, borderColor: COLORS.border, elevation: 5 }}>
-                <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.cacao, marginBottom: 4, textTransform: 'uppercase' }}>
-                  {itemSeleccionadoDetalle?.descripcion || itemSeleccionadoDetalle?.nombre || 'Detalle de la tarea'}
-                </Text>
+            <Text style={styles.modernInfoText}>ℹ️</Text>
+          </TouchableOpacity>
 
-                {/* ⏰ HORA FORMATO 12 HRS */}
-                {(itemSeleccionadoDetalle?.hora || itemSeleccionadoDetalle?.hora_programada) && (
-                  <Text style={{ fontSize: 12, color: COLORS.gold, fontWeight: '800', marginBottom: 14 }}>
-                    ⏰ Horario: {formatearHoraBonita(itemSeleccionadoDetalle.hora_programada || itemSeleccionadoDetalle.hora)}
-                  </Text>
-                )}
-
-                {/* 📍 Ubicación en Casa (Solo si es tipo medicamento) */}
-                {(() => {
-                  const t = itemSeleccionadoDetalle;
-                  if (!t) return null;
-
-                  const esMedicamento = t.tipo?.toLowerCase() === 'medicamento';
-                  if (!esMedicamento) return null;
-
-                  return (
-                    <View style={{ marginBottom: 12 }}>
-                      <Text style={{ fontSize: 10, fontWeight: '800', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 3 }}>
-                        📍 Ubicación en Casa:
-                      </Text>
-                      <Text style={{ fontSize: 13, color: COLORS.textDark, fontWeight: '600' }}>
-                        {t.ubicacion || t.lugar_almacenaje || 'Botiquín principal / Almacén general.'}
-                      </Text>
-                    </View>
-                  );
-                })()}
-
-                {/* 💡 Indicaciones / Modo de Uso */}
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={{ fontSize: 10, fontWeight: '800', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 3 }}>
-                    💡 Indicaciones / Modo de Uso:
-                  </Text>
-                  <Text style={{ fontSize: 13, color: COLORS.textDark, fontWeight: '600', lineHeight: 18 }}>
-                    {itemSeleccionadoDetalle?.indicaciones || itemSeleccionadoDetalle?.instrucciones || 'Sin indicaciones especiales.'}
-                  </Text>
-                </View>
-
-                {/* 📌 Notas adicionales */}
-                {(() => {
-                  const ind = itemSeleccionadoDetalle?.indicaciones || itemSeleccionadoDetalle?.instrucciones || '';
-                  const notas = itemSeleccionadoDetalle?.notas || itemSeleccionadoDetalle?.observaciones || '';
-                  
-                  if (!notas || notas.trim() === ind.trim()) return null;
-
-                  return (
-                    <View style={{ marginBottom: 12 }}>
-                      <Text style={{ fontSize: 10, fontWeight: '800', color: COLORS.textLight, textTransform: 'uppercase', marginBottom: 3 }}>
-                        📌 Notas Adicionales:
-                      </Text>
-                      <Text style={{ fontSize: 13, color: COLORS.textDark, fontWeight: '600', lineHeight: 18 }}>
-                        {notas}
-                      </Text>
-                    </View>
-                  );
-                })()}
-
-                {/* BOTÓN DE CIERRE */}
-                <TouchableOpacity 
-                  style={{ marginTop: 10, backgroundColor: COLORS.cacao, paddingVertical: 12, borderRadius: 10, alignItems: 'center' }}
-                  onPress={() => setItemSeleccionadoDetalle(null)}
-                >
-                  <Text style={{ color: COLORS.white, fontWeight: '800', fontSize: 13 }}>Entendido</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          </Modal>
+          <TouchableOpacity
+            style={[styles.touchableCheckArea, t.completada && styles.checkAreaCompleted]}
+            activeOpacity={0.7}
+            onPress={() => handleConfirmarTarea(t)}
+          >
+            {t.completada ? (
+              <Text style={styles.checkmarkSymbol}>✓</Text>
+            ) : (
+              <View style={styles.emptyCheckHole} />
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+})}
+         
           {/* ========================================================== */}
           {/* 2. 📝 NOTAS DEL CUIDADOR (ABAJO Y CON ACORDEÓN DESPLEGABLE) */}
           {/* ========================================================== */}
@@ -4114,4 +3878,228 @@ const styles = StyleSheet.create({
   chipCatSelected: { backgroundColor: COLORS.gold, borderColor: COLORS.gold },
   chipCatText: { fontSize: 11, fontWeight: '600', color: COLORS.textLight },
   chipCatTextSelected: { color: COLORS.white, fontWeight: '800' },
+  // ── HEADER DEL PLAN ──
+  planHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    marginTop: 6,
+    paddingHorizontal: 2,
+  },
+  planTitleBadgeGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  planSectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#334155',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  countBadge: {
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  countBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  btnIncidentalModern: {
+    backgroundColor: '#292524',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 9,
+    gap: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  btnIncidentalPlus: {
+    color: '#F59E0B',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  btnIncidentalText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+
+  // ── TARJETA DEL CUIDADO ──
+  careCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  careCardCompleted: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+    opacity: 0.65,
+  },
+  careCardBody: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+
+  // ── ICONO LATERAL ──
+  iconContainer: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  iconContainerCompleted: {
+    backgroundColor: '#E2E8F0',
+  },
+  iconEmoji: {
+    fontSize: 18,
+  },
+
+  // ── CONTENIDO CENTRAL ──
+  cardContent: {
+    flex: 1,
+  },
+  taskTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    lineHeight: 20,
+  },
+  taskTitleCompleted: {
+    textDecorationLine: 'line-through',
+    color: '#94A3B8',
+  },
+  taskDosageText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 2,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+    flexWrap: 'wrap',
+  },
+  timeTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  timeIcon: {
+    fontSize: 11,
+  },
+  timeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  recurrencePill: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+
+  // ── INSTRUCCIONES CALLOUT ──
+  instructionsCallout: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEFCE8',
+    borderColor: '#FEF08A',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginTop: 8,
+    gap: 5,
+  },
+  bulbIcon: {
+    fontSize: 11,
+  },
+  instructionsText: {
+    fontSize: 11,
+    color: '#854D0E',
+    fontWeight: '600',
+    flex: 1,
+    lineHeight: 15,
+  },
+
+  // ── COLUMNA DERECHA (INFO + CHECK) ──
+  actionsColumn: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 10,
+    marginLeft: 4,
+  },
+  modernInfoButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  modernInfoText: {
+    fontSize: 12,
+  },
+  touchableCheckArea: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkAreaCompleted: {
+    backgroundColor: '#10B981',
+    borderColor: '#059669',
+  },
+  emptyCheckHole: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'transparent',
+  },
+  checkmarkSymbol: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
 });

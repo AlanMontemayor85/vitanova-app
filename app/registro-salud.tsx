@@ -1,12 +1,18 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  Easing,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -17,19 +23,21 @@ const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
 const COLORS = {
   gold: '#BF9A40',
-  goldPale: '#F5EDD8',
-  cacao: '#4A4540',
-  cream: '#FAFAF7',
+  goldPale: '#FBF7EE',
+  goldBorder: '#E8DCC4',
+  cacao: '#3E3832',
+  cream: '#FDFCFB',
   white: '#FFFFFF',
-  textDark: '#2C2820',
-  textLight: '#8A8078',
-  border: '#E0D8CC',
-  green: '#3DAA6A',
-  greenPale: '#EAF5E8',
-  amber: '#D4860A',
-  amberPale: '#FFF4E0',
-  red: '#D94F4F',
-  redPale: '#FDEAEA',
+  textDark: '#1E1B18',
+  textMuted: '#6D645B',
+  textLight: '#998E84',
+  border: '#ECE7DF',
+  green: '#10B981',
+  greenPale: '#ECFDF5',
+  amber: '#F59E0B',
+  amberPale: '#FFFBEB',
+  red: '#EF4444',
+  redPale: '#FEF2F2',
 };
 
 export default function RegistroSaludScreen() {
@@ -38,123 +46,154 @@ export default function RegistroSaludScreen() {
   const paciente = params.paciente ? JSON.parse(params.paciente as string) : null;
   const momento = (params.momento as string) ?? 'inicio_turno';
 
-  // 🛡️ Signos vitales reales (Presión queda estrictamente en null para evitar telemetría sintética)
-  const [spo2, setSpo2] = useState<number | null>(null);
-  const [fc, setFc] = useState<number | null>(null);
-  const [temperatura, setTemperatura] = useState<number | null>(null);
+  // ⌚ Estatus telemático pasivo del reloj (Solo conectividad e información)
+  const [relojEnLinea, setRelojEnLinea] = useState<boolean>(false);
+  const [relojPuesto, setRelojPuesto] = useState<boolean>(false);
 
-  // ⌚ Estado del hardware
-  const [relojActivo, setRelojActivo] = useState<boolean>(false);
+  // 🩺 Signos 100% manuales tomados por el personal clínico
+  const [sistolica, setSistolica] = useState<string>('');
+  const [diastolica, setDiastolica] = useState<string>('');
+  const [fcManual, setFcManual] = useState<string>('');
+  const [spo2Manual, setSpo2Manual] = useState<string>('');
+  const [tempManual, setTempManual] = useState<string>('');
+  const [glucosaManual, setGlucosaManual] = useState<string>('');
+
   const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [alertas, setAlertas] = useState<string[]>([]);
 
-  // 📡 Sincronización con signos legítimos del reloj
+  // Animación Radar Beacon PERS para denotar supervisión telemática viva
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
-    const precargarSignosReloj = async () => {
-      if (!paciente?.id) return;
+    let animLoop: Animated.CompositeAnimation | null = null;
+    if (relojEnLinea) {
+      animLoop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 2200,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      animLoop.start();
+    } else {
+      pulseAnim.setValue(0);
+    }
+    return () => {
+      if (animLoop) animLoop.stop();
+    };
+  }, [relojEnLinea]);
+
+  const pulseScale = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.95, 1.6],
+  });
+
+  const pulseOpacity = pulseAnim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0.5, 0.2, 0],
+  });
+
+  // Consulta únicamente el estado del enlace y portación
+  useEffect(() => {
+    const verificarEnlaceReloj = async () => {
+      if (!paciente?.id) {
+        setLoading(false);
+        return;
+      }
       try {
-        console.log(`📡 [VERIFICACIÓN TURNO] Solicitando telemetría de paciente: ${paciente.id}`);
         const res = await getSignosRecientes(paciente.id);
-
         if (res && res.success) {
-          const estaPuesto =
-            res.dispositivoPuesto === true ||
-            res.estado_contacto === 'puesto' ||
-            Boolean(res.frescura?.bphrt || res.frescura?.spo2);
+          const enLinea = res.en_linea === true || Boolean(res.frescura?.bphrt || res.frescura?.spo2);
+          const puesto = res.dispositivoPuesto === true || res.estado_contacto === 'puesto';
 
-          const tieneFCValida = res.fc && res.fc !== '—' && Number(res.fc) > 30;
-          const tieneSpO2Valida = res.spo2 && res.spo2 !== '—' && Number(res.spo2) > 50;
-
-          if (estaPuesto && (tieneFCValida || tieneSpO2Valida)) {
-            setRelojActivo(true);
-            if (tieneSpO2Valida) setSpo2(Number(res.spo2));
-            if (tieneFCValida) setFc(Number(res.fc));
-            if (res.temperatura && res.temperatura !== '—') setTemperatura(Number(res.temperatura));
-          } else {
-            setRelojActivo(false);
-            setSpo2(null);
-            setFc(null);
-            setTemperatura(null);
-          }
+          setRelojEnLinea(enLinea);
+          setRelojPuesto(puesto);
         } else {
-          setRelojActivo(false);
+          setRelojEnLinea(false);
+          setRelojPuesto(false);
         }
       } catch (e) {
-        console.error('❌ Error en sincronización de telemetría previa:', e);
-        setRelojActivo(false);
+        console.warn('Estatus de reloj no disponible:', e);
+        setRelojEnLinea(false);
+        setRelojPuesto(false);
       } finally {
         setLoading(false);
       }
     };
 
-    precargarSignosReloj();
+    verificarEnlaceReloj();
   }, [paciente?.id]);
 
-  const guardar = async () => {
+  const hayDatosManuales = Boolean(
+    sistolica.trim() ||
+    diastolica.trim() ||
+    fcManual.trim() ||
+    spo2Manual.trim() ||
+    tempManual.trim() ||
+    glucosaManual.trim()
+  );
+
+  const procesarInicioTurno = async () => {
     setGuardando(true);
     try {
-      const origenCalculado = relojActivo ? 'dispositivo' : 'manual';
-
-      // 🛑 Presión arterial va explícitamente en null: no proviene de baumanómetro clínico
-      const payload = {
-        paciente_id: paciente.id,
-        momento,
-        estado_animo: 'bien',
-        alimentacion: 'bien',
-        dolor_eva: 0,
-        spo2: spo2 ?? null,
-        presion_sistolica: null,
-        presion_diastolica: null,
-        frecuencia_cardiaca: fc ?? null,
-        temperatura: temperatura ?? null,
-        origen: origenCalculado,
-        metodo: relojActivo ? 'reloj_rf_v48' : 'manual_cuidador',
-      };
-
-      const token = await getToken();
-
-      const res = await fetch(`${BASE_URL}/registros/salud`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (data.alertas?.length > 0) {
-        setAlertas(data.alertas);
-      } else {
-        await avanzarAlTurno();
-      }
-    } catch (error) {
-      console.log('⚠️ Sin red al registrar verificación de turno. Guardando en cola local...', error);
-
-      const origenCalculado = relojActivo ? 'dispositivo' : 'manual';
-
-      await encolarPeticionOffline(
-        `${BASE_URL}/registros/salud`,
-        'POST',
-        {
+      // Si el cuidador capturó algún signo manual, se envía el registro legítimo
+      if (hayDatosManuales) {
+        const payload: any = {
           paciente_id: paciente.id,
           momento,
           estado_animo: 'bien',
           alimentacion: 'bien',
           dolor_eva: 0,
-          spo2: spo2 ?? null,
-          presion_sistolica: null,
-          presion_diastolica: null,
-          frecuencia_cardiaca: fc ?? null,
-          temperatura: temperatura ?? null,
-          origen: origenCalculado,
-          metodo: relojActivo ? 'reloj_rf_v48' : 'manual_cuidador',
-        },
-        `Inicio de turno - ${paciente.nombre_completo}`
-      );
+          origen: 'manual',
+          metodo: 'manual_cuidador',
+          presion_sistolica: sistolica ? Number(sistolica) : null,
+          presion_diastolica: diastolica ? Number(diastolica) : null,
+          frecuencia_cardiaca: fcManual ? Number(fcManual) : null,
+          spo2: spo2Manual ? Number(spo2Manual) : null,
+          temperatura: tempManual ? Number(tempManual) : null,
+          glucosa: glucosaManual ? Number(glucosaManual) : null,
+        };
 
+        try {
+          const token = await getToken();
+          const res = await fetch(`${BASE_URL}/registros/salud`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
+          });
+
+          const data = await res.json();
+          if (data.alertas?.length > 0) {
+            setAlertas(data.alertas);
+            return;
+          }
+        } catch (errorOffline) {
+          await encolarPeticionOffline(
+            `${BASE_URL}/registros/salud`,
+            'POST',
+            payload,
+            `Signos Manuales de Entrada - ${paciente.nombre_completo}`
+          );
+        }
+      }
+
+      // Si no capturó manuales, no se envían datos ficticios del reloj a la gráfica
       await avanzarAlTurno();
+    } catch (err) {
+      console.error('Error procesando entrada:', err);
+      Alert.alert('Error', 'No se pudo registrar la entrada de turno.');
     } finally {
       setGuardando(false);
     }
@@ -164,11 +203,10 @@ export default function RegistroSaludScreen() {
     try {
       if (momento === 'inicio_turno') {
         const resTurno = await iniciarTurno(paciente.id);
-
         if (resTurno?.sin_horario) {
           Alert.alert(
-            'Turno No Permitido',
-            resTurno.mensaje || 'No tienes un turno programado en este horario.',
+            'Turno No Programado',
+            resTurno.mensaje || 'No tienes un turno asignado en este horario.',
             [{ text: 'Entendido', onPress: () => router.back() }]
           );
           return;
@@ -196,18 +234,19 @@ export default function RegistroSaludScreen() {
         },
       });
     } catch (err) {
-      console.error('❌ Error en avanzarAlTurno:', err);
-      Alert.alert('Error de Conexión', 'No se pudo validar tu estado de turno.');
+      console.error('Error al avanzar al turno:', err);
+      Alert.alert('Error de Conexión', 'No se pudo validar el inicio de turno.');
     }
   };
 
-  const momentoLabel: Record<string, string> = {
-    inicio_turno: 'Verificación de Entrada',
-    cierre_turno: 'Cierre de turno',
-    espontaneo: 'Registro espontáneo',
-  };
-
-  const tieneHardware = Boolean(paciente?.reloj_imei || paciente?.dispositivo_id || paciente?.imei);
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerBox]}>
+        <ActivityIndicator size="large" color={COLORS.gold} />
+        <Text style={styles.loadingText}>Verificando canal telemático...</Text>
+      </View>
+    );
+  }
 
   if (alertas.length > 0) {
     return (
@@ -215,198 +254,278 @@ export default function RegistroSaludScreen() {
         <StatusBar barStyle="light-content" backgroundColor={COLORS.red} />
         <View style={[styles.header, { backgroundColor: COLORS.red }]}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>⚠️ Alertas Críticas Detectadas</Text>
-            <Text style={styles.userName}>{paciente?.nombre_completo}</Text>
+            <Text style={styles.headerSubtitle}>Valores Fuera de Rango</Text>
+            <Text style={styles.headerTitle}>{paciente?.nombre_completo}</Text>
           </View>
         </View>
+
         <ScrollView style={styles.body}>
-          <Text style={[styles.sectionTitle, { color: COLORS.textDark, marginTop: 8 }]}>
-            Reporte Clínico Fuera de Rango
-          </Text>
-          <Text style={{ fontSize: 13, color: COLORS.textLight, marginBottom: 16, lineHeight: 18 }}>
-            El hardware reportó signos descompensados. El familiar ya fue notificado en tiempo real. Confirma para proceder y abrir tu agenda de cuidados médicos:
-          </Text>
+          <Text style={styles.alertHeader}>Signos manuales fuera de rango clínico:</Text>
           {alertas.map((a, i) => (
             <View key={i} style={styles.alertaCard}>
+              <Ionicons name="warning-outline" size={18} color={COLORS.red} />
               <Text style={styles.alertaText}>{a}</Text>
             </View>
           ))}
-          <TouchableOpacity style={[styles.confirmarBtn, { backgroundColor: COLORS.cacao }]} onPress={avanzarAlTurno}>
-            <Text style={styles.confirmarBtnText}>Entendido — Abrir Agenda del Turno →</Text>
+
+          <TouchableOpacity style={styles.confirmarCriticoBtn} onPress={avanzarAlTurno}>
+            <Text style={styles.confirmarCriticoBtnText}>Entendido — Abrir Agenda del Turno →</Text>
           </TouchableOpacity>
-          <View style={{ height: 40 }} />
         </ScrollView>
       </View>
     );
   }
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
-        <ActivityIndicator size="large" color={COLORS.gold} />
-        <Text style={{ marginTop: 12, fontSize: 12, color: COLORS.textLight, fontWeight: '600' }}>
-          {tieneHardware ? 'Sincronizando con Reloj Vitanova...' : 'Preparando agenda de cuidados...'}
-        </Text>
-      </View>
-    );
-  }
-
-  const esCritico =
-    relojActivo &&
-    ((spo2 !== null && spo2 < 92) ||
-      (fc !== null && fc > 100) ||
-      (temperatura !== null && temperatura > 37.8));
-
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backIcon}>←</Text>
+          <Ionicons name="arrow-back" size={22} color={COLORS.white} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.greeting}>{momentoLabel[momento] || 'Verificación de Turno'}</Text>
-          <Text style={styles.userName}>{paciente?.nombre_completo}</Text>
+          <Text style={styles.headerSubtitle}>Check-in Clínico de Entrada</Text>
+          <Text style={styles.headerTitle}>{paciente?.nombre_completo}</Text>
         </View>
       </View>
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-        {!tieneHardware ? (
-          <View style={{ marginTop: 12, marginBottom: 20 }}>
-            <View style={[styles.monitorCard, { paddingVertical: 28, alignItems: 'center' }]}>
-              <Text style={{ fontSize: 36, marginBottom: 12 }}>📋</Text>
-              <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.cacao, marginBottom: 6 }}>
-                Plan de Acompañamiento Activo
-              </Text>
-              <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center', paddingHorizontal: 16, lineHeight: 18 }}>
-                Al confirmar el inicio del turno se activará la bitácora de actividades, control de medicamentos y registro de signos vitales manuales.
-              </Text>
-            </View>
-          </View>
-        ) : (
-          <>
-            <Text style={styles.sectionTitle}>Estatus Actual del Dispositivo</Text>
-
-            <View style={[styles.monitorCard, esCritico && { borderColor: COLORS.red, backgroundColor: '#FFF5F5' }]}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <Text style={styles.monitorCardTitle}>📡 DATOS TRANSMITIDOS POR HARDWARE</Text>
-                {!relojActivo ? (
-                  <Text style={[styles.badgeAlertaCritica, { backgroundColor: COLORS.border, color: COLORS.cacao }]}>
-                    ⚪ EN ESPERA DE COLOCACIÓN
-                  </Text>
-                ) : esCritico ? (
-                  <Text style={styles.badgeAlertaCritica}>🚨 DESCOMPENSADO</Text>
-                ) : (
-                  <Text style={[styles.badgeAlertaCritica, { backgroundColor: COLORS.greenPale, color: COLORS.green }]}>
-                    🟢 EN LÍNEA
-                  </Text>
+        {/* 1. TARJETA PERS: INFORME DE SUPERVISIÓN TELEMÁTICA CONTINUA */}
+        <View style={styles.telemetriaCard}>
+          <View
+            style={[
+              styles.telemetriaStripe,
+              { backgroundColor: relojEnLinea ? COLORS.green : '#94A3B8' },
+            ]}
+          />
+          <View style={styles.telemetriaContent}>
+            <View style={styles.telemetriaRow}>
+              <View style={styles.beaconContainer}>
+                {relojEnLinea && (
+                  <Animated.View
+                    style={[
+                      styles.radarPulseRing,
+                      {
+                        transform: [{ scale: pulseScale }],
+                        opacity: pulseOpacity,
+                      },
+                    ]}
+                  />
                 )}
+                <View
+                  style={[
+                    styles.iconBubble,
+                    { backgroundColor: relojEnLinea ? COLORS.greenPale : '#F1F5F9' },
+                  ]}
+                >
+                  <Ionicons
+                    name={relojEnLinea ? 'radio-outline' : 'cloud-offline-outline'}
+                    size={20}
+                    color={relojEnLinea ? COLORS.green : COLORS.textLight}
+                  />
+                </View>
               </View>
 
-              {!relojActivo ? (
-                <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-                  <Text style={{ fontSize: 15, fontWeight: 'bold', color: COLORS.cacao, marginBottom: 4 }}>
-                    Reloj en Reposo o Sin Colocar
-                  </Text>
-                  <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center' }}>
-                    No se detectan pulsaciones ópticas ni temperatura cutánea activa en este momento. La telemetría continuará registrándose automáticamente al colocarse el dispositivo.
-                  </Text>
+              <View style={{ flex: 1 }}>
+                <View style={styles.titleWithBadge}>
+                  <Text style={styles.telemetriaTitle}>Supervisión Continua Vitanova</Text>
+                  <View
+                    style={[
+                      styles.pillStatus,
+                      { backgroundColor: relojEnLinea ? COLORS.greenPale : '#F1F5F9' },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.pillStatusText,
+                        { color: relojEnLinea ? COLORS.green : COLORS.textLight },
+                      ]}
+                    >
+                      {relojEnLinea ? 'EN LÍNEA' : 'OFFLINE'}
+                    </Text>
+                  </View>
                 </View>
-              ) : (
-                <>
-                  <View style={styles.monitorGrid}>
-                    <View style={styles.monitorItem}>
-                      <Text style={styles.monitorLabel}>Saturación Oxígeno</Text>
-                      <Text style={[styles.monitorVal, spo2 !== null && spo2 < 92 && { color: COLORS.red }]}>
-                        {spo2 !== null ? `${spo2}%` : '—'}
-                      </Text>
-                      <Text style={styles.monitorSubText}>Normal: 95% - 100%</Text>
-                    </View>
 
-                    <View style={styles.monitorItem}>
-                      <Text style={styles.monitorLabel}>Frec. Cardíaca</Text>
-                      <Text style={[styles.monitorVal, fc !== null && (fc > 100 || fc < 60) && { color: COLORS.amber }]}>
-                        {fc !== null ? fc : '—'} <Text style={{ fontSize: 11, fontWeight: '500' }}>bpm</Text>
-                      </Text>
-                      <Text style={styles.monitorSubText}>Normal: 60 - 100</Text>
-                    </View>
-                  </View>
+                <Text style={styles.telemetriaDesc}>
+                  {relojEnLinea
+                    ? relojPuesto
+                      ? 'El reloj se encuentra activo y colocado en muñeca.'
+                      : 'El reloj está sincronizado pero en reposo/dock. El monitoreo de signos se reanudará en cuanto el paciente lo porte.'
+                    : 'Dispositivo telemático sin conexión reciente. La supervisión por sensores continuará en segundo plano al restablecerse el enlace.'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
 
-                  <View style={[styles.monitorItem, { marginTop: 12 }]}>
-                    <Text style={styles.monitorLabel}>Temperatura Corporal (Muñeca)</Text>
-                    <Text style={[styles.monitorVal, temperatura !== null && temperatura > 37.5 && { color: COLORS.red }]}>
-                      {temperatura !== null ? `${temperatura} °C` : '—'}
-                    </Text>
-                    <Text style={styles.monitorSubText}>Normal: 36.0 °C - 37.3 °C</Text>
-                  </View>
+        {/* 2. CAPTURA CLÍNICA 100% MANUAL (BAUMANÓMETRO / INSTRUMENTAL) */}
+        <View style={styles.manualCard}>
+          <View style={styles.manualHeader}>
+            <Ionicons name="fitness" size={18} color={COLORS.gold} />
+            <Text style={styles.manualTitle}>Toma Manual de Signos Vitales</Text>
+          </View>
+          <Text style={styles.manualSubtitle}>
+            Ingresa únicamente las lecturas que tomes de forma presencial con instrumental clínico. Solo estos datos se plasmarán en la gráfica del expediente:
+          </Text>
 
-                  <View style={[styles.monitorItem, { marginTop: 12, backgroundColor: '#F9F8F6', borderStyle: 'dashed' }]}>
-                    <Text style={styles.monitorLabel}>Presión Arterial</Text>
-                    <Text style={[styles.monitorVal, { fontSize: 14, color: COLORS.textLight }]}>
-                      Toma Manual con Baumanómetro
-                    </Text>
-                    <Text style={styles.monitorSubText}>Se registra de manera presencial en la bitácora clínica</Text>
-                  </View>
-                </>
-              )}
+          {/* Presión Arterial (mmHg) */}
+          <Text style={styles.inputGroupLabel}>Presión Arterial (mmHg) - Baumanómetro</Text>
+          <View style={styles.presionRow}>
+            <View style={styles.inputFlex}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Sistólica (120)"
+                placeholderTextColor={COLORS.textLight}
+                keyboardType="numeric"
+                value={sistolica}
+                onChangeText={setSistolica}
+                maxLength={3}
+              />
+            </View>
+            <Text style={styles.slashText}>/</Text>
+            <View style={styles.inputFlex}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Diastólica (80)"
+                placeholderTextColor={COLORS.textLight}
+                keyboardType="numeric"
+                value={diastolica}
+                onChangeText={setDiastolica}
+                maxLength={3}
+              />
+            </View>
+          </View>
+
+          {/* Frecuencia Cardíaca y Oxígeno */}
+          <View style={styles.inputsRow}>
+            <View style={styles.inputFlex}>
+              <Text style={styles.inputGroupLabel}>Frec. Cardíaca (bpm)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Ej. 72"
+                placeholderTextColor={COLORS.textLight}
+                keyboardType="numeric"
+                value={fcManual}
+                onChangeText={setFcManual}
+                maxLength={3}
+              />
             </View>
 
-            <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center', marginHorizontal: 16, marginTop: 4, marginBottom: 16, lineHeight: 18 }}>
-              {relojActivo
-                ? 'Los signos fueron recolectados de forma continua por los sensores de pulso y temperatura cutánea del reloj.'
-                : 'Puedes iniciar el turno con normalidad. El monitoreo biométrico se actualizará en cuanto el usuario se coloque el reloj.'}
-            </Text>
-          </>
-        )}
+            <View style={styles.inputFlex}>
+              <Text style={styles.inputGroupLabel}>Saturación SpO2 (%)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Ej. 98"
+                placeholderTextColor={COLORS.textLight}
+                keyboardType="numeric"
+                value={spo2Manual}
+                onChangeText={setSpo2Manual}
+                maxLength={3}
+              />
+            </View>
+          </View>
 
+          {/* Temperatura axilar / Glucosa capilar */}
+          <View style={[styles.inputsRow, { marginTop: 12 }]}>
+            <View style={styles.inputFlex}>
+              <Text style={styles.inputGroupLabel}>Temp. Axilar/Bucal (°C)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Ej. 36.5"
+                placeholderTextColor={COLORS.textLight}
+                keyboardType="decimal-pad"
+                value={tempManual}
+                onChangeText={setTempManual}
+                maxLength={4}
+              />
+            </View>
+
+            <View style={styles.inputFlex}>
+              <Text style={styles.inputGroupLabel}>Glucosa Capilar (mg/dL)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Ej. 110"
+                placeholderTextColor={COLORS.textLight}
+                keyboardType="numeric"
+                value={glucosaManual}
+                onChangeText={setGlucosaManual}
+                maxLength={3}
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* 3. BOTÓN DE ACCIÓN */}
         <TouchableOpacity
-          style={[styles.confirmarBtn, guardando && { opacity: 0.7 }]}
-          onPress={guardar}
+          style={[styles.iniciarBtn, guardando && styles.disabledBtn]}
+          onPress={procesarInicioTurno}
           disabled={guardando}
+          activeOpacity={0.88}
         >
           {guardando ? (
-            <ActivityIndicator color={COLORS.white} />
+            <ActivityIndicator color={COLORS.white} size="small" />
           ) : (
-            <Text style={styles.confirmarBtnText}>Confirmar e Iniciar Turno →</Text>
+            <View style={styles.btnContent}>
+              <Ionicons name="play-circle-outline" size={20} color={COLORS.white} />
+              <Text style={styles.iniciarBtnText}>
+                {hayDatosManuales
+                  ? 'Asentar Signos e Iniciar Turno'
+                  : 'Iniciar Turno sin Captura Manual →'}
+              </Text>
+            </View>
           )}
         </TouchableOpacity>
 
+        <Text style={styles.footnote}>
+          {hayDatosManuales
+            ? 'Los signos manuales se archivarán en el expediente y se reflejarán en la gráfica con firma del turno.'
+            : 'Puedes comenzar el turno directamente. El reloj continuará su sensado periódico independiente en segundo plano.'}
+        </Text>
+
         <View style={{ height: 40 }} />
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.cream,
+    backgroundColor: '#F8FAFC',
+  },
+  centerBox: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    fontWeight: '600',
   },
   header: {
     backgroundColor: COLORS.cacao,
-    paddingTop: 48,
+    paddingTop: 52,
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
   },
   backBtn: {
-    marginRight: 16,
+    marginRight: 14,
     padding: 4,
   },
-  backIcon: {
-    color: COLORS.white,
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  greeting: {
+  headerSubtitle: {
     color: COLORS.goldPale,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  userName: {
+  headerTitle: {
     color: COLORS.white,
     fontSize: 18,
     fontWeight: '800',
@@ -416,92 +535,223 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
   },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: COLORS.cacao,
-    marginBottom: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  monitorCard: {
+  telemetriaCard: {
     backgroundColor: COLORS.white,
-    borderRadius: 14,
+    borderRadius: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  telemetriaStripe: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 5,
+    zIndex: 2,
+  },
+  telemetriaContent: {
+    padding: 14,
+    paddingLeft: 18,
+  },
+  telemetriaRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  beaconContainer: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    marginTop: 2,
+  },
+  radarPulseRing: {
+    position: 'absolute',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#34D399',
+  },
+  iconBubble: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  titleWithBadge: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  telemetriaTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.cacao,
+  },
+  pillStatus: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  pillStatusText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  telemetriaDesc: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    lineHeight: 16,
+  },
+  manualCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginBottom: 12,
+    marginBottom: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  monitorCardTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: COLORS.textLight,
-    letterSpacing: 0.5,
-  },
-  badgeAlertaCritica: {
-    fontSize: 10,
-    fontWeight: '800',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    overflow: 'hidden',
-    backgroundColor: COLORS.redPale,
-    color: COLORS.red,
-  },
-  monitorGrid: {
+  manualHeader: {
     flexDirection: 'row',
-    gap: 10,
-  },
-  monitorItem: {
-    flex: 1,
-    backgroundColor: COLORS.cream,
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  monitorLabel: {
-    fontSize: 11,
-    color: COLORS.textLight,
-    fontWeight: '600',
+    alignItems: 'center',
+    gap: 8,
     marginBottom: 4,
   },
-  monitorVal: {
-    fontSize: 20,
-    fontWeight: '800',
+  manualTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.cacao,
+  },
+  manualSubtitle: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    lineHeight: 16,
+    marginBottom: 14,
+  },
+  inputGroupLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  presionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  inputsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  inputFlex: {
+    flex: 1,
+  },
+  slashText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.textLight,
+  },
+  textInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    fontWeight: '700',
     color: COLORS.textDark,
   },
-  monitorSubText: {
-    fontSize: 9,
-    color: COLORS.textLight,
-    marginTop: 4,
-  },
-  confirmarBtn: {
+  iniciarBtn: {
     backgroundColor: COLORS.gold,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 10,
+    justifyContent: 'center',
+    shadowColor: COLORS.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  confirmarBtnText: {
+  disabledBtn: {
+    opacity: 0.65,
+  },
+  btnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  iniciarBtnText: {
     color: COLORS.white,
     fontSize: 15,
     fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  footnote: {
+    fontSize: 11,
+    color: COLORS.textLight,
+    textAlign: 'center',
+    marginTop: 10,
+    lineHeight: 15,
+    paddingHorizontal: 10,
+  },
+  alertHeader: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.red,
+    marginBottom: 12,
+    textTransform: 'uppercase',
   },
   alertaCard: {
-    backgroundColor: COLORS.white,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: COLORS.redPale,
     padding: 14,
-    borderRadius: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.red,
-    marginBottom: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.red + '40',
+    marginBottom: 10,
   },
   alertaText: {
-    fontSize: 13,
-    color: COLORS.textDark,
-    lineHeight: 18,
+    flex: 1,
+    fontSize: 12,
     fontWeight: '600',
+    color: COLORS.red,
+    lineHeight: 16,
+  },
+  confirmarCriticoBtn: {
+    backgroundColor: COLORS.cacao,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  confirmarCriticoBtnText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
