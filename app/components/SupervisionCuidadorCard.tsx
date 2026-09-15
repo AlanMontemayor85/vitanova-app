@@ -239,8 +239,7 @@ export const SupervisionCuidadorCard: React.FC<Props> = ({
       Alert.alert('Error', 'No se pudo contactar al servidor de teleasistencia.');
     }
   };
-
-  // ── 7. CÁLCULO TOLERANTE DE PASOS ──
+// ── 9. CÁLCULO TOLERANTE DE PASOS (EVALÚA TODAS LAS FUENTES POSIBLES) ──
   const pasosRaw =
     pasosHoy ??
     signosDispositivo?.pasos ??
@@ -261,7 +260,7 @@ export const SupervisionCuidadorCard: React.FC<Props> = ({
       pasosNum = num;
     }
   }
-
+      
   const handlePillPress = () => {
     if (esAgotada) {
       Alert.alert(
@@ -307,22 +306,22 @@ export const SupervisionCuidadorCard: React.FC<Props> = ({
   let portacionLabel = 'Sin colocar';
 
   if (esAgotada) {
-    portacionIcon = 'power-off';
-    portacionColor = '#991B1B';
-    portacionLabel = 'Apagado';
-  } else if (estaFueraDeLinea) {
-    portacionIcon = 'cloud-off-outline';
-    portacionColor = '#B45309';
-    portacionLabel = 'Sin señal';
-  } else if (enBase) {
-    portacionIcon = 'power-plug';
-    portacionColor = '#1E40AF';
-    portacionLabel = 'En dock';
-  } else if (puesto) {
-    portacionIcon = 'arm-flex';
-    portacionColor = '#10B981';
-    portacionLabel = 'En muñeca';
-  }
+  portacionIcon = 'power-off';
+  portacionColor = '#991B1B';
+  portacionLabel = 'Apagado';
+} else if (estaFueraDeLinea) {
+  portacionIcon = 'cloud-off-outline'; // 👈 Icono garantizado y soportado en MaterialCommunityIcons
+  portacionColor = '#B45309';
+  portacionLabel = 'Sin señal';
+} else if (enBase) {
+  portacionIcon = 'power-plug';
+  portacionColor = '#1E40AF';
+  portacionLabel = 'En dock';
+} else if (puesto) {
+  portacionIcon = 'arm-flex';
+  portacionColor = '#10B981';
+  portacionLabel = 'En muñeca';
+}
 
   const pesoRaw =
     signosDispositivo?.peso?.replace(' kg', '') ||
@@ -523,10 +522,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
-    width: '100%',             // 👈 Ocupa el 100% del contenedor padre
-    alignSelf: 'stretch',      // 👈 Se estira hasta los límites del ScrollView
-    marginHorizontal: 0,       // 👈 Cero márgenes laterales adicionales
-    marginBottom: 12,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#ECE7DF',
     elevation: 2,
