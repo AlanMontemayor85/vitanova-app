@@ -568,59 +568,41 @@ const generarPDF = async (c: any) => {
   </table>
 
   <!-- Signos vitales -->
-<div class="no-split">
-  <div class="section-title">Signos vitales</div>
-  <table class="grid-table">
-    <tr>
-      <!-- SpO2 -->
-      <td class="metric-td" style="width:20%">
-        <div class="metric-val">
-          ${Number(c.spo2) > 0 ? `${Math.round(c.spo2)}%` : '—'}
-        </div>
-        <div class="metric-label">SpO₂</div>
-      </td>
-
-      <!-- Presión Arterial (Clínica / Manual) -->
-      <td class="metric-td" style="width:20%">
-        <div class="metric-val">
-          ${
-            Number(c.presion_sistolica) > 0 && Number(c.presion_diastolica) > 0
+  <div class="no-split">
+    <div class="section-title">Signos vitales</div>
+    <table class="grid-table">
+      <tr>
+        <td class="metric-td" style="width:20%">
+          <div class="metric-val">${c.spo2 ? `${c.spo2}%` : '—'}</div>
+          <div class="metric-label">SpO₂</div>
+        </td>
+        <td class="metric-td" style="width:20%">
+          <div class="metric-val">${
+            c.presion_sistolica && c.presion_diastolica
               ? `${Math.round(c.presion_sistolica)}/${Math.round(c.presion_diastolica)}`
               : '—'
-          }
-        </div>
-        <div class="metric-label">Presión</div>
-      </td>
+          }</div>
+          <div class="metric-label">Presión</div>
+        </td>
+        <td class="metric-td" style="width:20%">
+          <div class="metric-val">${c.frecuencia_cardiaca ?? '—'}</div>
+          <div class="metric-label">Pulso</div>
+        </td>
+        <td class="metric-td" style="width:20%">
+          <div class="metric-val">${c.temperatura ? `${c.temperatura}°C` : '—'}</div>
+          <div class="metric-label">Temp.</div>
+        </td>
+        <td class="metric-td" style="width:20%">
+          <div class="metric-val">${c.peso_kg ? `${c.peso_kg} kg` : '—'}</div>
+          <div class="metric-label">Peso</div>
+        </td>
+      </tr>
+    </table>
+  </div>
 
-      <!-- Frecuencia Cardíaca / Pulso -->
-      <td class="metric-td" style="width:20%">
-        <div class="metric-val">
-          ${Number(c.frecuencia_cardiaca) > 0 ? `${Math.round(c.frecuencia_cardiaca)} bpm` : '—'}
-        </div>
-        <div class="metric-label">Pulso</div>
-      </td>
-
-      <!-- Temperatura Cutánea -->
-      <td class="metric-td" style="width:20%">
-        <div class="metric-val">
-          ${Number(c.temperatura) > 0 ? `${Number(c.temperatura).toFixed(1)}°C` : '—'}
-        </div>
-        <div class="metric-label">Temp.</div>
-      </td>
-
-      <!-- Peso Corporal -->
-      <td class="metric-td" style="width:20%">
-        <div class="metric-val">
-          ${Number(c.peso_kg) > 0 ? `${Number(c.peso_kg).toFixed(1)} kg` : '—'}
-        </div>
-        <div class="metric-label">Peso</div>
-      </td>
-    </tr>
-  </table>
-</div>
   <!-- Alertas -->
   <div class="no-split">
-    <div class="section-title">Alertas </div>
+    <div class="section-title">Alertas clínicas</div>
     ${htmlAlertas}
   </div>
 
@@ -759,6 +741,7 @@ const generarPDF = async (c: any) => {
 
       `🩺 *SIGNOS VITALES:*\n` +
       `• SpO₂: *${c.spo2 ?? '—'}%*\n` +
+      `• Presión Arterial: *${c.presion_sistolica ?? '—'}/${c.presion_diastolica ?? '—'} mmHg*\n` +
       `• Pulso: *${c.frecuencia_cardiaca ?? '—'} bpm*\n` +
       `• Temperatura: *${c.temperatura ?? '—'} °C*\n` +
       `• Peso: *${c.peso_kg ?? '—'} kg*\n\n` +
@@ -993,7 +976,16 @@ const generarPDF = async (c: any) => {
                       )}
                     </View>
 
-                    
+                    {/* Presión Arterial */}
+                    <View style={styles.signoItem}>
+                      <Text style={styles.signoVal}>{presionInfo.display}</Text>
+                      <Text style={styles.signoLabel}>Presión</Text>
+                      {presionInfo.esHeredado && (
+                        <Text style={{ fontSize: 8, color: COLORS.amber, marginTop: 2, fontWeight: '700' }}>
+                          {presionInfo.etiqueta}
+                        </Text>
+                      )}
+                    </View>
 
                     {/* Frecuencia Cardíaca */}
                     <View style={styles.signoItem}>
