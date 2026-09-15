@@ -1310,7 +1310,6 @@ const handleServicioVitanova = (item: any) => {
 {/* ======================================================== */}
 <View style={[styles.sectionHeaderRow, { marginTop: 18 }]}>
   <Text style={styles.sectionTitle}>Servicios Especializados Vitanova Integralis</Text>
-  
 </View>
 
 <View style={styles.servicesRow}>
@@ -1319,14 +1318,12 @@ const handleServicioVitanova = (item: any) => {
       icon: '🏠',
       title: 'Evaluación de Entorno',
       sub: 'Seguridad en hogar',
-      actionLabel: 'Evaluar',
       ruta: '/evaluacion-hogar',
     },
     {
       icon: '🛏️',
       title: 'Equipamiento Clínico',
       sub: 'Barras y confort',
-      actionLabel: 'Solicitar',
       ruta: null,
       isModal: true,
     },
@@ -1334,20 +1331,19 @@ const handleServicioVitanova = (item: any) => {
     <TouchableOpacity
       key={item.title}
       activeOpacity={0.8}
-      style={styles.servicePremiumCard}
+      style={styles.serviceCenteredCard}
       onPress={() => handleServicioVitanova(item)}
     >
-      <View style={styles.serviceHeader}>
-        <View style={styles.serviceIconContainer}>
-          <Text style={styles.serviceIconEmoji}>{item.icon}</Text>
-        </View>
-        <View style={styles.servicePill}>
-          <Text style={styles.servicePillText}>{item.actionLabel}</Text>
-        </View>
+      <View style={styles.serviceCenteredIconCircle}>
+        <Text style={styles.serviceCenteredEmoji}>{item.icon}</Text>
       </View>
 
-      <Text style={styles.serviceTitle} numberOfLines={2}>{item.title}</Text>
-      <Text style={styles.serviceSub} numberOfLines={1}>{item.sub}</Text>
+      <Text style={styles.serviceCenteredTitle} numberOfLines={2}>
+        {item.title}
+      </Text>
+      <Text style={styles.serviceCenteredSub} numberOfLines={1}>
+        {item.sub}
+      </Text>
     </TouchableOpacity>
   ))}
 </View>
@@ -2553,11 +2549,7 @@ subtextoHora: {
   },
 
   // ── SERVICIOS ESPECIALIZADOS VITANOVA ──
-  servicesRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
-  },
+ 
   servicePremiumCard: {
     flex: 1,
     backgroundColor: '#FCFAF7',
@@ -2974,6 +2966,61 @@ subtextoHora: {
   alertaPesoContent: {
     flex: 1,
   },
-
+servicesRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  serviceCenteredCard: {
+    flex: 1,
+    backgroundColor: '#FCFAF7',
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+    alignItems: 'center',        // 👈 Centra horizontalmente todo el contenido
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#EFE7DA',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  serviceCenteredIconCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E8DFD1',
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  serviceCenteredEmoji: {
+    fontSize: 22,
+  },
+  serviceCenteredTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: COLORS.cacao,
+    textAlign: 'center',        // 👈 Texto centrado
+    lineHeight: 17,
+    marginBottom: 3,
+  },
+  serviceCenteredSub: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#8C8275',
+    textAlign: 'center',        // 👈 Texto centrado
+  },
  
 });
