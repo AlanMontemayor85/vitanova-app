@@ -39,7 +39,9 @@ import {
 } from '../services/api';
 import { programarNotificacionTarea, registrarNotificaciones } from '../services/notifications';
 import { encolarPeticionOffline, vaciarColaOffline } from '../services/offlineQueue';
+import { BannerAlertasPreventivas } from './components/BannerAlertasPreventivas';
 import { SupervisionCuidadorCard } from './components/SupervisionCuidadorCard';
+import { TarjetaUltimoCierre } from './components/TarjetaUltimoCierre';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
@@ -1924,69 +1926,67 @@ const handleRegresarOpciones = async () => {
   />
 )}
             
-{/* ACCIONES DE BITÁCORA */}
-          <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Acciones de bitácora</Text>
-          <View style={styles.accionesRow}>
-            <TouchableOpacity style={[styles.accionBtn, { backgroundColor: COLORS.redPale, borderColor: COLORS.red }]} onPress={() => setIncidenteOpen(true)}>
-              <Text style={{ color: COLORS.red, marginRight: 6 }}>🚨</Text><Text style={[styles.accionBtnText, { color: COLORS.red }]}>Reportar Incidente</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-  style={[
-    styles.accionBtn, 
-    { 
-      backgroundColor: COLORS.bluePale, 
-      borderColor: COLORS.blue,
-      flex: 1,
-      minHeight: 46,
-      paddingHorizontal: 8,
-      paddingVertical: 6,
-    }
-  ]} 
-  onPress={() => setVista('espontaneo')}
->
-  <Text style={{ fontSize: 16, marginRight: 6 }}>🩺</Text>
-  <Text 
-    style={[
-      styles.accionBtnText, 
-      { 
-        color: COLORS.blue, 
-        flex: 1, 
-        flexShrink: 1, 
-        fontSize: 11, 
-        lineHeight: 14,
-        textAlign: 'center'
-      }
-    ]}
-    numberOfLines={2}
+{/* ACCIONES DE BITÁCORA (DURANTE EL TURNO) */}
+<Text style={[styles.sectionTitle, { marginTop: 20 }]}>Acciones de bitácora</Text>
+<View style={styles.accionesRow}>
+  {/* Reportar Incidente */}
+  <TouchableOpacity 
+    style={[styles.accionBtn, { backgroundColor: COLORS.redPale, borderColor: COLORS.red }]} 
+    onPress={() => setIncidenteOpen(true)}
   >
-    Registro Signos Vitales Manual
-  </Text>
-</TouchableOpacity>
-          </View>
+    <Text style={{ color: COLORS.red, marginRight: 6 }}>🚨</Text>
+    <Text style={[styles.accionBtnText, { color: COLORS.red }]}>Reportar Incidente</Text>
+  </TouchableOpacity>
 
-          <TouchableOpacity style={styles.cerrarBtn} onPress={async () => {
-            const verif = await verificarEscalas(pacienteActivo.id);
-            setEscalaRequerida(verif.requiere_escalas); setEscalasLista(verif.escalas ?? []);
-            setVista('cierre');
-          }}><Text style={styles.cerrarBtnText}>Proceder a Cierre de Turno →</Text></TouchableOpacity>
-          <View style={{ height: 60 }} />
+  {/* Registro Manual de Signos */}
+  <TouchableOpacity 
+    style={[
+      styles.accionBtn, 
+      { 
+        backgroundColor: COLORS.bluePale, 
+        borderColor: COLORS.blue,
+        flex: 1,
+        minHeight: 46,
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+      }
+    ]} 
+    onPress={() => setVista('espontaneo')}
+  >
+    <Text style={{ fontSize: 16, marginRight: 6 }}>🩺</Text>
+    <Text 
+      style={[
+        styles.accionBtnText, 
+        { 
+          color: COLORS.blue, 
+          flex: 1, 
+          flexShrink: 1, 
+          fontSize: 11, 
+          lineHeight: 14,
+          textAlign: 'center'
+        }
+      ]}
+      numberOfLines={2}
+    >
+      Registro Signos Vitales Manual
+    </Text>
+  </TouchableOpacity>
+</View>
 
-       
-
-        {/* 🎯 ACCESOS RÁPIDOS DE CONTROL (Condicionados por UX) */}
+        
+       {/* 🎯 ACCESOS RÁPIDOS DE CONTROL (Condicionados por UX) */}
         <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Accesos rápidos de control</Text>
 
         {pacienteProp || pacienteActivo?.rol_en_equipo === 'familiar_principal' || pacienteActivo?.usuarioRol === 'familiar_principal' ? (
           /* ⚡ MODO CONSOLA: Acordeón colapsable para ahorrar espacio vertical */
           <View style={{
             backgroundColor: COLORS.cream,
-            borderRadius: 10,
+            borderRadius: 14,
             marginBottom: 12,
             borderWidth: 1,
             borderColor: COLORS.border,
             overflow: 'hidden'
           }}>
-            {/* Cabecera delgada siempre visible (Haz clic para expandir/colapsar) */}
             <TouchableOpacity 
               activeOpacity={0.7}
               onPress={() => setMostrarAvisoMonitoreo(!mostrarAvisoMonitoreo)}
@@ -1994,13 +1994,13 @@ const handleRegresarOpciones = async () => {
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                paddingHorizontal: 12,
-                paddingVertical: 8,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
               }}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={{ fontSize: 13 }}>👨‍👩‍👧</Text>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textDark }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 14 }}>👨‍👩‍👧</Text>
+                <Text style={{ fontSize: 11.5, fontWeight: '700', color: COLORS.textDark }}>
                   Modo de Monitoreo Activo
                 </Text>
               </View>
@@ -2010,27 +2010,43 @@ const handleRegresarOpciones = async () => {
               </Text>
             </TouchableOpacity>
 
-            {/* Contenido explicativo (Solo visible al desplegar) */}
             {mostrarAvisoMonitoreo && (
               <View style={{
-                paddingHorizontal: 12,
+                paddingHorizontal: 14,
                 paddingBottom: 10,
                 paddingTop: 2,
                 borderTopWidth: 1,
-                borderTopColor: COLORS.border + '50',
+                borderTopColor: COLORS.border,
               }}>
-                <Text style={{ fontSize: 10, color: COLORS.textLight, textAlign: 'center', lineHeight: 14 }}>
-                  Para visualizar las gráficas, el mapa de ubicación o la red de cuidadores, por favor regrese al modo familiar usando el interruptor de arriba.
+                <Text style={{ fontSize: 10.5, color: COLORS.textLight, textAlign: 'center', lineHeight: 15 }}>
+                  Para visualizar las gráficas, el mapa de ubicación o la red de cuidadores, por favor regrese al modo familiar usando el interruptor superior.
                 </Text>
               </View>
             )}
           </View>
         ) : (
-          /* 👨‍👩‍👧 MODO NORMAL: Botones de acceso directo */
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+          /* 👨‍👩‍👧 MODO OPERATIVO: Tarjeta Contenedora Unificada */
+          <View style={{
+            backgroundColor: COLORS.white,
+            borderRadius: 18,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            paddingVertical: 12,
+            paddingHorizontal: 8,
+            marginBottom: 14,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-around',
+            shadowColor: '#0F172A',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.04,
+            shadowRadius: 6,
+            elevation: 2,
+          }}>
             {/* 💬 Cuidadores */}
             <TouchableOpacity 
-              style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }}
+              activeOpacity={0.7}
+              style={{ flex: 1, alignItems: 'center' }}
               onPress={() => {
                 router.push({
                   pathname: '/red-cuidadores' as any,
@@ -2038,13 +2054,28 @@ const handleRegresarOpciones = async () => {
                 });
               }}
             >
-              <Text style={{ fontSize: 20, marginBottom: 4 }}>💬</Text>
-              <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Cuidadores</Text>
+              <View style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                backgroundColor: '#ECFDF5',
+                borderWidth: 1,
+                borderColor: 'rgba(16, 185, 129, 0.25)',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 6,
+              }}>
+                <Text style={{ fontSize: 20 }}>💬</Text>
+              </View>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textDark, textAlign: 'center' }}>
+                Cuidadores
+              </Text>
             </TouchableOpacity>
 
             {/* ⚠️ Alertas */}
             <TouchableOpacity 
-              style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
+              activeOpacity={0.7}
+              style={{ flex: 1, alignItems: 'center' }} 
               onPress={() => router.push({ 
                 pathname: '/alertas' as any, 
                 params: { 
@@ -2054,33 +2085,52 @@ const handleRegresarOpciones = async () => {
                 } 
               })}
             >
-              <Text style={{ fontSize: 20, marginBottom: 4 }}>⚠️</Text>
-              <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Alertas</Text>
+              <View style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                backgroundColor: '#FFFBEB',
+                borderWidth: 1,
+                borderColor: 'rgba(245, 158, 11, 0.25)',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 6,
+              }}>
+                <Text style={{ fontSize: 20 }}>⚠️</Text>
+              </View>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textDark, textAlign: 'center' }}>
+                Alertas
+              </Text>
             </TouchableOpacity>
 
-            {/* 📍 Ubicación */}
+            {/* 📍 Ubicación (Condicionada estrictamente a la existencia del reloj) */}
             {Boolean(pacienteActivo?.reloj_imei && pacienteActivo.reloj_imei.trim() !== '') && (
               <TouchableOpacity 
-                style={{ 
-                  flex: 1, 
-                  backgroundColor: COLORS.white, 
-                  borderRadius: 12, 
-                  padding: 10, 
-                  alignItems: 'center', 
-                  borderWidth: 1, 
-                  borderColor: COLORS.border 
-                }} 
+                activeOpacity={0.7}
+                style={{ flex: 1, alignItems: 'center' }} 
                 onPress={() => router.push({
-                pathname: '/mapa' as any,
-                params: {
-                  pacienteId: pacienteActivo?.id,
-                  pacienteNombre: pacienteActivo?.nombre_completo,
-                  miRol: 'cuidador',
-                } as any,
-              })}
+                  pathname: '/mapa' as any,
+                  params: {
+                    pacienteId: pacienteActivo?.id,
+                    pacienteNombre: pacienteActivo?.nombre_completo,
+                    miRol: 'cuidador',
+                  } as any,
+                })}
               >
-                <Text style={{ fontSize: 20, marginBottom: 4 }}>📍</Text>
-                <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>
+                <View style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  backgroundColor: '#FEF2F2',
+                  borderWidth: 1,
+                  borderColor: 'rgba(239, 68, 68, 0.25)',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginBottom: 6,
+                }}>
+                  <Text style={{ fontSize: 20 }}>📍</Text>
+                </View>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textDark, textAlign: 'center' }}>
                   Ubicación
                 </Text>
               </TouchableOpacity>
@@ -2088,7 +2138,8 @@ const handleRegresarOpciones = async () => {
 
             {/* 📊 Gráficas */}
             <TouchableOpacity 
-              style={{ flex: 1, backgroundColor: COLORS.white, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }} 
+              activeOpacity={0.7}
+              style={{ flex: 1, alignItems: 'center' }} 
               onPress={() => router.push({
                 pathname: '/grafica-signos' as any,
                 params: { 
@@ -2097,12 +2148,37 @@ const handleRegresarOpciones = async () => {
                 }
               })}
             >
-              <Text style={{ fontSize: 20, marginBottom: 4 }}>📊</Text>
-              <Text style={{ fontSize: 9, fontWeight: '600', color: COLORS.textMid, textAlign: 'center' }}>Gráficas</Text>
+              <View style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                backgroundColor: '#F5F3FF',
+                borderWidth: 1,
+                borderColor: 'rgba(139, 92, 246, 0.25)',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 6,
+              }}>
+                <Text style={{ fontSize: 20 }}>📊</Text>
+              </View>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.textDark, textAlign: 'center' }}>
+                Gráficas
+              </Text>
             </TouchableOpacity>
           </View>
         )}
-         {/* ========================================================== */}
+{/* 📋 RELEVO CLÍNICO DEL TURNO PREVIO */}
+{Boolean(pacienteActivo?.id) && (
+  <TarjetaUltimoCierre 
+    pacienteId={pacienteActivo.id} 
+    esCuidador={true} 
+  />
+)}
+{/* 🚨 1. TAMIZAJE PREVENTIVO / ALERTAS CLÍNICAS (CDS) */}
+        {Boolean(pacienteActivo?.id) && (
+          <BannerAlertasPreventivas pacienteId={pacienteActivo.id} />
+        )}
+{/* ========================================================== */}
 {/* 📋 1. PLAN DE CUIDADOS DEL DÍA                             */}
 {/* ========================================================== */}
 <View style={styles.planHeaderRow}>
@@ -2428,7 +2504,24 @@ const handleRegresarOpciones = async () => {
       </View>
     </TouchableOpacity>
 )}
-          
+ {/* 🏁 FINALIZACIÓN DE JORNADA (AL FONDO DE LA PANTALLA) */}
+<View style={{ marginTop: 24, marginBottom: 8, alignSelf: 'stretch' }}>
+  <TouchableOpacity 
+    style={styles.cerrarBtn} 
+    activeOpacity={0.85}
+    onPress={async () => {
+      const verif = await verificarEscalas(pacienteActivo.id);
+      setEscalaRequerida(verif.requiere_escalas);
+      setEscalasLista(verif.escalas ?? []);
+      setVista('cierre');
+    }}
+  >
+    <Text style={styles.cerrarBtnText}>Proceder a Cierre de Turno →</Text>
+  </TouchableOpacity>
+</View>
+
+{/* Espaciador final para que la barra inferior no tape el botón */}
+<View style={{ height: 60 }} />         
           
         </ScrollView>
          

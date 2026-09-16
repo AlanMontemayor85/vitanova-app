@@ -5,11 +5,19 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  LayoutAnimation,
+  Platform,
   StyleSheet,
   Text,
+  TouchableOpacity,
+  UIManager,
   View,
 } from 'react-native';
 import { getHistorialCierres, getUltimoCierre } from '../../services/api';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const COLORS = {
   gold: '#BF9A40',
@@ -48,11 +56,13 @@ const EMOJIS_ANIMO: Record<string, { label: string; icon: string; color: string;
 
 interface Props {
   pacienteId: string;
+  esCuidador?: boolean;
 }
 
-export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
+export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId, esCuidador = false }) => {
   const [cierre, setCierre] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [expandido, setExpandido] = useState<boolean>(false); // 👈 Control del acordeón
 
   // ── ANIMACIONES PERS / SUPERVISIÓN CLÍNICA ──
   const fadeSlideAnim = useRef(new Animated.Value(0)).current;
@@ -103,6 +113,11 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
       tension: 45,
       useNativeDriver: true,
     }).start();
+  };
+
+  const toggleExpandir = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandido(!expandido);
   };
 
   useFocusEffect(
@@ -168,8 +183,10 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
         <View style={styles.statusStripe} />
         <View style={styles.cardContent}>
           <View style={styles.emptyHeader}>
-            <Ionicons name="clipboard-outline" size={20} color={COLORS.textLight} />
-            <Text style={styles.cardTitle}>Estado del Último Relevo</Text>
+            <Ionicons name="clipboard-outline" size={18} color={COLORS.textLight} />
+            <Text style={styles.cardTitle}>
+              {esCuidador ? 'Turno Anterior' : 'Estado del Último Relevo'}
+            </Text>
           </View>
           <Text style={styles.emptyText}>Sin registros clínicos de cierre de turno recientes.</Text>
         </View>
@@ -238,8 +255,12 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
       <View style={styles.statusStripe} />
 
       <View style={styles.cardContent}>
-        {/* Cabecera */}
-        <View style={styles.headerRow}>
+        {/* CABECERA INTERACTIVA (Haz clic para expandir/colapsar) */}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={toggleExpandir}
+          style={[styles.headerRow, { marginBottom: expandido ? 12 : 0 }]}
+        >
           <View style={styles.titleContainer}>
             <View style={styles.beaconContainer}>
               <Animated.View
@@ -252,186 +273,198 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
                 ]}
               />
               <View style={styles.iconBubble}>
-                <Ionicons name="shield-checkmark" size={18} color={COLORS.gold} />
+                <Ionicons name="shield-checkmark" size={17} color={COLORS.gold} />
               </View>
             </View>
 
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle}>Estado del Último Relevo</Text>
+            <View style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}>
+              <Text 
+                style={styles.cardTitle} 
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.88}
+              >
+                {esCuidador ? 'Relevo de Turno Anterior' : 'Estado del Último Relevo'}
+              </Text>
               <View style={styles.subStatusRow}>
                 <View style={styles.statusDot} />
                 <Text style={styles.subStatusText} numberOfLines={1}>
-                  {responsable ? `Por: ${responsable}` : 'Reporte clínico de enfermería'}
+                  {responsable
+                    ? (esCuidador ? `Entregó: ${responsable}` : `Por: ${responsable}`)
+                    : 'Reporte clínico de enfermería'}
                 </Text>
               </View>
             </View>
           </View>
 
-          {fechaIso && (
-            <View style={styles.timestampBadgeGroup}>
+          {/* Timestamp compacto lateral */}
+          <View style={styles.headerRightGroup}>
+            {fechaIso && (
               <View style={styles.fechaBadge}>
-                <Ionicons name="calendar-outline" size={11} color={COLORS.gold} />
+                <Ionicons name="time-outline" size={11} color={COLORS.gold} />
                 <Text style={styles.fechaText}>
-                  {new Date(fechaIso).toLocaleDateString('es-MX', {
-                    day: '2-digit',
-                    month: 'short',
+                  {new Date(fechaIso).toLocaleTimeString('es-MX', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true,
                   })}
                 </Text>
               </View>
-              <Text style={styles.horaText}>
-                {new Date(fechaIso).toLocaleTimeString('es-MX', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: true,
-                })}
-              </Text>
-            </View>
-          )}
-        </View>
+            )}
 
-        {/* ── HILERAS CON NIVELES VISUALES (REEMPLAZO DE LA REJILLA 2X2) ── */}
-        <View style={styles.hilerasContainer}>
+            <Ionicons
+              name={expandido ? 'chevron-up' : 'chevron-down'}
+              size={17}
+              color={COLORS.textLight}
+            />
+          </View>
+        </TouchableOpacity>
 
-          {/* 1. HILERA DOLOR (EVA) - BARRAS SEGMENTADAS */}
-          <View style={styles.hileraRow}>
-            <View style={styles.hileraHeader}>
-              <View style={styles.hileraLabelGroup}>
-                <Ionicons name="fitness-outline" size={14} color={dolorColor} />
-                <Text style={styles.hileraLabel}>Dolor (EVA)</Text>
+        {/* CONTENIDO DESPLEGABLE */}
+        {expandido && (
+          <View style={styles.desplegableContainer}>
+            {/* ── HILERAS CON NIVELES VISUALES ── */}
+            <View style={styles.hilerasContainer}>
+
+              {/* 1. Dolor (EVA) */}
+              <View style={styles.hileraRow}>
+                <View style={styles.hileraHeader}>
+                  <View style={styles.hileraLabelGroup}>
+                    <Ionicons name="fitness-outline" size={14} color={dolorColor} />
+                    <Text style={styles.hileraLabel}>Dolor (EVA)</Text>
+                  </View>
+                  <Text style={[styles.hileraValor, { color: dolorColor }]}>
+                    {dolorVal}/10 <Text style={styles.hileraSubvalor}>· {dolorLabel}</Text>
+                  </Text>
+                </View>
+
+                <View style={styles.segmentosTrack}>
+                  {[...Array(10)].map((_, i) => {
+                    const activo = i < dolorVal;
+                    let segColor = COLORS.green;
+                    if (i >= 3 && i < 6) segColor = COLORS.amber;
+                    if (i >= 6) segColor = COLORS.red;
+
+                    return (
+                      <View
+                        key={i}
+                        style={[
+                          styles.segmentoBar,
+                          {
+                            backgroundColor: activo ? segColor : COLORS.trackBg,
+                            opacity: activo ? 1 : 0.4,
+                          },
+                        ]}
+                      />
+                    );
+                  })}
+                </View>
               </View>
-              <Text style={[styles.hileraValor, { color: dolorColor }]}>
-                {dolorVal}/10 <Text style={styles.hileraSubvalor}>· {dolorLabel}</Text>
-              </Text>
-            </View>
 
-            {/* Raya segmentada de 10 niveles */}
-            <View style={styles.segmentosTrack}>
-              {[...Array(10)].map((_, i) => {
-                const activo = i < dolorVal;
-                let segColor = COLORS.green;
-                if (i >= 3 && i < 6) segColor = COLORS.amber;
-                if (i >= 6) segColor = COLORS.red;
+              {/* 2. Hidratación */}
+              <View style={styles.hileraRow}>
+                <View style={styles.hileraHeader}>
+                  <View style={styles.hileraLabelGroup}>
+                    <Ionicons name="water-outline" size={14} color={COLORS.blue} />
+                    <Text style={styles.hileraLabel}>Hidratación</Text>
+                  </View>
+                  <Text style={[styles.hileraValor, { color: COLORS.blue }]}>
+                    {hidratacionVal}/8 <Text style={styles.hileraSubvalor}>vasos ({hidratacionVal * 250} ml)</Text>
+                  </Text>
+                </View>
 
-                return (
+                <View style={styles.segmentosTrack}>
+                  {[...Array(8)].map((_, i) => {
+                    const lleno = i < hidratacionVal;
+                    return (
+                      <View
+                        key={i}
+                        style={[
+                          styles.vasoPill,
+                          {
+                            backgroundColor: lleno ? COLORS.blue : COLORS.trackBg,
+                            opacity: lleno ? 1 : 0.35,
+                          },
+                        ]}
+                      />
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* 3. Nutrición */}
+              <View style={styles.hileraRow}>
+                <View style={styles.hileraHeader}>
+                  <View style={styles.hileraLabelGroup}>
+                    <Ionicons name="restaurant-outline" size={14} color="#059669" />
+                    <Text style={styles.hileraLabel}>Nutrición</Text>
+                  </View>
+                  <Text style={[styles.hileraValor, { color: '#059669' }]}>
+                    {nutricionLabel}
+                  </Text>
+                </View>
+
+                <View style={styles.barraTrack}>
                   <View
-                    key={i}
                     style={[
-                      styles.segmentoBar,
+                      styles.barraFill,
                       {
-                        backgroundColor: activo ? segColor : COLORS.trackBg,
-                        opacity: activo ? 1 : 0.4,
+                        width: `${nutricionPorcentaje}%`,
+                        backgroundColor: nutricionPorcentaje >= 75 ? '#059669' : nutricionPorcentaje >= 40 ? COLORS.amber : COLORS.red,
                       },
                     ]}
                   />
-                );
-              })}
-            </View>
-          </View>
-
-          {/* 2. HILERA HIDRATACIÓN - 8 CÁPSULAS DE AGUA */}
-          <View style={styles.hileraRow}>
-            <View style={styles.hileraHeader}>
-              <View style={styles.hileraLabelGroup}>
-                <Ionicons name="water-outline" size={14} color={COLORS.blue} />
-                <Text style={styles.hileraLabel}>Hidratación</Text>
+                </View>
               </View>
-              <Text style={[styles.hileraValor, { color: COLORS.blue }]}>
-                {hidratacionVal}/8 <Text style={styles.hileraSubvalor}>vasos ({hidratacionVal * 250} ml)</Text>
-              </Text>
+
+              {/* 4. Ánimo / Conducta */}
+              <View style={[styles.hileraRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                <View style={styles.hileraHeader}>
+                  <View style={styles.hileraLabelGroup}>
+                    <Ionicons name={animoConfig.icon as any} size={14} color={animoConfig.color} />
+                    <Text style={styles.hileraLabel}>Ánimo / Conducta</Text>
+                  </View>
+                  <View style={[styles.animoChip, { backgroundColor: animoConfig.bg }]}>
+                    <Text style={[styles.animoChipText, { color: animoConfig.color }]}>
+                      {animoConfig.label}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
             </View>
 
-            {/* 8 Vasos/Cápsulas */}
-            <View style={styles.segmentosTrack}>
-              {[...Array(8)].map((_, i) => {
-                const lleno = i < hidratacionVal;
-                return (
-                  <View
-                    key={i}
+            {/* Observaciones e Incidentes del Turno */}
+            {(cierre.observaciones || cierre.notas) && (
+              <View style={styles.notasContainer}>
+                <View style={styles.notasHeader}>
+                  <Ionicons name="document-text-outline" size={14} color={COLORS.cacao} />
+                  <Text style={styles.notasTitle}>Observaciones del Turno</Text>
+                </View>
+
+                {cierre.observaciones ? (
+                  <Text style={styles.notasText}>{cierre.observaciones}</Text>
+                ) : null}
+
+                {cierre.notas &&
+                cierre.notas !== 'Sin notas incidentales en el turno.' &&
+                cierre.notas !== cierre.observaciones ? (
+                  <Text
                     style={[
-                      styles.vasoPill,
-                      {
-                        backgroundColor: lleno ? COLORS.blue : COLORS.trackBg,
-                        opacity: lleno ? 1 : 0.35,
-                      },
+                      styles.notasText,
+                      cierre.observaciones && styles.notasSecundarias,
                     ]}
-                  />
-                );
-              })}
-            </View>
-          </View>
+                  >
+                    {cierre.notas}
+                  </Text>
+                ) : null}
 
-          {/* 3. HILERA NUTRICIÓN - BARRA CONTINUA DE PROGRESO */}
-          <View style={styles.hileraRow}>
-            <View style={styles.hileraHeader}>
-              <View style={styles.hileraLabelGroup}>
-                <Ionicons name="restaurant-outline" size={14} color="#059669" />
-                <Text style={styles.hileraLabel}>Nutrición</Text>
+                {!cierre.observaciones && cierre.notas === 'Sin notas incidentales en el turno.' && (
+                  <Text style={styles.notasVaciasText}>
+                    Sin incidencias ni desviaciones clínicas reportadas durante la jornada.
+                  </Text>
+                )}
               </View>
-              <Text style={[styles.hileraValor, { color: '#059669' }]}>
-                {nutricionLabel}
-              </Text>
-            </View>
-
-            {/* Barra continua con medidor */}
-            <View style={styles.barraTrack}>
-              <View
-                style={[
-                  styles.barraFill,
-                  {
-                    width: `${nutricionPorcentaje}%`,
-                    backgroundColor: nutricionPorcentaje >= 75 ? '#059669' : nutricionPorcentaje >= 40 ? COLORS.amber : COLORS.red,
-                  },
-                ]}
-              />
-            </View>
-          </View>
-
-          {/* 4. HILERA ÁNIMO / CONDUCTA - BADGE EXPRESIVO */}
-          <View style={[styles.hileraRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
-            <View style={styles.hileraHeader}>
-              <View style={styles.hileraLabelGroup}>
-                <Ionicons name={animoConfig.icon as any} size={14} color={animoConfig.color} />
-                <Text style={styles.hileraLabel}>Ánimo / Conducta</Text>
-              </View>
-              <View style={[styles.animoChip, { backgroundColor: animoConfig.bg }]}>
-                <Text style={[styles.animoChipText, { color: animoConfig.color }]}>
-                  {animoConfig.label}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-        </View>
-
-        {/* Observaciones e Incidentes del Turno */}
-        {(cierre.observaciones || cierre.notas) && (
-          <View style={styles.notasContainer}>
-            <View style={styles.notasHeader}>
-              <Ionicons name="document-text-outline" size={14} color={COLORS.cacao} />
-              <Text style={styles.notasTitle}>Observaciones del Turno</Text>
-            </View>
-
-            {cierre.observaciones ? (
-              <Text style={styles.notasText}>{cierre.observaciones}</Text>
-            ) : null}
-
-            {cierre.notas &&
-            cierre.notas !== 'Sin notas incidentales en el turno.' &&
-            cierre.notas !== cierre.observaciones ? (
-              <Text
-                style={[
-                  styles.notasText,
-                  cierre.observaciones && styles.notasSecundarias,
-                ]}
-              >
-                {cierre.notas}
-              </Text>
-            ) : null}
-
-            {!cierre.observaciones && cierre.notas === 'Sin notas incidentales en el turno.' && (
-              <Text style={styles.notasVaciasText}>
-                Sin incidencias ni desviaciones clínicas reportadas durante la jornada.
-              </Text>
             )}
           </View>
         )}
@@ -444,19 +477,19 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.white,
     borderRadius: 18,
-    marginVertical: 8,
+    marginVertical: 6,
     borderWidth: 1,
     borderColor: COLORS.border,
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 10,
+    shadowRadius: 8,
     elevation: 2,
     overflow: 'hidden',
     position: 'relative',
   },
   centerBox: {
-    height: 120,
+    height: 90,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
@@ -476,14 +509,14 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   cardContent: {
-    padding: 16,
-    paddingLeft: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingLeft: 18,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 14,
+    alignItems: 'center',
     gap: 8,
   },
   titleContainer: {
@@ -517,11 +550,11 @@ const styles = StyleSheet.create({
     borderColor: COLORS.goldBorder,
   },
   cardTitle: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '800',
     color: COLORS.cacao,
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
   },
   subStatusRow: {
     flexDirection: 'row',
@@ -530,15 +563,20 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   statusDot: {
-    width: 6,
-    height: 6,
+    width: 5.5,
+    height: 5.5,
     borderRadius: 3,
     backgroundColor: COLORS.gold,
   },
   subStatusText: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: COLORS.textMuted,
     fontWeight: '600',
+  },
+  headerRightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   timestampBadgeGroup: {
     alignItems: 'flex-end',
@@ -549,24 +587,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     backgroundColor: COLORS.goldPale,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: COLORS.goldBorder,
   },
   fechaText: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '800',
     color: COLORS.gold,
   },
   horaText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '700',
     color: COLORS.textLight,
   },
-
-  // ── ESTILOS DE HILERAS CLÍNICAS ──
+  desplegableContainer: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F0ECE4',
+  },
   hilerasContainer: {
     backgroundColor: '#FAFAF8',
     borderRadius: 14,
@@ -643,10 +685,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
   },
-
-  // Notas
   notasContainer: {
-    marginTop: 12,
+    marginTop: 10,
     backgroundColor: '#F8FAFC',
     borderRadius: 12,
     padding: 12,
@@ -692,7 +732,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   emptyText: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: COLORS.textLight,
     fontWeight: '600',
     marginTop: 2,

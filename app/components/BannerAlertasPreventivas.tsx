@@ -13,7 +13,7 @@ import {
   UIManager,
   View,
 } from 'react-native';
-import { getHistorialCierres } from '../../services/api';
+import { getHistorialCierres } from '../../services/api'; // Ajusta esta ruta a tu proyecto
 
 // Habilita animaciones fluidas de layout en Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -58,7 +58,7 @@ interface Props {
 export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
   const [alertas, setAlertas] = useState<AlertaTamizaje[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [expandido, setExpandido] = useState<boolean>(false); // 👈 Control del acordeón
+  const [expandido, setExpandido] = useState<boolean>(false);
 
   // ── ANIMACIONES PERS / SUPERVISIÓN CLÍNICA ──
   const fadeSlideAnim = useRef(new Animated.Value(0)).current;
@@ -128,6 +128,8 @@ export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
     try {
       setLoading(true);
       const res = await getHistorialCierres(pacienteId);
+      
+      // Adaptador robusto para la respuesta de la API
       const historial =
         res?.turnos_tamizaje ||
         res?.data?.turnos_tamizaje ||
@@ -148,11 +150,15 @@ export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
     }
   };
 
+  /**
+   * 🧠 LÓGICA DE CDS (Clinical Decision Support)
+   * Analiza tendencias en los últimos turnos para detectar riesgos gerontológicos agudos.
+   */
   const evaluarPatronesPreventivos = (historial: any[]): AlertaTamizaje[] => {
     const hallazgos: AlertaTamizaje[] = [];
-    const ultimosTurnos = historial.slice(0, 7);
+    const ultimosTurnos = historial.slice(0, 7); // Analizamos la última semana/turnos
 
-    // 1. Dolor
+    // 1. 🩸 Dolor Recurrente (Basado en EVA)
     const turnosConDolorModeradoOAlto = ultimosTurnos.filter(
       (t) => t.dolor_eva !== null && t.dolor_eva !== undefined && Number(t.dolor_eva) >= 4
     );
@@ -162,47 +168,47 @@ export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
         id: 'alerta_dolor',
         nivel: hayDolorSevero ? 'RED' : 'AMBER',
         titulo: hayDolorSevero ? 'Dolor Severo Recurrente' : 'Molestia / Dolor Persistente',
-        mensaje: `Se han registrado ${turnosConDolorModeradoOAlto.length} turnos recientes con intensidad de dolor EVA ≥ 4. Se sugiere evaluar la efectividad del esquema analgésico actual.`,
+        mensaje: `Se han registrado ${turnosConDolorModeradoOAlto.length} turnos recientes con intensidad de dolor EVA ≥ 4. Requiere evaluación de enfermería/médica.`,
         escala: 'Escala Visual Analógica (EVA)',
         icono: 'fitness-outline',
       });
     }
 
-    // 2. Conducta / Delirium
+    // 2. 🧠 Conducta / Riesgo de Delirium (CAM/NPI-Q abreviado)
     const turnosAgitadoOConfuso = ultimosTurnos.filter((t) => {
-      const estado = (t.estado_animo || t.estadoAnimo || '').toLowerCase();
-      return estado === 'confundido' || estado === 'agitado';
+      const estado = (t.estado_animo || t.estadoAnimo || t.conducta || '').toLowerCase();
+      return estado.includes('confundido') || estado.includes('agitado');
     });
     if (turnosAgitadoOConfuso.length >= 2) {
       hallazgos.push({
         id: 'alerta_conducta',
         nivel: 'RED',
-        titulo: 'Fluctuación Psicoconductual Detectada',
+        titulo: 'Fluctuación Psicoconductual',
         mensaje:
-          'Inestabilidad o confusión recurrente en los últimos cierres. Estos cambios suelen asociarse a estados confusionales agudos o malestar físico no expresado.',
+          'Confusión o agitación recurrente en cierres recientes. Sugiere descartar delirium, infección o dolor no tratado.',
         escala: 'Criterios CAM / Cuestionario NPI-Q',
         icono: 'pulse-outline',
       });
     }
 
-    // 3. Deshidratación
+    // 3. 💧 Riesgo de Deshidratación (ESPEN)
     const turnosBajaHidratacion = ultimosTurnos.filter((t) => {
-      const vasos = t.hidratacion_vasos ?? t.hidratacionVasos ?? null;
+      const vasos = t.hidratacion_vasos ?? t.hidratacionVasos ?? t.hidratacion ?? null;
       return vasos !== null && Number(vasos) < 4;
     });
     if (turnosBajaHidratacion.length >= 2) {
       hallazgos.push({
         id: 'alerta_hidratacion',
         nivel: 'AMBER',
-        titulo: 'Bajo Aporte Hídrico Recurrente',
+        titulo: 'Aporte Hídrico Insuficiente',
         mensaje:
-          'Consumo inferior a 4 vasos (1.0 L) en múltiples turnos. Se recomienda promover la ingesta constante de líquidos para prevenir estreñimiento, hipotensión u oligosintomatología renal.',
+          'Consumo inferior a 4 vasos (1.0 L) repetido. Aumentar oferta de líquidos para prevenir estreñimiento o hipotensión.',
         escala: 'Guías de Nutrición e Hidratación ESPEN',
         icono: 'water-outline',
       });
     }
 
-    // 4. Nutrición
+    // 4. 🍽️ Riesgo Nutricional (MNA abreviado)
     if (ultimosTurnos.length > 0) {
       const ultimoCierre = ultimosTurnos[0];
       const valUltimo = String(ultimoCierre.alimentacion || '').toLowerCase().trim();
@@ -218,9 +224,9 @@ export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
         hallazgos.push({
           id: 'alerta_alimentacion',
           nivel: 'RED',
-          titulo: 'Ingesta Nutricional Nula Registrada',
+          titulo: 'Ingesta Nutricional Nula',
           mensaje:
-            'Se ha registrado reporte de ingesta nula de alimentos en el cierre más reciente. Conviene verificar causas como disfagia, náuseas o inapetencia.',
+            'Reporte de ingesta nula (0%) en el último cierre. Verificar disfagia, náuseas o inapetencia aguda.',
           escala: 'Mini Nutritional Assessment (MNA)',
           icono: 'restaurant-outline',
         });
@@ -229,7 +235,7 @@ export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
           id: 'alerta_alimentacion',
           nivel: 'AMBER',
           titulo: 'Ingesta Incompleta Persistente',
-          mensaje: `Se reportan ${turnosIncompletos.length} turnos recientes con ingesta parcial o insuficiente. Se sugiere monitorear la aceptación de la dieta.`,
+          mensaje: `Se reportan ${turnosIncompletos.length} turnos recientes con ingesta insuficiente. Monitorear aceptación de dieta.`,
           escala: 'Mini Nutritional Assessment (MNA)',
           icono: 'restaurant-outline',
         });
@@ -251,6 +257,7 @@ export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
   const tieneAlertas = alertas.length > 0;
   const tieneCriticas = alertas.some((a) => a.nivel === 'RED');
 
+  // Colores dinámicos según severidad
   const colorAcento = tieneCriticas ? COLORS.red : tieneAlertas ? COLORS.amber : COLORS.green;
   const colorAcentoPale = tieneCriticas ? COLORS.redPale : tieneAlertas ? COLORS.amberPale : COLORS.greenPale;
   const colorAcentoBorder = tieneCriticas ? COLORS.redBorder : tieneAlertas ? COLORS.amberBorder : COLORS.greenBorder;
@@ -275,7 +282,7 @@ export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
       <View style={[styles.statusStripe, { backgroundColor: colorAcento }]} />
 
       <View style={styles.cardContent}>
-      {/* ── CABECERA COMPACTA DE 2 LÍNEAS ── */}
+        {/* ── CABECERA COMPACTA DE 2 LÍNEAS (Táctil) ── */}
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={toggleExpandir}
@@ -333,7 +340,7 @@ export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
               ]}
             >
               <Text style={[styles.countBadgeText, { color: colorAcento }]}>
-                {tieneAlertas ? `${alertas.length} ${alertas.length === 1 ? 'Alerta' : 'Alertas'}` : 'Estable'}
+                {tieneAlertas ? `${alertas.length} ${alertas.length === 1 ? 'Riesgo' : 'Riesgos'}` : 'Estable'}
               </Text>
             </View>
             <Ionicons
@@ -378,32 +385,33 @@ export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
 
                       <View style={styles.escalaRow}>
                         <Ionicons name="medical-outline" size={11} color={COLORS.textLight} />
-                        <Text style={styles.alertaEscala}>Base de tamizaje: {item.escala}</Text>
+                        <Text style={styles.alertaEscala}>Base gerontológica: {item.escala}</Text>
                       </View>
                     </View>
                   );
                 })}
               </View>
             ) : (
+              // Estado Estable Expandido
               <View style={styles.cardNormal}>
                 <View style={styles.normalTopRow}>
                   <Ionicons name="checkmark-circle-outline" size={16} color={COLORS.green} />
                   <Text style={styles.normalTitulo}>Sin Desviaciones Detectadas</Text>
                 </View>
                 <Text style={styles.normalText}>
-                  Las tendencias de dolor, conducta, hidratación y nutrición se mantienen estables dentro de los rangos fisiológicos esperados en los turnos evaluados.
+                  Las tendencias de dolor, conducta, hidratación y nutrición se mantienen estables dentro de los rangos fisiológicos esperados en los últimos turnos evaluados.
                 </Text>
               </View>
             )}
 
-            {/* DISCLAIMER CDS */}
+            {/* DISCLAIMER CDS (Clinical Decision Support) */}
             <View style={styles.disclaimerBox}>
               <View style={styles.disclaimerHeader}>
                 <Ionicons name="information-circle-outline" size={12} color={COLORS.textLight} />
                 <Text style={styles.disclaimerTitle}>Aviso de Soporte a la Decisión Clínica (CDS)</Text>
               </View>
               <Text style={styles.disclaimerText}>
-                Módulo de observación continua basado en escalas gerontológicas (EVA, CAM, ESPEN y MNA). Herramienta de apoyo que no sustituye el diagnóstico ni la prescripción médica facultativa.
+                Módulo de observación continua basado en escalas gerontológicas (EVA, CAM, ESPEN y MNA). Herramienta de apoyo que NO sustituye el diagnóstico ni la prescripción médica facultativa.
               </Text>
             </View>
           </View>
