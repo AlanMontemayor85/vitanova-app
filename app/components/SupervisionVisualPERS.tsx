@@ -1,16 +1,18 @@
 import { FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { forzarMedicionSignos } from '../../services/api';
-
+const FONT_TITLE = Platform.OS === 'ios' ? 'System' : 'sans-serif-medium';
+const FONT_BODY = Platform.OS === 'ios' ? 'System' : 'sans-serif';
 interface Props {
   signosDispositivo: any;
   ubicacion: any;
@@ -404,17 +406,16 @@ const corazonActivo =
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
-    paddingTop: 10,
-    paddingBottom: 13,
-    paddingHorizontal: 12,
-    marginHorizontal: 0,       
-    width: '100%',             
-    alignSelf: 'stretch',     
+    paddingTop: 12,
+    paddingBottom: 14,
+    paddingHorizontal: 14,
+    marginHorizontal: 0,
+    width: '100%',
+    alignSelf: 'stretch',
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -428,23 +429,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 8,
+    paddingBottom: 10,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   dotStatus: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   headerTitle: {
-    fontSize: 10.5,
+    fontSize: 13,
     fontWeight: '800',
-    color: '#334155',
-    letterSpacing: 0.5,
+    color: '#1E1B18',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    fontFamily: FONT_TITLE,
   },
   headerRight: {
     flexDirection: 'row',
@@ -454,11 +457,11 @@ const styles = StyleSheet.create({
   pillBateria: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
-    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
     borderWidth: 1,
-    gap: 4,
+    gap: 5,
   },
   dotPill: {
     width: 5,
@@ -466,13 +469,15 @@ const styles = StyleSheet.create({
     borderRadius: 2.5,
   },
   pillText: {
-    fontSize: 9.5,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    fontFamily: FONT_BODY,
   },
   refreshBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4.5,
-    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -482,15 +487,17 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   refreshBtnText: {
-    fontSize: 9,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    fontFamily: FONT_BODY,
   },
   headerDivider: {
     height: 1,
     backgroundColor: '#F1F5F9',
-    marginBottom: 9,
+    marginBottom: 10,
   },
   metricsRow: {
     flexDirection: 'row',
@@ -504,20 +511,25 @@ const styles = StyleSheet.create({
   },
   divider: {
     width: 1,
-    height: 26,
+    height: 28,
     backgroundColor: '#F1F5F9',
   },
   valText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '800',
+    color: '#1E1B18',
     marginTop: 2,
     textAlign: 'center',
+    fontFamily: FONT_TITLE,
   },
   labelText: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#78716C',
     textAlign: 'center',
-    marginTop: 1,
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    fontFamily: FONT_BODY,
   },
 });

@@ -19,7 +19,8 @@ import { getHistorialCierres } from '../../services/api'; // Ajusta esta ruta a 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
-
+const FONT_TITLE = Platform.OS === 'ios' ? 'System' : 'sans-serif-medium';
+const FONT_BODY = Platform.OS === 'ios' ? 'System' : 'sans-serif';
 const COLORS = {
   gold: '#BF9A40',
   goldPale: '#FBF7EE',
@@ -420,7 +421,6 @@ export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
     </Animated.View>
   );
 };
-
 const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.white,
@@ -446,9 +446,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   loadingText: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.textMuted,
     fontWeight: '600',
+    fontFamily: FONT_BODY,
   },
   statusStripe: {
     position: 'absolute',
@@ -501,6 +502,7 @@ const styles = StyleSheet.create({
     color: COLORS.cacao,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
+    fontFamily: FONT_TITLE,
   },
   subStatusRow: {
     flexDirection: 'row',
@@ -516,7 +518,8 @@ const styles = StyleSheet.create({
   subStatusText: {
     fontSize: 11,
     color: COLORS.textMuted,
-    fontWeight: '600',
+    fontWeight: '500',
+    fontFamily: FONT_BODY,
   },
   rightBadgeGroup: {
     flexDirection: 'row',
@@ -525,15 +528,16 @@ const styles = StyleSheet.create({
   },
   countBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingVertical: 3.5,
+    borderRadius: 10,
     borderWidth: 1,
   },
   countBadgeText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
+    fontFamily: FONT_BODY,
   },
   desplegableContainer: {
     marginTop: 14,
@@ -568,25 +572,28 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
+    fontFamily: FONT_TITLE,
   },
   pillSeveridad: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
     borderRadius: 6,
   },
   pillSeveridadText: {
-    fontSize: 9,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '700',
     color: COLORS.white,
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
+    fontFamily: FONT_BODY,
   },
   alertaMensaje: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.textDark,
-    lineHeight: 17,
-    fontWeight: '600',
+    lineHeight: 16,
+    fontWeight: '500',
     marginBottom: 6,
+    fontFamily: FONT_BODY,
   },
   escalaRow: {
     flexDirection: 'row',
@@ -597,6 +604,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: COLORS.textLight,
+    fontFamily: FONT_BODY,
   },
   cardNormal: {
     backgroundColor: COLORS.greenPale,
@@ -617,13 +625,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: COLORS.green,
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
+    fontFamily: FONT_TITLE,
   },
   normalText: {
     fontSize: 11,
     color: COLORS.textDark,
     lineHeight: 16,
-    fontWeight: '600',
+    fontWeight: '500',
+    fontFamily: FONT_BODY,
   },
   disclaimerBox: {
     backgroundColor: COLORS.cream,
@@ -639,16 +649,18 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   disclaimerTitle: {
-    fontSize: 9,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '700',
     color: COLORS.textLight,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
+    fontFamily: FONT_TITLE,
   },
   disclaimerText: {
     fontSize: 10,
     color: COLORS.textLight,
     lineHeight: 14,
     fontWeight: '500',
+    fontFamily: FONT_BODY,
   },
 });

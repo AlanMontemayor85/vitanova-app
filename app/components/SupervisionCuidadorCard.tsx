@@ -5,13 +5,15 @@ import {
   Alert,
   Animated,
   Easing,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { forzarMedicionSignos } from '../../services/api';
-
+const FONT_TITLE = Platform.OS === 'ios' ? 'System' : 'sans-serif-medium';
+const FONT_BODY = Platform.OS === 'ios' ? 'System' : 'sans-serif';
 interface Props {
   signosDispositivo: any;
   ubicacion: any;
@@ -517,7 +519,6 @@ export const SupervisionCuidadorCard: React.FC<Props> = ({
     </View>
   );
 };
-
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
@@ -582,16 +583,19 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   headerTitle: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '800',
-    color: '#3E3832',
+    color: '#1E1B18',
     letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    fontFamily: FONT_TITLE,
   },
   headerSubtitle: {
-    fontSize: 9.5,
-    color: '#998E84',
-    fontWeight: '600',
-    marginTop: 1,
+    fontSize: 11,
+    color: '#78716C',
+    fontWeight: '500',
+    marginTop: 2,
+    fontFamily: FONT_BODY,
   },
   headerRight: {
     flexDirection: 'row',
@@ -601,11 +605,11 @@ const styles = StyleSheet.create({
   pillBateria: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 7,
+    paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    gap: 4,
+    gap: 5,
   },
   dotPill: {
     width: 5,
@@ -613,11 +617,13 @@ const styles = StyleSheet.create({
     borderRadius: 2.5,
   },
   pillText: {
-    fontSize: 9.5,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    fontFamily: FONT_BODY,
   },
   refreshBtn: {
-    paddingHorizontal: 9,
+    paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
     justifyContent: 'center',
@@ -629,10 +635,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   refreshBtnText: {
-    fontSize: 9,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    fontFamily: FONT_BODY,
   },
   headerDivider: {
     height: 1,
@@ -651,20 +659,25 @@ const styles = StyleSheet.create({
   },
   divider: {
     width: 1,
-    height: 26,
+    height: 28,
     backgroundColor: '#F1F5F9',
   },
   valText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '800',
+    color: '#1E1B18',
     marginTop: 2,
     textAlign: 'center',
+    fontFamily: FONT_TITLE,
   },
   labelText: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '600',
-    color: '#6D645B',
+    color: '#78716C',
     textAlign: 'center',
-    marginTop: 1,
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    fontFamily: FONT_BODY,
   },
 });
