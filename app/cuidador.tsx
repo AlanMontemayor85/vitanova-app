@@ -40,6 +40,7 @@ import {
 import { programarNotificacionTarea, registrarNotificaciones } from '../services/notifications';
 import { encolarPeticionOffline, vaciarColaOffline } from '../services/offlineQueue';
 import { BannerAlertasPreventivas } from './components/BannerAlertasPreventivas';
+import { DictadoVozInput } from './components/DictadoVozInput';
 import { SupervisionCuidadorCard } from './components/SupervisionCuidadorCard';
 import { TarjetaUltimoCierre } from './components/TarjetaUltimoCierre';
 
@@ -3652,18 +3653,14 @@ const handleRegresarOpciones = async () => {
               );
             })()}
             
-            {/* 9. OBSERVACIONES DEL TURNO */}
-            <Text style={styles.sectionTitle}>Observaciones del turno</Text>
-            <View style={{ backgroundColor: COLORS.white, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 12, marginBottom: 16 }}>
-              <TextInput
-                style={{ fontSize: 13, color: COLORS.textDark, paddingVertical: 10, minHeight: 70, textAlignVertical: 'top' }}
-                placeholder="Comportamiento, incidencias, notas importantes..."
-                placeholderTextColor={COLORS.textLight}
-                multiline
-                value={observaciones}
-                onChangeText={setObservaciones}
-              />
-            </View>
+            {/* 9. OBSERVACIONES DEL TURNO CON DICTADO POR VOZ */}
+            <DictadoVozInput
+              label="Observaciones del turno"
+              placeholder="Comportamiento, incidencias, notas importantes..."
+              value={observaciones}
+              onChangeText={setObservaciones}
+              minHeight={80}
+            />
 
             {/* 10. ACCIONES FINALES */}
             <TouchableOpacity style={[styles.confirmarBtn, { backgroundColor: '#25D366', marginTop: 0, marginBottom: 8 }]} onPress={compartirWhatsApp}>
