@@ -1,14 +1,24 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
   Easing,
+  LayoutAnimation,
+  Platform,
   StyleSheet,
   Text,
+  TouchableOpacity,
+  UIManager,
   View,
 } from 'react-native';
 import { getHistorialCierres } from '../../services/api';
+
+// Habilita animaciones fluidas de layout en Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const COLORS = {
   gold: '#BF9A40',
@@ -23,10 +33,13 @@ const COLORS = {
   border: '#ECE7DF',
   green: '#10B981',
   greenPale: '#ECFDF5',
+  greenBorder: 'rgba(16, 185, 129, 0.25)',
   amber: '#F59E0B',
   amberPale: '#FFFBEB',
+  amberBorder: 'rgba(245, 158, 11, 0.25)',
   red: '#EF4444',
   redPale: '#FEF2F2',
+  redBorder: 'rgba(239, 68, 68, 0.25)',
 };
 
 interface AlertaTamizaje {
@@ -45,6 +58,7 @@ interface Props {
 export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
   const [alertas, setAlertas] = useState<AlertaTamizaje[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [expandido, setExpandido] = useState<boolean>(false); // 👈 Control del acordeón
 
   // ── ANIMACIONES PERS / SUPERVISIÓN CLÍNICA ──
   const fadeSlideAnim = useRef(new Animated.Value(0)).current;
@@ -97,19 +111,29 @@ export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
     }).start();
   };
 
-  useEffect(() => {
-    if (pacienteId) {
-      analizarHistorial();
-    }
-  }, [pacienteId]);
+  useFocusEffect(
+    useCallback(() => {
+      if (pacienteId) {
+        analizarHistorial();
+      }
+    }, [pacienteId])
+  );
+
+  const toggleExpandir = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandido(!expandido);
+  };
 
   const analizarHistorial = async () => {
     try {
       setLoading(true);
       const res = await getHistorialCierres(pacienteId);
-      const historial = res?.turnos_tamizaje || (Array.isArray(res) ? res : res?.cierres || []);
+      const historial =
+        res?.turnos_tamizaje ||
+        res?.data?.turnos_tamizaje ||
+        (Array.isArray(res) ? res : res?.cierres || res?.data || []);
 
-      if (historial.length > 0) {
+      if (Array.isArray(historial) && historial.length > 0) {
         const resultadoAlertas = evaluarPatronesPreventivos(historial);
         setAlertas(resultadoAlertas);
       } else {
@@ -124,18 +148,16 @@ export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
     }
   };
 
-  // 🎯 MOTOR DE REGLAS DE TAMIZAJE CLÍNICO
   const evaluarPatronesPreventivos = (historial: any[]): AlertaTamizaje[] => {
     const hallazgos: AlertaTamizaje[] = [];
     const ultimosTurnos = historial.slice(0, 7);
 
-    // 1. 🔴 DOLOR PERSISTENTE (Escala EVA)
+    // 1. Dolor
     const turnosConDolorModeradoOAlto = ultimosTurnos.filter(
-      t => t.dolor_eva !== null && t.dolor_eva >= 4
+      (t) => t.dolor_eva !== null && t.dolor_eva !== undefined && Number(t.dolor_eva) >= 4
     );
-
     if (turnosConDolorModeradoOAlto.length >= 2) {
-      const hayDolorSevero = turnosConDolorModeradoOAlto.some(t => t.dolor_eva >= 7);
+      const hayDolorSevero = turnosConDolorModeradoOAlto.some((t) => Number(t.dolor_eva) >= 7);
       hallazgos.push({
         id: 'alerta_dolor',
         nivel: hayDolorSevero ? 'RED' : 'AMBER',
@@ -146,48 +168,50 @@ export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
       });
     }
 
-    // 2. 🧠 FLUCTUACIÓN CONDUCTUAL / DELIRIUM (Criterios CAM / NPI-Q)
-    const turnosAgitadoOConfuso = ultimosTurnos.filter(
-      t => t.estado_animo?.toLowerCase() === 'confundido' || t.estado_animo?.toLowerCase() === 'agitado'
-    );
-
+    // 2. Conducta / Delirium
+    const turnosAgitadoOConfuso = ultimosTurnos.filter((t) => {
+      const estado = (t.estado_animo || t.estadoAnimo || '').toLowerCase();
+      return estado === 'confundido' || estado === 'agitado';
+    });
     if (turnosAgitadoOConfuso.length >= 2) {
       hallazgos.push({
         id: 'alerta_conducta',
         nivel: 'RED',
         titulo: 'Fluctuación Psicoconductual Detectada',
-        mensaje: `Inestabilidad o confusión recurrente en los últimos cierres. Estos cambios suelen asociarse a estados confusionales agudos o malestar físico no expresado.`,
+        mensaje:
+          'Inestabilidad o confusión recurrente en los últimos cierres. Estos cambios suelen asociarse a estados confusionales agudos o malestar físico no expresado.',
         escala: 'Criterios CAM / Cuestionario NPI-Q',
         icono: 'pulse-outline',
       });
     }
 
-    // 3. 💧 RIESGO DE DESHIDRATACIÓN (Guías ESPEN Geriatría)
-    const turnosBajaHidratacion = ultimosTurnos.filter(
-      t => t.hidratacion_vasos !== null && t.hidratacion_vasos < 4
-    );
-
+    // 3. Deshidratación
+    const turnosBajaHidratacion = ultimosTurnos.filter((t) => {
+      const vasos = t.hidratacion_vasos ?? t.hidratacionVasos ?? null;
+      return vasos !== null && Number(vasos) < 4;
+    });
     if (turnosBajaHidratacion.length >= 2) {
       hallazgos.push({
         id: 'alerta_hidratacion',
         nivel: 'AMBER',
         titulo: 'Bajo Aporte Hídrico Recurrente',
-        mensaje: `Consumo inferior a 4 vasos (1.0 L) en múltiples turnos. Se recomienda promover la ingesta constante de líquidos para prevenir estreñimiento, hipotensión u oligosintomatología renal.`,
+        mensaje:
+          'Consumo inferior a 4 vasos (1.0 L) en múltiples turnos. Se recomienda promover la ingesta constante de líquidos para prevenir estreñimiento, hipotensión u oligosintomatología renal.',
         escala: 'Guías de Nutrición e Hidratación ESPEN',
         icono: 'water-outline',
       });
     }
 
-    // 4. 🥗 RIESGO NUTRICIONAL (Mini Nutritional Assessment - MNA)
+    // 4. Nutrición
     if (ultimosTurnos.length > 0) {
       const ultimoCierre = ultimosTurnos[0];
-      const valUltimo = ultimoCierre.alimentacion ? String(ultimoCierre.alimentacion).toLowerCase().trim() : '';
-      const esUltimaIngestaNula = valUltimo === 'ninguna' || valUltimo === 'nula';
+      const valUltimo = String(ultimoCierre.alimentacion || '').toLowerCase().trim();
+      const esUltimaIngestaNula = valUltimo === 'ninguna' || valUltimo === 'nula' || valUltimo === '0%';
 
-      const turnosIncompletos = ultimosTurnos.filter(t => {
+      const turnosIncompletos = ultimosTurnos.filter((t) => {
         if (!t.alimentacion) return false;
         const val = String(t.alimentacion).toLowerCase().trim();
-        return val === 'parcial' || val === 'ninguna' || val === 'nula';
+        return val === 'parcial' || val === 'ninguna' || val === 'nula' || val === 'regular';
       });
 
       if (esUltimaIngestaNula) {
@@ -195,7 +219,8 @@ export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
           id: 'alerta_alimentacion',
           nivel: 'RED',
           titulo: 'Ingesta Nutricional Nula Registrada',
-          mensaje: 'Se ha registrado reporte de ingesta nula de alimentos en el cierre más reciente. Conviene verificar causas como disfagia, náuseas o inapetencia.',
+          mensaje:
+            'Se ha registrado reporte de ingesta nula de alimentos en el cierre más reciente. Conviene verificar causas como disfagia, náuseas o inapetencia.',
           escala: 'Mini Nutritional Assessment (MNA)',
           icono: 'restaurant-outline',
         });
@@ -224,11 +249,11 @@ export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
   }
 
   const tieneAlertas = alertas.length > 0;
-  const tieneCriticas = alertas.some(a => a.nivel === 'RED');
+  const tieneCriticas = alertas.some((a) => a.nivel === 'RED');
 
-  // Color de acento de la tarjeta madre según severidad clínica
   const colorAcento = tieneCriticas ? COLORS.red : tieneAlertas ? COLORS.amber : COLORS.green;
   const colorAcentoPale = tieneCriticas ? COLORS.redPale : tieneAlertas ? COLORS.amberPale : COLORS.greenPale;
+  const colorAcentoBorder = tieneCriticas ? COLORS.redBorder : tieneAlertas ? COLORS.amberBorder : COLORS.greenBorder;
 
   const translateY = fadeSlideAnim.interpolate({
     inputRange: [0, 1],
@@ -246,126 +271,143 @@ export const BannerAlertasPreventivas: React.FC<Props> = ({ pacienteId }) => {
         },
       ]}
     >
-      {/* Franja vertical reactiva al semáforo global */}
+      {/* Franja vertical indicadora */}
       <View style={[styles.statusStripe, { backgroundColor: colorAcento }]} />
 
       <View style={styles.cardContent}>
-        {/* Cabecera con Radar Beacon PERS */}
-        <View style={styles.headerRow}>
-          <View style={styles.titleContainer}>
-            <View style={styles.beaconContainer}>
-              <Animated.View
-                style={[
-                  styles.radarPulseRing,
-                  {
-                    backgroundColor: colorAcento,
-                    transform: [{ scale: pulseScale }],
-                    opacity: pulseOpacity,
-                  },
-                ]}
+      {/* ── CABECERA COMPACTA DE 2 LÍNEAS ── */}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={toggleExpandir}
+          style={styles.headerRow}
+        >
+          {/* Radar / Icono a la izquierda */}
+          <View style={styles.beaconContainer}>
+            <Animated.View
+              style={[
+                styles.radarPulseRing,
+                {
+                  backgroundColor: colorAcento,
+                  transform: [{ scale: pulseScale }],
+                  opacity: pulseOpacity,
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.iconBubble,
+                { backgroundColor: colorAcentoPale, borderColor: colorAcentoBorder },
+              ]}
+            >
+              <Ionicons
+                name={tieneCriticas ? 'alert-circle' : tieneAlertas ? 'warning' : 'shield-checkmark'}
+                size={18}
+                color={colorAcento}
               />
-              <View
-                style={[
-                  styles.iconBubble,
-                  { backgroundColor: colorAcentoPale, borderColor: colorAcento + '40' },
-                ]}
-              >
-                <Ionicons
-                  name={tieneCriticas ? 'alert-circle' : tieneAlertas ? 'warning' : 'shield-checkmark'}
-                  size={19}
-                  color={colorAcento}
-                />
-              </View>
             </View>
+          </View>
 
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle}>Tamizaje de Tendencias Preventivas</Text>
-              <View style={styles.subStatusRow}>
-                <View style={[styles.statusDot, { backgroundColor: colorAcento }]} />
-                <Text style={styles.subStatusText} numberOfLines={1}>
-                  {tieneCriticas
-                    ? 'Requiere revisión o ajuste clínico'
-                    : tieneAlertas
-                    ? 'Atención preventiva recomendada'
-                    : 'Márgenes de estabilidad clínica normal'}
+          {/* Columna central en 2 líneas exactas */}
+          <View style={{ flex: 1, justifyContent: 'center', marginRight: 8 }}>
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              Tamizaje Preventivo
+            </Text>
+            <View style={styles.subStatusRow}>
+              <View style={[styles.statusDot, { backgroundColor: colorAcento }]} />
+              <Text style={styles.subStatusText} numberOfLines={1}>
+                {tieneCriticas
+                  ? 'Requiere revisión clínica'
+                  : tieneAlertas
+                  ? 'Atención recomendada'
+                  : 'Estabilidad normal'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Lado derecho: Badge numérico + Flecha */}
+          <View style={styles.rightBadgeGroup}>
+            <View
+              style={[
+                styles.countBadge,
+                { backgroundColor: colorAcentoPale, borderColor: colorAcentoBorder },
+              ]}
+            >
+              <Text style={[styles.countBadgeText, { color: colorAcento }]}>
+                {tieneAlertas ? `${alertas.length} ${alertas.length === 1 ? 'Alerta' : 'Alertas'}` : 'Estable'}
+              </Text>
+            </View>
+            <Ionicons
+              name={expandido ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={COLORS.textLight}
+            />
+          </View>
+        </TouchableOpacity>
+
+        {/* ── CONTENIDO DESPLEGABLE (SOLO SE VE SI expandido === true) ── */}
+        {expandido && (
+          <View style={styles.desplegableContainer}>
+            {tieneAlertas ? (
+              <View style={styles.alertasList}>
+                {alertas.map((item) => {
+                  const esRojo = item.nivel === 'RED';
+                  const alertColor = esRojo ? COLORS.red : COLORS.amber;
+                  const alertBg = esRojo ? COLORS.redPale : COLORS.amberPale;
+                  const alertBorder = esRojo ? COLORS.redBorder : COLORS.amberBorder;
+
+                  return (
+                    <View
+                      key={item.id}
+                      style={[styles.alertaCard, { backgroundColor: alertBg, borderColor: alertBorder }]}
+                    >
+                      <View style={styles.alertaTopRow}>
+                        <View style={styles.alertaTitleWrapper}>
+                          <Ionicons name={item.icono as any} size={15} color={alertColor} />
+                          <Text style={[styles.alertaTitulo, { color: alertColor }]}>
+                            {item.titulo}
+                          </Text>
+                        </View>
+                        <View style={[styles.pillSeveridad, { backgroundColor: alertColor }]}>
+                          <Text style={styles.pillSeveridadText}>
+                            {esRojo ? 'Crítica' : 'Preventiva'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <Text style={styles.alertaMensaje}>{item.mensaje}</Text>
+
+                      <View style={styles.escalaRow}>
+                        <Ionicons name="medical-outline" size={11} color={COLORS.textLight} />
+                        <Text style={styles.alertaEscala}>Base de tamizaje: {item.escala}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={styles.cardNormal}>
+                <View style={styles.normalTopRow}>
+                  <Ionicons name="checkmark-circle-outline" size={16} color={COLORS.green} />
+                  <Text style={styles.normalTitulo}>Sin Desviaciones Detectadas</Text>
+                </View>
+                <Text style={styles.normalText}>
+                  Las tendencias de dolor, conducta, hidratación y nutrición se mantienen estables dentro de los rangos fisiológicos esperados en los turnos evaluados.
                 </Text>
               </View>
+            )}
+
+            {/* DISCLAIMER CDS */}
+            <View style={styles.disclaimerBox}>
+              <View style={styles.disclaimerHeader}>
+                <Ionicons name="information-circle-outline" size={12} color={COLORS.textLight} />
+                <Text style={styles.disclaimerTitle}>Aviso de Soporte a la Decisión Clínica (CDS)</Text>
+              </View>
+              <Text style={styles.disclaimerText}>
+                Módulo de observación continua basado en escalas gerontológicas (EVA, CAM, ESPEN y MNA). Herramienta de apoyo que no sustituye el diagnóstico ni la prescripción médica facultativa.
+              </Text>
             </View>
-          </View>
-
-          {/* Badge contador */}
-          <View
-            style={[
-              styles.countBadge,
-              { backgroundColor: colorAcentoPale, borderColor: colorAcento + '40' },
-            ]}
-          >
-            <Text style={[styles.countBadgeText, { color: colorAcento }]}>
-              {tieneAlertas ? `${alertas.length} ${alertas.length === 1 ? 'Alerta' : 'Alertas'}` : 'Estable'}
-            </Text>
-          </View>
-        </View>
-
-        {/* CONTENIDO: LISTA DE ALERTAS O ESTADO VERDE */}
-        {tieneAlertas ? (
-          <View style={styles.alertasList}>
-            {alertas.map(item => {
-              const esRojo = item.nivel === 'RED';
-              const alertColor = esRojo ? COLORS.red : COLORS.amber;
-              const alertBg = esRojo ? COLORS.redPale : COLORS.amberPale;
-              const alertBorder = esRojo ? COLORS.red + '40' : COLORS.amber + '40';
-
-              return (
-                <View
-                  key={item.id}
-                  style={[styles.alertaCard, { backgroundColor: alertBg, borderColor: alertBorder }]}
-                >
-                  <View style={styles.alertaTopRow}>
-                    <View style={styles.alertaTitleWrapper}>
-                      <Ionicons name={item.icono as any} size={15} color={alertColor} />
-                      <Text style={[styles.alertaTitulo, { color: alertColor }]}>
-                        {item.titulo}
-                      </Text>
-                    </View>
-                    <View style={[styles.pillSeveridad, { backgroundColor: alertColor }]}>
-                      <Text style={styles.pillSeveridadText}>
-                        {esRojo ? 'Crítica' : 'Preventiva'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.alertaMensaje}>{item.mensaje}</Text>
-
-                  <View style={styles.escalaRow}>
-                    <Ionicons name="medical-outline" size={11} color={COLORS.textLight} />
-                    <Text style={styles.alertaEscala}>Base de tamizaje: {item.escala}</Text>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        ) : (
-          <View style={styles.cardNormal}>
-            <View style={styles.normalTopRow}>
-              <Ionicons name="checkmark-circle-outline" size={16} color={COLORS.green} />
-              <Text style={styles.normalTitulo}>Sin Desviaciones Detectadas</Text>
-            </View>
-            <Text style={styles.normalText}>
-              Las tendencias de dolor, conducta, hidratación y nutrición se mantienen estables dentro de los rangos fisiológicos esperados en los turnos evaluados.
-            </Text>
           </View>
         )}
-
-        {/* DISCLAIMER CDS */}
-        <View style={styles.disclaimerBox}>
-          <View style={styles.disclaimerHeader}>
-            <Ionicons name="information-circle-outline" size={12} color={COLORS.textLight} />
-            <Text style={styles.disclaimerTitle}>Aviso de Soporte a la Decisión Clínica (CDS)</Text>
-          </View>
-          <Text style={styles.disclaimerText}>
-            Módulo de observación continua basado en escalas gerontológicas (EVA, CAM, ESPEN y MNA). Herramienta de apoyo que no sustituye el diagnóstico ni la prescripción médica facultativa.
-          </Text>
-        </View>
       </View>
     </Animated.View>
   );
@@ -387,7 +429,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   cardDanger: {
-    borderColor: COLORS.red + '35',
+    borderColor: 'rgba(239, 68, 68, 0.35)',
   },
   centerBox: {
     height: 110,
@@ -409,14 +451,13 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   cardContent: {
-    padding: 16,
-    paddingLeft: 20,
+    padding: 14,
+    paddingLeft: 18,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    alignItems: 'center',
     gap: 8,
   },
   titleContainer: {
@@ -469,6 +510,11 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontWeight: '600',
   },
+  rightBadgeGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   countBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -480,6 +526,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
+  },
+  desplegableContainer: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
   },
   alertasList: {
     gap: 8,
@@ -540,7 +592,7 @@ const styles = StyleSheet.create({
   },
   cardNormal: {
     backgroundColor: COLORS.greenPale,
-    borderColor: COLORS.green + '35',
+    borderColor: 'rgba(16, 185, 129, 0.35)',
     borderWidth: 1,
     borderRadius: 12,
     padding: 12,

@@ -7,12 +7,14 @@ import {
   Alert,
   Animated,
   Easing,
+  LayoutAnimation,
   Modal,
   Platform,
   StyleSheet,
   Switch,
   Text,
   TouchableOpacity,
+  UIManager,
   View,
 } from 'react-native';
 import {
@@ -23,6 +25,10 @@ import {
   solicitarCheckinPaciente,
 } from '../../services/api';
 
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 interface CheckinCardProps {
   patientId: string;
   initialConfig?: CheckinConfig;
@@ -32,20 +38,18 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
   const [loading, setLoading] = useState(false);
   const [savingHoras, setSavingHoras] = useState(false);
   const [activo, setActivo] = useState(initialConfig?.activo ?? false);
+  const [expandido, setExpandido] = useState(false); // 👈 Control del acordeón
   const [horas, setHoras] = useState<string[]>(
     Array.isArray(initialConfig?.horas) && initialConfig.horas.length > 0
       ? initialConfig.horas
       : ['09:00', '20:00']
   );
 
-  // Selector de hora en tambor / ruleta vertical
   const [showPicker, setShowPicker] = useState(false);
   const [tempDate, setTempDate] = useState(new Date());
 
-  // Cerrojo de concurrencia para evitar que useFocusEffect pise guardados en curso
   const isUpdatingRef = useRef(false);
 
-  // Animaciones estilo Supervisión Visual PERS
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const buttonScale = useRef(new Animated.Value(1)).current;
 
@@ -106,7 +110,11 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
     }).start();
   };
 
-  // Carga reactiva de base de datos cada vez que la pantalla toma foco
+  const toggleExpandir = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandido(!expandido);
+  };
+
   const recargarConfiguracion = useCallback(async () => {
     if (isUpdatingRef.current) return;
     try {
@@ -131,7 +139,6 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
     }, [recargarConfiguracion])
   );
 
-  // Persistencia en Supabase
   const persistirCambios = async (nuevoActivo: boolean, nuevasHoras: string[]) => {
     isUpdatingRef.current = true;
     try {
@@ -235,8 +242,13 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
       <View style={[styles.statusStripe, { backgroundColor: activo ? '#10B981' : '#CBD5E1' }]} />
 
       <View style={styles.cardContent}>
+        {/* CABECERA: Título, switch y chevron acordeón */}
         <View style={styles.headerRow}>
-          <View style={styles.titleContainer}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={toggleExpandir}
+            style={styles.titleContainer}
+          >
             <View style={styles.beaconContainer}>
               {activo && (
                 <Animated.View
@@ -257,13 +269,13 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
               >
                 <Ionicons
                   name={activo ? 'shield-checkmark' : 'shield-outline'}
-                  size={20}
+                  size={19}
                   color={activo ? '#059669' : '#94A3B8'}
                 />
               </View>
             </View>
 
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.cardTitle}>Verificación de Estado</Text>
               <View style={styles.subStatusRow}>
                 <View
@@ -272,71 +284,90 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
                     { backgroundColor: activo ? '#10B981' : '#94A3B8' },
                   ]}
                 />
-                <Text style={styles.subStatusText}>
-                  {activo ? 'Monitoreo telemático activo' : 'Supervisión en pausa'}
+                <Text style={styles.subStatusText} numberOfLines={1}>
+                  {activo
+                    ? `${horas.length} ${horas.length === 1 ? 'toque' : 'toques'} configurados`
+                    : 'Supervisión en pausa'}
                 </Text>
               </View>
             </View>
-          </View>
+          </TouchableOpacity>
 
-          <Switch
-            value={activo}
-            onValueChange={handleToggle}
-            trackColor={{ false: '#E2E8F0', true: '#A7F3D0' }}
-            thumbColor={activo ? '#059669' : '#94A3B8'}
-          />
+          <View style={styles.headerActionsRight}>
+            <Switch
+              value={activo}
+              onValueChange={handleToggle}
+              trackColor={{ false: '#E2E8F0', true: '#A7F3D0' }}
+              thumbColor={activo ? '#059669' : '#94A3B8'}
+            />
+            <TouchableOpacity 
+              onPress={toggleExpandir} 
+              hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+              style={styles.chevronBtn}
+            >
+              <Ionicons
+                name={expandido ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color="#64748B"
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <Text style={styles.description}>
-          Solicita confirmación sonora al reloj para asegurar el bienestar del familiar sin detonar
-          alarmas de pánico.
-        </Text>
+        {/* CONTENIDO DESPLEGABLE */}
+        {expandido && (
+          <View style={styles.desplegableContainer}>
+            <Text style={styles.description}>
+              Solicita confirmación sonora al reloj para asegurar el bienestar del familiar.
+            </Text>
 
-        {activo ? (
-          <View style={styles.scheduleContainer}>
-            <View style={styles.scheduleHeader}>
-              <View style={styles.scheduleHeaderLeft}>
-                <Ionicons name="time-outline" size={15} color="#059669" />
-                <Text style={styles.scheduleTitle}>Horarios de Toque Programados</Text>
-              </View>
-              {savingHoras && <ActivityIndicator size="small" color="#059669" />}
-            </View>
+            {activo ? (
+              <View style={styles.scheduleContainer}>
+                <View style={styles.scheduleHeader}>
+                  <View style={styles.scheduleHeaderLeft}>
+                    <Ionicons name="time-outline" size={15} color="#059669" />
+                    <Text style={styles.scheduleTitle}>Horarios de Toque Programados</Text>
+                  </View>
+                  {savingHoras && <ActivityIndicator size="small" color="#059669" />}
+                </View>
 
-            <View style={styles.chipsContainer}>
-              {(horas || []).map((h) => (
-                <View key={h} style={styles.chip}>
-                  <Text style={styles.chipText}>{h}</Text>
+                <View style={styles.chipsContainer}>
+                  {(horas || []).map((h) => (
+                    <View key={h} style={styles.chip}>
+                      <Text style={styles.chipText}>{h}</Text>
+                      <TouchableOpacity
+                        onPress={() => handleEliminarHora(h)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="close-circle" size={15} color="#94A3B8" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+
                   <TouchableOpacity
-                    onPress={() => handleEliminarHora(h)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.addChip}
+                    onPress={() => {
+                      setTempDate(new Date());
+                      setShowPicker(true);
+                    }}
                   >
-                    <Ionicons name="close-circle" size={15} color="#94A3B8" />
+                    <Ionicons name="add" size={15} color="#059669" />
+                    <Text style={styles.addChipText}>Agregar</Text>
                   </TouchableOpacity>
                 </View>
-              ))}
-
-              <TouchableOpacity
-                style={styles.addChip}
-                onPress={() => {
-                  setTempDate(new Date());
-                  setShowPicker(true);
-                }}
-              >
-                <Ionicons name="add" size={15} color="#059669" />
-                <Text style={styles.addChipText}>Agregar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : (
-          <View style={styles.pausedBanner}>
-            <Ionicons name="information-circle-outline" size={16} color="#94A3B8" />
-            <Text style={styles.pausedText}>
-              Activa la supervisión para programar toques automáticos diarios.
-            </Text>
+              </View>
+            ) : (
+              <View style={styles.pausedBanner}>
+                <Ionicons name="information-circle-outline" size={16} color="#94A3B8" />
+                <Text style={styles.pausedText}>
+                  Activa la supervisión para programar toques automáticos diarios.
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
-        {/* Modal Spinner en iOS */}
+        {/* Selector de hora modal iOS */}
         {showPicker && Platform.OS === 'ios' && (
           <Modal transparent={true} animationType="fade" visible={showPicker}>
             <View style={styles.modalOverlay}>
@@ -374,7 +405,7 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
           </Modal>
         )}
 
-        {/* Tambor Nativo Vertical en Android */}
+        {/* Selector Android */}
         {showPicker && Platform.OS === 'android' && (
           <DateTimePicker
             value={tempDate}
@@ -385,7 +416,8 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
           />
         )}
 
-        <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+        {/* BOTÓN DE ACCIÓN INMEDIATA */}
+        <Animated.View style={{ transform: [{ scale: buttonScale }], marginTop: expandido ? 4 : 8 }}>
           <TouchableOpacity
             style={[styles.actionButton, loading && styles.disabledButton]}
             onPress={handleDispararCheckin}
@@ -398,7 +430,7 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
               <>
-                <Ionicons name="radio-outline" size={19} color="#FFFFFF" style={styles.btnIcon} />
+                <Ionicons name="radio-outline" size={18} color="#FFFFFF" style={styles.btnIcon} />
                 <Text style={styles.btnText}>Solicitar "Contigo, a distancia"</Text>
               </>
             )}
@@ -408,6 +440,7 @@ export const CheckinControlCard = ({ patientId, initialConfig }: CheckinCardProp
     </View>
   );
 };
+
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
@@ -415,7 +448,6 @@ const styles = StyleSheet.create({
     marginVertical: 6,
     width: '100%',
     alignSelf: 'stretch',
-    marginHorizontal: 0,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     elevation: 2,
@@ -424,6 +456,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     position: 'relative',
+    overflow: 'hidden',
   },
   cardActive: {
     borderColor: '#A7F3D0',
@@ -431,57 +464,56 @@ const styles = StyleSheet.create({
   statusStripe: {
     position: 'absolute',
     left: 0,
-    top: 14,
-    bottom: 14,
-    width: 4,
-    borderTopRightRadius: 3,
-    borderBottomRightRadius: 3,
+    top: 0,
+    bottom: 0,
+    width: 5,
   },
   cardContent: {
-    padding: 16,
-    paddingLeft: 20,
-    backgroundColor: 'transparent',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingLeft: 18,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
   },
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     flex: 1,
-    marginRight: 8,
+    marginRight: 6,
   },
   beaconContainer: {
-    width: 38,
-    height: 38,
+    width: 34,
+    height: 34,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
   radarPulseRing: {
     position: 'absolute',
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: '#34D399',
   },
   iconBubble: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   cardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '800',
     color: '#0F172A',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   subStatusRow: {
     flexDirection: 'row',
@@ -490,26 +522,40 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   statusDot: {
-    width: 6,
-    height: 6,
+    width: 5.5,
+    height: 5.5,
     borderRadius: 3,
   },
   subStatusText: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: '#64748B',
-    fontWeight: '500',
+    fontWeight: '600',
+  },
+  headerActionsRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  chevronBtn: {
+    padding: 4,
+  },
+  desplegableContainer: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
   description: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#64748B',
-    lineHeight: 18,
-    marginBottom: 12,
+    lineHeight: 16,
+    marginBottom: 10,
   },
   scheduleContainer: {
     backgroundColor: '#F8FAFC',
-    padding: 12,
+    padding: 10,
     borderRadius: 12,
-    marginBottom: 14,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
@@ -517,7 +563,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   scheduleHeaderLeft: {
     flexDirection: 'row',
@@ -525,30 +571,30 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   scheduleTitle: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
     color: '#334155',
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
   },
   chipsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: '#CBD5E1',
-    gap: 6,
+    gap: 5,
   },
   chipText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -556,16 +602,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ECFDF5',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: '#6EE7B7',
     borderStyle: 'dashed',
     gap: 4,
   },
   addChipText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#059669',
   },
@@ -573,16 +619,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 14,
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 8,
     gap: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    minHeight: 44,
   },
   pausedText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
     fontWeight: '500',
     flex: 1,
@@ -592,11 +637,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
     shadowColor: '#059669',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 2,
   },
@@ -608,7 +653,7 @@ const styles = StyleSheet.create({
   },
   btnText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.2,
   },
@@ -628,7 +673,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: '#0F172A',
     marginBottom: 10,

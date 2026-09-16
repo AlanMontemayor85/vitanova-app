@@ -1910,104 +1910,66 @@ const handleRegresarOpciones = async () => {
         </View>
 
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-        {/* ⌚ SECCIÓN DE HARDWARE Y TELEMETRÍA (Solo visible si pacienteActivo tiene reloj IMEI) */}
-        {Boolean(pacienteActivo?.reloj_imei && pacienteActivo.reloj_imei.trim() !== '') && (
-          <>
-            <SupervisionCuidadorCard
-              signosDispositivo={signosDispositivo}
-              ubicacion={ubicacion}
-              pacienteActivo={pacienteActivo}
-              pasosHoy={pasosHoy}
-              ultimoCierre={null}
-              onRefreshData={async (id) => {
-                await sincronizarSignosReloj(id || pacienteActivo.id, true);
-              }}
-            />
-            {/* 🎛️ TARJETA CONFIG RELOJ — Vista Cuidador */}
-            {signosDispositivo?.reloj_config && (
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => setModalConfigCuidadorVisible(true)}
-                style={{
-                  backgroundColor: COLORS.white,
-                  borderRadius: 14,
-                  padding: 14,
-                  marginTop: 8,
-                  marginBottom: 12,
-                  alignSelf: 'stretch', // 👈 Ocupa el 100% del ancho del contenedor padre
-                  borderWidth: 1,
-                  borderColor: COLORS.border,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 12,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.04,
-                  shadowRadius: 3,
-                  elevation: 2,
-                }}
-              >
-                <Text style={{ fontSize: 22 }}>{'⚙️'}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textDark, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    Configuración del reloj
-                  </Text>
-                  
-                  {/* Estado del Detector de Caídas */}
-                  <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
-                    {(() => {
-                      const config = signosDispositivo.reloj_config;
-                      if (!config.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
-                      
-                      const sens = Number(config.sensibilidad ?? config.sensibilidad_caidas);
-                      switch (sens) {
-                        case 1: return 'Detector de caídas: 🔴 Muy Alta (1)';
-                        case 2: return 'Detector de caídas: 🟠 Alta (2)';
-                        case 3: return 'Detector de caídas: 🟡 Media (3)';
-                        case 4: return 'Detector de caídas: 🟢 Estándar (4)';
-                        case 5: return 'Detector de caídas: 🔵 Baja (5)';
-                        case 6: return 'Detector de caídas: ⚪ Mínima (6)';
-                        default: return 'Detector de caídas: 🟢 Estándar (4)';
-                      }
-                    })()}
-                  </Text>
+       {/* ⌚ 1. MÉTRICAS Y TELEMETRÍA EN VIVO (CUIDADOR) */}
+{Boolean(pacienteActivo?.reloj_imei && pacienteActivo.reloj_imei.trim() !== '') && (
+  <SupervisionCuidadorCard
+    signosDispositivo={signosDispositivo}
+    ubicacion={ubicacion}
+    pacienteActivo={pacienteActivo}
+    pasosHoy={pasosHoy}
+    ultimoCierre={null}
+    onRefreshData={async (id) => {
+      await sincronizarSignosReloj(id || pacienteActivo.id, true);
+    }}
+  />
+)}
+            
+{/* ACCIONES DE BITÁCORA */}
+          <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Acciones de bitácora</Text>
+          <View style={styles.accionesRow}>
+            <TouchableOpacity style={[styles.accionBtn, { backgroundColor: COLORS.redPale, borderColor: COLORS.red }]} onPress={() => setIncidenteOpen(true)}>
+              <Text style={{ color: COLORS.red, marginRight: 6 }}>🚨</Text><Text style={[styles.accionBtnText, { color: COLORS.red }]}>Reportar Incidente</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+  style={[
+    styles.accionBtn, 
+    { 
+      backgroundColor: COLORS.bluePale, 
+      borderColor: COLORS.blue,
+      flex: 1,
+      minHeight: 46,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+    }
+  ]} 
+  onPress={() => setVista('espontaneo')}
+>
+  <Text style={{ fontSize: 16, marginRight: 6 }}>🩺</Text>
+  <Text 
+    style={[
+      styles.accionBtnText, 
+      { 
+        color: COLORS.blue, 
+        flex: 1, 
+        flexShrink: 1, 
+        fontSize: 11, 
+        lineHeight: 14,
+        textAlign: 'center'
+      }
+    ]}
+    numberOfLines={2}
+  >
+    Registro Signos Vitales Manual
+  </Text>
+</TouchableOpacity>
+          </View>
 
-                  {/* Última Sincronización */}
-                  <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 2 }}>
-                    {(() => {
-                      const uc = signosDispositivo.reloj_config.ultima_configuracion;
-                      if (!uc) return 'Última sincronización: Sin registro aún';
-                      try {
-                        const fecha = new Date(uc);
-                        if (isNaN(fecha.getTime())) return 'Última sincronización: Sin registro aún';
-                        return `Última sincronización: ${fecha.toLocaleDateString('es-MX', { 
-                          day: 'numeric', 
-                          month: 'short', 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}`;
-                      } catch {
-                        return 'Última sincronización: Sin registro aún';
-                      }
-                    })()}
-                  </Text>
-                </View>
-
-                {/* Botón Ajustar */}
-                <View style={{
-                  backgroundColor: COLORS.goldPale,
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: 'rgba(191, 154, 64, 0.3)',
-                }}>
-                  <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.gold }}>Ajustar</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-        </>
-      )}
+          <TouchableOpacity style={styles.cerrarBtn} onPress={async () => {
+            const verif = await verificarEscalas(pacienteActivo.id);
+            setEscalaRequerida(verif.requiere_escalas); setEscalasLista(verif.escalas ?? []);
+            setVista('cierre');
+          }}><Text style={styles.cerrarBtnText}>Proceder a Cierre de Turno →</Text></TouchableOpacity>
+          <View style={{ height: 60 }} />
 
        
 
@@ -2243,161 +2205,230 @@ const handleRegresarOpciones = async () => {
   );
 })}
          
-          {/* ========================================================== */}
-          {/* 2. 📝 NOTAS DEL CUIDADOR (ABAJO Y CON ACORDEÓN DESPLEGABLE) */}
-          {/* ========================================================== */}
-          <View style={{ 
-            flexDirection: 'row', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            marginTop: 20,
-            marginBottom: 12 
-          }}>
-            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>
-              Notas del Cuidador (Últimos Relevos)
-            </Text>
-            
-            <TouchableOpacity 
-              style={[styles.iniciarBtn, { 
-                paddingHorizontal: 14, 
-                paddingVertical: 6,
-                borderRadius: 20,
-                marginBottom: 0 
-              }]} 
-              onPress={() => setNotaOpen(true)}
-            >
-              <Text style={[styles.iniciarBtnText, { fontSize: 12, fontWeight: 'bold' }]}>
-                + Nota
-              </Text>
-            </TouchableOpacity>
-          </View>
+         {/* ========================================================== */}
+{/* 📝 NOTAS DEL CUIDADOR (SOLO OBSERVACIONES HUMANAS)        */}
+{/* ========================================================== */}
+{(() => {
+  // 🧹 1. FILTRADO: Excluimos cualquier log de toma de constantes
+  const notasSoloTexto = (notas || []).filter((n) => {
+    const raw = String(n?.descripcion || n?.texto || '').trim();
+    return !raw.includes('[TOMA MANUAL ESPONTÁNEA]');
+  });
 
-          {/* NOTAS CON ACORDEÓN DE CONTROL INTERACTIVO */}
-          {notas && notas.length > 0 ? (
-            <View style={{ gap: 8, marginBottom: 4 }}>
-              {(() => {
-                // Si no está expandido, renderiza únicamente la nota de arriba (última registrada).
-                // Al presionar el switch, expande limpiamente un bloque con las 5 últimas notas.
-                const notasAMostrar = notasExpandidas ? notas.slice(0, 5) : [notas[0]];
-                
-                return (
-                  <>
-                    {notasAMostrar.map((n, i) => {
-                      const contenidoNota = n?.descripcion || n?.texto || "Nota de relevo registrada";
+  const hayNotas = notasSoloTexto.length > 0;
+  const notasAMostrar = notasExpandidas ? notasSoloTexto.slice(0, 5) : notasSoloTexto.slice(0, 1);
 
-                      // 🎯 Lógica robusta para extraer el nombre del operador sin fallar
-                      const autorNombre = 
-                        n?.usuarios?.nombre_completo || 
-                        (Array.isArray(n?.usuarios) && n?.usuarios[0]?.nombre_completo) ||
-                        n?.nombre_cuidador || 
-                        'Personal Vitanova';
-
-                      const fechaRaw = n?.created_at || n?.hora_completada;
-
-                      return (
-                        <View 
-                          key={n?.id || i} 
-                          style={[styles.alertCard, { 
-                            backgroundColor: COLORS.amberPale, 
-                            borderColor: '#F5DBA0', 
-                            marginHorizontal: 0, 
-                            marginBottom: 0 
-                          }]}
-                        >
-                          <Text style={styles.alertIcon}>📝</Text>
-                          <View style={styles.alertContent}>
-                            <Text style={styles.alertTitle}>{String(contenidoNota).replace('📝 ', '')}</Text>
-                            <Text style={styles.alertSub}>{`${autorNombre} · ${
-                              fechaRaw 
-                                ? new Date(fechaRaw).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-                                : ''
-                            }`}</Text>
-                          </View>
-                        </View>
-                      );
-                    })}
-
-                    {/* Botón de despliegue interactivo (Solo visible si hay más de una nota) */}
-                    {notas.length > 1 && (
-                      <TouchableOpacity 
-                        onPress={() => setNotasExpandidas(!notasExpandidas)}
-                        style={{ 
-                          paddingVertical: 7, 
-                          alignItems: 'center', 
-                          justifyContent: 'center', 
-                          backgroundColor: '#FDF8EE', 
-                          borderRadius: 8, 
-                          borderWidth: 1, 
-                          borderColor: '#F5DBA0',
-                          marginTop: 2 
-                        }}
-                      >
-                        <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.amber }}>
-                          {notasExpandidas ? "🔼 Ver menos notas" : `🔽 Ver historial completo (+${notas.length - 1} notas)`}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </>
-                );
-              })()}
-            </View>
-          ) : (
-            <View style={[styles.alertCard, { backgroundColor: '#F9F9F9', borderColor: COLORS.border, marginHorizontal: 0 }]}>
-              <Text style={styles.alertIcon}>🔍</Text>
-              <View style={styles.alertContent}>
-                <Text style={styles.alertTitle}>Sin notas en el bloque actual</Text>
-                <Text style={styles.alertSub}>Usa el botón superior para registrar incidencias o notas.</Text>
-              </View>
+  return (
+    <>
+      {/* CABECERA: Título, contador de notas, botón +Nota y acordeón */}
+      <View style={styles.notasHeaderRow}>
+        <View style={styles.notasTitleGroup}>
+          <Text style={styles.sectionTitle}>Notas del Cuidador</Text>
+          {hayNotas && (
+            <View style={styles.notasCountBadge}>
+              <Text style={styles.notasCountText}>{notasSoloTexto.length}</Text>
             </View>
           )}
+        </View>
 
-          {/* ACCIONES DE BITÁCORA */}
-          <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Acciones de bitácora</Text>
-          <View style={styles.accionesRow}>
-            <TouchableOpacity style={[styles.accionBtn, { backgroundColor: COLORS.redPale, borderColor: COLORS.red }]} onPress={() => setIncidenteOpen(true)}>
-              <Text style={{ color: COLORS.red, marginRight: 6 }}>🚨</Text><Text style={[styles.accionBtnText, { color: COLORS.red }]}>Reportar Incidente</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {/* Botón rápido para registrar nota manual */}
+          <TouchableOpacity 
+            activeOpacity={0.7}
+            style={[styles.iniciarBtn, { 
+              paddingHorizontal: 12, 
+              paddingVertical: 5, 
+              borderRadius: 16,
+              marginBottom: 0,
+            }]} 
+            onPress={() => setNotaOpen(true)}
+          >
+            <Text style={[styles.iniciarBtnText, { fontSize: 11, fontWeight: '800' }]}>
+              + Nota
+            </Text>
+          </TouchableOpacity>
+
+          {/* Acordeón táctil */}
+          {notasSoloTexto.length > 1 && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setNotasExpandidas(!notasExpandidas)}
+              style={styles.acordeonBtnPill}
+            >
+              <Text style={styles.acordeonBtnText}>
+                {notasExpandidas ? 'Ver menos' : `Historial (+${notasSoloTexto.length - 1})`}
+              </Text>
+              <Text style={styles.acordeonChevron}>{notasExpandidas ? '▲' : '▼'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-  style={[
-    styles.accionBtn, 
-    { 
-      backgroundColor: COLORS.bluePale, 
-      borderColor: COLORS.blue,
-      flex: 1,
-      minHeight: 46,
-      paddingHorizontal: 8,
-      paddingVertical: 6,
-    }
-  ]} 
-  onPress={() => setVista('espontaneo')}
->
-  <Text style={{ fontSize: 16, marginRight: 6 }}>🩺</Text>
-  <Text 
-    style={[
-      styles.accionBtnText, 
-      { 
-        color: COLORS.blue, 
-        flex: 1, 
-        flexShrink: 1, 
-        fontSize: 11, 
-        lineHeight: 14,
-        textAlign: 'center'
-      }
-    ]}
-    numberOfLines={2}
-  >
-    Registro Signos Vitales Manual
-  </Text>
-</TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* LISTA DE NOTAS HUMANAS O ESTADO VACÍO */}
+      {hayNotas ? (
+        <View style={styles.notasListContainer}>
+          {notasAMostrar.map((n, i) => {
+            const rawTexto = String(n?.descripcion || n?.texto || '').trim();
+            const textoLimpio = rawTexto.replace(/^📝\s*/, '').trim();
+            
+            const autor = 
+              n?.usuarios?.nombre_completo || 
+              (Array.isArray(n?.usuarios) && n?.usuarios[0]?.nombre_completo) ||
+              n?.nombre_cuidador || 
+              'Personal Vitanova';
+
+            const fechaRaw = n?.created_at || n?.hora_completada;
+            const fechaTexto = fechaRaw
+              ? new Date(fechaRaw).toLocaleDateString('es-MX', {
+                  day: 'numeric',
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : '';
+
+            return (
+              <View key={n?.id || i} style={styles.notaCard}>
+                <View style={styles.notaStripe} />
+
+                <View style={styles.notaBody}>
+                  <View style={styles.notaIconBubble}>
+                    <Text style={styles.notaIconText}>✍️</Text>
+                  </View>
+
+                  <View style={styles.notaContentCol}>
+                    <Text style={styles.notaTextoPrincipal}>
+                      {textoLimpio}
+                    </Text>
+
+                    <View style={styles.notaMetaRow}>
+                      <Text style={styles.notaAutor}>{autor}</Text>
+                      {Boolean(fechaTexto) && (
+                        <>
+                          <Text style={styles.notaSeparador}>•</Text>
+                          <Text style={styles.notaFecha}>{fechaTexto}</Text>
+                        </>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      ) : (
+        <View style={styles.notaEmptyCard}>
+          <View style={styles.notaEmptyIconCircle}>
+            <Text style={{ fontSize: 16 }}>📋</Text>
           </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.notaEmptyTitle}>Sin notas en el turno actual</Text>
+            <Text style={styles.notaEmptySub}>
+              Los cuidadores no han reportado novedades u observaciones recientes.
+            </Text>
+          </View>
+        </View>
+      )}
+    </>
+  );
+})()}
+{/* 🎛️ 2. TARJETA CONFIGURACIÓN DEL RELOJ (CUIDADOR) */}
+{Boolean(pacienteActivo?.reloj_imei && pacienteActivo.reloj_imei.trim() !== '') &&
+  Boolean(signosDispositivo?.reloj_config) && (
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={() => setModalConfigCuidadorVisible(true)}
+      style={{
+        backgroundColor: COLORS.white,
+        borderRadius: 14,
+        padding: 14,
+        marginTop: 8,
+        marginBottom: 12,
+        alignSelf: 'stretch',
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 3,
+        elevation: 2,
+      }}
+    >
+      <Text style={{ fontSize: 22 }}>{'⚙️'}</Text>
+      <View style={{ flex: 1 }}>
+        <Text
+          style={{
+            fontSize: 11,
+            fontWeight: '800',
+            color: COLORS.textDark,
+            textTransform: 'uppercase',
+            letterSpacing: 0.5,
+          }}
+        >
+          Configuración del reloj
+        </Text>
 
-          <TouchableOpacity style={styles.cerrarBtn} onPress={async () => {
-            const verif = await verificarEscalas(pacienteActivo.id);
-            setEscalaRequerida(verif.requiere_escalas); setEscalasLista(verif.escalas ?? []);
-            setVista('cierre');
-          }}><Text style={styles.cerrarBtnText}>Proceder a Cierre de Turno →</Text></TouchableOpacity>
-          <View style={{ height: 60 }} />
+        {/* Estado del Detector de Caídas */}
+        <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
+          {(() => {
+            const config = signosDispositivo?.reloj_config;
+            if (!config?.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
 
+            const sens = Number(config?.sensibilidad ?? config?.sensibilidad_caidas);
+            switch (sens) {
+              case 1: return 'Detector de caídas: 🔴 Muy Alta (1)';
+              case 2: return 'Detector de caídas: 🟠 Alta (2)';
+              case 3: return 'Detector de caídas: 🟡 Media (3)';
+              case 4: return 'Detector de caídas: 🟢 Estándar (4)';
+              case 5: return 'Detector de caídas: 🔵 Baja (5)';
+              case 6: return 'Detector de caídas: ⚪ Mínima (6)';
+              default: return 'Detector de caídas: 🟢 Estándar (4)';
+            }
+          })()}
+        </Text>
+
+        {/* Última Sincronización */}
+        <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 2 }}>
+          {(() => {
+            const uc = signosDispositivo?.reloj_config?.ultima_configuracion;
+            if (!uc) return 'Última sincronización: Sin registro aún';
+            try {
+              const fecha = new Date(uc);
+              if (isNaN(fecha.getTime())) return 'Última sincronización: Sin registro aún';
+              return `Última sincronización: ${fecha.toLocaleDateString('es-MX', {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}`;
+            } catch {
+              return 'Última sincronización: Sin registro aún';
+            }
+          })()}
+        </Text>
+      </View>
+
+      {/* Botón Ajustar */}
+      <View
+        style={{
+          backgroundColor: COLORS.goldPale,
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: 'rgba(191, 154, 64, 0.3)',
+        }}
+      >
+        <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.gold }}>
+          Ajustar
+        </Text>
+      </View>
+    </TouchableOpacity>
+)}
+          
           
         </ScrollView>
          
@@ -4026,5 +4057,144 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 10,
     fontWeight: '700',
+  },
+  notasHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 18,
+    marginBottom: 10,
+  },
+  notasTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  notasCountBadge: {
+    backgroundColor: '#FEF3D6',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#F5DBA0',
+  },
+  notasCountText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#BF9A40',
+  },
+  acordeonBtnPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FDF8EE',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#F5DBA0',
+  },
+  acordeonBtnText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#BF9A40',
+  },
+  acordeonChevron: {
+    fontSize: 9,
+    color: '#BF9A40',
+  },
+  notasListContainer: {
+    gap: 8,
+    marginBottom: 4,
+  },
+  notaCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#ECE7DF',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  notaStripe: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: '#BF9A40',
+  },
+  notaBody: {
+    flexDirection: 'row',
+    padding: 12,
+    paddingLeft: 14,
+    gap: 10,
+    alignItems: 'flex-start',
+  },
+  notaIconBubble: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FBF7EE',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notaIconText: {
+    fontSize: 13,
+  },
+  notaContentCol: {
+    flex: 1,
+  },
+  notaTextoPrincipal: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#1E1B18',
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  notaMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  notaAutor: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#6D645B',
+  },
+  notaSeparador: {
+    fontSize: 10,
+    color: '#998E84',
+  },
+  notaFecha: {
+    fontSize: 10,
+    color: '#998E84',
+  },
+  notaEmptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#ECE7DF',
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  notaEmptyIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F8F6F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notaEmptyTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#3E3832',
+  },
+  notaEmptySub: {
+    fontSize: 10.5,
+    color: '#998E84',
+    marginTop: 1,
   },
 });

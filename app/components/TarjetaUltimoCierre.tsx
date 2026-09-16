@@ -28,19 +28,22 @@ const COLORS = {
   amberPale: '#FFFBEB',
   red: '#EF4444',
   redPale: '#FEF2F2',
+  blue: '#0284C7',
+  bluePale: '#F0F9FF',
+  trackBg: '#EAE5DC',
 };
 
-const EMOJIS_ANIMO: Record<string, { label: string; icon: string }> = {
-  bien: { label: 'Bien / Estable', icon: 'happy-outline' },
-  tranquilo: { label: 'Tranquilo', icon: 'leaf-outline' },
-  alegre: { label: 'Alegre y Comunicativo', icon: 'sunny-outline' },
-  ansioso: { label: 'Ansioso / Intranquilo', icon: 'pulse-outline' },
-  triste: { label: 'Bajo de Ánimo', icon: 'cloud-outline' },
-  agitado: { label: 'Agitado / Reactivo', icon: 'warning-outline' },
-  confundido: { label: 'Confuso / Desorientado', icon: 'help-circle-outline' },
-  somnoliento: { label: 'Somnoliento / Aletargado', icon: 'moon-outline' },
-  regular: { label: 'Regular / Neutro', icon: 'remove-circle-outline' },
-  malo: { label: 'Con Malestar', icon: 'bandage-outline' },
+const EMOJIS_ANIMO: Record<string, { label: string; icon: string; color: string; bg: string }> = {
+  bien: { label: 'Bien / Estable', icon: 'happy-outline', color: '#10B981', bg: '#ECFDF5' },
+  tranquilo: { label: 'Tranquilo', icon: 'leaf-outline', color: '#10B981', bg: '#ECFDF5' },
+  alegre: { label: 'Alegre y Comunicativo', icon: 'sunny-outline', color: '#BF9A40', bg: '#FBF7EE' },
+  ansioso: { label: 'Ansioso / Intranquilo', icon: 'pulse-outline', color: '#F59E0B', bg: '#FFFBEB' },
+  triste: { label: 'Bajo de Ánimo', icon: 'cloud-outline', color: '#6D645B', bg: '#F5F2EC' },
+  agitado: { label: 'Agitado / Reactivo', icon: 'warning-outline', color: '#EF4444', bg: '#FEF2F2' },
+  confundido: { label: 'Confuso / Desorientado', icon: 'help-circle-outline', color: '#8B5CF6', bg: '#F5F3FF' },
+  somnoliento: { label: 'Somnoliento', icon: 'moon-outline', color: '#6366F1', bg: '#EEF2FF' },
+  regular: { label: 'Regular / Neutro', icon: 'remove-circle-outline', color: '#6D645B', bg: '#F5F2EC' },
+  malo: { label: 'Con Malestar', icon: 'bandage-outline', color: '#EF4444', bg: '#FEF2F2' },
 };
 
 interface Props {
@@ -55,7 +58,6 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
   const fadeSlideAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(0)).current;
 
-  // Radar sutil para denotar sincronización clínica activa
   useEffect(() => {
     let animLoop: Animated.CompositeAnimation | null = null;
 
@@ -175,41 +177,44 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
     );
   }
 
-  // Parseo de métricas clínicas
-  const dolorVal = Number(cierre.dolor_eva ?? cierre.dolorEva ?? 0);
+  // ── PARSEO DE MÉTRICAS ──
+  const dolorVal = Math.min(10, Math.max(0, Number(cierre.dolor_eva ?? cierre.dolorEva ?? 0)));
   const animoRaw = (cierre.estado_animo || cierre.estadoAnimo || cierre.estado_paciente || '').toString().toLowerCase().trim();
   const animoConfig = EMOJIS_ANIMO[animoRaw] || {
-    label: animoRaw ? animoRaw.charAt(0).toUpperCase() + animoRaw.slice(1) : 'No especificado',
+    label: animoRaw ? animoRaw.charAt(0).toUpperCase() + animoRaw.slice(1) : 'Estable',
     icon: 'happy-outline',
+    color: COLORS.gold,
+    bg: COLORS.goldPale,
   };
 
-  const hidratacionVal = Number(cierre.hidratacion_vasos ?? cierre.hidratacionVasos ?? cierre.hidratacion ?? 0);
+  const hidratacionVal = Math.min(8, Math.max(0, Number(cierre.hidratacion_vasos ?? cierre.hidratacionVasos ?? cierre.hidratacion ?? 0)));
   const alimentacionRaw = (cierre.alimentacion || '').toString().toLowerCase().trim();
 
-  let alimentacionTexto = 'No especificada';
-  if (['completa', 'bien', 'buena'].includes(alimentacionRaw)) {
-    alimentacionTexto = 'Completa (100%)';
-  } else if (['parcial', 'regular'].includes(alimentacionRaw)) {
-    alimentacionTexto = 'Parcial (25-75%)';
-  } else if (['ninguna', 'mala', 'nula'].includes(alimentacionRaw)) {
-    alimentacionTexto = 'Nula (<25%)';
+  let nutricionPorcentaje = 0;
+  let nutricionLabel = 'No especificada';
+  if (['completa', 'bien', 'buena', '100%'].includes(alimentacionRaw)) {
+    nutricionPorcentaje = 100;
+    nutricionLabel = 'Completa (100%)';
+  } else if (['parcial', 'regular', '50%'].includes(alimentacionRaw)) {
+    nutricionPorcentaje = 60;
+    nutricionLabel = 'Parcial (60%)';
+  } else if (['ninguna', 'mala', 'nula', '0%'].includes(alimentacionRaw)) {
+    nutricionPorcentaje = 15;
+    nutricionLabel = 'Baja (<25%)';
   } else if (alimentacionRaw) {
-    alimentacionTexto = alimentacionRaw;
+    nutricionPorcentaje = 75;
+    nutricionLabel = alimentacionRaw;
   }
 
-  // Semáforo EVA dinámico
-  let dolorBg = COLORS.greenPale;
+  // Escala EVA color
   let dolorColor = COLORS.green;
-  let dolorLabel = 'Leve / Confortable';
-
+  let dolorLabel = 'Confortable';
   if (dolorVal >= 4 && dolorVal <= 6) {
-    dolorBg = COLORS.amberPale;
     dolorColor = COLORS.amber;
     dolorLabel = 'Moderado';
   } else if (dolorVal >= 7) {
-    dolorBg = COLORS.redPale;
     dolorColor = COLORS.red;
-    dolorLabel = 'Severo / Requiere Atención';
+    dolorLabel = 'Severo';
   }
 
   const responsable = cierre.cuidador_nombre || cierre.usuario_nombre || cierre.cuidador;
@@ -230,11 +235,10 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
         },
       ]}
     >
-      {/* Franja lateral telemática PERS en color Oro Clínico */}
       <View style={styles.statusStripe} />
 
       <View style={styles.cardContent}>
-        {/* Cabecera con Radar Beacon y Metadatos */}
+        {/* Cabecera */}
         <View style={styles.headerRow}>
           <View style={styles.titleContainer}>
             <View style={styles.beaconContainer}>
@@ -248,7 +252,7 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
                 ]}
               />
               <View style={styles.iconBubble}>
-                <Ionicons name="shield-checkmark" size={19} color={COLORS.gold} />
+                <Ionicons name="shield-checkmark" size={18} color={COLORS.gold} />
               </View>
             </View>
 
@@ -257,13 +261,12 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
               <View style={styles.subStatusRow}>
                 <View style={styles.statusDot} />
                 <Text style={styles.subStatusText} numberOfLines={1}>
-                  {responsable ? `Por: ${responsable}` : 'Reporte de enfermería asentado'}
+                  {responsable ? `Por: ${responsable}` : 'Reporte clínico de enfermería'}
                 </Text>
               </View>
             </View>
           </View>
 
-          {/* Badges de Fecha y Hora sincronizados */}
           {fechaIso && (
             <View style={styles.timestampBadgeGroup}>
               <View style={styles.fechaBadge}>
@@ -286,67 +289,126 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId }) => {
           )}
         </View>
 
-        {/* Rejilla Modular de Signos y Cuidados (2x2) */}
-        <View style={styles.grid}>
-          {/* 1. Dolor EVA */}
-          <View style={[styles.moduleCard, { borderColor: dolorColor, backgroundColor: dolorBg }]}>
-            <View style={styles.moduleHeader}>
-              <Ionicons name="fitness-outline" size={15} color={dolorColor} />
-              <Text style={[styles.moduleLabel, { color: dolorColor }]}>Dolor (EVA)</Text>
+        {/* ── HILERAS CON NIVELES VISUALES (REEMPLAZO DE LA REJILLA 2X2) ── */}
+        <View style={styles.hilerasContainer}>
+
+          {/* 1. HILERA DOLOR (EVA) - BARRAS SEGMENTADAS */}
+          <View style={styles.hileraRow}>
+            <View style={styles.hileraHeader}>
+              <View style={styles.hileraLabelGroup}>
+                <Ionicons name="fitness-outline" size={14} color={dolorColor} />
+                <Text style={styles.hileraLabel}>Dolor (EVA)</Text>
+              </View>
+              <Text style={[styles.hileraValor, { color: dolorColor }]}>
+                {dolorVal}/10 <Text style={styles.hileraSubvalor}>· {dolorLabel}</Text>
+              </Text>
             </View>
-            <Text style={[styles.moduleValue, { color: dolorColor }]}>
-              {`${dolorVal}/10`}
-            </Text>
-            <Text style={[styles.moduleSubtext, { color: dolorColor }]} numberOfLines={1}>
-              {dolorLabel}
-            </Text>
+
+            {/* Raya segmentada de 10 niveles */}
+            <View style={styles.segmentosTrack}>
+              {[...Array(10)].map((_, i) => {
+                const activo = i < dolorVal;
+                let segColor = COLORS.green;
+                if (i >= 3 && i < 6) segColor = COLORS.amber;
+                if (i >= 6) segColor = COLORS.red;
+
+                return (
+                  <View
+                    key={i}
+                    style={[
+                      styles.segmentoBar,
+                      {
+                        backgroundColor: activo ? segColor : COLORS.trackBg,
+                        opacity: activo ? 1 : 0.4,
+                      },
+                    ]}
+                  />
+                );
+              })}
+            </View>
           </View>
 
-          {/* 2. Ánimo / Conducta */}
-          <View style={styles.moduleCard}>
-            <View style={styles.moduleHeader}>
-              <Ionicons name={animoConfig.icon as any} size={15} color={COLORS.gold} />
-              <Text style={styles.moduleLabel}>Ánimo / Conducta</Text>
+          {/* 2. HILERA HIDRATACIÓN - 8 CÁPSULAS DE AGUA */}
+          <View style={styles.hileraRow}>
+            <View style={styles.hileraHeader}>
+              <View style={styles.hileraLabelGroup}>
+                <Ionicons name="water-outline" size={14} color={COLORS.blue} />
+                <Text style={styles.hileraLabel}>Hidratación</Text>
+              </View>
+              <Text style={[styles.hileraValor, { color: COLORS.blue }]}>
+                {hidratacionVal}/8 <Text style={styles.hileraSubvalor}>vasos ({hidratacionVal * 250} ml)</Text>
+              </Text>
             </View>
-            <Text style={styles.moduleValue} numberOfLines={1}>
-              {animoConfig.label}
-            </Text>
-            <Text style={styles.moduleSubtext}>Respuesta cognitiva</Text>
+
+            {/* 8 Vasos/Cápsulas */}
+            <View style={styles.segmentosTrack}>
+              {[...Array(8)].map((_, i) => {
+                const lleno = i < hidratacionVal;
+                return (
+                  <View
+                    key={i}
+                    style={[
+                      styles.vasoPill,
+                      {
+                        backgroundColor: lleno ? COLORS.blue : COLORS.trackBg,
+                        opacity: lleno ? 1 : 0.35,
+                      },
+                    ]}
+                  />
+                );
+              })}
+            </View>
           </View>
 
-          {/* 3. Hidratación */}
-          <View style={styles.moduleCard}>
-            <View style={styles.moduleHeader}>
-              <Ionicons name="water-outline" size={15} color="#0284C7" />
-              <Text style={styles.moduleLabel}>Hidratación</Text>
+          {/* 3. HILERA NUTRICIÓN - BARRA CONTINUA DE PROGRESO */}
+          <View style={styles.hileraRow}>
+            <View style={styles.hileraHeader}>
+              <View style={styles.hileraLabelGroup}>
+                <Ionicons name="restaurant-outline" size={14} color="#059669" />
+                <Text style={styles.hileraLabel}>Nutrición</Text>
+              </View>
+              <Text style={[styles.hileraValor, { color: '#059669' }]}>
+                {nutricionLabel}
+              </Text>
             </View>
-            <Text style={styles.moduleValue}>
-              {`${hidratacionVal}/8`} <Text style={styles.unitText}>vasos</Text>
-            </Text>
-            <Text style={styles.moduleSubtext}>
-              {hidratacionVal > 0 ? `Aprox. ${hidratacionVal * 250} ml` : 'Sin consumo registrado'}
-            </Text>
+
+            {/* Barra continua con medidor */}
+            <View style={styles.barraTrack}>
+              <View
+                style={[
+                  styles.barraFill,
+                  {
+                    width: `${nutricionPorcentaje}%`,
+                    backgroundColor: nutricionPorcentaje >= 75 ? '#059669' : nutricionPorcentaje >= 40 ? COLORS.amber : COLORS.red,
+                  },
+                ]}
+              />
+            </View>
           </View>
 
-          {/* 4. Alimentación */}
-          <View style={styles.moduleCard}>
-            <View style={styles.moduleHeader}>
-              <Ionicons name="restaurant-outline" size={15} color="#059669" />
-              <Text style={styles.moduleLabel}>Nutrición</Text>
+          {/* 4. HILERA ÁNIMO / CONDUCTA - BADGE EXPRESIVO */}
+          <View style={[styles.hileraRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+            <View style={styles.hileraHeader}>
+              <View style={styles.hileraLabelGroup}>
+                <Ionicons name={animoConfig.icon as any} size={14} color={animoConfig.color} />
+                <Text style={styles.hileraLabel}>Ánimo / Conducta</Text>
+              </View>
+              <View style={[styles.animoChip, { backgroundColor: animoConfig.bg }]}>
+                <Text style={[styles.animoChipText, { color: animoConfig.color }]}>
+                  {animoConfig.label}
+                </Text>
+              </View>
             </View>
-            <Text style={styles.moduleValue} numberOfLines={1}>
-              {alimentacionTexto}
-            </Text>
-            <Text style={styles.moduleSubtext}>Ingesta calórica</Text>
           </View>
+
         </View>
 
-        {/* Sección de Observaciones y Notas Clínicas */}
+        {/* Observaciones e Incidentes del Turno */}
         {(cierre.observaciones || cierre.notas) && (
           <View style={styles.notasContainer}>
             <View style={styles.notasHeader}>
-              <Ionicons name="document-text-outline" size={15} color={COLORS.cacao} />
-              <Text style={styles.notasTitle}>Observaciones e Incidentes del Turno</Text>
+              <Ionicons name="document-text-outline" size={14} color={COLORS.cacao} />
+              <Text style={styles.notasTitle}>Observaciones del Turno</Text>
             </View>
 
             {cierre.observaciones ? (
@@ -427,27 +489,27 @@ const styles = StyleSheet.create({
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     flex: 1,
   },
   beaconContainer: {
-    width: 38,
-    height: 38,
+    width: 34,
+    height: 34,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
   radarPulseRing: {
     position: 'absolute',
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: COLORS.gold,
   },
   iconBubble: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: COLORS.goldPale,
     justifyContent: 'center',
     alignItems: 'center',
@@ -455,7 +517,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.goldBorder,
   },
   cardTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
     color: COLORS.cacao,
     textTransform: 'uppercase',
@@ -503,51 +565,88 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.textLight,
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  moduleCard: {
-    flexBasis: '48%',
-    flexGrow: 1,
-    backgroundColor: COLORS.cream,
-    borderRadius: 12,
-    padding: 10,
+
+  // ── ESTILOS DE HILERAS CLÍNICAS ──
+  hilerasContainer: {
+    backgroundColor: '#FAFAF8',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
+    gap: 12,
   },
-  moduleHeader: {
+  hileraRow: {
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0ECE4',
+  },
+  hileraHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  hileraLabelGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    marginBottom: 4,
+    gap: 6,
   },
-  moduleLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: COLORS.textLight,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  moduleValue: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: COLORS.textDark,
-  },
-  unitText: {
+  hileraLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    color: COLORS.textMuted,
+    fontWeight: '800',
+    color: COLORS.cacao,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
-  moduleSubtext: {
+  hileraValor: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  hileraSubvalor: {
     fontSize: 10,
-    color: COLORS.textMuted,
     fontWeight: '600',
-    marginTop: 2,
+    color: COLORS.textMuted,
   },
+  segmentosTrack: {
+    flexDirection: 'row',
+    gap: 4,
+    alignItems: 'center',
+  },
+  segmentoBar: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+  },
+  vasoPill: {
+    flex: 1,
+    height: 7,
+    borderRadius: 4,
+  },
+  barraTrack: {
+    width: '100%',
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: COLORS.trackBg,
+    overflow: 'hidden',
+  },
+  barraFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  animoChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  animoChipText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+
+  // Notas
   notasContainer: {
-    marginTop: 14,
+    marginTop: 12,
     backgroundColor: '#F8FAFC',
     borderRadius: 12,
     padding: 12,
@@ -558,7 +657,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   notasTitle: {
     fontSize: 11,

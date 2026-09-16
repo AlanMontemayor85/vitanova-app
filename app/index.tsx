@@ -573,7 +573,7 @@ useEffect(() => {
 
         if (cierreData?.cierre) setUltimoCierre(cierreData.cierre);
         if (notasData?.notas) setNotas(notasData.notas);
-        if (alertaPesoData?.alerta) setAlertaPeso(alertaPesoData);
+        setAlertaPeso(alertaPesoData?.alerta ? alertaPesoData : null);
 
         const listaTareas = Array.isArray(tareasHoyData)
           ? tareasHoyData
@@ -1050,107 +1050,49 @@ const handleServicioVitanova = (item: any) => {
 
         </View>
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-           {/* ⌚ SUPERVISIÓN OPERATIVA DEL DISPOSITIVO PERS (RF-V48 / RF-V46) */}
+           {/* 1. SUPERVISIÓN OPERATIVA PERS (MÉTRICAS EN VIVO) */}
 {Boolean(paciente?.reloj_imei) && (
-  <>
-    <SupervisionVisualPERS
-      signosDispositivo={signosDispositivo}
-      ubicacion={ubicacion}
-      pacienteActivo={paciente}
-      pasosHoy={pasosHoy}
-      ultimoCierre={ultimoCierre}
-      onRefreshData={cargarSignosDispositivo}
-    />
-
-    {/* TARJETA CONFIG RELOJ */}
-    {signosDispositivo?.reloj_config && (
-      <TouchableOpacity 
-        activeOpacity={0.7}
-        onPress={() => setModalConfigVisible(true)}
-        style={{
-          backgroundColor: COLORS.white,
-          borderRadius: 14,
-          padding: 14,
-          marginTop: 8,
-          marginBottom: 10,
-          width: '100%',            // 👈 Ancho completo emparejado
-          alignSelf: 'stretch',
-          borderWidth: 1,
-          borderColor: COLORS.border,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 12,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: 0.04,
-          shadowRadius: 3,
-          elevation: 2,
-        }}
-      >
-        <Text style={{ fontSize: 24 }}>⚙️</Text>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.cacao, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            Configuración del reloj
-          </Text>
-          <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
-            {(() => {
-              const config = signosDispositivo?.reloj_config;
-              if (!config?.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
-              
-              const sens = Number(config?.sensibilidad ?? config?.sensibilidad_caidas ?? 4);
-              switch (sens) {
-                case 1: return 'Detector de caídas: 🔴 Muy Alta (1)';
-                case 2: return 'Detector de caídas: 🟠 Alta (2)';
-                case 3: return 'Detector de caídas: 🟡 Media (3)';
-                case 4: return 'Detector de caídas: 🟢 Estándar (4)';
-                case 5: return 'Detector de caídas: 🔵 Baja (5)';
-                case 6: return 'Detector de caídas: ⚪ Mínima (6)';
-                default: return `Detector de caídas: 🟢 Estándar (${sens > 6 ? 4 : sens})`;
-              }
-            })()}
-          </Text>
-          <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 1 }}>
-            {(() => {
-              const uc = signosDispositivo?.reloj_config?.ultima_configuracion;
-              if (!uc) return 'Última sinc: Sin registro';
-              try {
-                const fecha = new Date(uc);
-                return `Última sinc: ${fecha.toLocaleDateString('es-MX', { 
-                  day: 'numeric', 
-                  month: 'short', 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
-                })}`;
-              } catch {
-                return 'Última sinc: Sin registro';
-              }
-            })()}
-          </Text>
-        </View>
-        <View style={{
-          backgroundColor: COLORS.goldPale,
-          paddingHorizontal: 12,
-          paddingVertical: 6,
-          borderRadius: 8,
-          borderWidth: 1,
-          borderColor: 'rgba(191, 154, 64, 0.3)',
-        }}>
-          <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.gold }}>Ajustar</Text>
-        </View>
-      </TouchableOpacity>
-    )}
-
-    {/* ── 🟢 TELEASISTENCIA: CHECK-IN / ESTOY BIEN (SOLO SI TIENE RELOJ) ── */}
-    {paciente?.id && (
-      <View style={{ width: '100%', alignSelf: 'stretch', marginBottom: 12 }}>
-        <CheckinControlCard
-          patientId={paciente.id}
-          initialConfig={paciente.checkin_config}
-        />
-      </View>
-    )}
-  </>
+  <SupervisionVisualPERS
+    signosDispositivo={signosDispositivo}
+    ubicacion={ubicacion}
+    pacienteActivo={paciente}
+    pasosHoy={pasosHoy}
+    ultimoCierre={ultimoCierre}
+    onRefreshData={cargarSignosDispositivo}
+  />
 )}
+
+{/* ======================================================== */}
+{/* 🎛️ SECCIÓN 2: ACCESOS RÁPIDOS OPERATIVOS                */}
+{/* ======================================================== */}
+<View style={styles.sectionHeaderRow}>
+  <Text style={styles.sectionTitle}>Accesos rápidos</Text>
+ 
+</View>
+
+{/* Fila única de 4 columnas simétricas */}
+<View style={styles.quickRowContainer}>
+  {[
+    { icon: '💊', label: 'Medicación', ruta: '/medicamentos', bg: '#F0F7FF', border: '#BAE6FD' },
+    { icon: '💬', label: 'Cuidadores', ruta: '/red-cuidadores', bg: '#F0FDF4', border: '#BBF7D0' },
+    { icon: '📊', label: 'Gráficas', ruta: '/grafica-signos', bg: '#FAF5FF', border: '#E9D5FF' },
+    { icon: '📜', label: 'Historial', ruta: '/historial', bg: '#FFFBEB', border: '#FDE68A' },
+  ].map((item) => (
+    <TouchableOpacity
+      key={item.label}
+      activeOpacity={0.7}
+      style={styles.quickColBtn}
+      onPress={() => handleNavegacionRapida(item)}
+    >
+      <View style={[styles.quickIconBoxRow, { backgroundColor: item.bg, borderColor: item.border }]}>
+        <Text style={styles.quickIconEmoji}>{item.icon}</Text>
+      </View>
+      <Text style={styles.quickColLabel} numberOfLines={1}>
+        {item.label}
+      </Text>
+    </TouchableOpacity>
+  ))}
+</View>
 
 {/* ======================================================== */}
 {/* ⚡ SECCIÓN 1: TURNOS ACTIVOS DE CUIDADO                  */}
@@ -1274,37 +1216,212 @@ const handleServicioVitanova = (item: any) => {
 
 {/* 🛡️ Alertas y tamizaje preventivo basado en tendencias */}
 {pacienteId && <BannerAlertasPreventivas pacienteId={pacienteId} />}
-{/* ======================================================== */}
-{/* 🎛️ SECCIÓN 2: ACCESOS RÁPIDOS OPERATIVOS                */}
-{/* ======================================================== */}
-<View style={styles.sectionHeaderRow}>
-  <Text style={styles.sectionTitle}>Accesos rápidos</Text>
- 
-</View>
 
-{/* Fila única de 4 columnas simétricas */}
-<View style={styles.quickRowContainer}>
-  {[
-    { icon: '💊', label: 'Medicación', ruta: '/medicamentos', bg: '#F0F7FF', border: '#BAE6FD' },
-    { icon: '💬', label: 'Cuidadores', ruta: '/red-cuidadores', bg: '#F0FDF4', border: '#BBF7D0' },
-    { icon: '📊', label: 'Gráficas', ruta: '/grafica-signos', bg: '#FAF5FF', border: '#E9D5FF' },
-    { icon: '📜', label: 'Historial', ruta: '/historial', bg: '#FFFBEB', border: '#FDE68A' },
-  ].map((item) => (
-    <TouchableOpacity
-      key={item.label}
-      activeOpacity={0.7}
-      style={styles.quickColBtn}
-      onPress={() => handleNavegacionRapida(item)}
-    >
-      <View style={[styles.quickIconBoxRow, { backgroundColor: item.bg, borderColor: item.border }]}>
-        <Text style={styles.quickIconEmoji}>{item.icon}</Text>
+    
+ {/* ======================================================== */}
+{/* ⚖️ RECORDATORIO / ALERTA DE CONTROL PONDERAL             */}
+{/* ======================================================== */}
+{Boolean(alertaPeso) && (
+  <View style={styles.alertaPesoCard}>
+    <View style={styles.alertaPesoIconBubble}>
+      <Text style={styles.alertaPesoEmoji}>⚖️</Text>
+    </View>
+    <View style={styles.alertaPesoContent}>
+      <Text style={styles.alertaPesoTitle}>Control Ponderal</Text>
+      <Text style={styles.alertaPesoDesc}>{alertaPeso.mensaje}</Text>
+    </View>
+  </View>
+)}
+
+{/* ========================================================== */}
+{/* 📝 NOTAS DEL CUIDADOR (SOLO OBSERVACIONES HUMANAS)        */}
+{/* ========================================================== */}
+{(() => {
+  // 🧹 1. FILTRADO: Descartamos cualquier log de toma de signos
+  const notasSoloTexto = (notas || []).filter((n) => {
+    const raw = String(n?.descripcion || n?.texto || '').trim();
+    return !raw.includes('[TOMA MANUAL ESPONTÁNEA]');
+  });
+
+  const hayNotas = notasSoloTexto.length > 0;
+  const notasAMostrar = notasExpandidas ? notasSoloTexto.slice(0, 5) : notasSoloTexto.slice(0, 1);
+
+  return (
+    <>
+      <View style={styles.notasHeaderRow}>
+        <View style={styles.notasTitleGroup}>
+          <Text style={styles.sectionTitle}>Notas del Cuidador</Text>
+          {hayNotas && (
+            <View style={styles.notasCountBadge}>
+              <Text style={styles.notasCountText}>{notasSoloTexto.length}</Text>
+            </View>
+          )}
+        </View>
+
+        {notasSoloTexto.length > 1 && (
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setNotasExpandidas(!notasExpandidas)}
+            style={styles.acordeonBtnPill}
+          >
+            <Text style={styles.acordeonBtnText}>
+              {notasExpandidas ? 'Ver menos' : `Historial (+${notasSoloTexto.length - 1})`}
+            </Text>
+            <Text style={styles.acordeonChevron}>{notasExpandidas ? '▲' : '▼'}</Text>
+          </TouchableOpacity>
+        )}
       </View>
-      <Text style={styles.quickColLabel} numberOfLines={1}>
-        {item.label}
+
+      {hayNotas ? (
+        <View style={styles.notasListContainer}>
+          {notasAMostrar.map((n, i) => {
+            const rawTexto = String(n?.descripcion || n?.texto || '').trim();
+            const textoLimpio = rawTexto.replace(/^📝\s*/, '').trim();
+            const autor = n?.usuarios?.nombre_completo ?? 'Personal Vitanova';
+            const fechaTexto = n?.created_at
+              ? new Date(n.created_at).toLocaleDateString('es-MX', {
+                  day: 'numeric',
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : '';
+
+            return (
+              <View key={n?.id || i} style={styles.notaCard}>
+                <View style={styles.notaStripe} />
+
+                <View style={styles.notaBody}>
+                  <View style={styles.notaIconBubble}>
+                    <Text style={styles.notaIconText}>✍️</Text>
+                  </View>
+
+                  <View style={styles.notaContentCol}>
+                    {/* Mensaje u observación redactada */}
+                    <Text style={styles.notaTextoPrincipal}>
+                      {textoLimpio}
+                    </Text>
+
+                    {/* Metadatos (Autor y Fecha) */}
+                    <View style={styles.notaMetaRow}>
+                      <Text style={styles.notaAutor}>{autor}</Text>
+                      {Boolean(fechaTexto) && (
+                        <>
+                          <Text style={styles.notaSeparador}>•</Text>
+                          <Text style={styles.notaFecha}>{fechaTexto}</Text>
+                        </>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      ) : (
+        <View style={styles.notaEmptyCard}>
+          <View style={styles.notaEmptyIconCircle}>
+            <Text style={{ fontSize: 16 }}>📋</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.notaEmptyTitle}>Sin notas en el turno actual</Text>
+            <Text style={styles.notaEmptySub}>
+              Los cuidadores no han reportado novedades u observaciones recientes.
+            </Text>
+          </View>
+        </View>
+      )}
+    </>
+  );
+})()}
+{/* 3. TELEASISTENCIA: CHECK-IN / Contigo a distancia*/}
+{Boolean(paciente?.reloj_imei) && Boolean(paciente?.id) && (
+  <View style={{ width: '100%', alignSelf: 'stretch', marginBottom: 12 }}>
+    <CheckinControlCard
+      patientId={paciente.id}
+      initialConfig={paciente.checkin_config}
+    />
+  </View>
+)}
+   {/* 2. TARJETA CONFIGURACIÓN DEL RELOJ */}
+{Boolean(paciente?.reloj_imei) && Boolean(signosDispositivo?.reloj_config) && (
+  <TouchableOpacity 
+    activeOpacity={0.7}
+    onPress={() => setModalConfigVisible(true)}
+    style={{
+      backgroundColor: COLORS.white,
+      borderRadius: 14,
+      padding: 14,
+      marginTop: 8,
+      marginBottom: 10,
+      width: '100%',
+      alignSelf: 'stretch',
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.04,
+      shadowRadius: 3,
+      elevation: 2,
+    }}
+  >
+    <Text style={{ fontSize: 24 }}>⚙️</Text>
+    <View style={{ flex: 1 }}>
+      <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.cacao, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+        Configuración del reloj
       </Text>
-    </TouchableOpacity>
-  ))}
-</View>
+      <Text style={{ fontSize: 10, color: COLORS.textLight, marginTop: 2 }}>
+        {(() => {
+          const config = signosDispositivo?.reloj_config;
+          if (!config?.caida_activa) return 'Detector de caídas: ⭕ Desactivado';
+          
+          const sens = Number(config?.sensibilidad ?? config?.sensibilidad_caidas ?? 4);
+          switch (sens) {
+            case 1: return 'Detector de caídas: 🔴 Muy Alta (1)';
+            case 2: return 'Detector de caídas: 🟠 Alta (2)';
+            case 3: return 'Detector de caídas: 🟡 Media (3)';
+            case 4: return 'Detector de caídas: 🟢 Estándar (4)';
+            case 5: return 'Detector de caídas: 🔵 Baja (5)';
+            case 6: return 'Detector de caídas: ⚪ Mínima (6)';
+            default: return `Detector de caídas: 🟢 Estándar (${sens > 6 ? 4 : sens})`;
+          }
+        })()}
+      </Text>
+      <Text style={{ fontSize: 9, color: COLORS.textLight, marginTop: 1 }}>
+        {(() => {
+          const uc = signosDispositivo?.reloj_config?.ultima_configuracion;
+          if (!uc) return 'Última sinc: Sin registro';
+          try {
+            const fecha = new Date(uc);
+            return `Última sinc: ${fecha.toLocaleDateString('es-MX', { 
+              day: 'numeric', 
+              month: 'short', 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            })}`;
+          } catch {
+            return 'Última sinc: Sin registro';
+          }
+        })()}
+      </Text>
+    </View>
+    <View style={{
+      backgroundColor: COLORS.goldPale,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: 'rgba(191, 154, 64, 0.3)',
+    }}>
+      <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.gold }}>Ajustar</Text>
+    </View>
+  </TouchableOpacity>
+)} 
+
+    
 {/* ======================================================== */}
 {/* 🏛️ SECCIÓN 3: SERVICIOS VITANOVA INTEGRALIS              */}
 {/* ======================================================== */}
@@ -1347,106 +1464,7 @@ const handleServicioVitanova = (item: any) => {
     </TouchableOpacity>
   ))}
 </View>
-          
-       {/* ======================================================== */}
-{/* ⚖️ RECORDATORIO / ALERTA DE CONTROL PONDERAL             */}
-{/* ======================================================== */}
-{alertaPeso && (
-  <View style={styles.alertaPesoCard}>
-    <View style={styles.alertaPesoIconBubble}>
-      <Text style={styles.alertaPesoEmoji}>⚖️</Text>
-    </View>
-    <View style={styles.alertaPesoContent}>
-      <Text style={styles.alertaPesoTitle}>Control Ponderal</Text>
-      <Text style={styles.alertaPesoDesc}>{alertaPeso.mensaje}</Text>
-    </View>
-  </View>
-)}
-
-           {/* ========================================================== */}
-{/* 📝 NOTAS DEL CUIDADOR (CON ACORDEÓN DESPLEGABLE)          */}
-{/* ========================================================== */}
-<View style={styles.notasHeaderRow}>
-  <View style={styles.notasTitleGroup}>
-    <Text style={styles.sectionTitle}>Notas del Cuidador</Text>
-    {notas && notas.length > 0 && (
-      <View style={styles.notasCountBadge}>
-        <Text style={styles.notasCountText}>{notas.length}</Text>
-      </View>
-    )}
-  </View>
-
-  {notas && notas.length > 1 && (
-    <TouchableOpacity
-      activeOpacity={0.7}
-      onPress={() => setNotasExpandidas(!notasExpandidas)}
-      style={styles.acordeonBtnPill}
-    >
-      <Text style={styles.acordeonBtnText}>
-        {notasExpandidas ? 'Ver menos' : `Historial (+${notas.length - 1})`}
-      </Text>
-      <Text style={styles.acordeonChevron}>{notasExpandidas ? '▲' : '▼'}</Text>
-    </TouchableOpacity>
-  )}
-</View>
-
-{notas && notas.length > 0 ? (
-  <View style={styles.notasListContainer}>
-    {(notasExpandidas ? notas.slice(0, 5) : [notas[0]]).map((n, i) => {
-      const contenidoNota = n?.descripcion || n?.texto || 'Nota de relevo registrada';
-      const textoLimpio = String(contenidoNota).replace(/^📝\s*/, '');
-      const autor = n?.usuarios?.nombre_completo ?? 'Personal Vitanova';
-      const fechaTexto = n?.created_at
-        ? new Date(n.created_at).toLocaleDateString('es-MX', {
-            day: 'numeric',
-            month: 'short',
-            hour: '2-digit',
-            minute: '2-digit',
-          })
-        : '';
-
-      return (
-        <View key={n?.id || i} style={styles.notaCard}>
-          <View style={styles.notaStripe} />
-          
-          <View style={styles.notaBody}>
-            <View style={styles.notaIconBubble}>
-              <Text style={styles.notaIconText}>✍️</Text>
-            </View>
-
-            <View style={styles.notaContentCol}>
-              <Text style={styles.notaTextoPrincipal}>
-                {textoLimpio}
-              </Text>
-
-              <View style={styles.notaMetaRow}>
-                <Text style={styles.notaAutor}>{autor}</Text>
-                {Boolean(fechaTexto) && (
-                  <>
-                    <Text style={styles.notaSeparador}>•</Text>
-                    <Text style={styles.notaFecha}>{fechaTexto}</Text>
-                  </>
-                )}
-              </View>
-            </View>
-          </View>
-        </View>
-      );
-    })}
-  </View>
-) : (
-  <View style={styles.notaEmptyCard}>
-    <View style={styles.notaEmptyIconCircle}>
-      <Text style={{ fontSize: 16 }}>📋</Text>
-    </View>
-    <View style={{ flex: 1 }}>
-      <Text style={styles.notaEmptyTitle}>Sin notas en el turno actual</Text>
-      <Text style={styles.notaEmptySub}>
-        Los cuidadores no han reportado novedades u observaciones recientes.
-      </Text>
-    </View>
-  </View>
-)}
+      
              
             {/* Espaciador final correcto al fondo del ScrollView */}
             <View style={{ height: 60 }} />
