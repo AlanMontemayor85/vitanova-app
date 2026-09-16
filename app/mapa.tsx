@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { crearGeocerca, eliminarGeocerca, getGeocercas, getPacientes, getUbicacion, loadStoredToken } from '../services/api';
 import { BotonEmergenciaGPS } from './components/BotonEmergenciaGPS';
@@ -249,7 +249,30 @@ export default function MapaScreen() {
       });
     }
   };
+const abrirNavegacionRescate = async () => {
+    if (!tieneCoordenadasValidas) {
+      Alert.alert('Sin coordenadas', 'No hay una posición GPS válida del paciente para trazar la ruta.');
+      return;
+    }
 
+    // w = walking (a pie), d = driving (en vehículo)
+    const url = Platform.select({
+      ios: `maps://app?daddr=${currentLat},${currentLng}&dirflg=d`,
+      android: `google.navigation:q=${currentLat},${currentLng}&mode=d`,
+    }) || `https://www.google.com/maps/dir/?api=1&destination=${currentLat},${currentLng}`;
+
+    try {
+      const soportado = await Linking.canOpenURL(url);
+      if (soportado) {
+        await Linking.openURL(url);
+      } else {
+        await Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${currentLat},${currentLng}`);
+      }
+    } catch (err) {
+      console.error('Error al abrir la app de mapas:', err);
+      Alert.alert('Error', 'No se pudo abrir la aplicación de mapas instalada en el dispositivo.');
+    }
+  };
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
@@ -441,7 +464,23 @@ export default function MapaScreen() {
               }}
             />
           )}
-
+           {/* 🧭 BOTÓN RUTA DE RESCATE / CÓMO LLEGAR */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.btnRescate}
+            onPress={abrirNavegacionRescate}
+          >
+            <Text style={styles.btnRescateIcon}>🧭</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.btnRescateTitle}>Cómo llegar al paciente</Text>
+              <Text style={styles.btnRescateSub}>
+                {distanciaMetros !== null 
+                  ? `Ruta turn-by-turn • A ${distanciaMetros < 1000 ? `${distanciaMetros}m` : `${(distanciaMetros / 1000).toFixed(2)}km`}`
+                  : 'Navegación guiada con tráfico en vivo'}
+              </Text>
+            </View>
+            <Text style={styles.btnRescateArrow}>➔</Text>
+          </TouchableOpacity>
           {/* BOTONES DE CENTRADO */}
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
             <TouchableOpacity
@@ -706,5 +745,42 @@ const styles = StyleSheet.create({
     fontWeight: '800', 
     color: COLORS.white,
     letterSpacing: 0.5 
+  },
+  btnRescate: {
+    backgroundColor: COLORS.cacao,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#5A544F',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  btnRescateIcon: {
+    fontSize: 22,
+  },
+  btnRescateTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: COLORS.white,
+    letterSpacing: 0.3,
+  },
+  btnRescateSub: {
+    fontSize: 11,
+    color: COLORS.gold,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  btnRescateArrow: {
+    fontSize: 16,
+    color: COLORS.gold,
+    fontWeight: 'bold',
   },
 });
