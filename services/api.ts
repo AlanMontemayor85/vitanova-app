@@ -668,6 +668,33 @@ export const enviarCierreTurno = async (datos: DatosCierreTurno) => {
 
 };
 
+export const transcribirAudioNota = async (audioUri: string) => {
+  const formData = new FormData();
+  const nombreArchivo = audioUri.split('/').pop() || 'nota_voz.m4a';
+
+  formData.append('audio', {
+    uri: audioUri,
+    name: nombreArchivo,
+    type: 'audio/m4a',
+  } as any);
+
+  const token = await loadStoredToken();
+
+  const response = await fetch(`${BASE_URL}/cuidado/transcribir-audio`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || 'Error al transcribir la nota de voz');
+  }
+
+  return await response.json();
+};
 export const getHistorialCierres = async (pacienteId: string) => {
 
   try {
