@@ -284,7 +284,7 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId, esCuidador = 
                 adjustsFontSizeToFit
                 minimumFontScale={0.88}
               >
-                {esCuidador ? 'Estado de Cierre' : 'Estado del Último Relevo'}
+                {esCuidador ? 'Estado de Cierre' : 'Estado de Cierre'}
               </Text>
               <View style={styles.subStatusRow}>
                 <View style={styles.statusDot} />
