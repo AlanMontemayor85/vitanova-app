@@ -185,7 +185,7 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId, esCuidador = 
           <View style={styles.emptyHeader}>
             <Ionicons name="clipboard-outline" size={18} color={COLORS.textLight} />
             <Text style={styles.cardTitle}>
-              {esCuidador ? 'Turno Anterior' : 'Estado del Cierre'}
+              {esCuidador ? 'Turno Anterior' : 'Estado del Último Relevo'}
             </Text>
           </View>
           <Text style={styles.emptyText}>Sin registros clínicos de cierre de turno recientes.</Text>
@@ -284,7 +284,7 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId, esCuidador = 
                 adjustsFontSizeToFit
                 minimumFontScale={0.88}
               >
-                {esCuidador ? 'Relevo de Turno Anterior' : 'Estado del Cierre'}
+                {esCuidador ? 'Estado de Cierre' : 'Estado del Último Relevo'}
               </Text>
               <View style={styles.subStatusRow}>
                 <View style={styles.statusDot} />
