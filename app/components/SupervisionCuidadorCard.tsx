@@ -12,8 +12,10 @@ import {
   View
 } from 'react-native';
 import { forzarMedicionSignos } from '../../services/api';
+
 const FONT_TITLE = Platform.OS === 'ios' ? 'System' : 'sans-serif-medium';
 const FONT_BODY = Platform.OS === 'ios' ? 'System' : 'sans-serif';
+
 interface Props {
   signosDispositivo: any;
   ubicacion: any;
@@ -241,7 +243,8 @@ export const SupervisionCuidadorCard: React.FC<Props> = ({
       Alert.alert('Error', 'No se pudo contactar al servidor de teleasistencia.');
     }
   };
-// ── 9. CÁLCULO TOLERANTE DE PASOS (EVALÚA TODAS LAS FUENTES POSIBLES) ──
+
+  // ── 7. CÁLCULO DE PASOS ──
   const pasosRaw =
     pasosHoy ??
     signosDispositivo?.pasos ??
@@ -262,7 +265,7 @@ export const SupervisionCuidadorCard: React.FC<Props> = ({
       pasosNum = num;
     }
   }
-      
+
   const handlePillPress = () => {
     if (esAgotada) {
       Alert.alert(
@@ -308,22 +311,22 @@ export const SupervisionCuidadorCard: React.FC<Props> = ({
   let portacionLabel = 'Sin colocar';
 
   if (esAgotada) {
-  portacionIcon = 'power-off';
-  portacionColor = '#991B1B';
-  portacionLabel = 'Apagado';
-} else if (estaFueraDeLinea) {
-  portacionIcon = 'cloud-off-outline'; // 👈 Icono garantizado y soportado en MaterialCommunityIcons
-  portacionColor = '#B45309';
-  portacionLabel = 'Sin señal';
-} else if (enBase) {
-  portacionIcon = 'power-plug';
-  portacionColor = '#1E40AF';
-  portacionLabel = 'En dock';
-} else if (puesto) {
-  portacionIcon = 'arm-flex';
-  portacionColor = '#10B981';
-  portacionLabel = 'En muñeca';
-}
+    portacionIcon = 'power-off';
+    portacionColor = '#991B1B';
+    portacionLabel = 'Apagado';
+  } else if (estaFueraDeLinea) {
+    portacionIcon = 'cloud-off-outline';
+    portacionColor = '#B45309';
+    portacionLabel = 'Sin señal';
+  } else if (enBase) {
+    portacionIcon = 'power-plug';
+    portacionColor = '#1E40AF';
+    portacionLabel = 'En dock';
+  } else if (puesto) {
+    portacionIcon = 'arm-flex';
+    portacionColor = '#10B981';
+    portacionLabel = 'En muñeca';
+  }
 
   const pesoRaw =
     signosDispositivo?.peso?.replace(' kg', '') ||
@@ -359,7 +362,7 @@ export const SupervisionCuidadorCard: React.FC<Props> = ({
       <View style={[styles.statusStripe, { backgroundColor: stripeColor }]} />
 
       <View style={styles.cardContent}>
-        {/* Cabecera con Radar Beacon, Pill de Batería y Botón de Actualización */}
+        {/* Cabecera balanceada */}
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
             <View style={styles.beaconContainer}>
@@ -389,14 +392,16 @@ export const SupervisionCuidadorCard: React.FC<Props> = ({
               </View>
             </View>
 
-            <View>
-              <Text style={styles.headerTitle}>SUPERVISIÓN EN VIVO</Text>
-              <Text style={styles.headerSubtitle}>
+            <View style={styles.headerTitleWrap}>
+              <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
+                SUPERVISIÓN EN VIVO
+              </Text>
+              <Text style={styles.headerSubtitle} numberOfLines={1} ellipsizeMode="tail">
                 {estaFueraDeLinea
                   ? `Sin señal (${diffMinutos}m)`
                   : enBase
                   ? 'En base de carga'
-                  : 'Canal PERS sincronizado'}
+                  : ''}
               </Text>
             </View>
           </View>
@@ -457,7 +462,7 @@ export const SupervisionCuidadorCard: React.FC<Props> = ({
 
         <View style={styles.headerDivider} />
 
-        {/* Retícula de 4 Columnas Iconográficas */}
+        {/* Retícula de 4 Columnas */}
         <View style={styles.metricsRow}>
           {/* 1. Portación */}
           <View style={styles.col}>
@@ -519,6 +524,7 @@ export const SupervisionCuidadorCard: React.FC<Props> = ({
     </View>
   );
 };
+
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
@@ -545,20 +551,22 @@ const styles = StyleSheet.create({
   cardContent: {
     paddingTop: 12,
     paddingBottom: 14,
-    paddingHorizontal: 14,
-    paddingLeft: 18,
+    paddingHorizontal: 12,
+    paddingLeft: 16,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingBottom: 10,
+    gap: 6,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     flex: 1,
+    minWidth: 0, // Permite truncar sin desplazar a la derecha
   },
   beaconContainer: {
     width: 28,
@@ -582,34 +590,39 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
+  headerTitleWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
   headerTitle: {
-    fontSize: 13,
+    fontSize: 11.5, // Tamaño calibrado para no empujar la pastilla en pantallas estándar
     fontWeight: '800',
     color: '#1E1B18',
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
     textTransform: 'uppercase',
     fontFamily: FONT_TITLE,
   },
   headerSubtitle: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#78716C',
     fontWeight: '500',
-    marginTop: 2,
+    marginTop: 1,
     fontFamily: FONT_BODY,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
+    flexShrink: 0, // Asegura que nunca se desborde fuera de la pantalla
   },
   pillBateria: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 3,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
-    gap: 5,
+    gap: 4,
   },
   dotPill: {
     width: 5,
@@ -617,13 +630,13 @@ const styles = StyleSheet.create({
     borderRadius: 2.5,
   },
   pillText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 9.5,
+    fontWeight: '800',
     textTransform: 'uppercase',
     fontFamily: FONT_BODY,
   },
   refreshBtn: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 8,
     justifyContent: 'center',
@@ -635,8 +648,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   refreshBtnText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 9,
+    fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.3,
     textTransform: 'uppercase',

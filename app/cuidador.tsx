@@ -1513,39 +1513,78 @@ const handleRegresarOpciones = async () => {
 
   // 📝 3. CONSOLIDACIÓN SEGURA DE NOTAS (Con Try/Catch aislado que NUNCA tumba el cierre)
   let notasConsolidadas = "Sin notas incidentales en el turno.";
-  try {
-    const token = await getToken();
-    const notasRes = await fetch(`${BASE_URL}/notas?paciente_id=${pacienteActivo.id}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (notasRes.ok) {
-      const datasetNotas = await notasRes.json();
-      const arrayParaFiltrar = Array.isArray(datasetNotas?.notas) 
-        ? datasetNotas.notas 
-        : (Array.isArray(datasetNotas?.registros) ? datasetNotas.registros : null);
 
-      if (arrayParaFiltrar) {
-        const idTurnoActual = turnoActivoRef?.current?.id || turnoActivo?.id || params.turnoId;
-        const notasDelTurno = arrayParaFiltrar.filter((n: any) => n.turno_id === idTurnoActual || n.turno_id === null);
+// 🧹 Helper clínico para sanear el texto de las notas antes de consolidar
+const sanearTextoNota = (rawText: string): string => {
+  if (!rawText) return "Nota sin texto";
 
-        if (notasDelTurno.length > 0) {
-          notasConsolidadas = notasDelTurno
-            .reverse() 
-            .map((n: any) => {
-              const textoNota = n.texto || n.descripcion || "Nota sin texto";
-              const hora = n.created_at ? new Date(n.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : "";
-              return hora ? `[${hora}] ${textoNota}` : `- ${textoNota}`;
-            })
-            .join('\n');
-        }
+  // Si es una toma manual de signos espontánea
+  if (rawText.includes('[TOMA MANUAL ESPONTÁNEA]') || rawText.includes('[TOMA ESPONTÁNEA]')) {
+    // 1. Extraer observación si viene al final entre paréntesis
+    let texto = rawText.replace(/\[TOMA MANUAL ESPONTÁNEA\]|\[TOMA ESPONTÁNEA\]/g, '').trim();
+    let obs = '';
+    const matchObs = texto.match(/\((.*?)\)$/);
+    if (matchObs) {
+      obs = matchObs[1].trim();
+      texto = texto.replace(`(${obs})`, '').trim();
+    }
+
+    // 2. Limpiar emojis y normalizar los signos
+    const signosLimpios = texto
+      .split('|')
+      .map(s => s.replace(/[❤️🩸🫁🌡️🍬⚖️]/g, '').trim())
+      .filter(Boolean)
+      .join(', ');
+
+    // 3. Resultado institucional ordenado
+    return obs
+      ? `Toma manual de signos: ${signosLimpios} • Obs: "${obs}"`
+      : `Toma manual de signos: ${signosLimpios}`;
+  }
+
+  // Si es una nota común, limpiamos dobles espacios
+  return rawText.trim();
+};
+
+try {
+  const token = await getToken();
+  const notasRes = await fetch(`${BASE_URL}/notas?paciente_id=${pacienteActivo.id}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  if (notasRes.ok) {
+    const datasetNotas = await notasRes.json();
+    const arrayParaFiltrar = Array.isArray(datasetNotas?.notas)
+      ? datasetNotas.notas
+      : (Array.isArray(datasetNotas?.registros) ? datasetNotas.registros : null);
+
+    if (arrayParaFiltrar) {
+      const idTurnoActual = turnoActivoRef?.current?.id || turnoActivo?.id || params.turnoId;
+      const notasDelTurno = arrayParaFiltrar.filter((n: any) => n.turno_id === idTurnoActual || n.turno_id === null);
+
+      if (notasDelTurno.length > 0) {
+        notasConsolidadas = notasDelTurno
+          .reverse()
+          .map((n: any) => {
+            const rawNota = n.texto || n.descripcion || "Nota sin texto";
+            const textoFormateado = sanearTextoNota(rawNota);
+            const hora = n.created_at 
+              ? new Date(n.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true }) 
+              : "";
+            return hora ? `• [${hora}] ${textoFormateado}` : `• ${textoFormateado}`;
+          })
+          .join('\n');
       }
     }
-  } catch (errNotas) {
-    console.warn("⚠️ No se pudieron consultar notas del servidor. Usando buffer local...", errNotas);
-    if (Array.isArray(notas) && notas.length > 0) {
-      notasConsolidadas = notas.map((n: any) => n.descripcion || n.texto || "Nota local").join('\n');
-    }
   }
+} catch (errNotas) {
+  console.warn("⚠️ No se pudieron consultar notas del servidor. Usando buffer local...", errNotas);
+  if (Array.isArray(notas) && notas.length > 0) {
+    notasConsolidadas = notas
+      .map((n: any) => `• ${sanearTextoNota(n.descripcion || n.texto || "Nota local")}`)
+      .join('\n');
+  }
+}
 
   // 📦 4. PAYLOAD FINAL DEFINITIVO (Glucosa garantizada)
   const idTurnoFinal = turnoActivoRef?.current?.id || turnoActivo?.id || params.turnoId;
