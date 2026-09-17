@@ -963,62 +963,39 @@ const generarPDF = async (c: any) => {
                 const tempInfo = evaluarSignoVital(cierreSeleccionado?.temperatura, cierreSeleccionado?.temperatura_timestamp, tCierre);
                 const pesoInfo = evaluarSignoVital(cierreSeleccionado?.peso_kg, cierreSeleccionado?.peso_timestamp, tCierre);
 
+                // Helper para validar que contenga un dato numérico real
+                const tieneValor = (info: any) => {
+                  if (!info || !info.display) return false;
+                  const v = String(info.display).trim();
+                  return v !== '—' && v !== '' && v !== 'null' && v !== 'undefined' && v !== '0';
+                };
+
+                const listaSignos = [
+                  { key: 'spo2', label: 'SpO₂', unidad: '%', info: spo2Info },
+                  { key: 'presion', label: 'Presión', unidad: '', info: presionInfo },
+                  { key: 'fc', label: 'FC bpm', unidad: '', info: fcInfo },
+                  { key: 'temp', label: 'Temp', unidad: '°C', info: tempInfo },
+                  { key: 'peso', label: 'Peso', unidad: ' kg', info: pesoInfo },
+                ].filter(item => tieneValor(item.info));
+
+                // Si no se registró ningún signo en el turno, no renderiza la caja
+                if (listaSignos.length === 0) return null;
+
                 return (
                   <View style={styles.signosRow}>
-                    {/* SpO2 */}
-                    <View style={styles.signoItem}>
-                      <Text style={styles.signoVal}>{spo2Info.display}{spo2Info.display !== '—' ? '%' : ''}</Text>
-                      <Text style={styles.signoLabel}>SpO₂</Text>
-                      {spo2Info.esHeredado && (
-                        <Text style={{ fontSize: 8, color: COLORS.amber, marginTop: 2, fontWeight: '700' }}>
-                          {spo2Info.etiqueta}
+                    {listaSignos.map((item) => (
+                      <View key={item.key} style={styles.signoItem}>
+                        <Text style={styles.signoVal}>
+                          {item.info.display}{item.unidad}
                         </Text>
-                      )}
-                    </View>
-
-                    {/* Presión Arterial */}
-                    <View style={styles.signoItem}>
-                      <Text style={styles.signoVal}>{presionInfo.display}</Text>
-                      <Text style={styles.signoLabel}>Presión</Text>
-                      {presionInfo.esHeredado && (
-                        <Text style={{ fontSize: 8, color: COLORS.amber, marginTop: 2, fontWeight: '700' }}>
-                          {presionInfo.etiqueta}
-                        </Text>
-                      )}
-                    </View>
-
-                    {/* Frecuencia Cardíaca */}
-                    <View style={styles.signoItem}>
-                      <Text style={styles.signoVal}>{fcInfo.display}</Text>
-                      <Text style={styles.signoLabel}>FC bpm</Text>
-                      {fcInfo.esHeredado && (
-                        <Text style={{ fontSize: 8, color: COLORS.amber, marginTop: 2, fontWeight: '700' }}>
-                          {fcInfo.etiqueta}
-                        </Text>
-                      )}
-                    </View>
-
-                    {/* Temperatura */}
-                    <View style={styles.signoItem}>
-                      <Text style={styles.signoVal}>{tempInfo.display}{tempInfo.display !== '—' ? '°C' : ''}</Text>
-                      <Text style={styles.signoLabel}>Temp</Text>
-                      {tempInfo.esHeredado && (
-                        <Text style={{ fontSize: 8, color: COLORS.amber, marginTop: 2, fontWeight: '700' }}>
-                          {tempInfo.etiqueta}
-                        </Text>
-                      )}
-                    </View>
-
-                    {/* Peso */}
-                    <View style={styles.signoItem}>
-                      <Text style={styles.signoVal}>{pesoInfo.display}{pesoInfo.display !== '—' ? ' kg' : ''}</Text>
-                      <Text style={styles.signoLabel}>Peso</Text>
-                      {pesoInfo.esHeredado && (
-                        <Text style={{ fontSize: 8, color: COLORS.amber, marginTop: 2, fontWeight: '700' }}>
-                          {pesoInfo.etiqueta}
-                        </Text>
-                      )}
-                    </View>
+                        <Text style={styles.signoLabel}>{item.label}</Text>
+                        {item.info.esHeredado && (
+                          <Text style={{ fontSize: 8, color: COLORS.amber, marginTop: 2, fontWeight: '700' }}>
+                            {item.info.etiqueta}
+                          </Text>
+                        )}
+                      </View>
+                    ))}
                   </View>
                 );
               })()}
