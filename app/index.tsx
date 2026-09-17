@@ -37,6 +37,9 @@ const formatearHora = (isoStr: string | null) => {
   const d = new Date(isoStr);
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
+const FONT_TITLE = Platform.OS === 'ios' ? 'System' : 'sans-serif-medium';
+const FONT_BODY = Platform.OS === 'ios' ? 'System' : 'sans-serif';
+
 export default function HomeScreen() {
   const router = useRouter();
   const [paciente, setPaciente] = useState<any>(null);
@@ -2000,7 +2003,6 @@ const handleServicioVitanova = (item: any) => {
 
   
 }
-
 const styles = StyleSheet.create({
   // ── 1. ESTRUCTURA Y CONTENEDORES PRINCIPALES ──
   container: {
@@ -2029,24 +2031,26 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.5,
     textTransform: 'uppercase',
-    color: COLORS.gold, // 👈 Estandarizado a dorado institucional
+    color: COLORS.gold,
     marginBottom: 2,
+    fontFamily: FONT_TITLE,
   },
   userName: {
     fontSize: 20,
     fontWeight: '800',
     color: COLORS.white,
+    fontFamily: FONT_TITLE,
   },
   notifBtn: {
-    width: 36, 
+    width: 36,
     height: 36,
     borderRadius: 18,
     backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center', 
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  notifIcon: { 
-    fontSize: 16 
+  notifIcon: {
+    fontSize: 16,
   },
 
   // ── 3. ENCABEZADO COMPACTO (MODO SWITCH / CONSOLA) ──
@@ -2065,18 +2069,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: COLORS.white,
+    fontFamily: FONT_TITLE,
   },
   badgeConsola: {
     backgroundColor: COLORS.gold,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
   },
   badgeConsolaText: {
-    fontSize: 8,
-    fontWeight: '900',
+    fontSize: 10,
+    fontWeight: '800',
     color: COLORS.cacao,
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    fontFamily: FONT_TITLE,
   },
   notifBtnMin: {
     width: 28,
@@ -2091,8 +2098,8 @@ const styles = StyleSheet.create({
   patientCard: {
     backgroundColor: COLORS.cacao,
     marginHorizontal: 16,
-    marginTop: 12,      
-    marginBottom: 20,   
+    marginTop: 12,
+    marginBottom: 20,
     borderRadius: 14,
     padding: 14,
     flexDirection: 'row',
@@ -2107,55 +2114,61 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   patientAvatar: {
-    width: 44, 
-    height: 44, 
+    width: 44,
+    height: 44,
     borderRadius: 22,
     backgroundColor: COLORS.goldPale,
-    alignItems: 'center', 
+    alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2, 
+    borderWidth: 2,
     borderColor: COLORS.gold,
   },
   patientAvatarText: {
-    fontSize: 14, 
-    fontWeight: '800', 
+    fontSize: 14,
+    fontWeight: '800',
     color: COLORS.gold,
+    fontFamily: FONT_TITLE,
   },
-  patientInfo: { 
-    flex: 1 
+  patientInfo: {
+    flex: 1,
   },
   patientName: {
-    fontSize: 14, 
-    fontWeight: '800', 
+    fontSize: 14,
+    fontWeight: '800',
     color: COLORS.white,
+    fontFamily: FONT_TITLE,
   },
   patientAge: {
-    fontSize: 11, 
-    color: 'rgba(255,255,255,0.6)', 
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.7)',
     marginTop: 2,
+    fontFamily: FONT_BODY,
+    fontWeight: '500',
   },
   statusPill: {
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     backgroundColor: COLORS.greenPale,
-    borderRadius: 20, 
-    paddingHorizontal: 10, 
-    paddingVertical: 4,
-    borderWidth: 1, 
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
     borderColor: COLORS.green + '40',
   },
   statusDot: {
-    width: 6, 
-    height: 6, 
-    borderRadius: 3, 
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: COLORS.green,
   },
   statusText: {
-    fontSize: 9, 
-    fontWeight: '800', 
-    color: COLORS.green, 
-    letterSpacing: 0.5,
+    fontSize: 10,
+    fontWeight: '800',
+    color: COLORS.green,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    fontFamily: FONT_TITLE,
   },
 
   // ── 5. SECCIÓN DE SIGNOS VITALES Y SENSADO ──
@@ -2165,7 +2178,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginBottom: 20,  
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -2178,12 +2191,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 14,
   },
- vitalsHeaderTitle: {
-    fontSize: 11,
+  vitalsHeaderTitle: {
+    fontSize: 13,
     fontWeight: '800',
     color: COLORS.cacao,
-    letterSpacing: 0.8,
+    letterSpacing: 0.4,
     textTransform: 'uppercase',
+    fontFamily: FONT_TITLE,
   },
   liveDot: {
     width: 8,
@@ -2202,9 +2216,11 @@ const styles = StyleSheet.create({
   },
   btnMedirText: {
     color: COLORS.white,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.3,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    fontFamily: FONT_TITLE,
   },
   vitalsGridRow: {
     flexDirection: 'row',
@@ -2228,13 +2244,15 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   vitalVal: {
-    fontSize: 16, 
-    fontWeight: '800', 
-    color: COLORS.gold, 
+    fontSize: 16,
+    fontWeight: '800',
+    color: COLORS.gold,
     lineHeight: 20,
+    fontFamily: FONT_TITLE,
   },
   vitalValSmall: {
-    fontSize: 10,
+    fontSize: 11,
+    fontFamily: FONT_TITLE,
   },
   valueWithUnitRow: {
     flexDirection: 'row',
@@ -2246,24 +2264,22 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     marginBottom: 2,
   },
-
- 
   vitalUnit: {
     fontSize: 10,
     fontWeight: '700',
     color: COLORS.textLight,
+    fontFamily: FONT_BODY,
   },
   vitalLabel: {
-    fontSize: 9,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '700',
     color: COLORS.textLight,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
     marginTop: 2,
     textAlign: 'center',
+    fontFamily: FONT_BODY,
   },
- 
- 
 
   // ── 6. SECCIONES, CABECERAS Y ENLACES ──
   sectionHeader: {
@@ -2273,16 +2289,18 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 11, 
-    fontWeight: '800', 
-    letterSpacing: 1,
-    textTransform: 'uppercase', 
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
     color: COLORS.cacao,
+    fontFamily: FONT_TITLE,
   },
   sectionLink: {
-    fontSize: 11, 
-    fontWeight: '700', 
+    fontSize: 11,
+    fontWeight: '700',
     color: COLORS.gold,
+    fontFamily: FONT_BODY,
   },
 
   // ── 7. BOTONES DE ACCIÓN RÁPIDA ──
@@ -2300,15 +2318,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  qaIcon: { 
-    fontSize: 20, 
-    marginBottom: 4 
+  qaIcon: {
+    fontSize: 20,
+    marginBottom: 4,
   },
   qaLabel: {
-    fontSize: 9, 
-    fontWeight: '700', 
-    color: COLORS.textDark, 
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.textDark,
     textAlign: 'center',
+    fontFamily: FONT_BODY,
   },
 
   // ── 8. LISTA DE TAREAS Y TARJETAS DE TURNO ──
@@ -2333,12 +2352,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: COLORS.textDark,
+    fontFamily: FONT_TITLE,
   },
   tareaHora: {
     fontSize: 11,
     fontWeight: '500',
     color: COLORS.textLight,
     marginTop: 2,
+    fontFamily: FONT_BODY,
   },
   tareaCheck: {
     width: 20,
@@ -2349,64 +2370,71 @@ const styles = StyleSheet.create({
   },
   turnoCard: {
     backgroundColor: COLORS.white,
-    borderRadius: 14, 
+    borderRadius: 14,
     padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 1, 
+    borderWidth: 1,
     borderColor: COLORS.border,
     marginBottom: 8,
   },
   turnoLeft: {
-    flexDirection: 'row', 
-    alignItems: 'center', 
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
   },
   turnoAvatar: {
-    width: 38, 
-    height: 38, 
+    width: 38,
+    height: 38,
     borderRadius: 19,
     backgroundColor: COLORS.goldPale,
-    alignItems: 'center', 
+    alignItems: 'center',
     justifyContent: 'center',
   },
   turnoAvatarText: {
-    fontSize: 12, 
-    fontWeight: '800', 
+    fontSize: 12,
+    fontWeight: '800',
     color: COLORS.gold,
+    fontFamily: FONT_TITLE,
   },
   turnoName: {
-    fontSize: 13, 
-    fontWeight: '700', 
+    fontSize: 13,
+    fontWeight: '700',
     color: COLORS.textDark,
+    fontFamily: FONT_TITLE,
   },
   turnoHora: {
-    fontSize: 10, 
-    color: COLORS.textLight, 
+    fontSize: 11,
+    color: COLORS.textLight,
     marginTop: 1,
+    fontWeight: '500',
+    fontFamily: FONT_BODY,
   },
   turnoProgress: {
     alignItems: 'center',
     backgroundColor: COLORS.goldPale,
-    borderRadius: 10, 
-    paddingHorizontal: 12, 
+    borderRadius: 10,
+    paddingHorizontal: 12,
     paddingVertical: 6,
   },
   turnoProgressText: {
-    fontSize: 15, 
-    fontWeight: '800', 
+    fontSize: 15,
+    fontWeight: '800',
     color: COLORS.gold,
+    fontFamily: FONT_TITLE,
   },
   turnoProgressLabel: {
-    fontSize: 8, 
-    color: COLORS.gold, 
+    fontSize: 10,
+    color: COLORS.gold,
     fontWeight: '700',
+    textTransform: 'uppercase',
+    fontFamily: FONT_BODY,
   },
 
   // ── 9. TARJETAS DE ALERTA Y AVISOS ──
   alertCard: {
-    borderRadius: 12, 
+    borderRadius: 12,
     padding: 12,
     marginBottom: 10,
     flexDirection: 'row',
@@ -2414,26 +2442,33 @@ const styles = StyleSheet.create({
     gap: 10,
     borderWidth: 1,
   },
-  alertIcon: { 
-    fontSize: 18 
+  alertIcon: {
+    fontSize: 18,
   },
-  alertContent: { 
-    flex: 1 
+  alertContent: {
+    flex: 1,
   },
   alertTitle: {
-    fontSize: 12, 
-    fontWeight: '700', 
+    fontSize: 13,
+    fontWeight: '800',
     color: COLORS.textDark,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    fontFamily: FONT_TITLE,
   },
   alertSub: {
-    fontSize: 10, 
-    color: COLORS.textLight, 
-    marginTop: 2, 
-    lineHeight: 14,
+    fontSize: 11,
+    color: COLORS.textLight,
+    marginTop: 2,
+    lineHeight: 15,
+    fontWeight: '500',
+    fontFamily: FONT_BODY,
   },
   alertTime: {
-    fontSize: 9, 
+    fontSize: 10,
     color: COLORS.textLight,
+    fontFamily: FONT_BODY,
+    fontWeight: '500',
   },
 
   // ── 10. BOTONES GENERALES DE ACCIÓN ──
@@ -2448,6 +2483,9 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 13,
     fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    fontFamily: FONT_TITLE,
   },
 
   // ── 11. BARRA DE NAVEGACIÓN INFERIOR (BOTTOM NAV) ──
@@ -2457,43 +2495,47 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     paddingTop: 10,
-    paddingBottom: Platform.OS === 'android' ? 20 : 28, 
+    paddingBottom: Platform.OS === 'android' ? 20 : 28,
   },
   navItem: {
-    flex: 1, 
-    alignItems: 'center', 
+    flex: 1,
+    alignItems: 'center',
     gap: 3,
   },
-  navIcon: { 
-    fontSize: 18 
+  navIcon: {
+    fontSize: 18,
   },
   navLabel: {
-    fontSize: 9, 
-    fontWeight: '700', 
+    fontSize: 10,
+    fontWeight: '700',
     color: COLORS.textLight,
+    fontFamily: FONT_BODY,
   },
   bannerVerificando: {
-  backgroundColor: '#FFF3CD',
-  borderColor: '#FFEEBA',
-  borderWidth: 1,
-  paddingVertical: 8,
-  paddingHorizontal: 12,
-  borderRadius: 8,
-  marginBottom: 10,
-  alignItems: 'center',
-},
-textoBanner: {
-  color: '#856404',
-  fontSize: 12,
-  fontWeight: '600',
-},
-subtextoHora: {
-  fontSize: 10,
-  color: COLORS.textLight || '#6c757d',
-  marginTop: 2,
-  textAlign: 'center',
-},
-// ── HEADERS DE SECCIÓN ──
+    backgroundColor: '#FFF3CD',
+    borderColor: '#FFEEBA',
+    borderWidth: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  textoBanner: {
+    color: '#856404',
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: FONT_BODY,
+  },
+  subtextoHora: {
+    fontSize: 10,
+    color: COLORS.textLight || '#6c757d',
+    marginTop: 2,
+    textAlign: 'center',
+    fontFamily: FONT_BODY,
+  },
+
+  // ── HEADERS DE SECCIÓN ──
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -2502,17 +2544,18 @@ subtextoHora: {
     marginTop: 14,
     paddingHorizontal: 2,
   },
-  
   sectionSubtitle: {
     fontSize: 11,
     color: '#94A3B8',
-    fontWeight: '600',
+    fontWeight: '500',
+    fontFamily: FONT_BODY,
   },
   vitanovaBrand: {
     fontSize: 11,
     fontWeight: '800',
     color: COLORS.gold,
     letterSpacing: 0.4,
+    fontFamily: FONT_TITLE,
   },
 
   // ── ACCESOS RÁPIDOS (GRID SIMÉTRICO) ──
@@ -2556,18 +2599,19 @@ subtextoHora: {
   },
   quickLabelText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#0F172A',
+    fontFamily: FONT_TITLE,
   },
   quickDescText: {
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: '500',
     color: '#64748B',
     marginTop: 1,
+    fontFamily: FONT_BODY,
   },
 
   // ── SERVICIOS ESPECIALIZADOS VITANOVA ──
- 
   servicePremiumCard: {
     flex: 1,
     backgroundColor: '#FCFAF7',
@@ -2604,9 +2648,9 @@ subtextoHora: {
   },
   servicePill: {
     backgroundColor: COLORS.goldPale,
-    paddingHorizontal: 9,
-    paddingVertical: 3.5,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: 'rgba(191, 154, 64, 0.3)',
   },
@@ -2614,20 +2658,26 @@ subtextoHora: {
     fontSize: 10,
     fontWeight: '800',
     color: COLORS.gold,
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    fontFamily: FONT_TITLE,
   },
   serviceTitle: {
     fontSize: 13,
     fontWeight: '800',
     color: COLORS.cacao,
     lineHeight: 17,
+    letterSpacing: 0.3,
+    fontFamily: FONT_TITLE,
   },
   serviceSub: {
     fontSize: 11,
     fontWeight: '500',
     color: '#8C8275',
     marginTop: 2,
+    fontFamily: FONT_BODY,
   },
+
   // ── HEADER NOTAS ──
   notasHeaderRow: {
     flexDirection: 'row',
@@ -2645,34 +2695,41 @@ subtextoHora: {
   notasCountBadge: {
     backgroundColor: '#FEF3C7',
     paddingHorizontal: 7,
-    paddingVertical: 1.5,
-    borderRadius: 10,
+    paddingVertical: 2.5,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#FDE68A',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   notasCountText: {
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '700',
     color: '#B45309',
+    letterSpacing: 0.3,
+    fontFamily: FONT_BODY,
   },
   acordeonBtnPill: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFBEB',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#FDE68A',
     gap: 4,
   },
   acordeonBtnText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: '#92400E',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    fontFamily: FONT_TITLE,
   },
   acordeonChevron: {
-    fontSize: 8,
+    fontSize: 9,
     color: '#92400E',
   },
 
@@ -2727,21 +2784,23 @@ subtextoHora: {
   },
   notaTextoPrincipal: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#1E293B',
     lineHeight: 18,
+    fontFamily: FONT_TITLE,
   },
   notaMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 5,
+    marginTop: 4,
     flexWrap: 'wrap',
     gap: 5,
   },
   notaAutor: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#92400E',
+    fontFamily: FONT_BODY,
   },
   notaSeparador: {
     fontSize: 10,
@@ -2751,6 +2810,7 @@ subtextoHora: {
     fontSize: 11,
     fontWeight: '500',
     color: '#64748B',
+    fontFamily: FONT_BODY,
   },
 
   // ── EMPTY STATE ──
@@ -2779,6 +2839,7 @@ subtextoHora: {
     fontSize: 13,
     fontWeight: '700',
     color: '#475569',
+    fontFamily: FONT_TITLE,
   },
   notaEmptySub: {
     fontSize: 11,
@@ -2786,7 +2847,9 @@ subtextoHora: {
     color: '#94A3B8',
     marginTop: 2,
     lineHeight: 15,
+    fontFamily: FONT_BODY,
   },
+
   // ── VALORACIÓN CLÍNICA ──
   clinicalSummaryCard: {
     backgroundColor: '#FFFFFF',
@@ -2825,16 +2888,20 @@ subtextoHora: {
     fontSize: 13,
     fontWeight: '800',
     color: '#059669',
+    fontFamily: FONT_TITLE,
   },
   cierreAuthorName: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#0F172A',
+    fontFamily: FONT_TITLE,
   },
   cierreTimestamp: {
     fontSize: 11,
     color: '#64748B',
     marginTop: 1,
+    fontWeight: '500',
+    fontFamily: FONT_BODY,
   },
   scalesGrid: {
     flexDirection: 'row',
@@ -2854,17 +2921,22 @@ subtextoHora: {
     fontWeight: '700',
     color: '#64748B',
     textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    fontFamily: FONT_BODY,
   },
   scaleValueText: {
     fontSize: 15,
     fontWeight: '800',
     color: '#0F172A',
     marginTop: 3,
+    fontFamily: FONT_TITLE,
   },
   scaleStatusSub: {
     fontSize: 11,
     color: '#475569',
     marginTop: 1,
+    fontWeight: '500',
+    fontFamily: FONT_BODY,
   },
 
   // ── ESTADO VACÍO & ALERTA PESO ──
@@ -2885,26 +2957,33 @@ subtextoHora: {
     fontSize: 13,
     fontWeight: '700',
     color: '#334155',
+    fontFamily: FONT_TITLE,
   },
   emptyClinicalSub: {
     fontSize: 11,
     color: '#94A3B8',
     marginTop: 2,
     lineHeight: 15,
+    fontWeight: '500',
+    fontFamily: FONT_BODY,
   },
-  
   alertaPesoTitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '800',
     color: '#92400E',
     textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    fontFamily: FONT_TITLE,
   },
   alertaPesoDesc: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#78350F',
     marginTop: 1,
     lineHeight: 16,
+    fontWeight: '500',
+    fontFamily: FONT_BODY,
   },
+
   // ── FILA ÚNICA (4 BOTONES) ──
   quickRowContainer: {
     flexDirection: 'row',
@@ -2948,6 +3027,7 @@ subtextoHora: {
     fontWeight: '700',
     color: '#334155',
     textAlign: 'center',
+    fontFamily: FONT_BODY,
   },
   alertaPesoCard: {
     flexDirection: 'row',
@@ -2984,7 +3064,7 @@ subtextoHora: {
   alertaPesoContent: {
     flex: 1,
   },
-servicesRow: {
+  servicesRow: {
     flexDirection: 'row',
     gap: 12,
     marginBottom: 24,
@@ -2997,7 +3077,7 @@ servicesRow: {
     borderRadius: 16,
     paddingVertical: 18,
     paddingHorizontal: 12,
-    alignItems: 'center',        // 👈 Centra horizontalmente todo el contenido
+    alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#EFE7DA',
@@ -3030,15 +3110,17 @@ servicesRow: {
     fontSize: 13,
     fontWeight: '800',
     color: COLORS.cacao,
-    textAlign: 'center',        // 👈 Texto centrado
+    textAlign: 'center',
     lineHeight: 17,
+    letterSpacing: 0.3,
     marginBottom: 3,
+    fontFamily: FONT_TITLE,
   },
   serviceCenteredSub: {
     fontSize: 11,
     fontWeight: '500',
     color: '#8C8275',
-    textAlign: 'center',        // 👈 Texto centrado
+    textAlign: 'center',
+    fontFamily: FONT_BODY,
   },
- 
 });

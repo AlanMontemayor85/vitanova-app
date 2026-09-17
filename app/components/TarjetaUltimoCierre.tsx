@@ -284,7 +284,7 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId, esCuidador = 
                 adjustsFontSizeToFit
                 minimumFontScale={0.88}
               >
-                {esCuidador ? 'Relevo de Turno Anterior' : 'Estado del Último Relevo'}
+                {esCuidador ? 'Relevo de Turno Anterior' : 'Estado del Cierre'}
               </Text>
               <View style={styles.subStatusRow}>
                 <View style={styles.statusDot} />
@@ -299,18 +299,20 @@ export const TarjetaUltimoCierre: React.FC<Props> = ({ pacienteId, esCuidador = 
 
           {/* Timestamp compacto lateral */}
           <View style={styles.headerRightGroup}>
-            {fechaIso && (
-              <View style={styles.fechaBadge}>
-                <Ionicons name="time-outline" size={11} color={COLORS.gold} />
-                <Text style={styles.fechaText}>
-                  {new Date(fechaIso).toLocaleTimeString('es-MX', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true,
-                  })}
-                </Text>
-              </View>
-            )}
+           {fechaIso && (
+            <View style={styles.fechaBadge}>
+              <Ionicons name="time-outline" size={11} color={COLORS.gold} />
+              <Text style={styles.fechaText}>
+                {new Date(fechaIso).toLocaleString('es-MX', {
+                  day: 'numeric',
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: true,
+                })}
+              </Text>
+            </View>
+          )}
 
             <Ionicons
               name={expandido ? 'chevron-up' : 'chevron-down'}
