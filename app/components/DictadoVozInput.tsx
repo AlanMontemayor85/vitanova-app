@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
+import * as Haptics from 'expo-haptics';
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
@@ -31,11 +32,11 @@ export const DictadoVozInput: React.FC<Props> = ({
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [grabando, setGrabando] = useState<boolean>(false);
   const [transcribiendo, setTranscribiendo] = useState<boolean>(false);
-
-  const iniciarGrabacion = async () => {
+const iniciarGrabacion = async () => {
     try {
       const permiso = await Audio.requestPermissionsAsync();
       if (permiso.status !== 'granted') {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         Alert.alert('Permiso denegado', 'Se requiere acceso al micrófono para dictar notas.');
         return;
       }
@@ -49,16 +50,23 @@ export const DictadoVozInput: React.FC<Props> = ({
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
 
+      // 📳 Pulso de confirmación física al abrir el micrófono
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
       setRecording(nuevaGrabacion);
       setGrabando(true);
     } catch (err) {
       console.error('Error al iniciar grabación:', err);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Error', 'No se pudo activar el micrófono.');
     }
   };
 
   const detenerYTranscribir = async () => {
     if (!recording) return;
+
+    // 📳 Pulso ligero al presionar detener para feedback táctil instantáneo
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     setGrabando(false);
     setTranscribiendo(true);
@@ -75,10 +83,15 @@ export const DictadoVozInput: React.FC<Props> = ({
         if (res?.texto) {
           const textoLimpio = value?.trim() || '';
           onChangeText(textoLimpio ? `${textoLimpio}\n${res.texto}` : res.texto);
+          
+          // 📳 Doble pulso confirmando la llegada y renderizado de la transcripción
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
       }
     } catch (error: any) {
       console.error('Error procesando transcripción:', error);
+      // 📳 Patrón de vibración de error si falla la red o el endpoint de Gemini
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Error de audio', error.message || 'No fue posible transcribir la nota.');
     } finally {
       setTranscribiendo(false);
