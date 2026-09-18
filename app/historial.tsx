@@ -1,10 +1,10 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Asset } from 'expo-asset';
 import * as Print from 'expo-print';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, } from 'react-native';
+import { LOGO_VITANOVA_BASE64 } from '../assets/images/logoBase64';
 import { loadStoredToken } from '../services/api';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
@@ -194,23 +194,7 @@ useFocusEffect(
   // 📄 EXPORTACIÓN COMPLETA A PDF — Reporte Clínico de Turno
 const generarPDF = async (c: any) => {
 
-  // ── 1. LOGO ──────────────────────────────────────────────
-
-  let logoBase64 = '';
-  try {
-    const asset = Asset.fromModule(require('../assets/images/logo.png'));
-    await asset.downloadAsync();
-    const uriLocal = asset.localUri || asset.uri;
-    if (uriLocal) {
-      // Pasamos 'base64' como string para evitar errores de tipado en FileSystem
-      const base64Raw = await (FileSystem as any).readAsStringAsync(uriLocal, {
-        encoding: 'base64',
-      });
-      logoBase64 = `data:image/png;base64,${base64Raw}`;
-    }
-  } catch (err) {
-    console.error('⚠️ Error generando Base64 del Logo:', err);
-  }
+  
   // ── 2. DATOS ─────────────────────────────────────────────
   const desglosePersonas = c?.desglose_por_persona || [];
   const inventarioUsado = c?.inventario_usado || [];
@@ -561,13 +545,9 @@ const generarPDF = async (c: any) => {
           </span>
         </div>
       </td>
-      ${
-        logoBase64
-          ? `<td style="width:130px; text-align:right">
-               <img class="header-logo" src="${logoBase64}" alt="Logo" />
-             </td>`
-          : ''
-      }
+      <td style="width:130px; text-align:right">
+        <img class="header-logo" src="${LOGO_VITANOVA_BASE64}" alt="Logo" />
+      </td>
     </tr>
   </table>
 
