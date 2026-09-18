@@ -6,7 +6,6 @@ import * as Sharing from 'expo-sharing';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, } from 'react-native';
 import { loadStoredToken } from '../services/api';
-const { documentDirectory, moveAsync, readAsStringAsync } = require('expo-file-system/legacy');
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
 
@@ -194,19 +193,24 @@ useFocusEffect(
 
   // 📄 EXPORTACIÓN COMPLETA A PDF — Reporte Clínico de Turno
 const generarPDF = async (c: any) => {
+
   // ── 1. LOGO ──────────────────────────────────────────────
+
   let logoBase64 = '';
   try {
     const asset = Asset.fromModule(require('../assets/images/logo.png'));
     await asset.downloadAsync();
-    if (asset.localUri) {
-      const base64Raw = await readAsStringAsync(asset.localUri, { encoding: 'base64' });
+    const uriLocal = asset.localUri || asset.uri;
+    if (uriLocal) {
+      // Pasamos 'base64' como string para evitar errores de tipado en FileSystem
+      const base64Raw = await (FileSystem as any).readAsStringAsync(uriLocal, {
+        encoding: 'base64',
+      });
       logoBase64 = `data:image/png;base64,${base64Raw}`;
     }
   } catch (err) {
-    console.error('⚠️ Logo PDF:', err);
+    console.error('⚠️ Error generando Base64 del Logo:', err);
   }
-
   // ── 2. DATOS ─────────────────────────────────────────────
   const desglosePersonas = c?.desglose_por_persona || [];
   const inventarioUsado = c?.inventario_usado || [];
@@ -559,7 +563,7 @@ const generarPDF = async (c: any) => {
       </td>
       ${
         logoBase64
-          ? `<td style="width:130px;text-align:right">
+          ? `<td style="width:130px; text-align:right">
                <img class="header-logo" src="${logoBase64}" alt="Logo" />
              </td>`
           : ''
@@ -572,11 +576,11 @@ const generarPDF = async (c: any) => {
     <div class="section-title">Signos vitales</div>
     <table class="grid-table">
       <tr>
-        <td class="metric-td" style="width:20%">
+        <td class="metric-td" style="width:16.6%">
           <div class="metric-val">${c.spo2 ? `${c.spo2}%` : '—'}</div>
           <div class="metric-label">SpO₂</div>
         </td>
-        <td class="metric-td" style="width:20%">
+        <td class="metric-td" style="width:16.6%">
           <div class="metric-val">${
             c.presion_sistolica && c.presion_diastolica
               ? `${Math.round(c.presion_sistolica)}/${Math.round(c.presion_diastolica)}`
@@ -584,15 +588,19 @@ const generarPDF = async (c: any) => {
           }</div>
           <div class="metric-label">Presión</div>
         </td>
-        <td class="metric-td" style="width:20%">
+        <td class="metric-td" style="width:16.6%">
           <div class="metric-val">${c.frecuencia_cardiaca ?? '—'}</div>
           <div class="metric-label">Pulso</div>
         </td>
-        <td class="metric-td" style="width:20%">
+        <td class="metric-td" style="width:16.6%">
           <div class="metric-val">${c.temperatura ? `${c.temperatura}°C` : '—'}</div>
           <div class="metric-label">Temp.</div>
         </td>
-        <td class="metric-td" style="width:20%">
+        <td class="metric-td" style="width:16.6%">
+          <div class="metric-val">${c.glucosa ? `${c.glucosa} mg/dL` : '—'}</div>
+          <div class="metric-label">Glucosa</div>
+        </td>
+        <td class="metric-td" style="width:16.6%">
           <div class="metric-val">${c.peso_kg ? `${c.peso_kg} kg` : '—'}</div>
           <div class="metric-label">Peso</div>
         </td>
@@ -629,23 +637,20 @@ const generarPDF = async (c: any) => {
   // ── 6. GENERAR Y COMPARTIR ───────────────────────────────
   try {
     const { uri } = await Print.printToFileAsync({ html });
-    const nombreSanitizado = (nombrePaciente || 'paciente')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-zA-Z0-9_]/g, '')
-      .replace(/\s+/g, '_');
-    const targetPath = `${documentDirectory}reporte_clinico_${nombreSanitizado}.pdf`;
 
-    await moveAsync({ from: uri, to: targetPath });
-    await Sharing.shareAsync(targetPath, {
+    await Sharing.shareAsync(uri, {
       mimeType: 'application/pdf',
+      UTI: '.pdf',
       dialogTitle: `Reporte clínico — ${nombrePaciente}`,
     });
   } catch (e) {
     console.error('❌ PDF:', e);
     Alert.alert('Error de impresión', 'No se pudo generar el reporte clínico.');
   }
-};
+}; 
+
+ 
+  
 
   // 📲 MENSAJE ESTRUCTURADO Y COMPLETO PARA WHATSAPP
   const compartirPorWhatsApp = (c: any) => {
@@ -744,6 +749,7 @@ const generarPDF = async (c: any) => {
       `• Presión Arterial: *${c.presion_sistolica ?? '—'}/${c.presion_diastolica ?? '—'} mmHg*\n` +
       `• Pulso: *${c.frecuencia_cardiaca ?? '—'} bpm*\n` +
       `• Temperatura: *${c.temperatura ?? '—'} °C*\n` +
+      (c.glucosa ? `• Glucosa: *${c.glucosa} mg/dL*\n` : '') +
       `• Peso: *${c.peso_kg ?? '—'} kg*\n\n` +
 
       `${textoAlertas}` +
@@ -961,6 +967,7 @@ const generarPDF = async (c: any) => {
 
                 const fcInfo = evaluarSignoVital(cierreSeleccionado?.frecuencia_cardiaca, cierreSeleccionado?.fc_timestamp, tCierre);
                 const tempInfo = evaluarSignoVital(cierreSeleccionado?.temperatura, cierreSeleccionado?.temperatura_timestamp, tCierre);
+                const glucosaInfo = evaluarSignoVital(cierreSeleccionado?.glucosa, cierreSeleccionado?.glucosa_timestamp, tCierre);
                 const pesoInfo = evaluarSignoVital(cierreSeleccionado?.peso_kg, cierreSeleccionado?.peso_timestamp, tCierre);
 
                 // Helper para validar que contenga un dato numérico real
@@ -975,6 +982,7 @@ const generarPDF = async (c: any) => {
                   { key: 'presion', label: 'Presión', unidad: '', info: presionInfo },
                   { key: 'fc', label: 'FC bpm', unidad: '', info: fcInfo },
                   { key: 'temp', label: 'Temp', unidad: '°C', info: tempInfo },
+                  { key: 'glucosa', label: 'Glucosa', unidad: ' mg/dL', info: glucosaInfo },
                   { key: 'peso', label: 'Peso', unidad: ' kg', info: pesoInfo },
                 ].filter(item => tieneValor(item.info));
 

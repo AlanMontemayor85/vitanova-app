@@ -6,6 +6,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert,
+  AppState,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -14,7 +15,7 @@ import {
   StatusBar, StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity, View,
+  TouchableOpacity, View
 } from 'react-native';
 import {
   agregarTareaManual,
@@ -683,6 +684,25 @@ useEffect(() => {
   useEffect(() => {
   yaTransicionadoRef.current = false;
 }, [pacienteActivo?.id]);
+// ── AUTO-SYNC: VACIAR COLA AL REANUDAR APP O DE FORMA PERIÓDICA EN TURNO ──
+  useEffect(() => {
+    // 1. Vaciar cola en cuanto la app pasa de segundo plano a primer plano
+    const subAppState = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        vaciarColaOffline();
+      }
+    });
+
+    // 2. Latido cada 30 segundos si el cuidador se mantiene dentro de la pantalla de turno
+    const timerSync = setInterval(() => {
+      vaciarColaOffline();
+    }, 30000);
+
+    return () => {
+      subAppState.remove();
+      clearInterval(timerSync);
+    };
+  }, []);
 useFocusEffect(
   useCallback(() => {
     if (vistaRef.current === 'lista') return;
