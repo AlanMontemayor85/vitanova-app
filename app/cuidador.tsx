@@ -1003,8 +1003,8 @@ const guardarRegistroEspontaneo = async () => {
     hidratacion_vasos: hidratacion,
     estado_animo: estadoAnimo,
     alimentacion: alimentacion,
-    spo2: spo2Num,               // 👈 100% deliberado del cuidador
-    frecuencia_cardiaca: pulsoNum, // 👈 Cero mezcla con datos pasivos
+    spo2: spo2Num,               
+    frecuencia_cardiaca: pulsoNum, 
     presion_sistolica: sistNum,
     presion_diastolica: diastNum,
     temperatura: tempNum,
