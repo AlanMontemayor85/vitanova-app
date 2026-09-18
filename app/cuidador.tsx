@@ -3150,17 +3150,14 @@ const handleRegresarOpciones = async () => {
             </View>
           </View>
 
-          {/* MÓDULO 3: NOTAS DE OBSERVACIÓN */}
+          {/* MÓDULO 3: NOTAS DE OBSERVACIÓN CON DICTADO POR VOZ */}
           <View style={styles.cardModulo}>
-            <Text style={styles.fieldLabel}>📝 Notas y Contexto de la Toma</Text>
-            <TextInput
-              style={styles.textAreaPro}
+            <DictadoVozInput
+              label="Notas y Contexto de la Toma"
               placeholder="Ej. Paciente en reposo tras consumir alimentos..."
-              placeholderTextColor={COLORS.textLight}
-              multiline
-              numberOfLines={3}
               value={observaciones}
               onChangeText={setObservaciones}
+              minHeight={80}
             />
           </View>
 
