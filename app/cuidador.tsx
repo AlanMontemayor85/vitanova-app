@@ -1,6 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -84,7 +85,11 @@ function getMorseLabel(total: number) {
   if (total < 45) return '🟡 Riesgo bajo';
   return '🔴 Riesgo alto';
 }
-
+interface AlertaRango {
+  parametro: string;
+  valor: number | string;
+  mensaje: string;
+}
 function getMNALabel(total: number) {
   if (total >= 12) return '🟢 Estado nutricional normal';
   if (total >= 8) return '🟡 Riesgo de malnutrición';
@@ -925,22 +930,71 @@ const irARegistroSalud = (p: any) => {
     },
   });
 };
-const guardarRegistroEspontaneo = async () => {
-  setGuardandoEspontaneo(true);
-  
-  // 🧹 Función auxiliar para resetear inputs y volver a la vista del turno
-  const limpiarInputsYVolver = () => {
-    setPresionSist('');
-    setPresionDiast('');
-    setFrecCard('');
-    setSpo2Manual('');
-    setTempManual('');
-    setGlucosa('');
-    setObservaciones('');
-    setVista('turno');
-  };
+const validarRangosFisiologicos = (valores: {
+  sist?: number | null;
+  diast?: number | null;
+  spo2?: number | null;
+  pulso?: number | null;
+  temp?: number | null;
+  glucosa?: number | null;
+  peso?: number | null;
+}): string[] => {
+  const alertas: string[] = [];
 
-  const pesoFinal = peso && Number(peso) > 0 ? Number(peso) : null;
+  if (typeof valores.sist === 'number' && (valores.sist < 60 || valores.sist > 250)) {
+    alertas.push(`Sistólica: ${valores.sist} mmHg`);
+  }
+  if (typeof valores.diast === 'number' && (valores.diast < 35 || valores.diast > 150)) {
+    alertas.push(`Diastólica: ${valores.diast} mmHg`);
+  }
+  if (typeof valores.spo2 === 'number' && (valores.spo2 < 50 || valores.spo2 > 100)) {
+    alertas.push(`SpO₂: ${valores.spo2}%`);
+  }
+  if (typeof valores.pulso === 'number' && (valores.pulso < 35 || valores.pulso > 220)) {
+    alertas.push(`Pulso: ${valores.pulso} bpm`);
+  }
+  if (typeof valores.temp === 'number' && (valores.temp < 32.0 || valores.temp > 43.0)) {
+    alertas.push(`Temperatura: ${valores.temp} °C`);
+  }
+  if (typeof valores.glucosa === 'number' && (valores.glucosa < 30 || valores.glucosa > 600)) {
+    alertas.push(`Glucosa: ${valores.glucosa} mg/dL`);
+  }
+  if (typeof valores.peso === 'number' && (valores.peso < 20 || valores.peso > 300)) {
+    alertas.push(`Peso: ${valores.peso} kg`);
+  }
+
+  return alertas;
+};
+
+const guardarRegistroEspontaneo = async () => {
+  // 1. Parsing y sanitización estricta (100% manual)
+  const sistNum = presionSist?.trim() ? parseInt(presionSist.trim(), 10) : null;
+  const diastNum = presionDiast?.trim() ? parseInt(presionDiast.trim(), 10) : null;
+  const spo2Num = spo2Manual?.trim() ? parseInt(spo2Manual.trim(), 10) : null;
+  const pulsoNum = frecCard?.trim() ? parseInt(frecCard.trim(), 10) : null;
+  const tempNum = tempManual?.trim() ? parseFloat(tempManual.trim().replace(',', '.')) : null;
+  const glucosaNum = glucosa && String(glucosa).trim() !== '' ? parseInt(String(glucosa).trim(), 10) : null;
+  const pesoFinal = peso && Number(peso) > 0 ? parseFloat(String(peso).replace(',', '.')) : null;
+  const obsTexto = observaciones.trim() || null;
+
+  // 2. Verificar que al menos se haya introducido un dato
+  const tieneDatos = sistNum || diastNum || spo2Num || pulsoNum || tempNum || glucosaNum || pesoFinal || obsTexto;
+  if (!tieneDatos) {
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert('Formulario Vacío', 'Ingresa al menos una constante vital o una observación.');
+    return;
+  }
+
+  // 3. Validación de rangos fisiológicos
+  const anomalias = validarRangosFisiologicos({
+    sist: sistNum,
+    diast: diastNum,
+    spo2: spo2Num,
+    pulso: pulsoNum,
+    temp: tempNum,
+    glucosa: glucosaNum,
+    peso: pesoFinal,
+  });
 
   const payload = {
     paciente_id: pacienteActivo.id,
@@ -949,14 +1003,45 @@ const guardarRegistroEspontaneo = async () => {
     hidratacion_vasos: hidratacion,
     estado_animo: estadoAnimo,
     alimentacion: alimentacion,
-    spo2: spo2Manual ? Number(spo2Manual) : (signosDispositivo?.spo2 !== '—' ? Number(signosDispositivo?.spo2) : null),
-    frecuencia_cardiaca: frecCard ? Number(frecCard) : (signosDispositivo?.fc !== '—' ? Number(signosDispositivo?.fc) : null),
-    presion_sistolica: presionSist ? Number(presionSist) : null,
-    presion_diastolica: presionDiast ? Number(presionDiast) : null,
-    temperatura: tempManual ? Number(tempManual) : null,
-    glucosa: glucosa ? Number(glucosa) : null,
+    spo2: spo2Num,               // 👈 100% deliberado del cuidador
+    frecuencia_cardiaca: pulsoNum, // 👈 Cero mezcla con datos pasivos
+    presion_sistolica: sistNum,
+    presion_diastolica: diastNum,
+    temperatura: tempNum,
+    glucosa: glucosaNum,
     peso_kg: pesoFinal,
-    observaciones: observaciones.trim() || null,
+    observaciones: obsTexto,
+  };
+
+  if (anomalias.length > 0) {
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert(
+      '⚠️ Valores Atípicos Detectados',
+      `Los siguientes registros están fuera de la norma clínica:\n\n• ${anomalias.join('\n• ')}\n\n¿Deseas guardarlos de todas formas?`,
+      [
+        { text: 'Corregir', style: 'cancel' },
+        { text: 'Confirmar y Guardar', style: 'destructive', onPress: () => enviarRegistroClinico(payload) },
+      ]
+    );
+    return;
+  }
+
+  await enviarRegistroClinico(payload);
+};
+
+const enviarRegistroClinico = async (payload: any) => {
+  setGuardandoEspontaneo(true);
+
+  const limpiarInputsYVolver = () => {
+    setPresionSist('');
+    setPresionDiast('');
+    setFrecCard('');
+    setSpo2Manual('');
+    setTempManual('');
+    setGlucosa('');
+    setPeso(0);
+    setObservaciones('');
+    setVista('turno');
   };
 
   try {
@@ -976,25 +1061,25 @@ const guardarRegistroEspontaneo = async () => {
       throw new Error(`Servidor respondió con status ${res.status}`);
     }
 
-    const data = await res.json();
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    // 🔄 Recargamos notas si hay conexión
+    // 🔄 Refresco de notas en segundo plano
     try {
       const notasData = await getNotasTurno(pacienteActivo.id);
       if (notasData && Array.isArray(notasData.notas)) {
         setNotas(notasData.notas.slice(0, 5));
       }
     } catch (err) {
-      console.log("No se pudieron refrescar notas de fondo:", err);
+      console.log('No se pudieron refrescar notas de fondo:', err);
     }
 
     limpiarInputsYVolver();
-    Alert.alert('✅ Registro Guardado', 'La toma manual se registró correctamente en la bitácora.');
+    Alert.alert('Registro Guardado', 'La toma manual se integró formalmente al expediente.');
 
   } catch (e: any) {
     console.warn('⚠️ Sin red al registrar salud espontánea. Guardando en cola local...', e);
     
-    // 🎯 ENCOLAMIENTO OFFLINE
+    // 🎯 ENCOLAMIENTO OFFLINE SEGURO
     try {
       await encolarPeticionOffline(
         `${BASE_URL}/registros/salud`,
@@ -1003,14 +1088,16 @@ const guardarRegistroEspontaneo = async () => {
         `Toma manual/confort - ${pacienteActivo?.nombre_completo || 'Paciente'}`
       );
 
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       limpiarInputsYVolver();
       Alert.alert(
         '💾 Guardado Localmente',
-        'La toma se registró en este dispositivo y se enviará automáticamente cuando recuperes conexión a internet.'
+        'Sin conexión a internet. La medición quedó asegurada en el dispositivo y se sincronizará automáticamente al restablecerse la red.'
       );
     } catch (queueErr) {
       console.error('❌ Error guardando en cola offline:', queueErr);
-      Alert.alert('⚠️ Error', 'No se pudo registrar la toma ni guardar localmente.');
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('⚠️ Error', 'No fue posible conectar con el servidor ni respaldar localmente.');
     }
   } finally {
     setGuardandoEspontaneo(false);
@@ -1411,16 +1498,55 @@ const handleRegresarOpciones = async () => {
     router.replace('/');
   }
 };
-  const ejecutarCierre = async () => {
+  
+
+const ejecutarCierre = async () => {
   if (!pacienteActivo?.id) {
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     Alert.alert('Error', 'No se detectó un paciente activo para cerrar el turno.');
     return;
   }
 
+  // 🎯 1. RESOLUCIÓN CLÍNICA: 100% MANUAL (Cero herencia pasiva del reloj)
+  const finalSistolica = presionSist?.trim() ? parseInt(presionSist.trim(), 10) : null;
+  const finalDiastolica = presionDiast?.trim() ? parseInt(presionDiast.trim(), 10) : null;
+  const finalSpo2 = spo2Manual?.trim() ? parseInt(spo2Manual.trim(), 10) : null;
+  const finalFc = frecCard?.trim() ? parseInt(frecCard.trim(), 10) : null;
+  const finalTemp = tempManual?.trim() ? parseFloat(tempManual.trim().replace(',', '.')) : null;
+  const finalGlucosa = glucosa && String(glucosa).trim() !== '' ? parseInt(String(glucosa).trim(), 10) : null;
+  const finalPeso = peso && Number(peso) > 0 ? parseFloat(String(peso).replace(',', '.')) : null;
+
+  // 🩺 2. VALIDACIÓN DE RANGOS FISIOLÓGICOS ANTES DE CERRAR
+  const discrepancias = validarRangosFisiologicos({
+    sist: finalSistolica,
+    diast: finalDiastolica,
+    spo2: finalSpo2,
+    pulso: finalFc,
+    temp: finalTemp,
+    glucosa: finalGlucosa,
+    peso: finalPeso,
+  });
+
+  if (discrepancias.length > 0) {
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert(
+      '⚠️ Constantes Fuera de Rango',
+      `Se detectaron valores inusuales en el cierre de turno:\n\n• ${discrepancias.join('\n• ')}\n\n¿Confirmas que los datos son correctos para cerrar el expediente?`,
+      [
+        { text: 'Corregir', style: 'cancel' },
+        { text: 'Confirmar y Cerrar', style: 'destructive', onPress: () => procesarCierreDefinitivo() },
+      ]
+    );
+    return;
+  }
+
+  await procesarCierreDefinitivo();
+};
+
+const procesarCierreDefinitivo = async () => {
   // 🧹 Función auxiliar para limpiar la UI y refrescar estado
   const limpiarYSalir = async (mensajeTitulo: string, mensajeCuerpo: string) => {
     try {
-      // 1. Limpiar campos clínicos del formulario
       setPresionSist('');
       setPresionDiast('');
       setFrecCard('');
@@ -1434,23 +1560,22 @@ const handleRegresarOpciones = async () => {
       setAlimentacion('');
       setConsumosTurno({});
 
-      // 2. 🛑 PURGAR ESTADOS Y REFERENCIAS DE TURNO ACTIVO
+      // 🛑 Purgar estados y referencias de turno activo
       setPacienteActivo(null);
       setTurnoActivo(null);
       if (turnoActivoRef) turnoActivoRef.current = null;
       resetEstados();
 
-      // 3. 🔄 Refrescar lista de pacientes de forma tolerante (no bloqueante)
+      // 🔄 Refrescar lista de pacientes tolerante
       try {
         const pData = await getPacientes('cierre-turno');
         if (pData?.patients) {
           setPacientes(pData.patients);
         }
       } catch (e) {
-        console.warn("No se pudo refrescar lista tras cierre:", e);
+        console.warn('No se pudo refrescar lista tras cierre:', e);
       }
 
-      // 4. Salir a la lista
       setVista('lista');
       Alert.alert(mensajeTitulo, mensajeCuerpo);
 
@@ -1461,41 +1586,20 @@ const handleRegresarOpciones = async () => {
         });
       }
     } catch (errLimpieza) {
-      console.error("Error en limpiarYSalir:", errLimpieza);
+      console.error('Error en limpiarYSalir:', errLimpieza);
       setVista('lista');
     }
   };
 
-  // 🎯 1. RESOLUCIÓN CLÍNICA: 100% MANUAL (Cero herencia pasiva del reloj)
-  const finalSistolica = presionSist && presionSist.trim() !== '' 
-    ? parseInt(presionSist.trim(), 10) 
-    : null;
+  const finalSistolica = presionSist?.trim() ? parseInt(presionSist.trim(), 10) : null;
+  const finalDiastolica = presionDiast?.trim() ? parseInt(presionDiast.trim(), 10) : null;
+  const finalSpo2 = spo2Manual?.trim() ? parseInt(spo2Manual.trim(), 10) : null;
+  const finalFc = frecCard?.trim() ? parseInt(frecCard.trim(), 10) : null;
+  const finalTemp = tempManual?.trim() ? parseFloat(tempManual.trim().replace(',', '.')) : null;
+  const finalGlucosa = glucosa && String(glucosa).trim() !== '' ? parseInt(String(glucosa).trim(), 10) : null;
+  const finalPeso = peso && Number(peso) > 0 ? parseFloat(String(peso).replace(',', '.')) : null;
 
-  const finalDiastolica = presionDiast && presionDiast.trim() !== '' 
-    ? parseInt(presionDiast.trim(), 10) 
-    : null;
-
-  const finalSpo2 = spo2Manual && spo2Manual.trim() !== '' 
-    ? parseInt(spo2Manual.trim(), 10) 
-    : null;
-
-  const finalFc = frecCard && frecCard.trim() !== '' 
-    ? parseInt(frecCard.trim(), 10) 
-    : null;
-
-  const finalTemp = tempManual && tempManual.trim() !== '' 
-    ? parseFloat(tempManual.trim()) 
-    : null;
-
-  const finalGlucosa = glucosa && String(glucosa).trim() !== '' 
-    ? parseInt(String(glucosa).trim(), 10) 
-    : null;
-
-  const finalPeso = peso && String(peso).trim() !== '' && Number(peso) > 0 
-    ? parseFloat(String(peso)) 
-    : null;
-
-  // 📦 2. INVENTARIO E INSUMOS CONSUMIDOS
+  // 📦 3. INVENTARIO E INSUMOS CONSUMIDOS
   const insumosConsumidosArray = Object.entries(consumosTurno || {})
     .filter(([_, cant]) => (cant as number) > 0)
     .map(([itemId, cant]) => {
@@ -1512,8 +1616,8 @@ const handleRegresarOpciones = async () => {
       };
     });
 
-  // 📝 3. CONSOLIDACIÓN SEGURA DE NOTAS (Con Try/Catch aislado que NUNCA tumba el cierre)
-  let notasConsolidadas = "Sin notas incidentales en el turno.";
+  // 📝 4. CONSOLIDACIÓN SEGURA DE NOTAS (Filtrando logs automáticos de constantes)
+  let notasConsolidadas = 'Sin notas incidentales en el turno.';
   try {
     const token = await getToken();
     const notasRes = await fetch(`${BASE_URL}/notas?paciente_id=${pacienteActivo.id}`, {
@@ -1527,14 +1631,21 @@ const handleRegresarOpciones = async () => {
 
       if (arrayParaFiltrar) {
         const idTurnoActual = turnoActivoRef?.current?.id || turnoActivo?.id || params.turnoId;
-        const notasDelTurno = arrayParaFiltrar.filter((n: any) => n.turno_id === idTurnoActual || n.turno_id === null);
+        
+        // 🧹 Excluye logs sintéticos de constantes para dejar puras observaciones cualitativas
+        const notasDelTurno = arrayParaFiltrar
+          .filter((n: any) => n.turno_id === idTurnoActual || n.turno_id === null)
+          .filter((n: any) => {
+            const raw = String(n.texto || n.descripcion || '');
+            return !raw.includes('[TOMA MANUAL') && !raw.includes('[TOMA ESPONTÁNEA');
+          });
 
         if (notasDelTurno.length > 0) {
           notasConsolidadas = notasDelTurno
             .reverse() 
             .map((n: any) => {
-              const textoNota = n.texto || n.descripcion || "Nota sin texto";
-              const hora = n.created_at ? new Date(n.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : "";
+              const textoNota = n.texto || n.descripcion || 'Nota sin texto';
+              const hora = n.created_at ? new Date(n.created_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : '';
               return hora ? `[${hora}] ${textoNota}` : `- ${textoNota}`;
             })
             .join('\n');
@@ -1542,13 +1653,19 @@ const handleRegresarOpciones = async () => {
       }
     }
   } catch (errNotas) {
-    console.warn("⚠️ No se pudieron consultar notas del servidor. Usando buffer local...", errNotas);
+    console.warn('⚠️ No se pudieron consultar notas del servidor. Usando buffer local...', errNotas);
     if (Array.isArray(notas) && notas.length > 0) {
-      notasConsolidadas = notas.map((n: any) => n.descripcion || n.texto || "Nota local").join('\n');
+      notasConsolidadas = notas
+        .filter((n: any) => {
+          const raw = String(n.descripcion || n.texto || '');
+          return !raw.includes('[TOMA MANUAL') && !raw.includes('[TOMA ESPONTÁNEA');
+        })
+        .map((n: any) => n.descripcion || n.texto || 'Nota local')
+        .join('\n');
     }
   }
 
-  // 📦 4. PAYLOAD FINAL DEFINITIVO (Glucosa garantizada)
+  // 📦 5. PAYLOAD DEFINITIVO
   const idTurnoFinal = turnoActivoRef?.current?.id || turnoActivo?.id || params.turnoId;
 
   const bodyPayload = {
@@ -1561,7 +1678,7 @@ const handleRegresarOpciones = async () => {
     presion_sistolica: finalSistolica,
     presion_diastolica: finalDiastolica,
     temperatura: finalTemp,
-    glucosa: finalGlucosa, // 👈 🟢 Glucosa presente y validada
+    glucosa: finalGlucosa,
     notas: notasConsolidadas, 
     barthel_scores: barthelTocado ? barthelScores : null, 
     barthel_total: barthelTocado ? barthelTotal : null, 
@@ -1575,9 +1692,7 @@ const handleRegresarOpciones = async () => {
     insumos: insumosConsumidosArray,
   };
 
-  console.log('🚀 [CIERRE] Payload listo para enviar:', JSON.stringify(bodyPayload, null, 2));
-
-  // 5. INTENTO DE ENVÍO DIRECTO ONLINE
+  // 6. INTENTO DE ENVÍO DIRECTO ONLINE
   try {
     const token = await getToken();
     const res = await fetch(`${BASE_URL}/turnos/cerrar`, {
@@ -1589,8 +1704,6 @@ const handleRegresarOpciones = async () => {
       body: JSON.stringify(bodyPayload),
     });
 
-    console.log('📡 [CIERRE] Status HTTP recibido:', res.status);
-
     if (!res.ok) {
       const errorText = await res.text();
       throw new Error(`Servidor respondió HTTP ${res.status}: ${errorText}`);
@@ -1598,7 +1711,7 @@ const handleRegresarOpciones = async () => {
 
     const data = await res.json();
     if (data.status === 'ok') {
-      // Éxito online garantizado
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await limpiarYSalir(
         '✅ Turno Cerrado',
         'La bitácora del día se ha consolidado y los signos clínicos fueron registrados.'
@@ -1609,13 +1722,13 @@ const handleRegresarOpciones = async () => {
     }
 
   } catch (errEnvioOnline: any) {
-    console.warn("⚠️ Falló el envío directo. Procediendo a encolamiento offline:", errEnvioOnline);
+    console.warn('⚠️ Falló el envío directo. Procediendo a encolamiento offline:', errEnvioOnline);
 
-    // 6. RESPALDO EN COLA OFFLINE (Reutilizando idéntico bodyPayload, sin clones ni relojes)
+    // 7. RESPALDO EN COLA OFFLINE
     try {
       const payloadOffline = {
         ...bodyPayload,
-        notas: bodyPayload.notas || "Cierre consolidado en modo offline."
+        notas: bodyPayload.notas || 'Cierre consolidado en modo offline.'
       };
 
       await encolarPeticionOffline(
@@ -1625,12 +1738,14 @@ const handleRegresarOpciones = async () => {
         `Cierre de turno - ${pacienteActivo?.nombre_completo || 'Paciente'}`
       );
 
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await limpiarYSalir(
         '💾 Guardado Localmente',
         'El turno se cerró en el dispositivo. La información se sincronizará automáticamente al recuperar conexión a internet.'
       );
     } catch (queueErr) {
-      console.error("❌ Fallo crítico al guardar en cola offline:", queueErr);
+      console.error('❌ Fallo crítico al guardar en cola offline:', queueErr);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('⚠️ Error', 'No se pudo registrar el cierre ni guardar localmente.');
     }
   }
