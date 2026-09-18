@@ -2964,22 +2964,90 @@ const handleRegresarOpciones = async () => {
   </View>
 </Modal>
 
-        {/* MODAL ADICIONAR NOTA */}
-        <Modal visible={notaOpen} animationType="slide" transparent={true}>
-          <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: 20 }}>
-            <View style={{ backgroundColor: COLORS.white, padding: 24, borderRadius: 16, gap: 14 }}>
-              <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.amber }}>📝 Agregar Nota</Text>
-              <TextInput 
-                placeholder="Escribe observaciones..." 
+       {/* MODAL ADICIONAR NOTA CON DICTADO POR VOZ */}
+        <Modal visible={notaOpen} animationType="fade" transparent={true}>
+          <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 20 }}>
+            <View
+              style={{
+                backgroundColor: COLORS.white,
+                padding: 22,
+                borderRadius: 20,
+                gap: 16,
+                borderWidth: 1,
+                borderColor: '#ECE7DF',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.15,
+                shadowRadius: 10,
+                elevation: 5,
+              }}
+            >
+              {/* Cabecera Clínica */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '800',
+                    color: COLORS.cacao,
+                    letterSpacing: 0.5,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Agregar Observación Clínica
+                </Text>
+              </View>
+
+              {/* Entrada con Dictado por Voz IA integrado */}
+              <DictadoVozInput
+                label="Descripción de la nota"
+                placeholder="Describe eventos, estado de ánimo, cambios o indicaciones..."
                 value={notaTexto}
                 onChangeText={setNotaTexto}
-                multiline
-                style={{ borderBottomWidth: 1, borderColor: COLORS.border, minHeight: 60, color: COLORS.cacao }}
+                minHeight={90}
               />
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
-                <TouchableOpacity onPress={() => setNotaOpen(false)} style={{ padding: 10 }}><Text style={{ color: COLORS.textLight }}>Cancelar</Text></TouchableOpacity>
-                <TouchableOpacity onPress={guardarNota} disabled={guardandoNota} style={{ backgroundColor: COLORS.amber, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 }}>
-                  <Text style={{ color: COLORS.white }}>{guardandoNota ? "Guardando..." : "Guardar"}</Text>
+
+              {/* Botones de Acción */}
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setNotaTexto('');
+                    setNotaOpen(false);
+                  }}
+                  disabled={guardandoNota}
+                  style={{ paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10 }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ color: COLORS.textLight, fontSize: 12, fontWeight: '700' }}>
+                    Cancelar
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={guardarNota}
+                  disabled={guardandoNota || !notaTexto.trim()}
+                  activeOpacity={0.85}
+                  style={{
+                    backgroundColor: !notaTexto.trim() ? '#E2E8F0' : COLORS.gold,
+                    paddingHorizontal: 20,
+                    paddingVertical: 12,
+                    borderRadius: 12,
+                    shadowColor: COLORS.gold,
+                    shadowOffset: { width: 0, height: 3 },
+                    shadowOpacity: !notaTexto.trim() ? 0 : 0.25,
+                    shadowRadius: 5,
+                    elevation: !notaTexto.trim() ? 0 : 2,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: !notaTexto.trim() ? '#94A3B8' : COLORS.cacao,
+                      fontSize: 12,
+                      fontWeight: '800',
+                      letterSpacing: 0.3,
+                    }}
+                  >
+                    {guardandoNota ? 'Guardando...' : 'Guardar Nota'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
