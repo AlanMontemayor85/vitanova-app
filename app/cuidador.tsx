@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -143,7 +143,7 @@ export default function CuidadorScreen({
   const [cargandoSignos, setCargandoSignos] = useState<boolean>(false);
   const [cambiosModal, setCambiosModal] = useState(false);
   const [cambiosPendientes, setCambiosPendientes] = useState<any[]>([]);
-
+  const scrollEspontaneoRef = useRef<ScrollView>(null);
   // 🎭 Estados del Módulo de Registro Espontáneo / Confort Humano
   const [dolorEva, setDolorEva] = useState(0);
   const [hidratacion, setHidratacion] = useState(0);
@@ -205,6 +205,7 @@ export default function CuidadorScreen({
   const [ejecutandoCmd, setEjecutandoCmd] = useState<string | null>(null);
   const [pasosHoy, setPasosHoy] = useState<number | null>(null);
   const [bateria, setBateria] = useState<number | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
   const [modalConfigCuidadorVisible, setModalConfigCuidadorVisible] = useState(false);
   const cambiarConsumoItem = (itemId: string, delta: number) => {
     setConsumosTurno((prev: Record<string, number>) => {
@@ -2869,96 +2870,303 @@ const handleRegresarOpciones = async () => {
         </View>
       </Modal>
 
-        {/* MODAL EMERGENCIA */}
-<Modal visible={incidenteOpen} animationType="slide" transparent={true}>
-  <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 16 }}>
-    <View style={{ backgroundColor: COLORS.white, padding: 24, borderRadius: 16, gap: 12 }}>
-      <Text style={{ fontSize: 18, fontWeight: '800', color: COLORS.red, textAlign: 'center' }}>
-        {'Protocolo de Emergencia'}
-      </Text>
-      <Text style={{ fontSize: 12, color: COLORS.textLight, textAlign: 'center', marginBottom: 4 }}>
-        {'Selecciona a quién contactar'}
-      </Text>
-
-      {/* 911 */}
-      <TouchableOpacity 
-        style={{ backgroundColor: '#FFF5F5', borderWidth: 1, borderColor: COLORS.red, padding: 14, borderRadius: 10 }} 
-        onPress={() => { 
-          registrarIncidente("Ambulancia 911", "SOS"); 
-          setIncidenteOpen(false); 
-          Linking.openURL('tel:911'); 
-        }}
-      >
-        <Text style={{ fontWeight: '700', color: COLORS.red, textAlign: 'center' }}>{'🚑 Llamar a Ambulancia (911)'}</Text>
-      </TouchableOpacity>
-
-      {/* Familiar principal */}
-      {pacienteActivo?.telefono_emergencia && (
-        <TouchableOpacity 
-          style={{ backgroundColor: COLORS.amberPale, borderWidth: 1, borderColor: COLORS.amber, padding: 14, borderRadius: 10 }} 
-          onPress={() => { 
-            registrarIncidente("Familiar principal", "urgencia"); 
-            setIncidenteOpen(false); 
-            Linking.openURL(`tel:${pacienteActivo.telefono_emergencia}`); 
+        {/* MODAL EMERGENCIA / PROTOCOLO CLÍNICO */}
+<Modal visible={incidenteOpen} animationType="fade" transparent={true}>
+  <View
+    style={{
+      flex: 1,
+      justifyContent: 'center',
+      backgroundColor: 'rgba(15, 23, 42, 0.75)',
+      padding: 20,
+    }}
+  >
+    <View
+      style={{
+        backgroundColor: '#FFFFFF',
+        borderRadius: 20,
+        padding: 20,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 18,
+        elevation: 8,
+      }}
+    >
+      {/* Cabecera del Protocolo */}
+      <View style={{ alignItems: 'center', marginBottom: 16 }}>
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: '#FEF2F2',
+            borderWidth: 1,
+            borderColor: '#FEE2E2',
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginBottom: 8,
           }}
         >
-          <Text style={{ fontWeight: '700', color: COLORS.amber, textAlign: 'center' }}>
-            {`👨‍👩‍👧 Familiar (${pacienteActivo.telefono_emergencia})`}
-          </Text>
-        </TouchableOpacity>
-      )}
-       {/* Médico tratante */}
-        {pacienteActivo?.telefono_medico && (
-          <TouchableOpacity 
-            style={{ backgroundColor: '#F0F8FF', borderWidth: 1, borderColor: '#4A90D9', padding: 14, borderRadius: 10 }} 
-            onPress={() => { 
-              registrarIncidente("Médico tratante", "consulta"); 
-              setIncidenteOpen(false); 
-              Linking.openURL(`tel:${pacienteActivo.telefono_medico}`); 
+          <Ionicons name="medkit-outline" size={19} color="#2563EB" />
+        </View>
+        <Text
+          style={{
+            fontSize: 14,
+            fontWeight: '800',
+            color: '#1E1B18',
+            letterSpacing: 0.5,
+            textTransform: 'uppercase',
+          }}
+        >
+          Protocolo de Emergencia
+        </Text>
+        <Text style={{ fontSize: 11, color: '#64748B', marginTop: 2, textAlign: 'center' }}>
+          Selecciona una vía de enlace directo para enlace telefónico y registro de bitácora
+        </Text>
+      </View>
+
+      <View style={{ gap: 8 }}>
+        {/* 1. Emergencias 911 (Crítico) */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#FEF2F2',
+            borderWidth: 1.5,
+            borderColor: '#FCA5A5',
+            paddingVertical: 12,
+            paddingHorizontal: 14,
+            borderRadius: 12,
+            gap: 12,
+          }}
+          onPress={() => {
+            registrarIncidente('Ambulancia 911', 'SOS');
+            setIncidenteOpen(false);
+            Linking.openURL('tel:911');
+          }}
+        >
+          <View
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 8,
+              backgroundColor: '#DC2626',
+              justifyContent: 'center',
+              alignItems: 'center',
             }}
           >
-            <Text style={{ fontWeight: '700', color: '#4A90D9', textAlign: 'center' }}>
-              {`👨‍⚕️ ${pacienteActivo.medico_tratante ?? 'Médico'} (${pacienteActivo.telefono_medico})`}
+            <Ionicons name="medical" size={18} color="#FFFFFF" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 12, fontWeight: '800', color: '#991B1B' }}>
+              SERVICIO DE URGENCIAS 911
             </Text>
+            <Text style={{ fontSize: 10, color: '#B91C1C', fontWeight: '500' }}>
+              Enlace inmediato a despacho de ambulancia
+            </Text>
+          </View>
+          <Ionicons name="call" size={16} color="#DC2626" />
+        </TouchableOpacity>
+
+        {/* 2. Familiar Principal */}
+        {pacienteActivo?.telefono_emergencia && (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#FFFDF9',
+              borderWidth: 1,
+              borderColor: '#E8E1D5',
+              paddingVertical: 11,
+              paddingHorizontal: 14,
+              borderRadius: 12,
+              gap: 12,
+            }}
+            onPress={() => {
+              registrarIncidente('Familiar principal', 'urgencia');
+              setIncidenteOpen(false);
+              Linking.openURL(`tel:${pacienteActivo.telefono_emergencia}`);
+            }}
+          >
+            <View
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 8,
+                backgroundColor: '#F3EFE6',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <Ionicons name="people" size={18} color={COLORS.gold} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11.5, fontWeight: '700', color: '#1E1B18' }}>
+                Contacto Familiar Principal
+              </Text>
+              <Text style={{ fontSize: 10, color: '#78716C' }}>
+                {pacienteActivo.telefono_emergencia}
+              </Text>
+            </View>
+            <Ionicons name="call-outline" size={16} color="#78716C" />
           </TouchableOpacity>
         )}
-      {/* Ambulancia aseguradora */}
-      {pacienteActivo?.telefono_ambulancia && (
-        <TouchableOpacity 
-          style={{ backgroundColor: '#F0F8FF', borderWidth: 1, borderColor: '#4A90D9', padding: 14, borderRadius: 10 }} 
-          onPress={() => { 
-            registrarIncidente("Ambulancia aseguradora", "urgencia"); 
-            setIncidenteOpen(false); 
-            Linking.openURL(`tel:${pacienteActivo.telefono_ambulancia}`); 
-          }}
-        >
-          <Text style={{ fontWeight: '700', color: '#4A90D9', textAlign: 'center' }}>
-            {`🏥 Ambulancia Aseguradora (${pacienteActivo.telefono_ambulancia})`}
-          </Text>
-        </TouchableOpacity>
-      )}
 
-      {/* Aseguradora */}
-      {pacienteActivo?.telefono_aseguradora && (
-        <TouchableOpacity 
-          style={{ backgroundColor: '#F0FFF4', borderWidth: 1, borderColor: COLORS.green, padding: 14, borderRadius: 10 }} 
-          onPress={() => { 
-            registrarIncidente("Aseguradora", "informativo"); 
-            setIncidenteOpen(false); 
-            Linking.openURL(`tel:${pacienteActivo.telefono_aseguradora}`); 
-          }}
-        >
-          <Text style={{ fontWeight: '700', color: COLORS.green, textAlign: 'center' }}>
-            {`📋 Aseguradora ${pacienteActivo.nombre_aseguradora ? `(${pacienteActivo.nombre_aseguradora})` : ''} - ${pacienteActivo.telefono_aseguradora}`}
-          </Text>
-        </TouchableOpacity>
-      )}
+        {/* 3. Médico Tratante */}
+        {pacienteActivo?.telefono_medico && (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#F8FAFC',
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+              paddingVertical: 11,
+              paddingHorizontal: 14,
+              borderRadius: 12,
+              gap: 12,
+            }}
+            onPress={() => {
+              registrarIncidente('Médico tratante', 'consulta');
+              setIncidenteOpen(false);
+              Linking.openURL(`tel:${pacienteActivo.telefono_medico}`);
+            }}
+          >
+            <View
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 8,
+                backgroundColor: '#EFF6FF',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <MaterialCommunityIcons name="doctor" size={20} color="#2563EB" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11.5, fontWeight: '700', color: '#1E1B18' }}>
+                {pacienteActivo.medico_tratante || 'Médico Tratante'}
+              </Text>
+              <Text style={{ fontSize: 10, color: '#64748B' }}>
+                {pacienteActivo.telefono_medico}
+              </Text>
+            </View>
+            <Ionicons name="call-outline" size={16} color="#64748B" />
+          </TouchableOpacity>
+        )}
 
-      <TouchableOpacity 
-        onPress={() => setIncidenteOpen(false)} 
-        style={{ paddingVertical: 12, alignItems: 'center' }}
+        {/* 4. Ambulancia de Aseguradora */}
+        {pacienteActivo?.telefono_ambulancia && (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#F8FAFC',
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+              paddingVertical: 11,
+              paddingHorizontal: 14,
+              borderRadius: 12,
+              gap: 12,
+            }}
+            onPress={() => {
+              registrarIncidente('Ambulancia aseguradora', 'urgencia');
+              setIncidenteOpen(false);
+              Linking.openURL(`tel:${pacienteActivo.telefono_ambulancia}`);
+            }}
+          >
+            <View
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 8,
+                backgroundColor: '#EFF6FF',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <Ionicons name="car-outline" size={18} color="#2563EB" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11.5, fontWeight: '700', color: '#1E1B18' }}>
+                Ambulancia Privada / Seguro
+              </Text>
+              <Text style={{ fontSize: 10, color: '#64748B' }}>
+                {pacienteActivo.telefono_ambulancia}
+              </Text>
+            </View>
+            <Ionicons name="call-outline" size={16} color="#64748B" />
+          </TouchableOpacity>
+        )}
+
+        {/* 5. Aseguradora / Póliza */}
+        {pacienteActivo?.telefono_aseguradora && (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#F8FAFC',
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+              paddingVertical: 11,
+              paddingHorizontal: 14,
+              borderRadius: 12,
+              gap: 12,
+            }}
+            onPress={() => {
+              registrarIncidente('Aseguradora', 'informativo');
+              setIncidenteOpen(false);
+              Linking.openURL(`tel:${pacienteActivo.telefono_aseguradora}`);
+            }}
+          >
+            <View
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 8,
+                backgroundColor: '#F0FDF4',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <Ionicons name="shield-checkmark-outline" size={18} color="#16A34A" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11.5, fontWeight: '700', color: '#1E1B18' }}>
+                Aseguradora {pacienteActivo.nombre_aseguradora ? `(${pacienteActivo.nombre_aseguradora})` : ''}
+              </Text>
+              <Text style={{ fontSize: 10, color: '#64748B' }}>
+                {pacienteActivo.telefono_aseguradora}
+              </Text>
+            </View>
+            <Ionicons name="call-outline" size={16} color="#64748B" />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Botón Cancelar / Descartar */}
+      <TouchableOpacity
+        onPress={() => setIncidenteOpen(false)}
+        activeOpacity={0.7}
+        style={{
+          marginTop: 14,
+          paddingVertical: 11,
+          alignItems: 'center',
+          backgroundColor: '#F1F5F9',
+          borderRadius: 10,
+        }}
       >
-        <Text style={{ color: COLORS.textLight }}>{'Cerrar'}</Text>
+        <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '700' }}>
+          Cerrar sin accionar
+        </Text>
       </TouchableOpacity>
     </View>
   </View>
@@ -3060,8 +3268,13 @@ const handleRegresarOpciones = async () => {
 }
 
   // ── 3. VISTA MONITOREO ESPONTÁNEO (DISEÑO PREMIUM ESTANDARIZADO) ──
-  if (vista === 'espontaneo') {
-    return (
+if (vista === 'espontaneo') {
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: COLORS.cacao }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 30 : 0}
+    >
       <View style={styles.espontaneoContainer}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
         
@@ -3086,7 +3299,13 @@ const handleRegresarOpciones = async () => {
           </View>
         </View>
 
-        <ScrollView style={styles.espontaneoBody} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          ref={scrollEspontaneoRef}
+          style={styles.espontaneoBody}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 220 }}
+        >
           
           {/* MÓDULO 1: SIGNOS VITALES PRINCIPALES */}
           <View style={styles.cardModulo}>
@@ -3229,7 +3448,7 @@ const handleRegresarOpciones = async () => {
             />
           </View>
 
-          {/* BOTONES Y ACCIONES (CON MARGEN INFERIOR DE SEGURIDAD) */}
+          {/* BOTONES Y ACCIONES */}
           <View style={styles.actionSection}>
             <TouchableOpacity
               style={styles.btnGuardarPro}
@@ -3253,17 +3472,11 @@ const handleRegresarOpciones = async () => {
             </TouchableOpacity>
           </View>
 
-          
-
-          {/* 🎯 MARGEN DE RESGUARDO PARA BOTONES DE NAVEGACIÓN ANDROID */}
-          <View style={{ height: 60 }} />
-
-         
         </ScrollView>
       </View>
-      
-    );
-  }
+    </KeyboardAvoidingView>
+  );
+}
 // ── 4. VISTA CIERRE DE TURNO (DISEÑO PRO & DESPLEGABLE) ──
   if (vista === 'cierre' && pacienteActivo) {
     return (
@@ -3334,7 +3547,7 @@ const handleRegresarOpciones = async () => {
   <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 12 }}>
     <TextInput
       style={[styles.inputCentradoGrande, { flex: 1, paddingHorizontal: 4 }]}
-      placeholder="Sistólica (ej. 120)"
+      placeholder="Sist (ej. 120)"
       placeholderTextColor={COLORS.textLight}
       keyboardType="numeric"
       value={presionSist}
@@ -3343,7 +3556,7 @@ const handleRegresarOpciones = async () => {
     <Text style={{ fontWeight: '700', color: COLORS.textLight, fontSize: 18 }}>/</Text>
     <TextInput
       style={[styles.inputCentradoGrande, { flex: 1, paddingHorizontal: 4 }]}
-      placeholder="Diastólica (ej. 80)"
+      placeholder="Diastó (ej. 80)"
       placeholderTextColor={COLORS.textLight}
       keyboardType="numeric"
       value={presionDiast}
