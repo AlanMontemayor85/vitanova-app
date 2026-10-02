@@ -2,9 +2,20 @@ import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { crearGeocerca, eliminarGeocerca, getGeocercas, getPacientes, getUbicacion, loadStoredToken } from '../services/api';
 import { BotonEmergenciaGPS } from './components/BotonEmergenciaGPS';
+let MapView: any = null;
+let Circle: any = null;
+let Marker: any = null;
+let PROVIDER_GOOGLE: any = null;
+
+if (Platform.OS !== 'web') {
+  const Maps = require('react-native-maps');
+  MapView = Maps.default;
+  Circle = Maps.Circle;
+  Marker = Maps.Marker;
+  PROVIDER_GOOGLE = Maps.PROVIDER_GOOGLE;
+}
 
 const COLORS = {
   gold: '#BF9A40',
@@ -40,7 +51,7 @@ export default function MapaScreen() {
   const params = useLocalSearchParams();
   const pacienteIdParam = params.pacienteId as string;
   const router = useRouter();
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
   const [authToken, setAuthToken] = useState<string>('');
   const [paciente, setPaciente] = useState<any>(null);
   const [ubicacion, setUbicacion] = useState<any>(null);
@@ -304,13 +315,23 @@ const abrirNavegacionRescate = async () => {
 
       {/* CUADRANTE DEL MAPA */}
       {tieneCoordenadasValidas ? (
-        <View style={styles.mapContainer}>
+      <View style={styles.mapContainer}>
+        {Platform.OS === 'web' ? (
+          <iframe
+            title="Ubicación Paciente"
+            width="100%"
+            height="100%"
+            style={{ border: 0 }}
+            loading="lazy"
+            src={`https://maps.google.com/maps?q=${currentLat},${currentLng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
+          />
+        ) : (
           <MapView
             ref={mapRef}
             style={styles.mapa}
             provider={PROVIDER_GOOGLE}
-            showsUserLocation={true}          // 🔵 Punto azul nativo de tu celular
-            showsMyLocationButton={true}      // 🎯 Botón nativo para centrar en tu celular
+            showsUserLocation={true}
+            showsMyLocationButton={true}
             region={{
               latitude: currentLat,
               longitude: currentLng,
@@ -318,7 +339,6 @@ const abrirNavegacionRescate = async () => {
               longitudeDelta: 0.0121,
             }}
           >
-            {/* 📍 Marcador del paciente / reloj */}
             <Marker
               coordinate={{ 
                 latitude: currentLat, 
@@ -330,19 +350,14 @@ const abrirNavegacionRescate = async () => {
 
             {Array.isArray(geocercas) && geocercas.map((g, idx) => {
               if (!g || !g.activa) return null;
-              
               const gLat = parsearCoord(g.lat ?? g.latitud);
               const gLng = parsearCoord(g.lng ?? g.longitud);
-
               if (gLat === null || gLng === null || !esValida(gLat, gLng)) return null;
 
               return (
                 <Circle
                   key={g.id ? String(g.id) : `geo-${idx}`}
-                  center={{ 
-                    latitude: gLat, 
-                    longitude: gLng 
-                  }}
+                  center={{ latitude: gLat, longitude: gLng }}
                   radius={Number(g.radio_metros) || 30}
                   strokeColor="rgba(191,154,64,0.8)"
                   fillColor="rgba(191,154,64,0.1)"
@@ -351,8 +366,9 @@ const abrirNavegacionRescate = async () => {
               );
             })}
           </MapView>
-        </View>
-      ) : (
+        )}
+      </View>
+    ) : (
         <View style={styles.sinUbicacion}>
           <Text style={styles.sinUbicacionIcon}>📍</Text>
           <Text style={styles.sinUbicacionTitle}>Sin ubicación disponible</Text>
