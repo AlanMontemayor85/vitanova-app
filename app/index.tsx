@@ -407,10 +407,6 @@ useEffect(() => {
 }, [signosDispositivo]);
 
 
-
-
-
-
 // 🔄 Carga inicial y Enrutador Inteligente Relacional
 useEffect(() => {
   console.log("🚀 [INIT DISPARADO]", { 
@@ -449,14 +445,12 @@ useEffect(() => {
       const rolesData = await getMisRoles();
 
       if (rolesData?.multi_rol) {
-        // Si tiene múltiples puertas y no tiene rol fijado o no coincide con los disponibles
         if (!rolGuardado || !rolesData.roles.includes(rolGuardado)) {
           console.log("🚪 Usuario Multi-Rol detectado sin rol activo. Navegando a /selector-rol");
           router.replace('/selector-rol');
           return;
         }
 
-        // Si ya eligió cuidador o autónomo en el selector, enviarlo a su pantalla
         if (rolGuardado === 'cuidador') {
           router.replace({
             pathname: '/cuidador' as any,
@@ -467,7 +461,6 @@ useEffect(() => {
           router.replace('/autocuidador' as any);
           return;
         }
-        // Si rolGuardado === 'familiar', continúa abajo normalmente
       } else if (rolesData?.roles?.length === 1) {
         const unicoRol = rolesData.roles[0];
         await AsyncStorage.setItem('rol_activo', unicoRol);
@@ -491,7 +484,11 @@ useEffect(() => {
       if (data && data.usuario_nombre && typeof setNombreUsuario === 'function') {
         setNombreUsuario(data.usuario_nombre);
       }
-      await registrarNotificaciones().catch(err => console.log("Push omitido en simulación:", err));
+
+      // 🛑 NOTIFICACIONES PUSH: Omitidas de forma segura en navegador web
+      if (Platform.OS !== 'web') {
+        await registrarNotificaciones().catch(err => console.log("Push omitido en móvil:", err));
+      }
 
       if (!data || data.no_autenticado || data.error || data.detail === 'Token inválido o expirado') {
         await clearToken();
@@ -499,7 +496,7 @@ useEffect(() => {
         return;
       }
 
-      // 🛑 CANDADO DE SEGURIDAD:
+      // 🛑 CANDADO DE SEGURIDAD
       if (
         data.status === 'pending_profile' || 
         data.requiere_perfil || 
@@ -563,72 +560,75 @@ useEffect(() => {
         const p = pacientesEstables[idxActual] || pacientesEstables[0];
         setPaciente(p);
 
-        const [cierreData, notasData, alertaPesoData, turnoRes, tareasHoyData] = await Promise.all([
-          getUltimoCierre(p.id).catch(() => ({ cierre: null })),
-          getNotasTurno(p.id).catch(() => ({ notas: [] })),
-          getAlertaPeso(p.id).catch(() => ({ alerta: null })),
-          getTurnoActivoResumen(p.id).catch(() => ({ turno: null })),
-          getTareasHoy(p.id, getHoyLocalISO()).catch((err) => {
-            console.log("❌ FALLO getTareasHoy:", err);
-            return null;
-          })
-        ]);
+        // 🛑 VALIDACIÓN: Solo consultar sub-recursos si el paciente tiene un ID definido
+        if (p && p.id) {
+          const [cierreData, notasData, alertaPesoData, turnoRes, tareasHoyData] = await Promise.all([
+            getUltimoCierre(p.id).catch(() => ({ cierre: null })),
+            getNotasTurno(p.id).catch(() => ({ notas: [] })),
+            getAlertaPeso(p.id).catch(() => ({ alerta: null })),
+            getTurnoActivoResumen(p.id).catch(() => ({ turno: null })),
+            getTareasHoy(p.id, getHoyLocalISO()).catch((err) => {
+              console.log("❌ FALLO getTareasHoy:", err);
+              return null;
+            })
+          ]);
 
-        if (cierreData?.cierre) setUltimoCierre(cierreData.cierre);
-        if (notasData?.notas) setNotas(notasData.notas);
-        setAlertaPeso(alertaPesoData?.alerta ? alertaPesoData : null);
+          if (cierreData?.cierre) setUltimoCierre(cierreData.cierre);
+          if (notasData?.notas) setNotas(notasData.notas);
+          setAlertaPeso(alertaPesoData?.alerta ? alertaPesoData : null);
 
-        const listaTareas = Array.isArray(tareasHoyData)
-          ? tareasHoyData
-          : (tareasHoyData?.tareas || []);
-        
-        console.log("==========================================");
-        console.log("🔍 DIAGNÓSTICO EN FRONTEND (Index.tsx):");
-        console.log("📦 Respuesta cruda de tareasHoyData:", JSON.stringify(tareasHoyData));
-        console.log("📋 Cantidad de tareas en la lista:", listaTareas.length);
-        
-        listaTareas.forEach((t: any, index: number) => {
-          const estaCompletada = 
+          const listaTareas = Array.isArray(tareasHoyData)
+            ? tareasHoyData
+            : (tareasHoyData?.tareas || []);
+          
+          console.log("==========================================");
+          console.log("🔍 DIAGNÓSTICO EN FRONTEND (Index.tsx):");
+          console.log("📦 Respuesta cruda de tareasHoyData:", JSON.stringify(tareasHoyData));
+          console.log("📋 Cantidad de tareas en la lista:", listaTareas.length);
+          
+          listaTareas.forEach((t: any, index: number) => {
+            const estaCompletada = 
+              t.completada === true || 
+              t.completada === 1 || 
+              String(t.completada).toLowerCase() === "true";
+
+            console.log(
+              `  [${index + 1}] ID: ${t.id} | Desc: "${t.descripcion}" | Tipo: ${t.tipo} | Incidental: ${t.es_incidental} | RAW completada: ${JSON.stringify(t.completada)} -> EVALUADO: ${estaCompletada ? "✅ TRUE" : "❌ FALSE"}`
+            );
+          });
+
+          const totalCalculado = tareasHoyData?.total !== undefined 
+            ? Number(tareasHoyData.total) 
+            : listaTareas.length;
+
+          const completadasCalculadas = listaTareas.filter((t: any) => 
             t.completada === true || 
             t.completada === 1 || 
-            String(t.completada).toLowerCase() === "true";
+            String(t.completada).toLowerCase() === "true"
+          ).length;
 
-          console.log(
-            `  [${index + 1}] ID: ${t.id} | Desc: "${t.descripcion}" | Tipo: ${t.tipo} | Incidental: ${t.es_incidental} | RAW completada: ${JSON.stringify(t.completada)} -> EVALUADO: ${estaCompletada ? "✅ TRUE" : "❌ FALSE"}`
-          );
-        });
+          console.log(`📊 RESULTADO FINAL EVALUADO: ${completadasCalculadas} / ${totalCalculado}`);
+          console.log("==========================================");
+          setTotalTareasHoy(totalCalculado);
+          setCompletadasTareasHoy(completadasCalculadas);
 
-        const totalCalculado = tareasHoyData?.total !== undefined 
-          ? Number(tareasHoyData.total) 
-          : listaTareas.length;
+          const turnosRecibidos = Array.isArray(turnoRes?.turnos)
+            ? turnoRes.turnos
+            : (turnoRes?.turno ? [turnoRes.turno] : (Array.isArray(turnoRes) ? turnoRes : []));
 
-        const completadasCalculadas = listaTareas.filter((t: any) => 
-          t.completada === true || 
-          t.completada === 1 || 
-          String(t.completada).toLowerCase() === "true"
-        ).length;
+          if (turnosRecibidos.length > 0) {
+            const turnosProcesados = turnosRecibidos.map((t: any) => ({
+              ...t,
+              cuidador_nombre: t.cuidador_nombre || "Turno del Día",
+              horario: t.horario || "00:00 - 23:59",
+              total: t.total !== undefined ? t.total : totalCalculado,
+              completadas: t.completadas !== undefined ? t.completadas : completadasCalculadas,
+            }));
 
-        console.log(`📊 RESULTADO FINAL EVALUADO: ${completadasCalculadas} / ${totalCalculado}`);
-        console.log("==========================================");
-        setTotalTareasHoy(totalCalculado);
-        setCompletadasTareasHoy(completadasCalculadas);
-
-        const turnosRecibidos = Array.isArray(turnoRes?.turnos)
-          ? turnoRes.turnos
-          : (turnoRes?.turno ? [turnoRes.turno] : (Array.isArray(turnoRes) ? turnoRes : []));
-
-        if (turnosRecibidos.length > 0) {
-          const turnosProcesados = turnosRecibidos.map((t: any) => ({
-            ...t,
-            cuidador_nombre: t.cuidador_nombre || "Turno del Día",
-            horario: t.horario || "00:00 - 23:59",
-            total: t.total !== undefined ? t.total : totalCalculado,
-            completadas: t.completadas !== undefined ? t.completadas : completadasCalculadas,
-          }));
-
-          setTurnoResumen(turnosProcesados);
-        } else {
-          setTurnoResumen([]);
+            setTurnoResumen(turnosProcesados);
+          } else {
+            setTurnoResumen([]);
+          }
         }
 
       } else {
@@ -636,9 +636,12 @@ useEffect(() => {
         return;
       }
 
-    } catch (e) {
+    } catch (e: any) {
       console.error('❌ Error crítico en el init de la Home:', e);
-      router.replace('/login');
+      // Solo expulsar si el error es explícitamente de falta de autenticación
+      if (e?.message === 'UNAUTHORIZED' || e?.message === 'NO_TOKEN') {
+        router.replace('/login');
+      }
     } finally {
       setLoading(false);
     }
