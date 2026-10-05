@@ -426,9 +426,9 @@ useEffect(() => {
       setUltimoCierre(null);
       setNotas([]);
 
-      // 1. Validar Onboarding local
+     // 1. Validar Onboarding local (omitido en web para desarrollo)
       const onboardingCompletado = await AsyncStorage.getItem('onboarding_completado');
-      if (!onboardingCompletado) {
+      if (!onboardingCompletado && Platform.OS !== 'web') {
         router.replace('/onboarding');
         return;
       }

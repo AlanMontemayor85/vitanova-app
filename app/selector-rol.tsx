@@ -2,12 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { clearToken, getMisRoles } from '../services/api';
@@ -62,7 +62,18 @@ export default function SelectorRolScreen() {
   }, []);
 
   const handleSeleccionarRol = async (rol: string, ruta: string) => {
-    await AsyncStorage.setItem('rol_activo', rol);
+    try {
+      await AsyncStorage.setItem('rol_activo', rol);
+      await AsyncStorage.setItem('onboarding_completado', 'true');
+
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('rol_activo', rol);
+        window.localStorage.setItem('onboarding_completado', 'true');
+      }
+    } catch (e) {
+      console.warn('Error guardando rol activo:', e);
+    }
+
     router.replace(ruta as any);
   };
 

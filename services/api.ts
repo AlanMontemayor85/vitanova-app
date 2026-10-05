@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { encolarPeticionOffline } from './offlineQueue';
 
@@ -9,18 +10,16 @@ let userTipo: string | null = null;
 let onSessionExpiredCallback: (() => void) | null = null;
 
 let SecureStore: any = null;
-let AsyncStorage: any = null;
 
 if (Platform.OS !== 'web') {
   try {
     SecureStore = require('expo-secure-store');
-    AsyncStorage = require('@react-native-async-storage/async-storage').default;
   } catch (e) {
-    console.warn("⚠️ Advertencia: Error cargando módulos nativos de almacenamiento:", e);
+    console.warn("⚠️ Advertencia: Error cargando SecureStore nativo:", e);
   }
 }
 
-// Helpers universales para guardar y leer tokens
+// Helpers universales para guardar y leer datos
 export const setStorageItem = async (key: string, value: string): Promise<void> => {
   if (Platform.OS === 'web') {
     try {
@@ -32,7 +31,7 @@ export const setStorageItem = async (key: string, value: string): Promise<void> 
   }
   if (SecureStore) {
     await SecureStore.setItemAsync(key, value);
-  } else if (AsyncStorage) {
+  } else {
     await AsyncStorage.setItem(key, value);
   }
 };
@@ -48,10 +47,7 @@ export const getStorageItem = async (key: string): Promise<string | null> => {
   if (SecureStore) {
     return await SecureStore.getItemAsync(key);
   }
-  if (AsyncStorage) {
-    return await AsyncStorage.getItem(key);
-  }
-  return null;
+  return await AsyncStorage.getItem(key);
 };
 
 export const removeStorageItem = async (key: string): Promise<void> => {
@@ -63,14 +59,14 @@ export const removeStorageItem = async (key: string): Promise<void> => {
   }
   if (SecureStore) {
     await SecureStore.deleteItemAsync(key);
-  } else if (AsyncStorage) {
+  } else {
     await AsyncStorage.removeItem(key);
   }
 };
+
 // ──────────────────────────────────────────────────────────────
 // GESTIÓN DE SESIÓN Y TOKENS
 // ──────────────────────────────────────────────────────────────
-
 
 export const setToken = async (token: string) => {
   authToken = token;
@@ -79,7 +75,7 @@ export const setToken = async (token: string) => {
       window.localStorage.setItem('vitanova_token', token);
     } else if (SecureStore) {
       await SecureStore.setItemAsync('vitanova_token', token);
-    } else if (AsyncStorage) {
+    } else {
       await AsyncStorage.setItem('vitanova_token', token);
     }
   } catch (err) {
@@ -103,12 +99,9 @@ export const loadStoredToken = async () => {
       if (token) authToken = token;
       return token;
     }
-    if (AsyncStorage) {
-      const token = await AsyncStorage.getItem('vitanova_token');
-      if (token) authToken = token;
-      return token;
-    }
-    return null;
+    const token = await AsyncStorage.getItem('vitanova_token');
+    if (token) authToken = token;
+    return token;
   } catch {
     return null;
   }
@@ -126,15 +119,17 @@ export const clearToken = async () => {
   try {
     if (Platform.OS === 'web') {
       window.localStorage.removeItem('vitanova_token');
+      window.localStorage.removeItem('rol_activo');
+      window.localStorage.removeItem('usuario_tipo');
+      window.localStorage.removeItem('usuario_rol');
     } else if (SecureStore) {
       await SecureStore.deleteItemAsync('vitanova_token');
     }
 
-    if (AsyncStorage) {
-      await AsyncStorage.removeItem('usuario_tipo');
-      await AsyncStorage.removeItem('usuario_rol');
-      await AsyncStorage.removeItem('rol_activo');
-    }
+    await AsyncStorage.removeItem('usuario_tipo');
+    await AsyncStorage.removeItem('usuario_rol');
+    await AsyncStorage.removeItem('rol_activo');
+
     console.log("🧼 Sesión e identidades completamente purgadas del dispositivo.");
   } catch (error) {
     console.error("Error al purgar el almacenamiento local:", error);

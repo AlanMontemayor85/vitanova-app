@@ -229,19 +229,26 @@ export default function MapaScreen() {
   };
 
   const centrarAmbosPuntos = () => {
+    if (Platform.OS === 'web') {
+      console.log('📍 [MAPA WEB] Centrado de ambos puntos omitido en navegador.');
+      return;
+    }
+
     if (tieneCoordenadasValidas && userLocation && mapRef.current) {
-      mapRef.current.fitToCoordinates(
-        [
-          { latitude: currentLat, longitude: currentLng },
-          { latitude: userLocation.lat, longitude: userLocation.lng },
-        ],
-        {
-          edgePadding: { top: 70, right: 70, bottom: 70, left: 70 },
-          animated: true,
-        }
-      );
-    } else {
-      mapRef.current?.animateToRegion({
+      if (typeof mapRef.current.fitToCoordinates === 'function') {
+        mapRef.current.fitToCoordinates(
+          [
+            { latitude: currentLat, longitude: currentLng },
+            { latitude: userLocation.lat, longitude: userLocation.lng },
+          ],
+          {
+            edgePadding: { top: 70, right: 70, bottom: 70, left: 70 },
+            animated: true,
+          }
+        );
+      }
+    } else if (typeof mapRef.current?.animateToRegion === 'function') {
+      mapRef.current.animateToRegion({
         latitude: currentLat,
         longitude: currentLng,
         latitudeDelta: 0.0122,
@@ -455,12 +462,14 @@ const abrirNavegacionRescate = async () => {
               pacienteId={paciente.id}
               onPosicionFijada={(coords: { lat: number; lng: number }) => {
                 setUbicacion((prev: any) => ({ ...prev, lat: coords.lat, lng: coords.lng }));
-                mapRef.current?.animateToRegion({
-                  latitude: coords.lat,
-                  longitude: coords.lng,
-                  latitudeDelta: 0.006,
-                  longitudeDelta: 0.006,
-                });
+                if (Platform.OS !== 'web' && typeof mapRef.current?.animateToRegion === 'function') {
+                  mapRef.current.animateToRegion({
+                    latitude: coords.lat,
+                    longitude: coords.lng,
+                    latitudeDelta: 0.006,
+                    longitudeDelta: 0.006,
+                  });
+                }
               }}
             />
           )}
@@ -486,12 +495,16 @@ const abrirNavegacionRescate = async () => {
             <TouchableOpacity
               style={[styles.centrarBtn, { flex: 1, marginTop: 0 }]}
               onPress={() => {
-                mapRef.current?.animateToRegion({
-                  latitude: currentLat,
-                  longitude: currentLng,
-                  latitudeDelta: 0.008,
-                  longitudeDelta: 0.008,
-                });
+                if (Platform.OS !== 'web' && typeof mapRef.current?.animateToRegion === 'function') {
+                  mapRef.current.animateToRegion({
+                    latitude: currentLat,
+                    longitude: currentLng,
+                    latitudeDelta: 0.008,
+                    longitudeDelta: 0.008,
+                  });
+                } else {
+                  console.log('📍 [MAPA WEB] Centrado a paciente:', { lat: currentLat, lng: currentLng });
+                }
               }}
             >
               <Text style={styles.centrarBtnText}>📍 Paciente</Text>
