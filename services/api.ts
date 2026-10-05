@@ -1,20 +1,72 @@
+import { Platform } from 'react-native';
 import { encolarPeticionOffline } from './offlineQueue';
 
 const BASE_URL = 'https://vitanova-backend-production.up.railway.app';
-
 
 let authToken: string | null = null;
 let userNombre: string | null = null;
 let userTipo: string | null = null;
 let onSessionExpiredCallback: (() => void) | null = null;
-let SecureStore: any;
-let AsyncStorage: any;
-try {
-  SecureStore = require('expo-secure-store');
-  AsyncStorage = require('@react-native-async-storage/async-storage').default;
-} catch (e) {
-  console.warn("⚠️ Advertencia: Error cargando módulos de almacenamiento persistente:", e);
+
+let SecureStore: any = null;
+let AsyncStorage: any = null;
+
+if (Platform.OS !== 'web') {
+  try {
+    SecureStore = require('expo-secure-store');
+    AsyncStorage = require('@react-native-async-storage/async-storage').default;
+  } catch (e) {
+    console.warn("⚠️ Advertencia: Error cargando módulos nativos de almacenamiento:", e);
+  }
 }
+
+// Helpers universales para guardar y leer tokens
+export const setStorageItem = async (key: string, value: string): Promise<void> => {
+  if (Platform.OS === 'web') {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch (e) {
+      console.error("Error guardando en localStorage:", e);
+    }
+    return;
+  }
+  if (SecureStore) {
+    await SecureStore.setItemAsync(key, value);
+  } else if (AsyncStorage) {
+    await AsyncStorage.setItem(key, value);
+  }
+};
+
+export const getStorageItem = async (key: string): Promise<string | null> => {
+  if (Platform.OS === 'web') {
+    try {
+      return window.localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  }
+  if (SecureStore) {
+    return await SecureStore.getItemAsync(key);
+  }
+  if (AsyncStorage) {
+    return await AsyncStorage.getItem(key);
+  }
+  return null;
+};
+
+export const removeStorageItem = async (key: string): Promise<void> => {
+  if (Platform.OS === 'web') {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {}
+    return;
+  }
+  if (SecureStore) {
+    await SecureStore.deleteItemAsync(key);
+  } else if (AsyncStorage) {
+    await AsyncStorage.removeItem(key);
+  }
+};
 // ──────────────────────────────────────────────────────────────
 // GESTIÓN DE SESIÓN Y TOKENS
 // ──────────────────────────────────────────────────────────────

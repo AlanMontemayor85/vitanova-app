@@ -58,7 +58,15 @@ export default function LoginScreen() {
   const [error, setError] = useState('');
   const [infoMensaje, setInfoMensaje] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-
+  
+  React.useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const hash = window.location.hash;
+      if (hash && hash.includes('access_token')) {
+        procesarUrlRetorno(hash);
+      }
+    }
+  }, []);
   const intentarRegistroPush = async () => {
     try {
       const { registrarNotificaciones } = await import('../services/notifications');
@@ -256,58 +264,71 @@ export default function LoginScreen() {
       setLoading(false);
     }
   };
+   const procesarUrlRetorno = async (url: string) => {
+    const accessToken = url.match(/access_token=([^&]+)/)?.[1];
+    const code = url.match(/[?&]code=([^&]+)/)?.[1];
+
+    if (accessToken) {
+      const decodedToken = decodeURIComponent(accessToken);
+      await setToken(decodedToken);
+      intentarRegistroPush().catch((err) => console.log('⚠️ Registro Push ignorado:', err));
+
+      const rolesData = await getMisRoles();
+
+      if (rolesData?.multi_rol) {
+        router.replace('/selector-rol');
+        return;
+      }
+
+      if (rolesData?.roles?.length === 1) {
+        const unicoRol = rolesData.roles[0];
+        await AsyncStorage.setItem('rol_activo', unicoRol);
+
+        if (unicoRol === 'cuidador') {
+          router.replace('/cuidador');
+          return;
+        } else if (unicoRol === 'autonomo') {
+          router.replace('/autocuidador');
+          return;
+        }
+      }
+
+      await AsyncStorage.setItem('rol_activo', 'familiar');
+      router.replace('/' as any);
+    } else if (code) {
+      setError('OAuth devolvió un code (PKCE) — requiere intercambio');
+    } else {
+      setError('No se pudo obtener el token de Google');
+    }
+  };
 
   const handleGoogle = async () => {
     setLoadingGoogle(true);
     setError('');
     try {
-      const redirectUri = makeRedirectUri({ scheme: 'vitanovaintegralis' });
+      // 1. Detectar la URI de redirección según plataforma
+      const redirectUri = Platform.OS === 'web'
+        ? (typeof window !== 'undefined' ? `${window.location.origin}/login` : 'http://localhost:8081/login')
+        : makeRedirectUri({ scheme: 'vitanovaintegralis' });
+
       const authUrl = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(
         redirectUri
       )}`;
+
+      // 2. En Web se redirige la ventana completa
+      if (Platform.OS === 'web') {
+        window.location.href = authUrl;
+        return;
+      }
+
+      // 3. En Móvil (iOS / Android) se mantiene el popup nativo
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
 
       if (result.type === 'success' && result.url) {
-        const url = result.url;
-        const accessToken = url.match(/access_token=([^&]+)/)?.[1];
-        const code = url.match(/[?&]code=([^&]+)/)?.[1];
-
-        if (accessToken) {
-          const decodedToken = decodeURIComponent(accessToken);
-          await setToken(decodedToken);
-          intentarRegistroPush().catch((err) => console.log('⚠️ Registro Push ignorado:', err));
-
-          // 🚪 Consultar roles tras login de Google
-          const rolesData = await getMisRoles();
-
-          if (rolesData?.multi_rol) {
-            router.replace('/selector-rol');
-            return;
-          }
-
-          if (rolesData?.roles?.length === 1) {
-            const unicoRol = rolesData.roles[0];
-            await AsyncStorage.setItem('rol_activo', unicoRol);
-
-            if (unicoRol === 'cuidador') {
-              router.replace('/cuidador');
-              return;
-            } else if (unicoRol === 'autonomo') {
-              router.replace('/autocuidador');
-              return;
-            }
-          }
-
-          await AsyncStorage.setItem('rol_activo', 'familiar');
-          router.replace('/' as any);
-        } else if (code) {
-          setError('OAuth devolvió un code (PKCE) — requiere intercambio');
-        } else {
-          setError('No se pudo obtener el token de Google');
-        }
+        await procesarUrlRetorno(result.url);
       }
-    } catch (e) {
-      setError('Error con Google');
+    } catch (e: any) {
+      setError(e?.message || 'Error con Google');
     } finally {
       setLoadingGoogle(false);
     }
