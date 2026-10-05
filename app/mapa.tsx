@@ -1,6 +1,6 @@
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -67,7 +67,7 @@ export default function MapaScreen() {
   const [solicitandoGps, setSolicitandoGps] = useState<boolean>(false);
   const [rolUsuario, setRolUsuario] = useState<string>('');
 
-  // 📱 Estado de la ubicación del celular del usuario
+  // 📱 Ubicación del teléfono/navegador
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const rolDetectado = (
@@ -109,7 +109,7 @@ export default function MapaScreen() {
   const currentLat = tieneCoordenadasValidas ? parsearCoord(rawLat)! : DEFAULT_LAT;
   const currentLng = tieneCoordenadasValidas ? parsearCoord(rawLng)! : DEFAULT_LNG;
 
-  // 🗺️ Enfoque dinámico para Web
+  // 🗺️ Enfoque dinámico para entorno Web
   const [vistaWeb, setVistaWeb] = useState({
     lat: currentLat,
     lng: currentLng,
@@ -117,7 +117,7 @@ export default function MapaScreen() {
     key: Date.now(),
   });
 
-  // 🔄 Actualizar el visor web al recibir las coordenadas del GPS del paciente
+  // 🔄 Actualizar el visor web si cambian las coordenadas reportadas por el GPS
   useEffect(() => {
     if (tieneCoordenadasValidas) {
       setVistaWeb((prev) => ({
@@ -129,12 +129,41 @@ export default function MapaScreen() {
     }
   }, [currentLat, currentLng, tieneCoordenadasValidas]);
 
-  // 📍 1. Solicitar permisos y monitorear ubicación del usuario
+  // 📍 1. Monitoreo de ubicación seguro en ambas plataformas
   useEffect(() => {
-    let locationSubscription: Location.LocationSubscription | null = null;
+    let locationSubscription: any = null;
+    let webWatchId: number | null = null;
 
     (async () => {
       try {
+        if (Platform.OS === 'web') {
+          if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                setUserLocation({
+                  lat: pos.coords.latitude,
+                  lng: pos.coords.longitude,
+                });
+              },
+              (err) => console.log('ℹ️ Ubicación de navegador no disponible:', err),
+              { enableHighAccuracy: true }
+            );
+
+            webWatchId = navigator.geolocation.watchPosition(
+              (pos) => {
+                setUserLocation({
+                  lat: pos.coords.latitude,
+                  lng: pos.coords.longitude,
+                });
+              },
+              (err) => console.log('ℹ️ Error en watchPosition web:', err),
+              { enableHighAccuracy: true }
+            );
+          }
+          return;
+        }
+
+        // Móvil nativo
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
           const initialPos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -158,12 +187,22 @@ export default function MapaScreen() {
           );
         }
       } catch (err) {
-        console.log('ℹ️ Permisos de ubicación o GPS de teléfono omitido:', err);
+        console.log('ℹ️ Permisos de ubicación o GPS omitido:', err);
       }
     })();
 
     return () => {
-      locationSubscription?.remove();
+      if (Platform.OS === 'web') {
+        if (webWatchId !== null && typeof window !== 'undefined' && 'geolocation' in navigator) {
+          navigator.geolocation.clearWatch(webWatchId);
+        }
+      } else if (locationSubscription) {
+        try {
+          if (typeof locationSubscription.remove === 'function') {
+            locationSubscription.remove();
+          }
+        } catch {}
+      }
     };
   }, []);
 
@@ -267,7 +306,7 @@ export default function MapaScreen() {
     }
   };
 
-  // 🎯 Funciones de centrado para Móvil y Web
+  // 🎯 Recentrar en el Paciente
   const centrarEnPaciente = () => {
     if (Platform.OS === 'web') {
       setVistaWeb({
@@ -289,6 +328,7 @@ export default function MapaScreen() {
     }
   };
 
+  // 🎯 Encuadre Dual: Paciente y Celular al mismo tiempo
   const centrarAmbosPuntos = () => {
     if (Platform.OS === 'web') {
       if (userLocation && tieneCoordenadasValidas) {
@@ -296,7 +336,7 @@ export default function MapaScreen() {
         const centroLng = (currentLng + userLocation.lng) / 2;
         const distLat = Math.abs(currentLat - userLocation.lat);
         const distLng = Math.abs(currentLng - userLocation.lng);
-        const margen = Math.max(distLat, distLng) * 1.4 || 0.03;
+        const margen = Math.max(distLat, distLng) * 1.5 || 0.03;
 
         setVistaWeb({
           lat: centroLat,
@@ -369,7 +409,7 @@ export default function MapaScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cacao} />
-      
+
       {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
@@ -392,12 +432,13 @@ export default function MapaScreen() {
         <View style={styles.mapContainer}>
           {Platform.OS === 'web' ? (
             <iframe
+              key={vistaWeb.key}
               title="Mapa Web Paciente"
               width="100%"
               height="100%"
-              style={{ border: 0, borderRadius: 12 }}
+              style={{ border: 0, width: '100%', height: '100%' }}
               loading="lazy"
-              src={`https://www.openstreetmap.org/export/embed.html?bbox=${currentLng - 0.008}%2C${currentLat - 0.008}%2C${currentLng + 0.008}%2C${currentLat + 0.008}&layer=mapnik&marker=${currentLat}%2C${currentLng}`}
+              src={`https://www.openstreetmap.org/export/embed.html?bbox=${vistaWeb.lng - vistaWeb.delta}%2C${vistaWeb.lat - vistaWeb.delta}%2C${vistaWeb.lng + vistaWeb.delta}%2C${vistaWeb.lat + vistaWeb.delta}&layer=mapnik&marker=${currentLat}%2C${currentLng}`}
             />
           ) : (
             <MapView
@@ -418,27 +459,28 @@ export default function MapaScreen() {
                   latitude: currentLat,
                   longitude: currentLng,
                 }}
-                title={paciente?.nombre_completo ?? "Paciente"}
+                title={paciente?.nombre_completo ?? 'Paciente'}
                 description={`Batería: ${ubicacion?.bateria_pct ?? 0}%`}
               />
 
-              {Array.isArray(geocercas) && geocercas.map((g, idx) => {
-                if (!g || !g.activa) return null;
-                const gLat = parsearCoord(g.lat ?? g.latitud);
-                const gLng = parsearCoord(g.lng ?? g.longitud);
-                if (gLat === null || gLng === null || !esValida(gLat, gLng)) return null;
+              {Array.isArray(geocercas) &&
+                geocercas.map((g, idx) => {
+                  if (!g || !g.activa) return null;
+                  const gLat = parsearCoord(g.lat ?? g.latitud);
+                  const gLng = parsearCoord(g.lng ?? g.longitud);
+                  if (gLat === null || gLng === null || !esValida(gLat, gLng)) return null;
 
-                return (
-                  <Circle
-                    key={g.id ? String(g.id) : `geo-${idx}`}
-                    center={{ latitude: gLat, longitude: gLng }}
-                    radius={Number(g.radio_metros) || 30}
-                    strokeColor="rgba(191,154,64,0.8)"
-                    fillColor="rgba(191,154,64,0.1)"
-                    strokeWidth={2}
-                  />
-                );
-              })}
+                  return (
+                    <Circle
+                      key={g.id ? String(g.id) : `geo-${idx}`}
+                      center={{ latitude: gLat, longitude: gLng }}
+                      radius={Number(g.radio_metros) || 30}
+                      strokeColor="rgba(191,154,64,0.8)"
+                      fillColor="rgba(191,154,64,0.1)"
+                      strokeWidth={2}
+                    />
+                  );
+                })}
             </MapView>
           )}
         </View>
@@ -446,14 +488,16 @@ export default function MapaScreen() {
         <View style={styles.sinUbicacion}>
           <Text style={styles.sinUbicacionIcon}>📍</Text>
           <Text style={styles.sinUbicacionTitle}>Sin ubicación disponible</Text>
-          <Text style={styles.sinUbicacionText}>El dispositivo GPS de {paciente?.nombre_completo || 'este paciente'} no está enviando señal válida en este momento.</Text>
+          <Text style={styles.sinUbicacionText}>
+            El dispositivo GPS de {paciente?.nombre_completo || 'este paciente'} no está enviando señal válida en este momento.
+          </Text>
         </View>
       )}
 
       {/* INFO CARD CON DETECCIÓN DE DISTANCIA */}
       {tieneCoordenadasValidas && (
-        <ScrollView 
-          style={styles.infoCard} 
+        <ScrollView
+          style={styles.infoCard}
           contentContainerStyle={styles.infoCardContent}
           showsVerticalScrollIndicator={false}
           bounces={false}
@@ -472,14 +516,16 @@ export default function MapaScreen() {
             <Text style={styles.infoLabel}>Dispositivo</Text>
             <Text style={styles.infoVal}>{ubicacion?.modelo ?? ubicacion?.device_id ?? 'ReachFar GPS'}</Text>
           </View>
-          
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Última actualización</Text>
             <Text style={styles.infoVal}>
               {ubicacion?.ultima_conexion
                 ? new Date(ubicacion.ultima_conexion).toLocaleString('es-MX', {
-                    day: 'numeric', month: 'short',
-                    hour: '2-digit', minute: '2-digit'
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
                   })
                 : '—'}
             </Text>
@@ -493,9 +539,10 @@ export default function MapaScreen() {
             let diffMinutos = 0;
             if (ultimaConexionStr) {
               try {
-                const fechaNorm = String(ultimaConexionStr).includes('Z') || String(ultimaConexionStr).includes('+')
-                  ? String(ultimaConexionStr)
-                  : `${String(ultimaConexionStr).replace(' ', 'T')}Z`;
+                const fechaNorm =
+                  String(ultimaConexionStr).includes('Z') || String(ultimaConexionStr).includes('+')
+                    ? String(ultimaConexionStr)
+                    : `${String(ultimaConexionStr).replace(' ', 'T')}Z`;
                 diffMinutos = Math.floor((new Date().getTime() - new Date(fechaNorm).getTime()) / (1000 * 60));
               } catch {
                 diffMinutos = 0;
@@ -515,9 +562,10 @@ export default function MapaScreen() {
               colorBateria = COLORS?.red ?? '#DC2626';
               iconoBateria = '⚠️';
             } else if (estaFueraDeLinea) {
-              const tiempoTexto = diffMinutos > 60 
-                ? `${Math.floor(diffMinutos / 60)}h ${diffMinutos % 60}m` 
-                : `${diffMinutos}m`;
+              const tiempoTexto =
+                diffMinutos > 60
+                  ? `${Math.floor(diffMinutos / 60)}h ${diffMinutos % 60}m`
+                  : `${diffMinutos}m`;
               textoBateria = `${bat}% (Fuera de línea hace ${tiempoTexto})`;
               colorBateria = '#D97706';
               iconoBateria = '📡';
@@ -531,21 +579,33 @@ export default function MapaScreen() {
                 <Text style={styles.infoLabel}>Batería</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   {iconoBateria && <Text style={{ fontSize: 13 }}>{iconoBateria}</Text>}
-                  <Text style={[styles.infoVal, { color: colorBateria, fontWeight: esAgotada || estaFueraDeLinea ? '800' : '600' }]}>
+                  <Text
+                    style={[
+                      styles.infoVal,
+                      { color: colorBateria, fontWeight: esAgotada || estaFueraDeLinea ? '800' : '600' },
+                    ]}
+                  >
                     {textoBateria}
                   </Text>
                 </View>
               </View>
             );
           })()}
-          
+
           {/* BOTÓN DE EMERGENCIA */}
           {paciente?.id && (
             <BotonEmergenciaGPS
               pacienteId={paciente.id}
               onPosicionFijada={(coords: { lat: number; lng: number }) => {
                 setUbicacion((prev: any) => ({ ...prev, lat: coords.lat, lng: coords.lng }));
-                if (Platform.OS !== 'web' && typeof mapRef.current?.animateToRegion === 'function') {
+                if (Platform.OS === 'web') {
+                  setVistaWeb({
+                    lat: coords.lat,
+                    lng: coords.lng,
+                    delta: 0.006,
+                    key: Date.now(),
+                  });
+                } else if (typeof mapRef.current?.animateToRegion === 'function') {
                   mapRef.current.animateToRegion({
                     latitude: coords.lat,
                     longitude: coords.lng,
@@ -556,7 +616,8 @@ export default function MapaScreen() {
               }}
             />
           )}
-           {/* 🧭 BOTÓN RUTA DE RESCATE / CÓMO LLEGAR */}
+
+          {/* 🧭 BOTÓN RUTA DE RESCATE / CÓMO LLEGAR */}
           <TouchableOpacity
             activeOpacity={0.8}
             style={styles.btnRescate}
@@ -566,13 +627,14 @@ export default function MapaScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.btnRescateTitle}>Cómo llegar al paciente</Text>
               <Text style={styles.btnRescateSub}>
-                {distanciaMetros !== null 
+                {distanciaMetros !== null
                   ? `Ruta turn-by-turn • A ${distanciaMetros < 1000 ? `${distanciaMetros}m` : `${(distanciaMetros / 1000).toFixed(2)}km`}`
                   : 'Navegación guiada con tráfico en vivo'}
               </Text>
             </View>
             <Text style={styles.btnRescateArrow}>➔</Text>
           </TouchableOpacity>
+
           {/* BOTONES DE CENTRADO */}
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
             <TouchableOpacity
@@ -589,7 +651,7 @@ export default function MapaScreen() {
               <Text style={styles.centrarBtnText}>🔍 Ver Ambos</Text>
             </TouchableOpacity>
           </View>
-           
+
           <Text style={[styles.infoLabel, { marginTop: 16, marginBottom: 8 }]}>Zona segura</Text>
 
           {geocercas.length === 0 ? (
@@ -604,7 +666,7 @@ export default function MapaScreen() {
                       { text: '24m (casa)', onPress: async () => await crearYCargar(24) },
                       { text: '30m (jardín/patio)', onPress: async () => await crearYCargar(30) },
                       { text: '40m (condominio)', onPress: async () => await crearYCargar(40) },
-                      { text: 'Cancelar', style: 'cancel' }
+                      { text: 'Cancelar', style: 'cancel' },
                     ]
                   );
                 }}
@@ -618,20 +680,20 @@ export default function MapaScreen() {
             )
           ) : (
             geocercas.map((g) => (
-              <View 
-                key={g.id} 
-                style={{ 
-                  flexDirection: 'row', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center', 
-                  marginBottom: 8, 
-                  marginTop: 4 
+              <View
+                key={g.id}
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: 8,
+                  marginTop: 4,
                 }}
               >
                 <Text style={styles.infoVal}>
                   📍 {g.nombre} — {g.radio_metros}m {g.activa ? '(Activa)' : '(Apagada)'}
                 </Text>
-                
+
                 {esFamiliarOAdmin && (
                   <TouchableOpacity
                     style={{ backgroundColor: '#FDEAEA', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}
@@ -639,18 +701,18 @@ export default function MapaScreen() {
                       Alert.alert('Eliminar zona', '¿Eliminar esta zona segura?', [
                         { text: 'Cancelar', style: 'cancel' },
                         {
-                          text: 'Eliminar', 
-                          style: 'destructive', 
+                          text: 'Eliminar',
+                          style: 'destructive',
                           onPress: async () => {
                             try {
                               await eliminarGeocerca(g.id);
                               const data = await getGeocercas(paciente.id);
-                              if (data.geocercas) setGeocercas(data.geocercas);
+                              if (data?.geocercas) setGeocercas(data.geocercas);
                             } catch (err) {
                               console.error('Error al eliminar geocerca:', err);
                             }
-                          }
-                        }
+                          },
+                        },
                       ]);
                     }}
                   >
@@ -669,17 +731,18 @@ export default function MapaScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: COLORS.cream 
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.cream,
   },
   mapContainer: {
     flex: 1,
     width: '100%',
-    backgroundColor: COLORS.cream, 
+    backgroundColor: COLORS.cream,
+    overflow: 'hidden',
   },
-  mapa: { 
-    ...StyleSheet.absoluteFillObject 
+  mapa: {
+    ...StyleSheet.absoluteFillObject,
   },
   header: {
     backgroundColor: COLORS.cacao,
@@ -692,85 +755,85 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#3A3530',
   },
-  greeting: { 
-    fontSize: 10, 
-    fontWeight: '800', 
-    letterSpacing: 1, 
-    textTransform: 'uppercase', 
-    color: COLORS.gold, 
-    marginBottom: 2 
+  greeting: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: COLORS.gold,
+    marginBottom: 2,
   },
-  userName: { 
-    fontSize: 18, 
-    fontWeight: '800', 
-    color: COLORS.white 
-  },
-  backBtn: { 
-    width: 36, 
-    height: 36, 
-    borderRadius: 18, 
-    backgroundColor: 'rgba(255,255,255,0.1)', 
-    alignItems: 'center', 
-    justifyContent: 'center',
-    marginRight: 10 
-  },
-  backIcon: { 
-    fontSize: 18, 
+  userName: {
+    fontSize: 18,
+    fontWeight: '800',
     color: COLORS.white,
-    fontWeight: 'bold' 
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  backIcon: {
+    fontSize: 18,
+    color: COLORS.white,
+    fontWeight: 'bold',
   },
   activoPill: {
-    flexDirection: 'row', 
-    alignItems: 'center', 
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 5,
-    backgroundColor: COLORS.greenPale, 
+    backgroundColor: COLORS.greenPale,
     borderRadius: 20,
-    paddingHorizontal: 10, 
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderWidth: 1, 
+    borderWidth: 1,
     borderColor: COLORS.green + '40',
   },
-  activoDot: { 
-    width: 6, 
-    height: 6, 
-    borderRadius: 3, 
-    backgroundColor: COLORS.green 
+  activoDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.green,
   },
-  activoText: { 
-    fontSize: 9, 
-    fontWeight: '800', 
+  activoText: {
+    fontSize: 9,
+    fontWeight: '800',
     color: COLORS.green,
-    letterSpacing: 0.5 
+    letterSpacing: 0.5,
   },
-  sinUbicacion: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    padding: 32 
+  sinUbicacion: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
   },
-  sinUbicacionIcon: { 
-    fontSize: 48, 
-    marginBottom: 16 
+  sinUbicacionIcon: {
+    fontSize: 48,
+    marginBottom: 16,
   },
-  sinUbicacionTitle: { 
-    fontSize: 15, 
-    fontWeight: '800', 
-    color: COLORS.cacao, 
+  sinUbicacionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.cacao,
     marginBottom: 6,
-    textTransform: 'uppercase' 
+    textTransform: 'uppercase',
   },
-  sinUbicacionText: { 
-    fontSize: 12, 
-    color: COLORS.textLight, 
+  sinUbicacionText: {
+    fontSize: 12,
+    color: COLORS.textLight,
     textAlign: 'center',
-    lineHeight: 18 
+    lineHeight: 18,
   },
   infoCard: {
-    backgroundColor: COLORS.white, 
+    backgroundColor: COLORS.white,
     maxHeight: 320,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    borderTopWidth: 1, 
+    borderTopWidth: 1,
     borderTopColor: COLORS.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
@@ -783,30 +846,30 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: Platform.OS === 'android' ? 40 : 20,
   },
-  infoRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8, 
-    borderBottomWidth: 1, 
-    borderBottomColor: COLORS.border 
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
-  infoLabel: { 
-    fontSize: 11, 
-    color: COLORS.textLight, 
+  infoLabel: {
+    fontSize: 11,
+    color: COLORS.textLight,
     fontWeight: '700',
-    textTransform: 'uppercase' 
+    textTransform: 'uppercase',
   },
-  infoVal: { 
-    fontSize: 12, 
-    color: COLORS.textDark, 
-    fontWeight: '800' 
+  infoVal: {
+    fontSize: 12,
+    color: COLORS.textDark,
+    fontWeight: '800',
   },
   centrarBtn: {
-    backgroundColor: COLORS.cacao, 
-    borderRadius: 12, 
+    backgroundColor: COLORS.cacao,
+    borderRadius: 12,
     paddingVertical: 14,
-    alignItems: 'center', 
+    alignItems: 'center',
     shadowColor: COLORS.cacao,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -814,10 +877,10 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   zonaSeguraBtn: {
-    backgroundColor: COLORS.gold, 
-    borderRadius: 12, 
+    backgroundColor: COLORS.gold,
+    borderRadius: 12,
     paddingVertical: 14,
-    alignItems: 'center', 
+    alignItems: 'center',
     marginTop: 8,
     shadowColor: COLORS.gold,
     shadowOffset: { width: 0, height: 2 },
@@ -825,11 +888,11 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  centrarBtnText: { 
-    fontSize: 13, 
-    fontWeight: '800', 
+  centrarBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
     color: COLORS.white,
-    letterSpacing: 0.5 
+    letterSpacing: 0.5,
   },
   btnRescate: {
     backgroundColor: COLORS.cacao,
