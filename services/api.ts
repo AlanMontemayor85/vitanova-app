@@ -149,8 +149,27 @@ const headers = () => ({
 
 });
 
-// Cerrojo para evitar que múltiples llamadas simultáneas purguen en cascada
+// Cerrojo y promesa compartida para evitar lecturas concurrentes de disco
+let tokenPromise: Promise<string | null> | null = null;
 let isPurging = false;
+
+const asegurarToken = async (): Promise<string | null> => {
+  if (authToken) return authToken;
+
+  // Si ya hay una lectura de disco/localStorage en curso, unirse a ella
+  if (!tokenPromise) {
+    tokenPromise = (async () => {
+      try {
+        const token = await loadStoredToken();
+        authToken = token;
+        return token;
+      } finally {
+        tokenPromise = null;
+      }
+    })();
+  }
+  return await tokenPromise;
+};
 
 export const fetchWithAuth = async (
   url: string,
@@ -158,55 +177,63 @@ export const fetchWithAuth = async (
   reintentado: boolean = false
 ): Promise<Response> => {
   try {
-    if (!authToken) {
-      await loadStoredToken();
+    // 🔒 1. Espera atómica: Todas las peticiones esperan a que el token exista
+    const tokenValido = await asegurarToken();
+
+    // 🔒 2. Si es una ruta protegida y no hay token en absoluto, no enviar a Railway para no recibir 401 falso
+    if (!tokenValido && !url.includes('/auth/login') && !url.includes('/auth/registro')) {
+      console.warn(`⚠️ [AUTH] Petición omitida a ${url} porque no hay token cargado.`);
+      throw new Error('NO_TOKEN');
     }
+
+    const customHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(tokenValido ? { Authorization: `Bearer ${tokenValido}` } : {}),
+      ...((options.headers as Record<string, string>) ?? {}),
+    };
 
     const res = await fetch(url, {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-        ...((options.headers as any) ?? {}),
-      },
+      headers: customHeaders,
     });
 
-    // 1. Reintento único si falla con 401
+    // 3. Reintento único si falla con 401 solo si el token en disco cambió (renovación)
     if (res.status === 401 && !reintentado) {
-      console.log("🔄 [AUTH] 401 recibido. Recargando token de disco para reintento...");
-      const tokenDisco = await loadStoredToken();
-      if (tokenDisco) {
+      console.log('🔄 [AUTH] 401 recibido. Verificando si hay token actualizado en disco...');
+      const tokenFresco = await loadStoredToken();
+
+      if (tokenFresco && tokenFresco !== tokenValido) {
+        authToken = tokenFresco;
         return await fetchWithAuth(url, options, true);
       }
     }
 
-    // 2. Expulsión controlada con cerrojo (se ejecuta UNA SOLA VEZ)
+    // 4. Expulsión por 401 real confirmado
     if (res.status === 401) {
       if (!isPurging) {
         isPurging = true;
-        console.warn("🚨 [SESIÓN CAÍDA] 401 confirmado. Redirigiendo a login...");
-        
+        console.warn('🚨 [SESIÓN CAÍDA] 401 confirmado por Railway. Redirigiendo a login...');
+
         await clearToken();
-        
+
         if (onSessionExpiredCallback) {
           onSessionExpiredCallback();
         }
 
-        // Liberar el cerrojo tras completar la transición de pantalla
         setTimeout(() => {
           isPurging = false;
-        }, 3000);
+        }, 4000);
       }
       throw new Error('UNAUTHORIZED');
     }
 
     return res;
   } catch (error: any) {
-    if (error.message === 'UNAUTHORIZED') {
+    if (error.message === 'UNAUTHORIZED' || error.message === 'NO_TOKEN') {
       throw error;
     }
 
-    console.log("⚠️ [OFFLINE / RED] Servidor inalcanzable temporalmente:", error?.message || error);
+    console.log('⚠️ [OFFLINE / RED] Fallo en la comunicación:', error?.message || error);
     throw error;
   }
 };
