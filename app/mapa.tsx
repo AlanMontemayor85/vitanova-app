@@ -1,9 +1,27 @@
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { crearGeocerca, eliminarGeocerca, getGeocercas, getPacientes, getUbicacion, loadStoredToken } from '../services/api';
+import {
+  crearGeocerca,
+  eliminarGeocerca,
+  getGeocercas,
+  getPacientes,
+  getUbicacion,
+  loadStoredToken,
+} from '../services/api';
 import { BotonEmergenciaGPS } from './components/BotonEmergenciaGPS';
 
 const COLORS = {
@@ -48,7 +66,7 @@ export default function MapaScreen() {
   const [geocercas, setGeocercas] = useState<any[]>([]);
   const [solicitandoGps, setSolicitandoGps] = useState<boolean>(false);
   const [rolUsuario, setRolUsuario] = useState<string>('');
-  
+
   // 📱 Estado de la ubicación del celular del usuario
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
@@ -91,7 +109,27 @@ export default function MapaScreen() {
   const currentLat = tieneCoordenadasValidas ? parsearCoord(rawLat)! : DEFAULT_LAT;
   const currentLng = tieneCoordenadasValidas ? parsearCoord(rawLng)! : DEFAULT_LNG;
 
-  // 📍 1. Solicitar permisos y monitorear la ubicación del celular en tiempo real
+  // 🗺️ Enfoque dinámico para Web
+  const [vistaWeb, setVistaWeb] = useState({
+    lat: currentLat,
+    lng: currentLng,
+    delta: 0.008,
+    key: Date.now(),
+  });
+
+  // 🔄 Actualizar el visor web al recibir las coordenadas del GPS del paciente
+  useEffect(() => {
+    if (tieneCoordenadasValidas) {
+      setVistaWeb((prev) => ({
+        ...prev,
+        lat: currentLat,
+        lng: currentLng,
+        key: Date.now(),
+      }));
+    }
+  }, [currentLat, currentLng, tieneCoordenadasValidas]);
+
+  // 📍 1. Solicitar permisos y monitorear ubicación del usuario
   useEffect(() => {
     let locationSubscription: Location.LocationSubscription | null = null;
 
@@ -146,7 +184,7 @@ export default function MapaScreen() {
           const p = pacienteIdParam
             ? data.patients.find((x: any) => x.id === pacienteIdParam) || data.patients[0]
             : data.patients[0];
-          
+
           setPaciente(p);
 
           if (p.mi_rol || p.rol || p.tipo_usuario) {
@@ -155,12 +193,12 @@ export default function MapaScreen() {
 
           const ubData = await getUbicacion(p.id);
           if (ubData.ubicacion) setUbicacion(ubData.ubicacion);
-          
+
           const geocercaData = await getGeocercas(p.id);
           if (geocercaData.geocercas) setGeocercas(geocercaData.geocercas);
         }
       } catch (e) {
-        console.error("❌ Error en la carga inicial del mapa:", e);
+        console.error('❌ Error en la carga inicial del mapa:', e);
       } finally {
         setLoading(false);
       }
@@ -180,16 +218,17 @@ export default function MapaScreen() {
           setUbicacion(ubData.ubicacion);
         }
       } catch (e) {
-        console.log("ℹ️ Error al actualizar ubicación en segundo plano:", e);
+        console.log('ℹ️ Error al actualizar ubicación en segundo plano:', e);
       }
     }, 30000);
 
     return () => clearInterval(interval);
   }, [paciente?.id]);
 
-  const distanciaMetros = (tieneCoordenadasValidas && userLocation)
-    ? calcularDistanciaMetros(userLocation.lat, userLocation.lng, currentLat, currentLng)
-    : null;
+  const distanciaMetros =
+    tieneCoordenadasValidas && userLocation
+      ? calcularDistanciaMetros(userLocation.lat, userLocation.lng, currentLat, currentLng)
+      : null;
 
   const crearYCargar = async (radio: number) => {
     if (!tieneCoordenadasValidas) {
@@ -206,13 +245,13 @@ export default function MapaScreen() {
       Alert.alert('Acceso Restringido', 'Solo el familiar titular puede configurar la zona segura.');
       return;
     }
-    
+
     try {
       await crearGeocerca({
         paciente_id: paciente.id,
         nombre: 'Casa',
         lat: currentLat,
-        lng: currentLng, 
+        lng: currentLng,
         radio_metros: radio,
       });
 
@@ -223,14 +262,51 @@ export default function MapaScreen() {
 
       Alert.alert('Zona segura activada', `Se delimitó el perímetro de ${radio}m para ${paciente.nombre_completo || 'el paciente'}.`);
     } catch (e: any) {
-      console.error("❌ Error al crear geocerca:", e);
+      console.error('❌ Error al crear geocerca:', e);
       Alert.alert('Error', e?.message || 'No se pudo guardar la zona segura en el servidor.');
+    }
+  };
+
+  // 🎯 Funciones de centrado para Móvil y Web
+  const centrarEnPaciente = () => {
+    if (Platform.OS === 'web') {
+      setVistaWeb({
+        lat: currentLat,
+        lng: currentLng,
+        delta: 0.008,
+        key: Date.now(),
+      });
+      return;
+    }
+
+    if (typeof mapRef.current?.animateToRegion === 'function') {
+      mapRef.current.animateToRegion({
+        latitude: currentLat,
+        longitude: currentLng,
+        latitudeDelta: 0.008,
+        longitudeDelta: 0.008,
+      });
     }
   };
 
   const centrarAmbosPuntos = () => {
     if (Platform.OS === 'web') {
-      console.log('📍 [MAPA WEB] Centrado de ambos puntos omitido en navegador.');
+      if (userLocation && tieneCoordenadasValidas) {
+        const centroLat = (currentLat + userLocation.lat) / 2;
+        const centroLng = (currentLng + userLocation.lng) / 2;
+        const distLat = Math.abs(currentLat - userLocation.lat);
+        const distLng = Math.abs(currentLng - userLocation.lng);
+        const margen = Math.max(distLat, distLng) * 1.4 || 0.03;
+
+        setVistaWeb({
+          lat: centroLat,
+          lng: centroLng,
+          delta: margen,
+          key: Date.now(),
+        });
+      } else {
+        centrarEnPaciente();
+      }
       return;
     }
 
@@ -256,17 +332,18 @@ export default function MapaScreen() {
       });
     }
   };
-const abrirNavegacionRescate = async () => {
+
+  const abrirNavegacionRescate = async () => {
     if (!tieneCoordenadasValidas) {
       Alert.alert('Sin coordenadas', 'No hay una posición GPS válida del paciente para trazar la ruta.');
       return;
     }
 
-    // w = walking (a pie), d = driving (en vehículo)
-    const url = Platform.select({
-      ios: `maps://app?daddr=${currentLat},${currentLng}&dirflg=d`,
-      android: `google.navigation:q=${currentLat},${currentLng}&mode=d`,
-    }) || `https://www.google.com/maps/dir/?api=1&destination=${currentLat},${currentLng}`;
+    const url =
+      Platform.select({
+        ios: `maps://app?daddr=${currentLat},${currentLng}&dirflg=d`,
+        android: `google.navigation:q=${currentLat},${currentLng}&mode=d`,
+      }) || `https://www.google.com/maps/dir/?api=1&destination=${currentLat},${currentLng}`;
 
     try {
       const soportado = await Linking.canOpenURL(url);
@@ -280,6 +357,7 @@ const abrirNavegacionRescate = async () => {
       Alert.alert('Error', 'No se pudo abrir la aplicación de mapas instalada en el dispositivo.');
     }
   };
+
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.cream }}>
@@ -312,52 +390,57 @@ const abrirNavegacionRescate = async () => {
       {/* CUADRANTE DEL MAPA */}
       {tieneCoordenadasValidas ? (
         <View style={styles.mapContainer}>
-          <MapView
-            ref={mapRef}
-            style={styles.mapa}
-            provider={PROVIDER_GOOGLE}
-            showsUserLocation={true}          // 🔵 Punto azul nativo de tu celular
-            showsMyLocationButton={true}      // 🎯 Botón nativo para centrar en tu celular
-            region={{
-              latitude: currentLat,
-              longitude: currentLng,
-              latitudeDelta: 0.0122,
-              longitudeDelta: 0.0121,
-            }}
-          >
-            {/* 📍 Marcador del paciente / reloj */}
-            <Marker
-              coordinate={{ 
-                latitude: currentLat, 
-                longitude: currentLng 
-              }}
-              title={paciente?.nombre_completo ?? "Paciente"}
-              description={`Batería: ${ubicacion?.bateria_pct ?? 0}%`}
+          {Platform.OS === 'web' ? (
+            <iframe
+              title="Mapa Web Paciente"
+              width="100%"
+              height="100%"
+              style={{ border: 0, borderRadius: 12 }}
+              loading="lazy"
+              src={`https://www.openstreetmap.org/export/embed.html?bbox=${currentLng - 0.008}%2C${currentLat - 0.008}%2C${currentLng + 0.008}%2C${currentLat + 0.008}&layer=mapnik&marker=${currentLat}%2C${currentLng}`}
             />
+          ) : (
+            <MapView
+              ref={mapRef}
+              style={styles.mapa}
+              provider={PROVIDER_GOOGLE}
+              showsUserLocation={true}
+              showsMyLocationButton={true}
+              region={{
+                latitude: currentLat,
+                longitude: currentLng,
+                latitudeDelta: 0.0122,
+                longitudeDelta: 0.0121,
+              }}
+            >
+              <Marker
+                coordinate={{
+                  latitude: currentLat,
+                  longitude: currentLng,
+                }}
+                title={paciente?.nombre_completo ?? "Paciente"}
+                description={`Batería: ${ubicacion?.bateria_pct ?? 0}%`}
+              />
 
-            {Array.isArray(geocercas) && geocercas.map((g, idx) => {
-              if (!g || !g.activa) return null;
-              
-              const gLat = parsearCoord(g.lat ?? g.latitud);
-              const gLng = parsearCoord(g.lng ?? g.longitud);
+              {Array.isArray(geocercas) && geocercas.map((g, idx) => {
+                if (!g || !g.activa) return null;
+                const gLat = parsearCoord(g.lat ?? g.latitud);
+                const gLng = parsearCoord(g.lng ?? g.longitud);
+                if (gLat === null || gLng === null || !esValida(gLat, gLng)) return null;
 
-              if (gLat === null || gLng === null || !esValida(gLat, gLng)) return null;
-
-              return (
-                <Circle
-                  key={g.id ? String(g.id) : `geo-${idx}`}
-                  center={{ 
-                    latitude: gLat, 
-                    longitude: gLng 
-                  }}
-                  radius={Number(g.radio_metros) || 30}
-                  strokeColor="rgba(191,154,64,0.8)"
-                  fillColor="rgba(191,154,64,0.1)"
-                  strokeWidth={2}
-                />
-              );
-            })}
-          </MapView>
+                return (
+                  <Circle
+                    key={g.id ? String(g.id) : `geo-${idx}`}
+                    center={{ latitude: gLat, longitude: gLng }}
+                    radius={Number(g.radio_metros) || 30}
+                    strokeColor="rgba(191,154,64,0.8)"
+                    fillColor="rgba(191,154,64,0.1)"
+                    strokeWidth={2}
+                  />
+                );
+              })}
+            </MapView>
+          )}
         </View>
       ) : (
         <View style={styles.sinUbicacion}>
@@ -494,18 +577,7 @@ const abrirNavegacionRescate = async () => {
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
             <TouchableOpacity
               style={[styles.centrarBtn, { flex: 1, marginTop: 0 }]}
-              onPress={() => {
-                if (Platform.OS !== 'web' && typeof mapRef.current?.animateToRegion === 'function') {
-                  mapRef.current.animateToRegion({
-                    latitude: currentLat,
-                    longitude: currentLng,
-                    latitudeDelta: 0.008,
-                    longitudeDelta: 0.008,
-                  });
-                } else {
-                  console.log('📍 [MAPA WEB] Centrado a paciente:', { lat: currentLat, lng: currentLng });
-                }
-              }}
+              onPress={centrarEnPaciente}
             >
               <Text style={styles.centrarBtnText}>📍 Paciente</Text>
             </TouchableOpacity>
