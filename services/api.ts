@@ -73,95 +73,72 @@ export const removeStorageItem = async (key: string): Promise<void> => {
 
 
 export const setToken = async (token: string) => {
-
   authToken = token;
-
   try {
-
-    if (SecureStore) {
-
+    if (Platform.OS === 'web') {
+      window.localStorage.setItem('vitanova_token', token);
+    } else if (SecureStore) {
       await SecureStore.setItemAsync('vitanova_token', token);
-
+    } else if (AsyncStorage) {
+      await AsyncStorage.setItem('vitanova_token', token);
     }
-
   } catch (err) {
-
-    console.warn('Error guardando token en SecureStore:', err);
-
+    console.warn('Error guardando token:', err);
   }
-
 };
 
-
-
 export const getToken = () => authToken;
-
 export const getUserNombre = () => userNombre;
-
 export const getUserTipo = () => userTipo;
 
-
-
 export const loadStoredToken = async () => {
-
   try {
-
-    if (SecureStore) {
-
-      const token = await SecureStore.getItemAsync('vitanova_token');
-
+    if (Platform.OS === 'web') {
+      const token = window.localStorage.getItem('vitanova_token');
       if (token) authToken = token;
-
       return token;
-
     }
-
+    if (SecureStore) {
+      const token = await SecureStore.getItemAsync('vitanova_token');
+      if (token) authToken = token;
+      return token;
+    }
+    if (AsyncStorage) {
+      const token = await AsyncStorage.getItem('vitanova_token');
+      if (token) authToken = token;
+      return token;
+    }
     return null;
-
   } catch {
-
     return null;
-
   }
-
 };
 
 export const registerOnSessionExpired = (callback: () => void) => {
-
   onSessionExpiredCallback = callback;
-
 };
 
 export const clearToken = async () => {
-
   authToken = null;
-
   userNombre = null;
-
   userTipo = null;
 
- 
-
   try {
-
-    if (SecureStore) await SecureStore.deleteItemAsync('vitanova_token');
-
-    if (AsyncStorage) {
-
-      await AsyncStorage.removeItem('usuario_tipo');
-
-      await AsyncStorage.removeItem('usuario_rol');
-
+    if (Platform.OS === 'web') {
+      window.localStorage.removeItem('vitanova_token');
+    } else if (SecureStore) {
+      await SecureStore.deleteItemAsync('vitanova_token');
     }
 
+    if (AsyncStorage) {
+      await AsyncStorage.removeItem('usuario_tipo');
+      await AsyncStorage.removeItem('usuario_rol');
+      await AsyncStorage.removeItem('rol_activo');
+    }
     console.log("🧼 Sesión e identidades completamente purgadas del dispositivo.");
-
   } catch (error) {
-
     console.error("Error al purgar el almacenamiento local:", error);
-
   }
-
 };
 
 const headers = () => ({
