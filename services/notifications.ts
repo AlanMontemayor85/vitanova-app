@@ -5,17 +5,21 @@ import { registrarPushToken } from './api';
 
 let pushYaRegistrado = false;
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => 
-    ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-    } as any),
-});
+// 🛑 Solo configurar el handler en plataformas móviles nativas
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => 
+      ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+      } as any),
+  });
+}
 
 export async function registrarNotificaciones() {
-  if (pushYaRegistrado) return null;
+  // 🛑 Salida inmediata en entorno web
+  if (Platform.OS === 'web' || pushYaRegistrado) return null;
 
   try {
     if (!Device.isDevice) {
@@ -76,6 +80,9 @@ export async function programarNotificacionTarea(
   horaString: string,
   nombrePaciente?: string // 👈 Agregamos el nombre del paciente
 ) {
+  // 🛑 En web no programamos alarmas locales de expo-notifications
+  if (Platform.OS === 'web') return;
+
   try {
     const [horas, minutos] = horaString.split(':').map(Number);
 
