@@ -4,7 +4,7 @@ import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef } from 'react';
-import { AppState, AppStateStatus, LogBox } from 'react-native';
+import { AppState, AppStateStatus, LogBox, Platform, StyleSheet, View } from 'react-native';
 import { clearToken, getToken, loadStoredToken, registerOnSessionExpired } from '../services/api';
 import { vaciarColaOffline } from '../services/offlineQueue';
 
@@ -19,13 +19,16 @@ if (__DEV__) {
   ]);
 }
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldBadge: false,
-  } as any),
-});
+// 🛑 En Web se omite el handler nativo para no disparar alertas de VAPID
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldBadge: false,
+    } as any),
+  });
+}
 
 export default function RootLayout() {
   const router = useRouter();
@@ -135,25 +138,49 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="login" />
-      <Stack.Screen name="onboarding" />
-      <Stack.Screen name="alertas" />
-      <Stack.Screen name="mapa" />
-      <Stack.Screen name="cuidador" />
-      <Stack.Screen name="medico" />
-      <Stack.Screen name="medicamentos" />
-      <Stack.Screen name="historial" />
-      <Stack.Screen name="registro-salud" />
-      <Stack.Screen name="nuevo-paciente" />
-      <Stack.Screen name="perfil-paciente" />
-      <Stack.Screen name="completar-perfil" />
-      <Stack.Screen name="evaluacion-hogar" />
-      <Stack.Screen name="red-cuidadores" />
-      <Stack.Screen name="aceptar-invitacion" />
-      <Stack.Screen name="grafica-signos" />
-      <Stack.Screen name="autocuidador" />
-    </Stack>
+    <View style={styles.outerContainer}>
+      <View style={styles.appContainer}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="login" />
+          <Stack.Screen name="onboarding" />
+          <Stack.Screen name="alertas" />
+          <Stack.Screen name="mapa" />
+          <Stack.Screen name="cuidador" />
+          <Stack.Screen name="medico" />
+          <Stack.Screen name="medicamentos" />
+          <Stack.Screen name="historial" />
+          <Stack.Screen name="registro-salud" />
+          <Stack.Screen name="nuevo-paciente" />
+          <Stack.Screen name="perfil-paciente" />
+          <Stack.Screen name="completar-perfil" />
+          <Stack.Screen name="evaluacion-hogar" />
+          <Stack.Screen name="red-cuidadores" />
+          <Stack.Screen name="aceptar-invitacion" />
+          <Stack.Screen name="grafica-signos" />
+          <Stack.Screen name="autocuidador" />
+        </Stack>
+      </View>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+    backgroundColor: '#FAFAF7', // Fondo crema unificado
+  },
+  appContainer: {
+    flex: 1,
+    width: '100%',
+    // Limita el ancho tipo Dashboard solo en navegador web
+    maxWidth: Platform.OS === 'web' ? 1080 : undefined,
+    alignSelf: 'center',
+    ...(Platform.OS === 'web' && {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.05,
+      shadowRadius: 18,
+    }),
+  },
+});
