@@ -2404,14 +2404,19 @@ const procesarCierreDefinitivo = async () => {
             </View>
           )}
         </View>
-
-        {/* Acciones del extremo derecho: Info y Check */}
-        <View style={styles.actionsColumn}>
+{/* Acciones del extremo derecho: Info y Check */}
+        <View 
+          style={[styles.actionsColumn, { zIndex: 10 }]}
+          pointerEvents="auto"
+        >
           <TouchableOpacity
             style={styles.modernInfoButton}
             activeOpacity={0.7}
-            onPress={() => setItemSeleccionadoDetalle(t)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => {
+              console.log('ℹ️ Abriendo modal para:', t);
+              setItemSeleccionadoDetalle(t);
+            }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <Text style={styles.modernInfoText}>ℹ️</Text>
           </TouchableOpacity>
@@ -2419,7 +2424,11 @@ const procesarCierreDefinitivo = async () => {
           <TouchableOpacity
             style={[styles.touchableCheckArea, t.completada && styles.checkAreaCompleted]}
             activeOpacity={0.7}
-            onPress={() => handleConfirmarTarea(t)}
+            onPress={() => {
+              console.log('✅ Click en check para:', t.descripcion);
+              handleConfirmarTarea(t);
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             {t.completada ? (
               <Text style={styles.checkmarkSymbol}>✓</Text>
@@ -4104,59 +4113,109 @@ if (vista === 'espontaneo') {
           </ScrollView>
 
           {/* ──────────────────────────────────────────────────────────── */}
-          {/* 🎯 1. MODAL DE DETALLE DEL ÍTEM (INFORMACIÓN ℹ️) */}
-          {/* ──────────────────────────────────────────────────────────── */}
-          <Modal 
-            visible={!!itemSeleccionadoDetalle} 
-            transparent 
-            animationType="fade" 
-            onRequestClose={() => setItemSeleccionadoDetalle(null)}
-          >
-            <TouchableOpacity 
-              style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}
-              activeOpacity={1}
-              onPress={() => setItemSeleccionadoDetalle(null)}
-            >
-              <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, width: '100%', maxWidth: 340, borderWidth: 1, borderColor: '#E0D8CC', elevation: 5 }}>
-                
-                <Text style={{ fontSize: 16, fontWeight: '800', color: '#4A4540', marginBottom: 4, textTransform: 'uppercase' }}>
-                  {(itemSeleccionadoDetalle as any)?.nombre || 'Detalle del Elemento'}
-                </Text>
+{/* 🎯 1. MODAL DE DETALLE DEL ÍTEM (INFORMACIÓN ℹ️) */}
+{/* ──────────────────────────────────────────────────────────── */}
+<Modal 
+  visible={Boolean(itemSeleccionadoDetalle)} 
+  transparent 
+  animationType="fade" 
+  onRequestClose={() => setItemSeleccionadoDetalle(null)}
+>
+  <View
+    style={[
+      styles.modalOverlay,
+      Platform.OS === 'web' && ({
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 99999,
+        cursor: 'default',
+      } as any),
+    ]}
+  >
+    {/* Fondo oscuro clickeable para cerrar */}
+    <TouchableOpacity 
+      style={StyleSheet.absoluteFillObject}
+      activeOpacity={1}
+      onPress={() => setItemSeleccionadoDetalle(null)}
+    />
 
-                <Text style={{ fontSize: 12, color: '#BF9A40', fontWeight: '800', marginBottom: 12 }}>
-                  📌 Categoría: {((itemSeleccionadoDetalle as any)?.tipo || 'Insumo').toUpperCase()}
-                </Text>
+    {/* Tarjeta interior del modal */}
+    <View 
+      style={{
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 24,
+        width: '90%',
+        maxWidth: 380,
+        borderWidth: 1,
+        borderColor: '#E0D8CC',
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+        zIndex: 100000,
+      }}
+    >
+      <Text style={{ fontSize: 16, fontWeight: '800', color: '#4A4540', marginBottom: 4, textTransform: 'uppercase' }}>
+        {(itemSeleccionadoDetalle as any)?.nombre ||
+         (itemSeleccionadoDetalle as any)?.descripcion ||
+         (itemSeleccionadoDetalle as any)?.titulo ||
+         'Detalle del Elemento'}
+      </Text>
 
-                {/* UBICACIÓN */}
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={{ fontSize: 10, fontWeight: '800', color: '#8A8078', textTransform: 'uppercase', marginBottom: 3 }}>
-                    📍 Ubicación en Casa:
-                  </Text>
-                  <Text style={{ fontSize: 13, color: '#2C2820', fontWeight: '600' }}>
-                    {(itemSeleccionadoDetalle as any)?.ubicacion || 'Almacén general / Botiquín'}
-                  </Text>
-                </View>
+      <Text style={{ fontSize: 12, color: '#BF9A40', fontWeight: '800', marginBottom: 14 }}>
+        📌 Categoría: {(
+          (itemSeleccionadoDetalle as any)?.tipo ||
+          ((itemSeleccionadoDetalle as any)?.es_incidental ? 'Tarea' : 'Medicamento') ||
+          'Insumo'
+        ).toUpperCase()}
+      </Text>
 
-                {/* NOTAS / INSTRUCCIONES */}
-                <View style={{ marginBottom: 16 }}>
-                  <Text style={{ fontSize: 10, fontWeight: '800', color: '#8A8078', textTransform: 'uppercase', marginBottom: 3 }}>
-                    💡 Instrucciones / Notas:
-                  </Text>
-                  <Text style={{ fontSize: 13, color: '#2C2820', fontWeight: '600', lineHeight: 18 }}>
-                    {(itemSeleccionadoDetalle as any)?.notas || 'Sin observaciones adicionales.'}
-                  </Text>
-                </View>
+      {/* UBICACIÓN */}
+      <View style={{ marginBottom: 12 }}>
+        <Text style={{ fontSize: 10, fontWeight: '800', color: '#8A8078', textTransform: 'uppercase', marginBottom: 3 }}>
+          📍 Ubicación en Casa:
+        </Text>
+        <Text style={{ fontSize: 13, color: '#2C2820', fontWeight: '600' }}>
+          {(itemSeleccionadoDetalle as any)?.ubicacion ||
+           (itemSeleccionadoDetalle as any)?.lugar ||
+           'Almacén general / Botiquín'}
+        </Text>
+      </View>
 
-                <TouchableOpacity 
-                  style={{ backgroundColor: '#4A4540', paddingVertical: 12, borderRadius: 10, alignItems: 'center' }}
-                  onPress={() => setItemSeleccionadoDetalle(null)}
-                >
-                  <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>Entendido</Text>
-                </TouchableOpacity>
+      {/* NOTAS / INSTRUCCIONES */}
+      <View style={{ marginBottom: 20 }}>
+        <Text style={{ fontSize: 10, fontWeight: '800', color: '#8A8078', textTransform: 'uppercase', marginBottom: 3 }}>
+          💡 Instrucciones / Notas:
+        </Text>
+        <Text style={{ fontSize: 13, color: '#2C2820', fontWeight: '600', lineHeight: 18 }}>
+          {(itemSeleccionadoDetalle as any)?.notas ||
+           (itemSeleccionadoDetalle as any)?.indicaciones ||
+           (itemSeleccionadoDetalle as any)?.instrucciones ||
+           'Sin observaciones adicionales.'}
+        </Text>
+      </View>
 
-              </View>
-            </TouchableOpacity>
-          </Modal>
+      <TouchableOpacity 
+        style={{
+          backgroundColor: '#4A4540',
+          paddingVertical: 12,
+          borderRadius: 10,
+          alignItems: 'center',
+          cursor: Platform.OS === 'web' ? 'pointer' : undefined,
+        }}
+        activeOpacity={0.8}
+        onPress={() => setItemSeleccionadoDetalle(null)}
+      >
+        <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>Entendido</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
 
 
         </KeyboardAvoidingView>
@@ -4457,6 +4516,7 @@ const styles = StyleSheet.create({
   // ── CONTENIDO CENTRAL ──
   cardContent: {
     flex: 1,
+    minWidth: 0, 
   },
   taskTitle: {
     fontSize: 15,
@@ -4531,8 +4591,11 @@ const styles = StyleSheet.create({
   actionsColumn: {
     flexDirection: 'column',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 10,
-    marginLeft: 4,
+    marginLeft: 6,
+    minWidth: 36, 
+    zIndex: 20,   
   },
   modernInfoButton: {
     width: 28,
@@ -4715,4 +4778,6 @@ const styles = StyleSheet.create({
     color: '#998E84',
     marginTop: 1,
   },
+
+
 });
