@@ -138,8 +138,8 @@ export default function RootLayout() {
   }
 
   return (
-    <View style={styles.outerContainer}>
-      <View style={styles.appContainer}>
+    <View style={styles.outerContainer} pointerEvents="box-none">
+      <View style={styles.appContainer} pointerEvents="box-none">
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="login" />
@@ -168,19 +168,23 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
-    backgroundColor: '#FAFAF7', // Fondo crema unificado
+    width: '100%',
+    height: '100%', // 👈 Cambiado a '100%' para eliminar el error rojo
+    backgroundColor: '#FAFAF7',
   },
   appContainer: {
     flex: 1,
     width: '100%',
-    // Limita el ancho tipo Dashboard solo en navegador web
+    height: '100%',
     maxWidth: Platform.OS === 'web' ? 1080 : undefined,
     alignSelf: 'center',
+    position: 'relative',
+    backgroundColor: '#FAFAF7',
     ...(Platform.OS === 'web' && {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.05,
-      shadowRadius: 18,
+      shadowOpacity: 0.08,
+      shadowRadius: 16,
     }),
   },
 });

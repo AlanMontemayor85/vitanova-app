@@ -1305,67 +1305,82 @@ const enviarRegistroClinico = async (payload: any) => {
 // ── 🧠 LÓGICA DE COMPLETADO DE TAREAS ──────────────────────────────
 const handleConfirmarTarea = (t: any) => {
   if (t.completada) {
-    Alert.alert('Completada', `"${t.descripcion}" ya fue registrada.`);
+    if (Platform.OS === 'web') {
+      window.alert(`"${t.descripcion}" ya fue registrada.`);
+    } else {
+      Alert.alert('Completada', `"${t.descripcion}" ya fue registrada.`);
+    }
     return;
   }
 
-  Alert.alert(
-    'Confirmar ejecución',
-    `¿Confirmas la realización de: ${t.descripcion}?`,
-    [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: '✓ Confirmar',
-        onPress: async () => {
-          // Optimistic UI update
-          setTareas((prev: any[]) =>
-            prev.map((item) => (item.id === t.id ? { ...item, completada: true } : item))
-          );
+  // Lógica de ejecución
+  const ejecutarCompletado = async () => {
+    // 1. Optimistic UI update
+    setTareas((prev: any[]) =>
+      prev.map((item) => (item.id === t.id ? { ...item, completada: true } : item))
+    );
 
-          try {
-            if (t.tipo === 'medicamento' || t.med_id) {
-              const medUuid = t.med_id || String(t.id).replace(/^med_/, '').split('_')[0];
-              const horaProg = t.hora_programada || t.hora || '08:00';
-              const horaFormateada = horaProg.length === 5 ? `${horaProg}:00` : horaProg;
+    try {
+      if (t.tipo === 'medicamento' || t.med_id) {
+        const medUuid = t.med_id || String(t.id).replace(/^med_/, '').split('_')[0];
+        const horaProg = t.hora_programada || t.hora || '08:00';
+        const horaFormateada = horaProg.length === 5 ? `${horaProg}:00` : horaProg;
 
-              await fetchWithAuth(`${BASE_URL}/medicamentos/completar`, {
-                method: 'POST',
-                body: JSON.stringify({
-                  med_id: medUuid,
-                  paciente_id: pacienteActivo.id,
-                  descripcion: t.descripcion,
-                  hora_programada: horaFormateada,
-                }),
-              });
-            } else if (t.es_incidental) {
-              await fetchWithAuth(`${BASE_URL}/tareas/${t.id}/completar`, {
-                method: 'PATCH',
-                body: JSON.stringify({
-                  paciente_id: pacienteActivo.id,
-                  completada: true,
-                }),
-              });
-            } else {
-              const idRutina = t.actividad_id || t.id;
-              await fetchWithAuth(`${BASE_URL}/actividades/completar`, {
-                method: 'POST',
-                body: JSON.stringify({
-                  actividad_id: idRutina,
-                  paciente_id: pacienteActivo.id,
-                }),
-              });
-            }
-          } catch (err) {
-            console.error(`❌ Error registrando ${t.descripcion}:`, err);
-            // Rollback en caso de fallo
-            setTareas((prev: any[]) =>
-              prev.map((item) => (item.id === t.id ? { ...item, completada: false } : item))
-            );
-          }
+        await fetchWithAuth(`${BASE_URL}/medicamentos/completar`, {
+          method: 'POST',
+          body: JSON.stringify({
+            med_id: medUuid,
+            paciente_id: pacienteActivo.id,
+            descripcion: t.descripcion,
+            hora_programada: horaFormateada,
+          }),
+        });
+      } else if (t.es_incidental) {
+        await fetchWithAuth(`${BASE_URL}/tareas/${t.id}/completar`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            paciente_id: pacienteActivo.id,
+            completada: true,
+          }),
+        });
+      } else {
+        const idRutina = t.actividad_id || t.id;
+        await fetchWithAuth(`${BASE_URL}/actividades/completar`, {
+          method: 'POST',
+          body: JSON.stringify({
+            actividad_id: idRutina,
+            paciente_id: pacienteActivo.id,
+          }),
+        });
+      }
+    } catch (err) {
+      console.error(`❌ Error registrando ${t.descripcion}:`, err);
+      // Rollback en caso de fallo de red
+      setTareas((prev: any[]) =>
+        prev.map((item) => (item.id === t.id ? { ...item, completada: false } : item))
+      );
+    }
+  };
+
+  // 2. Diálogo adaptativo según la plataforma
+  if (Platform.OS === 'web') {
+    const confirmado = window.confirm(`¿Confirmas la realización de: ${t.descripcion}?`);
+    if (confirmado) {
+      ejecutarCompletado();
+    }
+  } else {
+    Alert.alert(
+      'Confirmar ejecución',
+      `¿Confirmas la realización de: ${t.descripcion}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: '✓ Confirmar',
+          onPress: ejecutarCompletado,
         },
-      },
-    ]
-  );
+      ]
+    );
+  }
 };
 
 // ── 🏷️ BADGE DE TEMPORALIDAD ─────────────────────────────────────────
