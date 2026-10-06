@@ -2062,7 +2062,106 @@ const procesarCierreDefinitivo = async () => {
             <Text style={styles.activoText}>Monitoreo</Text>
           </View>
         </View>
+{/* ──────────────────────────────────────────────────────────── */}
+{/* 🎯 1. MODAL DE DETALLE DEL ÍTEM (INFORMACIÓN ℹ️)             */}
+{/* ──────────────────────────────────────────────────────────── */}
+{Boolean(itemSeleccionadoDetalle) && (
+  <View
+    style={[
+      styles.modalOverlay,
+      Platform.OS === 'web'
+        ? ({
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 999999,
+          } as any)
+        : StyleSheet.absoluteFillObject,
+    ]}
+  >
+    {/* Fondo oscuro clickeable para cerrar */}
+    <TouchableOpacity
+      style={StyleSheet.absoluteFillObject}
+      activeOpacity={1}
+      onPress={() => setItemSeleccionadoDetalle(null)}
+    />
 
+    {/* Tarjeta interior del modal */}
+    <View
+      style={{
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 24,
+        width: '90%',
+        maxWidth: 380,
+        borderWidth: 1,
+        borderColor: '#E0D8CC',
+        elevation: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.25,
+        shadowRadius: 16,
+        zIndex: 1000000,
+      }}
+    >
+      <Text style={{ fontSize: 16, fontWeight: '800', color: '#4A4540', marginBottom: 4, textTransform: 'uppercase' }}>
+        {(itemSeleccionadoDetalle as any)?.descripcion ||
+          (itemSeleccionadoDetalle as any)?.nombre ||
+          (itemSeleccionadoDetalle as any)?.titulo ||
+          'Detalle del Elemento'}
+      </Text>
+
+      <Text style={{ fontSize: 12, color: '#BF9A40', fontWeight: '800', marginBottom: 14 }}>
+        📌 Categoría: {(
+          (itemSeleccionadoDetalle as any)?.tipo ||
+          ((itemSeleccionadoDetalle as any)?.es_incidental ? 'Tarea' : 'Medicamento') ||
+          'Insumo'
+        ).toUpperCase()}
+      </Text>
+
+      {/* UBICACIÓN */}
+      <View style={{ marginBottom: 12 }}>
+        <Text style={{ fontSize: 10, fontWeight: '800', color: '#8A8078', textTransform: 'uppercase', marginBottom: 3 }}>
+          📍 Ubicación en Casa:
+        </Text>
+        <Text style={{ fontSize: 13, color: '#2C2820', fontWeight: '600' }}>
+          {(itemSeleccionadoDetalle as any)?.ubicacion ||
+            (itemSeleccionadoDetalle as any)?.lugar ||
+            'Almacén general / Botiquín'}
+        </Text>
+      </View>
+
+      {/* NOTAS / INSTRUCCIONES */}
+      <View style={{ marginBottom: 20 }}>
+        <Text style={{ fontSize: 10, fontWeight: '800', color: '#8A8078', textTransform: 'uppercase', marginBottom: 3 }}>
+          💡 Instrucciones / Notas:
+        </Text>
+        <Text style={{ fontSize: 13, color: '#2C2820', fontWeight: '600', lineHeight: 18 }}>
+          {(itemSeleccionadoDetalle as any)?.notas ||
+            (itemSeleccionadoDetalle as any)?.indicaciones ||
+            (itemSeleccionadoDetalle as any)?.instrucciones ||
+            'Sin observaciones adicionales.'}
+        </Text>
+      </View>
+
+      <TouchableOpacity
+        style={{
+          backgroundColor: '#4A4540',
+          paddingVertical: 12,
+          borderRadius: 10,
+          alignItems: 'center',
+          ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : {}),
+        }}
+        activeOpacity={0.8}
+        onPress={() => setItemSeleccionadoDetalle(null)}
+      >
+        <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>Entendido</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+)}         
         <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
        {/* ⌚ 1. MÉTRICAS Y TELEMETRÍA EN VIVO (CUIDADOR) */}
 {Boolean(pacienteActivo?.reloj_imei && pacienteActivo.reloj_imei.trim() !== '') && (
@@ -2441,7 +2540,8 @@ const procesarCierreDefinitivo = async () => {
     </View>
   );
 })}
-         
+
+
          {/* ========================================================== */}
 {/* 📝 NOTAS DEL CUIDADOR (SOLO OBSERVACIONES HUMANAS)        */}
 {/* ========================================================== */}
@@ -4112,110 +4212,6 @@ if (vista === 'espontaneo') {
             <View style={{ height: 80 }} />
           </ScrollView>
 
-          {/* ──────────────────────────────────────────────────────────── */}
-{/* 🎯 1. MODAL DE DETALLE DEL ÍTEM (INFORMACIÓN ℹ️) */}
-{/* ──────────────────────────────────────────────────────────── */}
-<Modal 
-  visible={Boolean(itemSeleccionadoDetalle)} 
-  transparent 
-  animationType="fade" 
-  onRequestClose={() => setItemSeleccionadoDetalle(null)}
->
-  <View
-    style={[
-      styles.modalOverlay,
-      Platform.OS === 'web' && ({
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 99999,
-        cursor: 'default',
-      } as any),
-    ]}
-  >
-    {/* Fondo oscuro clickeable para cerrar */}
-    <TouchableOpacity 
-      style={StyleSheet.absoluteFillObject}
-      activeOpacity={1}
-      onPress={() => setItemSeleccionadoDetalle(null)}
-    />
-
-    {/* Tarjeta interior del modal */}
-    <View 
-      style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-        padding: 24,
-        width: '90%',
-        maxWidth: 380,
-        borderWidth: 1,
-        borderColor: '#E0D8CC',
-        elevation: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.25,
-        shadowRadius: 12,
-        zIndex: 100000,
-      }}
-    >
-      <Text style={{ fontSize: 16, fontWeight: '800', color: '#4A4540', marginBottom: 4, textTransform: 'uppercase' }}>
-        {(itemSeleccionadoDetalle as any)?.nombre ||
-         (itemSeleccionadoDetalle as any)?.descripcion ||
-         (itemSeleccionadoDetalle as any)?.titulo ||
-         'Detalle del Elemento'}
-      </Text>
-
-      <Text style={{ fontSize: 12, color: '#BF9A40', fontWeight: '800', marginBottom: 14 }}>
-        📌 Categoría: {(
-          (itemSeleccionadoDetalle as any)?.tipo ||
-          ((itemSeleccionadoDetalle as any)?.es_incidental ? 'Tarea' : 'Medicamento') ||
-          'Insumo'
-        ).toUpperCase()}
-      </Text>
-
-      {/* UBICACIÓN */}
-      <View style={{ marginBottom: 12 }}>
-        <Text style={{ fontSize: 10, fontWeight: '800', color: '#8A8078', textTransform: 'uppercase', marginBottom: 3 }}>
-          📍 Ubicación en Casa:
-        </Text>
-        <Text style={{ fontSize: 13, color: '#2C2820', fontWeight: '600' }}>
-          {(itemSeleccionadoDetalle as any)?.ubicacion ||
-           (itemSeleccionadoDetalle as any)?.lugar ||
-           'Almacén general / Botiquín'}
-        </Text>
-      </View>
-
-      {/* NOTAS / INSTRUCCIONES */}
-      <View style={{ marginBottom: 20 }}>
-        <Text style={{ fontSize: 10, fontWeight: '800', color: '#8A8078', textTransform: 'uppercase', marginBottom: 3 }}>
-          💡 Instrucciones / Notas:
-        </Text>
-        <Text style={{ fontSize: 13, color: '#2C2820', fontWeight: '600', lineHeight: 18 }}>
-          {(itemSeleccionadoDetalle as any)?.notas ||
-           (itemSeleccionadoDetalle as any)?.indicaciones ||
-           (itemSeleccionadoDetalle as any)?.instrucciones ||
-           'Sin observaciones adicionales.'}
-        </Text>
-      </View>
-
-      <TouchableOpacity 
-        style={{
-          backgroundColor: '#4A4540',
-          paddingVertical: 12,
-          borderRadius: 10,
-          alignItems: 'center',
-          cursor: Platform.OS === 'web' ? 'pointer' : undefined,
-        }}
-        activeOpacity={0.8}
-        onPress={() => setItemSeleccionadoDetalle(null)}
-      >
-        <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>Entendido</Text>
-      </TouchableOpacity>
-    </View>
-  </View>
-</Modal>
 
 
         </KeyboardAvoidingView>
