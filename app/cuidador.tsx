@@ -4606,6 +4606,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#CBD5E1',
+    zIndex: 25,
+    ...(Platform.OS === 'web' && ({
+      cursor: 'pointer',
+      userSelect: 'none',
+    } as any)),
   },
   modernInfoText: {
     fontSize: 12,
@@ -4619,6 +4624,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 25,
+    ...(Platform.OS === 'web' && ({
+      cursor: 'pointer',
+      userSelect: 'none',
+    } as any)),
   },
   checkAreaCompleted: {
     backgroundColor: '#10B981',
