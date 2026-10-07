@@ -244,27 +244,58 @@ export const SupervisionCuidadorCard: React.FC<Props> = ({
     }
   };
 
-  // ── 7. CÁLCULO DE PASOS ──
-  const pasosRaw =
-    pasosHoy ??
-    signosDispositivo?.pasos ??
-    signosDispositivo?.pasos_hoy ??
-    signosDispositivo?.steps ??
-    signosDispositivo?.data?.pasos ??
-    ubicacion?.pasos ??
-    ubicacion?.steps ??
-    ubicacion?.pasos_hoy ??
-    pacienteActivo?.pasos ??
-    pacienteActivo?.pasos_hoy ??
-    null;
-
-  let pasosNum: number | null = null;
-  if (pasosRaw !== null && pasosRaw !== undefined && pasosRaw !== '—') {
-    const num = Number(String(pasosRaw).replace(/,/g, '').trim());
-    if (!isNaN(num)) {
-      pasosNum = num;
+  // ── 7. CÁLCULO DE PASOS HOMOLOGADO (CON VALIDACIÓN DE FECHA) ──
+  const pasosNum: number | null = (() => {
+    // A. Si se pasa explícitamente null desde el padre, no hay pasos hoy
+    if (pasosHoy === null) {
+      // Si el reloj lleva días desconectado, jamás tomar históricos viejos
+      if (estaFueraDeLinea || esAgotada) {
+        return null;
+      }
     }
-  }
+
+    // B. Obtener fecha del último reporte disponible
+    const fechaReporte =
+      signosDispositivo?.fecha ||
+      signosDispositivo?.created_at ||
+      ubicacion?.created_at ||
+      ubicacion?.ultima_conexion ||
+      ultimaConexionStr;
+
+    if (fechaReporte) {
+      try {
+        const fechaReporteISO = new Date(fechaReporte).toISOString().split('T')[0];
+        const hoyISO = new Date().toISOString().split('T')[0];
+
+        // Si el reporte no corresponde al día de hoy, el podómetro no tiene registro de hoy
+        if (fechaReporteISO !== hoyISO) {
+          return null;
+        }
+      } catch {
+        // En caso de parseo inválido y reloj desconectado, descartar
+        if (estaFueraDeLinea) return null;
+      }
+    } else if (estaFueraDeLinea) {
+      return null;
+    }
+
+    // C. Si el reporte sí es de hoy, extraer el valor numérico
+    const raw =
+      pasosHoy ??
+      signosDispositivo?.pasos ??
+      signosDispositivo?.pasos_hoy ??
+      signosDispositivo?.steps ??
+      signosDispositivo?.data?.pasos ??
+      ubicacion?.pasos ??
+      null;
+
+    if (raw !== null && raw !== undefined && raw !== '—') {
+      const num = Number(String(raw).replace(/,/g, '').trim());
+      return isNaN(num) ? null : num;
+    }
+
+    return null;
+  })();
 
   const handlePillPress = () => {
     if (esAgotada) {
