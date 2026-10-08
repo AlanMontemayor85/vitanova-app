@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { Bell, Calendar, MapPin, Pill } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, DeviceEventEmitter, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, DeviceEventEmitter, Linking, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { calibrarAcelerometroReloj, clearToken, enviarComandoReloj, forzarMedicionSignos, getActividadHoy, getAlertaPeso, getHoyLocalISO, getMisRoles, getNotasTurno, getPacientes, getSignosRecientes, getTareasHoy, getTurnoActivoResumen, getUbicacion, getUltimoCierre, getUserNombre, loadStoredToken, MiembroEquipo } from '../services/api';
 import { registrarNotificaciones } from '../services/notifications';
 import { CheckinControlCard } from '././components/CheckInCard';
@@ -103,7 +103,16 @@ export default function HomeScreen() {
     { cancelable: true }
   );
 };
+  const { width } = useWindowDimensions();
   
+  // Breakpoint estándar: si la pantalla mide 768px o más (PC / Tablet horizontal)
+  const esPantallaAncha = width >= 768;
+
+  // Escala dinámica
+  const QUICK_SIZE = esPantallaAncha ? 64 : 46; // Burbuja
+  const QUICK_ICON = esPantallaAncha ? 30 : 20; // Emoji / Icono
+  const QUICK_FONT = esPantallaAncha ? 13 : 11; // Etiqueta inferior
+  const QUICK_GAP  = esPantallaAncha ? 20 : 8;  // Espaciado entre botones
   const formatearHorarioRango = (horarioRaw: string | null | undefined): string => {
   if (!horarioRaw) return 'Sin horario';
 
@@ -1073,11 +1082,10 @@ const handleServicioVitanova = (item: any) => {
 {/* ======================================================== */}
 <View style={styles.sectionHeaderRow}>
   <Text style={styles.sectionTitle}>Accesos rápidos</Text>
- 
 </View>
 
 {/* Fila única de 4 columnas simétricas */}
-<View style={styles.quickRowContainer}>
+<View style={[styles.quickRowContainer, { paddingVertical: esPantallaAncha ? 18 : 12 }]}>
   {[
     { icon: '💊', label: 'Medicación', ruta: '/medicamentos', bg: '#F0F7FF', border: '#BAE6FD' },
     { icon: '💬', label: 'Cuidadores', ruta: '/red-cuidadores', bg: '#F0FDF4', border: '#BBF7D0' },
@@ -1090,10 +1098,26 @@ const handleServicioVitanova = (item: any) => {
       style={styles.quickColBtn}
       onPress={() => handleNavegacionRapida(item)}
     >
-      <View style={[styles.quickIconBoxRow, { backgroundColor: item.bg, borderColor: item.border }]}>
-        <Text style={styles.quickIconEmoji}>{item.icon}</Text>
+      <View
+        style={[
+          styles.quickIconBoxRow,
+          {
+            backgroundColor: item.bg,
+            borderColor: item.border,
+            width: esPantallaAncha ? 64 : 46,
+            height: esPantallaAncha ? 64 : 46,
+            borderRadius: esPantallaAncha ? 18 : 12,
+          },
+        ]}
+      >
+        <Text style={[styles.quickIconEmoji, { fontSize: esPantallaAncha ? 28 : 20 }]}>
+          {item.icon}
+        </Text>
       </View>
-      <Text style={styles.quickColLabel} numberOfLines={1}>
+      <Text
+        style={[styles.quickColLabel, { fontSize: esPantallaAncha ? 13 : 11 }]}
+        numberOfLines={1}
+      >
         {item.label}
       </Text>
     </TouchableOpacity>
@@ -2560,60 +2584,48 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     fontFamily: FONT_TITLE,
   },
-
-  // ── ACCESOS RÁPIDOS (GRID SIMÉTRICO) ──
-  quickGridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 10,
-  },
-  quickCard: {
-    width: '48.5%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+  // ── ACCESOS RÁPIDOS (FILA HORIZONTAL ADAPTATIVA) ──
+  quickRowContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'space-around',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    marginBottom: 16,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1.5,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  quickIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+  quickColBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...(Platform.OS === 'web' && ({
+      cursor: 'pointer',
+      userSelect: 'none',
+    } as any)),
+  },
+  quickIconBoxRow: {
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
+    marginBottom: 8,
   },
-  quickIconText: {
-    fontSize: 17,
+  quickIconEmoji: {
+    textAlign: 'center',
+    includeFontPadding: false,
   },
-  quickTextCol: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  quickLabelText: {
-    fontSize: 13,
-    fontWeight: '800',
+  quickColLabel: {
+    fontWeight: '700',
     color: '#0F172A',
+    textAlign: 'center',
     fontFamily: FONT_TITLE,
   },
-  quickDescText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#64748B',
-    marginTop: 1,
-    fontFamily: FONT_BODY,
-  },
-
   // ── SERVICIOS ESPECIALIZADOS VITANOVA ──
   servicePremiumCard: {
     flex: 1,
@@ -2987,51 +2999,6 @@ const styles = StyleSheet.create({
     fontFamily: FONT_BODY,
   },
 
-  // ── FILA ÚNICA (4 BOTONES) ──
-  quickRowContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
-    width: '100%',
-    alignSelf: 'stretch',
-    marginBottom: 14,
-  },
-  quickColBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 4,
-  },
-  quickIconBoxRow: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    marginBottom: 6,
-  },
-  quickIconEmoji: {
-    fontSize: 20,
-  },
-  quickColLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#334155',
-    textAlign: 'center',
-    fontFamily: FONT_BODY,
-  },
   alertaPesoCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -3126,4 +3093,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: FONT_BODY,
   },
+  
 });
