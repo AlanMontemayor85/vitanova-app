@@ -695,19 +695,24 @@ useEffect(() => {
   }
 }, [params.abrirModoCuidador]);
 
-
 useFocusEffect(
   useCallback(() => {
-    // Primer focus = montaje inicial → lo gestiona el init principal
+    // 1. En Web, evitamos que los re-enfoques de ventana (clics, pestañas) disparen la carga continua
+    if (Platform.OS === 'web') {
+      // Si la carga inicial ya se realizó, no re-ejecutar en Web por eventos de foco de ventana
+      if (!isFirstFocus.current) {
+        return;
+      }
+    }
+
     if (isFirstFocus.current) {
       isFirstFocus.current = false;
       return;
     }
 
-    // 🛑 THROTTLE: Si consultó hace menos de 5 segundos, ignora la ráfaga
+    // 2. Throttle estricto (mínimo 15 segundos entre recargas por foco)
     const now = Date.now();
-    if (now - lastFocusFetchRef.current < 5000) {
-      console.log('⏭️ [FOCUS] Refresco omitido por throttle (<5s)');
+    if (now - lastFocusFetchRef.current < 15000) {
       return;
     }
     lastFocusFetchRef.current = now;
@@ -719,7 +724,6 @@ useFocusEffect(
         const token = await loadStoredToken();
         if (!token || cancelled) return;
 
-        // Pasamos 'familiar' explícitamente para mantener el aislamiento
         const data = await getPacientes('focus-refresh', 'familiar');
         if (cancelled || !data?.patients?.length) return;
         if (data.no_autenticado || data.detail === 'Token inválido o expirado') return;
@@ -727,11 +731,14 @@ useFocusEffect(
         const pacientesEstables = [...data.patients].sort((a, b) =>
           String(a.id).localeCompare(String(b.id))
         );
+
         setPacientes(pacientesEstables);
 
         const idx = pacienteIndexRef.current ?? 0;
         const p = pacientesEstables[idx] || pacientesEstables[0];
-        setPaciente(p);
+
+        // 🛑 Evita actualizar la referencia si el ID es idéntico
+        setPaciente((prev: any) => (prev?.id === p?.id ? prev : p));
 
       } catch (e) {
         console.log('focus-refresh omitido:', e);
